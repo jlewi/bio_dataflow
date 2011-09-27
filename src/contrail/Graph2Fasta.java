@@ -1,5 +1,7 @@
 package contrail;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.HashMap;
@@ -37,6 +39,7 @@ public class Graph2Fasta extends Configured implements Tool
 {	
 	private static final Logger sLogger = Logger.getLogger(Graph2Fasta.class);
 	
+	private static int LINE_LEN = 60;
 	
 	// Graph2FastaMapper
 	///////////////////////////////////////////////////////////////////////////
@@ -44,6 +47,15 @@ public class Graph2Fasta extends Configured implements Tool
 	private static class Graph2FastaMapper extends MapReduceBase 
     implements Mapper<LongWritable, Text, Text, Text> 
 	{
+		public static long FASTA_MIN_LEN = 0;
+		public static float FASTA_MIN_COV = 0.0f;
+		
+		public void configure(JobConf job) 
+		{
+			FASTA_MIN_LEN = Long.parseLong(job.get("FASTA_MIN_LEN"));
+			FASTA_MIN_COV = Float.parseFloat(job.get("FASTA_MIN_COV"));
+		}
+		
 		public void map(LongWritable lineid, Text nodetxt,
                 OutputCollector<Text, Text> output, Reporter reporter)
                 throws IOException 
@@ -51,23 +63,63 @@ public class Graph2Fasta extends Configured implements Tool
 			Node node = new Node();
 			node.fromNodeMsg(nodetxt.toString());
 
-			reporter.incrCounter("Contrail", "nodes", 1);
+			reporter.incrCounter("Contrail", "allnodes", 1);
 			
 			String str = node.str();
+			int len = str.length();
+			float cov = node.cov();
 			
-			output.collect(new Text(">" + node.getNodeId()), new Text("len=" + str.length() + "\tcov=" + node.cov()));
-
-			int LINE_LEN = 60;
-			
-			for (int i = 0; i < str.length(); i+=LINE_LEN)
+			if ((len >= FASTA_MIN_LEN) && (cov >= FASTA_MIN_COV))
 			{
-				int end = i + LINE_LEN;
-				if (end > str.length()) { end = str.length();}
+				reporter.incrCounter("Contrail", "printednodes", 1);
+			
+				output.collect(new Text(">" + node.getNodeId()), new Text("len=" + str.length() + "\tcov=" + node.cov()));
+			
+				for (int i = 0; i < str.length(); i+=LINE_LEN)
+				{
+					int end = i + LINE_LEN;
+					if (end > str.length()) { end = str.length();}
 				
-				String line = str.substring(i, end);
-				output.collect(new Text(line), null);
+					String line = str.substring(i, end);
+					output.collect(new Text(line), null);
+				}
 			}
         }
+	}
+
+	// convertGraph - read graph from file, print to stdout
+	///////////////////////////////////////////////////////////////////////////	
+
+	public void printFasta(String inputPath) throws Exception
+	{
+		BufferedReader in  = new BufferedReader(new FileReader(inputPath));
+		
+		String nodetxt = in.readLine();
+		while (nodetxt != null)
+		{
+			Node node = new Node();
+			node.fromNodeMsg(nodetxt);
+			
+			String str = node.str();
+			int len = str.length();
+			float cov = node.cov();
+			
+			if ((len >= ContrailConfig.FASTA_MIN_LEN) && (cov >= ContrailConfig.FASTA_MIN_COV))
+			{
+				System.out.println(">" + node.getNodeId() + "\tlen=" + str.length() + "\tcov=" + node.cov());
+			
+				for (int i = 0; i < str.length(); i+=LINE_LEN)
+				{
+					int end = i + LINE_LEN;
+					if (end > str.length()) { end = str.length();}
+				
+					String line = str.substring(i, end);
+					System.out.println(line);
+				}
+			}
+		
+			nodetxt = in.readLine();
+		}
 	}
 
 	
@@ -117,6 +169,9 @@ public class Graph2Fasta extends Configured implements Tool
 
 		String inputPath  = "/users/mschatz/contrail/Ec100k/04-notipscmp";
 		String outputPath = "/users/mschatz/contrail/Ec100k/04-notipscmp.fa";
+		
+		ContrailConfig.FASTA_MIN_LEN = 100;
+		ContrailConfig.FASTA_MIN_COV = 2.0f;
 		
 		run(inputPath, outputPath);
 		return 0;

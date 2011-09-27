@@ -3,14 +3,15 @@ use strict;
 use Getopt::Long;
 
 my $HELP   = 0;
-my $suffix = "";
 my $renum  = undef;
-my $prefix = undef;
+my $prefix = "";
+my $suffix = "";
 
 my $result = GetOptions(
   "h"        => \$HELP,
-  "suffix=s" => \$suffix,
   "renum"    => \$renum,
+  "prefix=s" => \$prefix,
+  "suffix=s" => \$suffix,
 );
 
 if ($HELP)
@@ -18,6 +19,7 @@ if ($HELP)
   print "preprocess.pl [options] fastq > sfa\n";
   print " -h            : Help\n";
   print " -renum        : renumber 1,2,..,E,F,10,11,12..\n";
+  print " -prefix <str> : add prefix to each readname\n";
   print " -suffix <str> : add suffix to each readname\n";
   exit  0;
 }
@@ -39,15 +41,14 @@ sub printSeq
 
   if ($renum)
   {
-    printf "%X$suffix\t$seq\n", $readcnt;
+    printf "$prefix%X$suffix\t$seq\n", $readcnt;
   }
   else
   {
     $tag =~ s/\s+/_/g;
     $tag =~ s/[:#-\.\/]/_/g;
-    $tag .= $suffix;
 
-    print "$tag\t$seq\n";
+    print "$prefix$tag$suffix\t$seq\n";
   }
 }
 

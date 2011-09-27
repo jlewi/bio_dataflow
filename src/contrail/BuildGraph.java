@@ -64,13 +64,6 @@ public class BuildGraph extends Configured implements Tool
 			}
 
 			String tag = fields[0];
-			
-			tag.replaceAll(" ", "_");
-			tag.replaceAll(":", "_");
-			tag.replaceAll("#", "_");
-			tag.replaceAll("-", "_");
-			tag.replaceAll(".", "_");
-
 			String seq = fields[1].toUpperCase();
 
 			// Hard chop a few bases off of each end of the read

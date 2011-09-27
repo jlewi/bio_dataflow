@@ -1,5 +1,8 @@
 package contrail;
 
+import java.util.Iterator;
+import java.util.Map.Entry;
+
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.GnuParser;
@@ -31,6 +34,7 @@ public class ContrailConfig
 	// restart options
 	public static boolean validateonly = false;
 	public static boolean forcego = false;
+	public static boolean RESTART_USED = false;
 	public static int RESTART_INITIAL = 0;
 	public static int RESTART_TIP = 0;
 	public static int RESTART_TIP_REMAIN = 0;
@@ -76,18 +80,34 @@ public class ContrailConfig
 	// stats
 	public static String RUN_STATS = null;
 	public static long  N50_TARGET = -1;
+	
+    // conversion	
 	public static String CONVERT_FA = null;
+	public static String PRINT_FA = null;
+	public static long FASTA_MIN_LEN = 100;
+	public static float FASTA_MIN_COV = 2;
+	
+	// preprocess
+	public static long   PREPROCESS_SUFFIX = 0;
+	
+	
+	public static boolean TEST_MODE = false;
 	
 	public static void validateConfiguration()
 	{
-		if (TIPLENGTH < 0)         { TIPLENGTH *= -K; }
-		if (MAXBUBBLELEN < 0)      { MAXBUBBLELEN *= -K; }
+		// negative values are code for use a function of K
+		if (TIPLENGTH < 0)         { TIPLENGTH       *= -K; }
+		if (MAXBUBBLELEN < 0)      { MAXBUBBLELEN    *= -K; }
 		if (MAX_LOW_COV_LEN < 0)   { MAX_LOW_COV_LEN *= -K; }
-		if (MIN_CTG_LEN < 0)       { MIN_CTG_LEN *= -K; }
+		if (MIN_CTG_LEN < 0)       { MIN_CTG_LEN     *= -K; }
 		
 		int err = 0;
 		
-		if ((RUN_STATS == null) && (CONVERT_FA == null))
+		if (TEST_MODE)
+		{
+			System.err.println("TEST_MODE");
+		}
+		else if ((RUN_STATS == null) && (CONVERT_FA == null) && (PRINT_FA == null))
 		{
 			if (hadoopBasePath == null) { err++; System.err.println("ERROR: -asm is required"); }
 			if (K <= 0)                 { err++; System.err.println("ERROR: -k is required"); }
@@ -97,6 +117,12 @@ public class ContrailConfig
 			{
 				if (MIN_UNIQUE_COV <= 0) { err++; System.err.println("ERROR: -minuniquecov is required when insertlen > 0"); }
 				if (MAX_UNIQUE_COV <= 0) { err++; System.err.println("ERROR: -maxuniquecov is required when insertlen > 0"); }
+			}
+			
+			if (RESTART_USED && STARTSTAGE == null)
+			{
+				err++;
+				System.err.println("ERROR: Restart options used, but starting from graph construction"); 
 			}
 
 			if (RESTART_SCAFF_STAGE != null)
@@ -120,10 +146,10 @@ public class ContrailConfig
 			}
 		
 			if (err > 0) { System.exit(1); }
-
-			if (!hadoopBasePath.endsWith("/")) { hadoopBasePath += "/"; }
-			if (!localBasePath.endsWith("/"))  { localBasePath += "/"; }
 		}
+
+		if ((hadoopBasePath != null) && (!hadoopBasePath.endsWith("/"))) { hadoopBasePath += "/"; }
+		if ((localBasePath != null) && (!localBasePath.endsWith("/")))  { localBasePath += "/"; }
 	}
 	
 	
@@ -139,6 +165,8 @@ public class ContrailConfig
 		conf.set("mapred.task.timeout", Long.toString(HADOOP_TIMEOUT));
 		
 		conf.setLong("LOCALNODES", HADOOP_LOCALNODES);
+		
+	    conf.setLong("PREPROCESS_SUFFIX", PREPROCESS_SUFFIX);
 		
 		conf.setLong("K", K);
 		conf.setLong("MAXTHREADREADS", MAXTHREADREADS);
@@ -165,6 +193,9 @@ public class ContrailConfig
 		conf.setFloat("MAX_UNIQUE_COV", MAX_UNIQUE_COV);
 		
 		conf.setLong("N50_TARGET", N50_TARGET);
+		
+		conf.setLong("FASTA_MIN_LEN", FASTA_MIN_LEN);
+		conf.setFloat("FASTA_MIN_COV", FASTA_MIN_COV);
 	}
 	
 	
@@ -185,7 +216,8 @@ public class ContrailConfig
 		Contrail.msg("HADOOP_LOCALNODES = " + HADOOP_LOCALNODES + "\n");
 		
 		if (STARTSTAGE != null)  { Contrail.msg("STARTSTAGE = " + STARTSTAGE + "\n"); }
-			
+		if (STOPSTAGE  != null) { Contrail.msg("STOPSTAGE = "  + STOPSTAGE + "\n");  }
+		
 		Contrail.msg("RESTART_INITIAL = " + RESTART_INITIAL + "\n");
 			
 		Contrail.msg("RESTART_TIP = " + RESTART_TIP + "\n");
@@ -197,9 +229,9 @@ public class ContrailConfig
 		Contrail.msg("RESTART_SCAFF_PHASE = " + RESTART_SCAFF_PHASE + "\n");
 		Contrail.msg("RESTART_SCAFF_STAGE = " + RESTART_SCAFF_STAGE + "\n");
 		Contrail.msg("RESTART_SCAFF_FRONTIER = " + RESTART_SCAFF_FRONTIER + "\n");
-
-		if (STOPSTAGE  != null) { Contrail.msg("STOPSTAGE = "  + STOPSTAGE + "\n");  }
 		
+		Contrail.msg("PREPROCESS_SUFFIX = " + PREPROCESS_SUFFIX + "\n");
+
 		Contrail.msg("K = "               + K + "\n");
 		Contrail.msg("MAXR5 = "           + MAXR5 + "\n");
 		Contrail.msg("MAXTHREADREADS = "  + MAXTHREADREADS + "\n");
@@ -228,12 +260,27 @@ public class ContrailConfig
 		Contrail.msg("N50_TARGET = " + N50_TARGET + "\n");
 		
 		Contrail.msg("CONVERT_FA = " + CONVERT_FA + "\n");
+		Contrail.msg("PRINT_FA = " + PRINT_FA + "\n");
+		Contrail.msg("FASTA_MIN_LEN = " + FASTA_MIN_LEN + "\n");
+		Contrail.msg("FASTA_MIN_COV = " + FASTA_MIN_COV + "\n");
 		
 		Contrail.msg("\n");
 		
 		if (validateonly && !forcego)
 		{
 			System.exit(0);
+		}
+	}
+	
+	public static void printJobConf(JobConf job)
+	{
+		System.err.println("job: " + job.toString());
+		Iterator<Entry<String, String>> i = job.iterator();
+		
+		while (i.hasNext())
+		{
+			Entry<String, String> e = i.next();
+			System.err.println(e.getKey() + " => " + e.getValue());
 		}
 	}
 	
@@ -298,18 +345,25 @@ public class ContrailConfig
 		// scaffolding
 		options.addOption(OptionBuilder.withArgName("insert bp").hasArg().withDescription("insert len [required]").create("insertlen"));
 		options.addOption(OptionBuilder.withArgName("wiggle bp").hasArg().withDescription("wiggle in stdev (default: " + MIN_WIGGLE + ")").create("wiggle"));
-		options.addOption(OptionBuilder.withArgName("min bp").hasArg().withDescription("scaffold min unique length(default: " + -MIN_CTG_LEN + "K)").create("minuniquelen"));
-		options.addOption(OptionBuilder.withArgName("min cov").hasArg().withDescription("scaffold min unique coverage(default: " + MIN_UNIQUE_COV + ")").create("minuniquecov"));
-		options.addOption(OptionBuilder.withArgName("max cov").hasArg().withDescription("scaffold max unique coverage(default: " + MAX_UNIQUE_COV + ")").create("maxuniquecov"));
-		options.addOption(OptionBuilder.withArgName("num stages").hasArg().withDescription("scaffold max frontier hops(default: " + MAX_FRONTIER + ")").create("maxfrontier"));
+		options.addOption(OptionBuilder.withArgName("min bp").hasArg().withDescription("scaffold min unique length (default: " + -MIN_CTG_LEN + "K)").create("minuniquelen"));
+		options.addOption(OptionBuilder.withArgName("min cov").hasArg().withDescription("scaffold min unique coverage (default: " + MIN_UNIQUE_COV + ")").create("minuniquecov"));
+		options.addOption(OptionBuilder.withArgName("max cov").hasArg().withDescription("scaffold max unique coverage (default: " + MAX_UNIQUE_COV + ")").create("maxuniquecov"));
+		options.addOption(OptionBuilder.withArgName("num stages").hasArg().withDescription("scaffold max frontier hops (default: " + MAX_FRONTIER + ")").create("maxfrontier"));
 		
 		//stats
 		options.addOption(OptionBuilder.withArgName("dir").hasArg().withDescription("compute stats").create("run_stats"));
 		options.addOption(OptionBuilder.withArgName("genome bp").hasArg().withDescription("genome size for N50").create("genome"));
 		
 		//convert
-		options.addOption(OptionBuilder.withArgName("dir").hasArg().withDescription("convert fa").create("convert_fa"));
-
+		options.addOption(OptionBuilder.withArgName("convertfa").hasArg().withDescription("convert fa").create("convert_fa"));
+		options.addOption(OptionBuilder.withArgName("printfa").hasArg().withDescription("print fa").create("print_fa"));
+		options.addOption(OptionBuilder.withArgName("fasta_min_len").hasArg().withDescription("min len for fasta (default: " + FASTA_MIN_LEN + ")").create("fasta_min_len"));
+		options.addOption(OptionBuilder.withArgName("fasta_min_cov").hasArg().withDescription("min cov for fasta (default: " + FASTA_MIN_COV + ")").create("fasta_min_cov"));
+		
+		//preprocess
+		options.addOption(OptionBuilder.withArgName("convertfa").hasArg().withDescription("convert fa").create("convert_fa"));
+		
+		
 	    CommandLineParser parser = new GnuParser();
 	    
 	    try 
@@ -322,8 +376,11 @@ public class ContrailConfig
 	        			         "\n" +
 	        			         "Usage: Contrail [-asm dir] [-reads dir] [-k k] [options]\n" +
 	        			         "\n" +
-	        			         "Contrail Stages:\n" +
+	        			         "Contrail Stages\n" +
 	        	                 "================\n" +
+	        	                 "preprocess : convert from fastq format\n" +
+	        	                 "  -filesuffix         : use filename suffix (_1 or _2) as readname suffix\n" +
+	        	                 "\n" +
 	        	                 "buildInitial : build initial de Bruijn graph\n" +
 	        	                 "  -k <bp>             : Initial graph node length\n" +
 	        	                 "  -maxthreads <max>   : Max reads to thread a node [" + MAXTHREADREADS + "]\n" +
@@ -345,6 +402,7 @@ public class ContrailConfig
 	    	                     "repeats : thread short repeats\n" +
 	    	                     "  -threads <min>      : Number threading reads [" + MIN_THREAD_WEIGHT + "]\n" +
 	    	                     "  -maxthreads <max>   : Max reads to thread a node [" + MAXTHREADREADS + "]\n" +
+	    		                 "  -record_all_threads : Record threads on non-branching nodes\n" +
 	    	                     "\n" +
 	    		                 "scaffolding : scaffold together contigs using mates\n" +
 	    		                 "  -insertlen <len>    : Expected Insert size [required]\n" +
@@ -357,7 +415,7 @@ public class ContrailConfig
 	    		                 "convertFasta : convert final assembly to fasta format\n" +
 	    		                 "  -genome <len>       : Genome size for N50 computation\n" +
 	    		                 "\n" +
-	    		                 "General Options:\n" +
+	    		                 "General Options\n" +
 	    		                 "===============\n" +
 	    		                 "  -asm <asmdir>       : Hadoop Base directory for assembly [required]\n" +
 	    		                 "  -reads <readsdir>   : Directory with reads [required]\n" + 
@@ -369,24 +427,31 @@ public class ContrailConfig
 	        	if (line.hasOption("expert"))
 	        	{
 	        	System.out.print("\n" +
-	        			         "General Options:\n" +
+	        			         "Conversion options\n" +
 	        			         "================\n" +
-	    		                 "  -run_stats <dir>    : Just compute size stats of <dir>\n" +
-	    		                 "  -convert_fa <dir>   : Just convert <dir> to fasta\n" +
-	    		                 "  -record_all_threads : Record threads on non-branching nodes\n" +
+	        			         "  -convert_fa <dir>      : Just convert assembly <dir> to fasta\n" +
+	        			         "  -run_stats <dir>       : Just compute size stats of <dir>\n" +
+	    		                 "    -genome <len>        : Genome size for N50 computation\n" +
+	    		                 "  -print_fa <file>       : Convert localfile <file> to fasta\n" +
+	    		                 "    -fasta_min_len <len> : Just convert contigs with this len [" + FASTA_MIN_LEN + "]\n"+
+	    		                 "    -fasta_min_cov <cov> : Just convert contigs with this cov [" + FASTA_MIN_COV + "]\n"+
 	    		                 "\n" +
-	        			         "Hadoop Options:\n" +
-	        			         "===============\n" +
+	        			         "Hadoop Options\n" +
+	        			         "==============\n" +
 	    		                 "  -nodes <max>        : Max nodes in memory [" + HADOOP_LOCALNODES + "]\n" +
 	    		                 "  -javaopts <opts>    : Hadoop Java Opts [" + HADOOP_JAVAOPTS + "]\n" +
 	    		                 "  -timeout <usec>     : Hadoop task timeout [" + HADOOP_TIMEOUT + "]\n" +
 	    		                 "  -validate           : Just validate options\n" +
 	    		                 "  -go                 : Execute even when validating\n" +
 	        			         "\n" +
-	    		                 "Stage management\n" +
-	    		                 "================\n" +
-	    		                 "  -start <stage>      : Start stage\n" +
-	    		                 "  -stop  <stage>      : Stop stage\n" +
+	    		                 "Assembly Restart Options\n" +
+	    		                 "========================\n" +
+	    		                 "You must specific a start stage if you do not want to start at the very beginning\n" +
+	    		                 "It is also recommended that you restart using a new assembly directory:\n" +
+	    		                 "$ hadoop fs -cp /path/to/assembly/10-* /path/to/newassembly/\n" +
+	    		                 "$ hadoop jar contrail.jar -asm /path/to/newassembly -start scafolding <...>\n\n" +
+	    		                 "  -start <stage>      : Start stage: buildInitial|removeTips|popBubbles|lowcov|repeats|scaffolding|convertFasta\n" +
+	    		                 "  -stop  <stage>      : Stop stage (default: convertFasta)\n" +
 	    		                 "  -restart_initial               : Restart after build initial, before quickmerge\n" +
 	    		                 "  -restart_compress <stage>      : Restart compress after this completed stage\n" +
 	    		                 "  -restart_compress_remain <cnt> : Restart compress with these remaining\n" +
@@ -416,16 +481,18 @@ public class ContrailConfig
 	        if (line.hasOption("start")) { STARTSTAGE = line.getOptionValue("start"); }
 	        if (line.hasOption("stop"))  { STOPSTAGE  = line.getOptionValue("stop");  }
 	        
-	        if (line.hasOption("restart_initial"))    { RESTART_INITIAL    = 1; }
-	        if (line.hasOption("restart_tip"))        { RESTART_TIP        = Integer.parseInt(line.getOptionValue("restart_tip")); }
-	        if (line.hasOption("restart_tip_remain")) { RESTART_TIP_REMAIN = Integer.parseInt(line.getOptionValue("restart_tip_remain")); }
+	        if (line.hasOption("restart_initial"))    { RESTART_USED = true; RESTART_INITIAL    = 1; }
+	        if (line.hasOption("restart_tip"))        { RESTART_USED = true; RESTART_TIP        = Integer.parseInt(line.getOptionValue("restart_tip")); }
+	        if (line.hasOption("restart_tip_remain")) { RESTART_USED = true; RESTART_TIP_REMAIN = Integer.parseInt(line.getOptionValue("restart_tip_remain")); }
 
-	        if (line.hasOption("restart_compress"))        { RESTART_COMPRESS        = Integer.parseInt(line.getOptionValue("restart_compress")); }
-	        if (line.hasOption("restart_compress_remain")) { RESTART_COMPRESS_REMAIN = Integer.parseInt(line.getOptionValue("restart_compress_remain")); }
+	        if (line.hasOption("restart_compress"))        { RESTART_USED = true; RESTART_COMPRESS        = Integer.parseInt(line.getOptionValue("restart_compress")); }
+	        if (line.hasOption("restart_compress_remain")) { RESTART_USED = true; RESTART_COMPRESS_REMAIN = Integer.parseInt(line.getOptionValue("restart_compress_remain")); }
 	        
-	        if (line.hasOption("restart_scaff_phase"))    { RESTART_SCAFF_PHASE    = Integer.parseInt(line.getOptionValue("restart_scaff_phase")); }
-	        if (line.hasOption("restart_scaff_stage"))    { RESTART_SCAFF_STAGE    = line.getOptionValue("restart_scaff_stage"); }
-	        if (line.hasOption("restart_scaff_frontier")) { RESTART_SCAFF_FRONTIER = Integer.parseInt(line.getOptionValue("restart_scaff_frontier")); }
+	        if (line.hasOption("restart_scaff_phase"))    { RESTART_USED = true; RESTART_SCAFF_PHASE    = Integer.parseInt(line.getOptionValue("restart_scaff_phase")); }
+	        if (line.hasOption("restart_scaff_stage"))    { RESTART_USED = true; RESTART_SCAFF_STAGE    = line.getOptionValue("restart_scaff_stage"); }
+	        if (line.hasOption("restart_scaff_frontier")) { RESTART_USED = true; RESTART_SCAFF_FRONTIER = Integer.parseInt(line.getOptionValue("restart_scaff_frontier")); }
+	        
+	        if (line.hasOption("filesuffix"))    { PREPROCESS_SUFFIX = 1; }
 	        
 	        if (line.hasOption("k"))     { K     = Long.parseLong(line.getOptionValue("k")); }
 	        if (line.hasOption("maxr5")) { MAXR5 = Long.parseLong(line.getOptionValue("maxr5")); }
@@ -453,7 +520,10 @@ public class ContrailConfig
 	        if (line.hasOption("genome"))       { N50_TARGET = Long.parseLong(line.getOptionValue("genome")); }
 	        if (line.hasOption("run_stats"))    { RUN_STATS = line.getOptionValue("run_stats"); }
 	        
-	        if (line.hasOption("convert_fa"))   { CONVERT_FA = line.getOptionValue("convert_fa"); }
+	        if (line.hasOption("convert_fa"))    { CONVERT_FA    = line.getOptionValue("convert_fa"); }
+	        if (line.hasOption("print_fa"))      { PRINT_FA      = line.getOptionValue("print_fa"); }
+	        if (line.hasOption("fasta_min_len")) { FASTA_MIN_LEN = Long.parseLong(line.getOptionValue("fasta_min_len")); }
+	        if (line.hasOption("fasta_min_cov")) { FASTA_MIN_COV = Float.parseFloat(line.getOptionValue("fasta_min_cov")); }
 	    }
 	    catch( ParseException exp ) 
 	    {

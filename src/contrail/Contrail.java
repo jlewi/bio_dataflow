@@ -1,5 +1,10 @@
 package contrail;
 
+// Jar construction: Use the farjar exporter to build a runnable jar.
+// Set the main class to contrail/Contrail
+// It is not necessary to package any external libraries into the jar
+
+
 import java.io.BufferedReader;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -46,7 +51,7 @@ public class Contrail extends Configured implements Tool
 	
 	JobConf baseconf = new JobConf(Contrail.class);
 	
-    static String basic        = "00-basic";
+    static String preprocess   = "00-preprocess";
 	static String initial      = "01-initial";
 	static String initialcmp   = "02-initialcmp";
 	static String notips       = "03-notips";
@@ -185,16 +190,42 @@ public class Contrail extends Configured implements Tool
 		RunningJob job = g2f.run(basePath + graphdir, basePath + fastadir);
 		end(job);
 		
-		long nodes = counter(job, "nodes");
-		msg ("  " + nodes + " converted\n");
+		long nodes = counter(job, "printednodes");
+		msg ("  " + nodes + " converted (len >= " + ContrailConfig.FASTA_MIN_LEN + " cov >= " + ContrailConfig.FASTA_MIN_COV + ")\n");
 	}
 	
+	
+	// preprocess
+	///////////////////////////////////////////////////////////////////////////	
+	
+	public void preprocess(String readpath, String basePath, String preprocess) throws Exception
+	{
+		start("Preprocess " + readpath);
+		FastqPreprocessor fqp = new FastqPreprocessor();
+		RunningJob job = fqp.run(readpath, basePath + preprocess);
+		end(job);
+		
+		long reads = counter(job, "preprocessed_reads");
+		
+		if (ContrailConfig.PREPROCESS_SUFFIX == 1)
+		{
+			long pair_unpaired = counter(job, "pair_unpaired");
+			long pair_1 = counter(job, "pair_1");
+			long pair_2 = counter(job, "pair_2");
+
+			msg ("  " + reads + " converted. unpaired: " + pair_unpaired + " pair_1: " + pair_1 + " pair_2: " + pair_2 + "\n");
+		}
+		else
+		{
+			msg ("  " + reads + " converted\n");
+		}
+	}
 	
 	
 	// Build initial graph
 	///////////////////////////////////////////////////////////////////////////	
 	
-	public void buildInitial(String inputPath, String basePath, String basic, String initial, String initialcmp) throws Exception
+	public void buildInitial(String basePath, String preprocessed, String initial, String initialcmp) throws Exception
 	{
 		RunningJob job;
 		
@@ -202,7 +233,7 @@ public class Contrail extends Configured implements Tool
 		{
 			start("Build Initial");
 			BuildGraph bg = new BuildGraph();
-			job = bg.run(inputPath, basePath + basic);
+			job = bg.run(basePath + preprocessed, basePath + initial);
 			end(job);
 
 			long nodecnt      = counter(job, "nodecount");
@@ -229,12 +260,12 @@ public class Contrail extends Configured implements Tool
 		// Quick merge
 		start("  Quick Merge");
 		QuickMerge qmerge = new QuickMerge();
-		job = qmerge.run(basePath + basic, basePath + initial);
+		job = qmerge.run(basePath + initial, basePath + initial + ".m");
 		end(job);
 
 		msg("  " + counter(job, "saved") + " saved\n");
 
-		compressChains(basePath, initial, initialcmp);
+		compressChains(basePath, initial + ".m", initialcmp);
 	}
 
 	
@@ -826,7 +857,7 @@ public class Contrail extends Configured implements Tool
 
 		String dataset = "";
 		//dataset = "arbrcrd";
-		//dataset = "Ba10k";
+		dataset = "Ba10k";
 		//dataset = "Ba100k";
 		//dataset = "Ec500k";
 		//dataset = "Ec500k.cor.21";
@@ -883,8 +914,10 @@ public class Contrail extends Configured implements Tool
 		}
 		else if (dataset.equals("Ba10k"))
 		{
-			ContrailConfig.hadoopReadPath = "/Users/mschatz/build/Contrail/data/Ba10k.sim.sfa";
+			ContrailConfig.hadoopReadPath = "/Users/mschatz/build/schatzlab-public/contrail-bio/data/Ba10k";
 			ContrailConfig.hadoopBasePath = "/users/mschatz/contrail/Ba10k/";
+			
+			ContrailConfig.PREPROCESS_SUFFIX = 1;
 			
 			ContrailConfig.K = 21;
 			ContrailConfig.LOW_COV_THRESH = 5.0f;
@@ -993,7 +1026,7 @@ public class Contrail extends Configured implements Tool
 		}
 		else if (dataset.equals("arbrcrd"))
 		{
-			ContrailConfig.hadoopReadPath = "/Users/mschatz/build/Contrail/data/arbrcrd.36.sfa";
+			ContrailConfig.hadoopReadPath = "/Users/mschatz/build/schatzlab-public/contrail-bio/data/arbrcrd.36.sfa";
 			ContrailConfig.hadoopBasePath = "/users/mschatz/contrail/arbrcrd.new/";
 			ContrailConfig.localBasePath = ContrailConfig.hadoopBasePath + "work";
 			
@@ -1088,13 +1121,24 @@ public class Contrail extends Configured implements Tool
 		{
 			convertFasta("", ContrailConfig.CONVERT_FA, ContrailConfig.CONVERT_FA + ".fa");
 		}
+		else if (ContrailConfig.PRINT_FA != null)
+		{
+			// Runs off the local filesystem (not in hadoop)
+			Graph2Fasta g2f = new Graph2Fasta();
+			g2f.printFasta(ContrailConfig.PRINT_FA);
+		}
 		else
 		{
 			// Assembly Pipeline
+			if (runStage("preprocess"))
+			{
+				preprocess(ContrailConfig.hadoopReadPath, ContrailConfig.hadoopBasePath, preprocess);
+				checkDone();
+			}
 		
 			if (runStage("buildInitial"))
 			{
-				buildInitial(ContrailConfig.hadoopReadPath, ContrailConfig.hadoopBasePath, basic, initial, initialcmp);	
+				buildInitial(ContrailConfig.hadoopBasePath, preprocess, initial, initialcmp);	
 				computeStats(ContrailConfig.hadoopBasePath, initialcmp);
 				checkDone();
 			}
@@ -1124,6 +1168,7 @@ public class Contrail extends Configured implements Tool
 			{
 				resolveRepeats(ContrailConfig.hadoopBasePath, lowcovcmp, repeats, repeatscmp, false);
 				computeStats(ContrailConfig.hadoopBasePath, repeatscmp);
+				convertFasta(ContrailConfig.hadoopBasePath, repeatscmp, repeatscmp + ".fa");
 				checkDone();
 			}
 
