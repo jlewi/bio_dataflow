@@ -857,7 +857,7 @@ public class Contrail extends Configured implements Tool
 
 		String dataset = "";
 		//dataset = "arbrcrd";
-		dataset = "Ba10k";
+		//dataset = "Ba10k";
 		//dataset = "Ba100k";
 		//dataset = "Ec500k";
 		//dataset = "Ec500k.cor.21";
