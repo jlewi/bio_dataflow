@@ -35,6 +35,14 @@ public class Compressible extends Configured implements Tool
 	private static class CompressibleMapper extends MapReduceBase 
     implements Mapper<LongWritable, Text, Text, Text> 
 	{
+		/**
+		 * Map function. 
+		 * 
+		 * Process each line of text in the input. Each line is a serialized node.
+		 * For each node we output a tuple (nodeID, serialize node).
+		 * If the node has a tail we output (TailInfo.id, "P \t " + nodeid +\t "adj)
+		 * where adj is the direction (i.e "r" or "f")
+		 */
 		public void map(LongWritable lineid, Text nodetxt,
                 OutputCollector<Text, Text> output, Reporter reporter)
                 throws IOException 
@@ -68,6 +76,13 @@ public class Compressible extends Configured implements Tool
 	private static class CompressibleReducer extends MapReduceBase 
 	implements Reducer<Text, Text, Text, Text> 
 	{
+		/**
+		 * The reduce function. I (jlewi) think the reducer determines if a node is compressible; i.e
+		 * if a node is a part of a chain (only one incoming - outgoing edge) so that there's only
+		 * one path through this node then the chain can be compressed. In this case we set the value
+		 * "CanCompress" in the node.  So no compression actually takes place.
+		 * 
+		 */
 		public void reduce(Text key, Iterator<Text> iter,
 				OutputCollector<Text, Text> output, Reporter reporter)
 				throws IOException 

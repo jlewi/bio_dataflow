@@ -1,21 +1,15 @@
 package contrail;
 
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map.Entry;
-import java.util.Set;
-import java.util.ArrayList;
-import java.util.Map;
-import java.util.List;
 
-
+import org.apache.avro.mapred.AvroJob; 
+import org.apache.avro.mapred.AvroWrapper;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
@@ -24,18 +18,24 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.MapReduceBase;
 import org.apache.hadoop.mapred.Mapper;
 import org.apache.hadoop.mapred.OutputCollector;
-import org.apache.hadoop.mapred.Reducer;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.mapred.TextInputFormat;
-import org.apache.hadoop.mapred.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 import org.apache.hadoop.mapred.lib.NLineInputFormat;
 
 
-public class FastqPreprocessor extends Configured implements Tool 
+/**
+ * Base class for Hadoop Map/Reduce (MR) jobs for converting fastq file
+ * format to a format suitable for hadoop. Subclasses customize the MR job
+ * for different file formats.
+ * 
+ * @author jlewi
+ *
+ */
+public class FastqPreprocessorAvro extends Configured implements Tool 
 {	
 	private static final Logger sLogger = Logger.getLogger(FastqPreprocessor.class);
 	
@@ -44,7 +44,7 @@ public class FastqPreprocessor extends Configured implements Tool
 	///////////////////////////////////////////////////////////////////////////
 	
 	private static class FastqPreprocessorMapper extends MapReduceBase 
-    implements Mapper<LongWritable, Text, Text, Text> 
+    implements Mapper<LongWritable, Text, AvroWrapper<SequenceRead>, NullWritable> 
 	{
 		private int idx = 0;
 		
@@ -73,7 +73,7 @@ public class FastqPreprocessor extends Configured implements Tool
 		}
 		
 		public void map(LongWritable lineid, Text line,
-                OutputCollector<Text, Text> output, Reporter reporter)
+                OutputCollector<AvroWrapper<SequenceRead>, NullWritable> output, Reporter reporter)
                 throws IOException 
         {
 			if (idx == 0) 
@@ -104,8 +104,12 @@ public class FastqPreprocessor extends Configured implements Tool
 			else if (idx == 3)
 			{
 				//qv = line.toString();
-				
-				output.collect(new Text(name), new Text(seq));
+				//TODO (jlewi): Probably faster to store the sequence read as a member variable and
+				// write to it directly
+				SequenceRead read = new SequenceRead();
+				read.id = name;
+				read.dna = seq; 
+				output.collect(new AvroWrapper<SequenceRead>(read), NullWritable.get());
 				
 				reporter.incrCounter("Contrail", "preprocessed_reads", 1);
 				reporter.incrCounter("Contrail", counter, 1);
@@ -136,7 +140,7 @@ public class FastqPreprocessor extends Configured implements Tool
 		
 		
 		JobConf conf = new JobConf(Stats.class);
-		conf.setJobName("FastqPreprocessor " + inputPath);
+		conf.setJobName("FastqPreprocessorAvro " + inputPath);
 		
 		ContrailConfig.initializeConfiguration(conf);
 			
@@ -144,7 +148,7 @@ public class FastqPreprocessor extends Configured implements Tool
 		FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
 		conf.setInputFormat(TextInputFormat.class);
-		conf.setOutputFormat(TextOutputFormat.class);
+		// conf.setOutputFormat(TextOutputFormat.class);
 
 		conf.setMapOutputKeyClass(Text.class);
 		conf.setMapOutputValueClass(Text.class);
@@ -158,7 +162,15 @@ public class FastqPreprocessor extends Configured implements Tool
         conf.setInputFormat(NLineInputFormat.class);
         conf.setInt("mapred.line.input.format.linespermap", 2000000); // must be a multiple of 4
 
+        // TODO(jlewi): use setoutput codec to set the compression codec. 
+        AvroJob.setOutputSchema(conf,new SequenceRead().getSchema());
+        
+        // Output code doesn't seem to be having any effect
+        //AvroJob.setOutputCodec(conf, "zlib");
+        
+        //use hadoop to compress
         //FileOutputFormat.setCompressOutput(conf,true);
+        
 		//delete the output directory if it exists already
 		FileSystem.get(conf).delete(new Path(outputPath), true);
 
@@ -188,7 +200,7 @@ public class FastqPreprocessor extends Configured implements Tool
 
 	public static void main(String[] args) throws Exception 
 	{
-		int res = ToolRunner.run(new Configuration(), new FastqPreprocessor(), args);
+		int res = ToolRunner.run(new Configuration(), new FastqPreprocessorAvro(), args);
 		System.exit(res);
 	}
 }

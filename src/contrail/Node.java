@@ -5,6 +5,7 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -12,8 +13,31 @@ import java.util.Set;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.util.ToolRunner;
 
-public class Node {
-	
+/**
+ * The node class represents a node in the graph.
+ * Each node represents a k-mer and edges are drawn
+ * between two nodes if they overlap by k-1 bases.
+ * 
+ * Each node contains a bunch of fields stored in a hash
+ * table. The value of each field is a list of strings.
+ * 
+ * Each node stores a list of out going edges. The out 
+ * going edges are divided into four groups:
+ *  "ff", "fr", "rf","rr"
+ * where each group corresponds to a different edge type.
+ * The edge type is determined by the canonical direction
+ * of the kmer (see BuildGraph.BuildGraphMapper.Map)  
+ *  
+ * 
+ */
+public class Node extends NodeBase {
+
+	// Different messages can be serialized as strings.
+	// The first field in a string denotes the type of message;
+	// thereby indicating how the subsequent tab delimited values
+	// should be interpreted.
+
+	// NODEMSG - string represents the serialized version of a Node
 	public static final String NODEMSG           = "N";
 	public static final String HASUNIQUEP        = "P";
 	public static final String UPDATEMSG         = "U";
@@ -29,194 +53,74 @@ public class Node {
 	public static final String MATEEDGE          = "E";
 
 	// Node msg field codes
-	public static final String STR      = "s";
-	public static final String COVERAGE = "v";
+	public static final String STR      = "s"; // the sequence represented by this node 
+	public static final String COVERAGE = "v"; // the coverage of sequencing
 	public static final String MERTAG   = "t";
 	public static final String R5       = "5";
 	public static final String THREAD   = "d";
-	
+
 	public static final String CANCOMPRESS = "c";
 	public static final String POPBUBBLE   = "p";
 	public static final String MERGE       = "m";
 	public static final String THREADPATH  = "e";
 	public static final String MATETHREAD  = "a";
 	public static final String BUNDLE      = "b";
-	
-    static String [] dnachars  = {"A", "C", "G", "T"};
+    
     static String [] edgetypes = {"ff", "fr", "rf", "rr"};
     static String [] dirs      = {"f", "r"};
-    
-	static Map<String, String> str2dna_ = initializeSTR2DNA(); 
-	static Map<String, String> dna2str_ = initializeDNA2STR();
-	
-	
-	// node private members 
-	private Map<String, List<String>> fields = new HashMap<String, List<String>>();
-	private String nodeid_m;
-		
-	
-	// converts strings like A, GA, TAT, ACGT to compressed DNA codes (A,B,C,...,HA,HB)
-	private static Map<String,String> initializeSTR2DNA()
-	{
-	   int num = 0;
-	   int asciibase = 'A';
-	   
-	   Map<String, String> retval = new HashMap<String, String>();
-	     
-	   for (int xi = 0; xi < dnachars.length; xi++)
-	   {
-		   retval.put(dnachars[xi], 
-				      Character.toString((char) (num + asciibase)));
-		   
-		   num++;
-		   
-		   for (int yi = 0; yi < dnachars.length; yi++)
-		   {
-			   retval.put(dnachars[xi] + dnachars[yi], 
-					      Character.toString((char) (num + asciibase)));   
-			   num++;
-		   }
-	   }
-	   
-	   for (int xi = 0; xi < dnachars.length; xi++)
-	   {		   
-		   for (int yi = 0; yi < dnachars.length; yi++)
-		   {
-			   String m = retval.get(dnachars[xi] + dnachars[yi]);
-			   
-			   for (int zi = 0; zi < dnachars.length; zi++)
-			   {
-				   retval.put(dnachars[xi]+dnachars[yi]+dnachars[zi],
-						      m + retval.get(dnachars[zi]));
-				   
-				   for (int wi = 0; wi < dnachars.length; wi++)
-				   {
-					   retval.put(dnachars[xi]+dnachars[yi]+dnachars[zi]+dnachars[wi],
-							      m+retval.get(dnachars[zi]+dnachars[wi]));
-				   }
-			   }
-		   }
-	   }
-	   
-	   return retval;
-	}
-	
-	// converts single letter dna codes (A,B,C,D,E...) to strings (A,AA,GT,GA...)
-	private static Map<String, String> initializeDNA2STR()
-	{
-	   int num = 0;
-	   int asciibase = 65;
-	   
-	   Map<String, String> retval = new HashMap<String, String>();
-	   
-	   for (int xi = 0; xi < dnachars.length; xi++)
-	   {
-		   retval.put(Character.toString((char) (num + asciibase)),
-				      dnachars[xi]);
-		   
-		   num++;
-		   
-		   for (int yi = 0; yi < dnachars.length; yi++)
-		   {
-			   retval.put(Character.toString((char) (num + asciibase)),
-					      dnachars[xi] + dnachars[yi]); 
-			   num++;
-		   }
-	   }
-	   
-	   /*
-	   Set<String> keys = retval.keySet();
-	   Iterator<String> it = keys.iterator();
-	   while(it.hasNext())
-	   {
-		   String k = it.next();
-		   String v = retval.get(k);
-		   
-		   System.err.println(k + "\t" + v);
-	   }
-	   */
-	   
-	   return retval;
-	}
 
-	// converts a tight encoding to a normal ascii string
-	public static String dna2str(String dna)
-	{	
-		StringBuffer sb = new StringBuffer();
-		
-		for (int i = 0; i < dna.length(); i++)
-		{
-			sb.append(dna2str_.get(dna.substring(i,i+1)));
-		}
-		
-		return sb.toString();
-	}
+	/**
+	 * Use a hash table to store the values of the different fields.
+	 */
+	protected Map<String, List<String>> fields = new HashMap<String, List<String>>();
 	
-	public static String str2dna(String seq)
-	{
-		StringBuffer sb = new StringBuffer();
-		
-	    int l = seq.length();
-	    
-	    int offset = 0;
-	    
-	    while (offset < l)
-	    {
-	    	int r = l - offset;
-	    	
-	    	if (r >= 4) 
-	    	{ 
-	    		sb.append(str2dna_.get(seq.substring(offset, offset+4))); 
-	    		offset += 4; 
-	    	}
-	    	else 
-	    	{ 
-	    		sb.append(str2dna_.get(seq.substring(offset, offset+r)));
-	    		offset += r;
-	    	}
-	    }
-
-        return sb.toString();
-	}
-	
-	private List<String> getOrAddField(String field)
+	/**
+	 * Return a list of strings for the specified field.
+	 * 
+	 * If the field doesn't exist then a new list of strings is initialized
+	 * and returned.
+	 * 
+	 * @param field - Name of the field
+	 * @return - List of strings to represent this field. 
+	 */
+	protected List<String> getOrAddField(String field)
 	{
 		if (fields.containsKey(field))
 		{
 			return fields.get(field);
 		}
-		
+
 		List<String> retval = new ArrayList<String>();
 		fields.put(field, retval);
-		
+
 		return retval;
 	}
-	
+
 	public void setMertag(String tag)
 	{
 		List<String> l = getOrAddField(MERTAG);
 		l.clear();
 		l.add(tag);
 	}
-	
+
 	public String getMertag() throws IOException
 	{
 		if (!fields.containsKey(MERTAG))
 		{
 			throw new IOException("Mertag not found: " + toNodeMsg());
 		}
-		
+
 		return fields.get(MERTAG).get(0);
 	}
-	
+
 	public void setCoverage(float cov)
 	{
 		List<String> l = getOrAddField(COVERAGE);
 		l.clear();		
 		l.add(Float.toString(cov));		
 	}
-	
-	
+
+
 	public boolean isUnique(int MIN_CTG_LEN, float MIN_UNIQUE_COV, float MAX_UNIQUE_COV)
 	{
 		float cov = cov();
@@ -227,26 +131,26 @@ public class Node {
 				(len >= MIN_CTG_LEN));
 	}
 
-	
-	
-	
+
+
+
 	public void setMerge(String dir)
 	{
 		List<String> l = getOrAddField(MERGE);
 		l.clear();
 		l.add(dir);
 	}
-	
+
 	public String getMerge()
 	{
 		if (fields.containsKey(MERGE))
 		{
 			return fields.get(MERGE).get(0);
 		}
-		
+
 		return null;
 	}
-	
+
 	public void addR5(String tag, int offset, int isRC, int maxR5)
 	{
 		List<String> l = getOrAddField(R5);
@@ -263,26 +167,32 @@ public class Node {
 			}
 		}
 	}
-	
+
+	/**
+	 * Add an outgoing edge to this node. 
+	 * @param et - This is a two letter string e.g "rf", "fr" corresponding to the directions
+	 * 	for the K-Mers
+	 * @param v - A compressed string representing the K-Mer of the destination node
+	 */
 	public void addEdge(String et, String v)
 	{
 		List<String> l = getOrAddField(et);		
 		l.add(v);
 	}
-	
+
 	public List<String> getEdges(String et) throws IOException
 	{
 		if (et.equals("ff") ||
-		    et.equals("fr") ||
-		    et.equals("rr") ||
-		    et.equals("rf"))
+				et.equals("fr") ||
+				et.equals("rr") ||
+				et.equals("rf"))
 		{
-		  return fields.get(et);
+			return fields.get(et);
 		}
-		
+
 		throw new IOException("Unknown edge type: " + et);
 	}
-	
+
 	public void setEdges(String et, List<String> edges)
 	{
 		if (edges == null || edges.size() == 0)
@@ -294,17 +204,17 @@ public class Node {
 			fields.put(et, edges);
 		}
 	}
-	
+
 	public void clearEdges(String et)
 	{
 		fields.remove(et);
 	}
-	
+
 	public boolean hasEdge(String et, String nid) throws IOException
 	{
 		List<String> edges = getEdges(et);
 		if (edges == null) { return false; }
-		
+
 		for (String v : edges)
 		{
 			if (v.equals(nid))
@@ -312,62 +222,71 @@ public class Node {
 				return true;
 			}
 		}
-		
+
 		return false;
 	}
-	
+
 	public void addBundle(String bun)
 	{
 		List<String> l = getOrAddField(BUNDLE);
 		l.add(bun);
 	}
-	
+
 	public List<String> getBundles()
 	{
 		if (fields.containsKey(BUNDLE))
 		{
 			return fields.get(BUNDLE);
 		}
-		
+
 		return null;
 	}
-	
+
 	public void clearBundles()
 	{
 		fields.remove(BUNDLE);
 	}
-	
+
 	public List<String> getMateThreads()
 	{
 		if (fields.containsKey(MATETHREAD))
 		{
 			return fields.get(MATETHREAD);
 		}
-		
+
 		return null;
 	}
-	
+
 	public void addMateThread(String thread)
 	{
 		List<String> l = getOrAddField(MATETHREAD);
 		l.add(thread);
 	}
-	
+
 	public void clearMateThreads()
 	{
 		fields.remove(MATETHREAD);
 	}
-	
+
 	public boolean canCompress(String d)
 	{
 		if (fields.containsKey(CANCOMPRESS + d))
 		{
 			return fields.get(CANCOMPRESS + d).get(0).equals("1");
 		}
-		
+
 		return false;
 	}
-	
+
+	/**
+	 * Set the value of the field CANCOMPRESS in the direction "d".
+	 * The name of the field is CANCOMPRESS+d.
+	 * 
+	 * I think this gets set by the reducer in Compressible.java. 
+	 * 
+	 * @param d
+	 * @param can
+	 */
 	public void setCanCompress(String d, boolean can)
 	{
 		if (can)
@@ -381,7 +300,7 @@ public class Node {
 			fields.remove(CANCOMPRESS+d);
 		}
 	}
-	
+
 	public void removelink(String id, String dir) throws IOException
 	{
 		boolean found = false;
@@ -409,7 +328,7 @@ public class Node {
 			throw new IOException("Error removing link from " + getNodeId() + ": Can't find " + id + ":" + dir + "\n" + toNodeMsg());
 		}
 	}
-	
+
 	public boolean forceremovelink(String id, String dir) throws IOException
 	{
 		boolean found = false;
@@ -431,16 +350,16 @@ public class Node {
 				}
 			}
 		}
-		
+
 		return found;
 	}
-	
+
 	public void replacelink(String o, String ot, String n, String nt) throws IOException
 	{
 		//System.err.println(nodeid_m + " replacing " + o + ":" + ot + " => " + n + ":" + nt);
 
 		boolean found = false;
-		
+
 		List<String> l = getOrAddField(ot);
 		for (int li = l.size() - 1; li >= 0; li--)
 		{
@@ -450,30 +369,30 @@ public class Node {
 				found = true;
 			}
 		}
-		
+
 		if (!found)
 		{
 			throw new IOException("Couldn't find link " + o + " " + ot);
 		}
-		
+
 		if (l.size() == 0)
 		{
 			fields.remove(ot);
 		}
-		
+
 		l = getOrAddField(nt);
 		l.add(n);
 
 		if (fields.containsKey(THREAD))
 		{
 			l = getOrAddField(THREAD);
-			
+
 			for (int i = 0; i < l.size(); i++)
 			{
 				String thread = l.get(i);
-				
+
 				String [] vals = thread.split(":");
-				
+
 				if (vals[0].equals(ot) && vals[1].equals(o))
 				{
 					thread = nt + ":" + n + ":" + vals[2];
@@ -482,29 +401,29 @@ public class Node {
 			}
 		}
 	}
-	
+
 	public void addThread(String et, String v, String read)
 	{
 		List<String> l = getOrAddField(THREAD);
 		l.add(et + ":" + v + ":" + read);
 	}
-	
+
 	public void addThread(String thread)
 	{
 		List<String> l = getOrAddField(THREAD);
 		l.add(thread);
 	}
-	
+
 	public List<String> getThreads()
 	{
 		if (fields.containsKey(THREAD))
 		{
 			return fields.get(THREAD);
 		}
-		
+
 		return null;
 	}
-	
+
 	public void clearThreads()
 	{
 		if (fields.containsKey(THREAD))
@@ -512,8 +431,8 @@ public class Node {
 			fields.remove(THREAD);
 		}
 	}
-		
-	
+
+
 	public int cleanThreads()
 	{
 		int threadsremoved = 0;
@@ -569,7 +488,7 @@ public class Node {
 
 		return threadsremoved;
 	}
-	
+
 	public void updateThreads(String olddir, String oldid, String newdir, String newid)
 	{
 		List<String> threads = getThreads();
@@ -592,80 +511,80 @@ public class Node {
 			}
 		}
 	}
-	
+
 	public void addThreadPath(String path)
 	{
 		List<String> l = getOrAddField(THREADPATH);
 		l.add(path);
 	}
-	
+
 	public void setThreadPath(String path)
 	{
 		List<String> l = getOrAddField(THREADPATH);
 		l.clear();
 		l.add(path);
 	}
-	
+
 	public List<String> getThreadPath()
 	{
 		if (fields.containsKey(THREADPATH))
 		{
 			return fields.get(THREADPATH);
 		}
-		
+
 		return null;
 	}
-	
+
 	public void clearThreadPath()
 	{
 		fields.remove(THREADPATH);
 	}
-	
+
 	public void clearThreadibleMsg()
 	{
 		fields.remove(THREADIBLEMSG);
 	}
-	
+
 	public void addThreadibleMsg(String port)
 	{
 		List<String> l = getOrAddField(THREADIBLEMSG);
 		l.add(port);
 	}
-	
+
 	public List<String> getThreadibleMsgs()
 	{
 		if (fields.containsKey(THREADIBLEMSG))
 		{
 			return fields.get(THREADIBLEMSG);
 		}
-		
+
 		return null;
 	}
-	
-	
+
+
 	public void addBubble(String minor, String vmd, String vid, String umd, String uid, float extracov)
 	{
 		String msg = minor + "|" + vmd + "|" + vid + "|" + umd + "|" + uid + "|" + extracov;
-		
+
 		List<String> l = getOrAddField(POPBUBBLE);
 		l.add(msg);
 	}
-	
+
 	public List<String> getBubbles()
 	{
 		if (fields.containsKey(POPBUBBLE))
 		{
 			return fields.get(POPBUBBLE);
 		}
-		
+
 		return null;
 	}
-	
+
 	public void clearBubbles()
 	{
 		fields.remove(POPBUBBLE);
 	}
-	
+
 	public String getNodeId() { return nodeid_m; }
 	public void setNodeId(String nid) { nodeid_m = nid; }
 
@@ -673,7 +592,7 @@ public class Node {
 	{
 		return toNodeMsg(false);
 	}
-	
+
 	public void revreads()
 	{
 		int len = len();
@@ -705,13 +624,31 @@ public class Node {
 			}
 		}
 	}
-	
+
+	/**
+	 * Serialize the node to a string.
+	 *
+	 * @param tagfirst - If true, then the first field is nodeid_m.
+	 * 
+	 * The node is serialized is serialized as a tab delimited sequence of fields.
+	 * Furthermore the '*' character is used as a separation field between fields.
+	 * Each field is encoded as a pair
+	 * 	  *FIELD_ID\tFIELD_VALUE
+	 * where FIELD_ID is a string identifying the field and FIELD_VALUE is the value.
+	 * For some fields (e.g the fields corresponding to the edge types) FIELD_VALUE can
+	 * be a list of values in which case the items are tab delimeted. e.g
+	 *    *FIELD_ID\tVALUE1\tVALUE2\tVALUE3
+	 * 
+	 * If tagfirst is true then the first value is nodeid_m.
+	 * then  
+	 * @return
+	 */
 	public String toNodeMsg(boolean tagfirst)
 	{
 		StringBuilder sb = new StringBuilder();
 
 		DecimalFormat df = new DecimalFormat("0.00");
-		
+
 		if (tagfirst)
 		{
 			sb.append(nodeid_m);
@@ -738,9 +675,9 @@ public class Node {
 				}
 			}
 		}
-		
+
 		char [] dirs = {'f', 'r'};
-		
+
 		for(char d : dirs)
 		{
 			String t = CANCOMPRESS + d;
@@ -750,7 +687,7 @@ public class Node {
 				sb.append("\t");  sb.append(fields.get(t).get(0));
 			}
 		}
-		
+
 		if (fields.containsKey(MERGE))
 		{
 			sb.append("\t*"); sb.append(MERGE); 
@@ -771,7 +708,7 @@ public class Node {
 				sb.append("\t"); sb.append(t);
 			}
 		}
-		
+
 		if (fields.containsKey(THREADPATH))
 		{
 			sb.append("\t*"); sb.append(THREADPATH);
@@ -780,7 +717,7 @@ public class Node {
 				sb.append("\t"); sb.append(t);
 			}
 		}
-		
+
 		if (fields.containsKey(THREADIBLEMSG))
 		{
 			sb.append("\t*"); sb.append(THREADIBLEMSG);
@@ -789,7 +726,7 @@ public class Node {
 				sb.append("\t"); sb.append(t);
 			}
 		}
-		
+
 		if (fields.containsKey(POPBUBBLE))
 		{
 			sb.append("\t*"); sb.append(POPBUBBLE);
@@ -807,7 +744,7 @@ public class Node {
 				sb.append("\t"); sb.append(r);
 			}
 		}
-		
+
 		if (fields.containsKey(BUNDLE))
 		{
 			sb.append("\t*"); sb.append(BUNDLE);
@@ -816,7 +753,7 @@ public class Node {
 				sb.append("\t"); sb.append(r);
 			}
 		}
-		
+
 		if (fields.containsKey(MATETHREAD))
 		{
 			sb.append("\t*"); sb.append(MATETHREAD);
@@ -828,45 +765,69 @@ public class Node {
 
 		return sb.toString();
 	}
-	
+
 	public Node(String nodeid)
 	{
 		nodeid_m = nodeid;
 	}
-	
+
 	public Node()
 	{
-		
+
 	}
-	
+
+	/**
+	 * Fill in the member variables for this instance using the information in a tab
+	 *   delimited string. 
+	 *   
+	 * The output of mapreduce steps (e.g BuildGraph) is stored in TextFormat. 
+	 * This function is used to reconstruct they key & value(Node) from the text
+	 * string. The key outputted by the previous MR job is the first tab delimited
+	 * field and is stored in the variable nodeid_m. The remaining fields are
+	 * parsed using parseNodeMsg.
+	 *   
+	 * @param nodestr
+	 * @throws IOException
+	 */
 	public void fromNodeMsg(String nodestr) throws IOException
 	{	
 		fields.clear();
-		
+
 		String [] items = nodestr.split("\t");
-		
+
 		nodeid_m = items[0];
 		parseNodeMsg(items, 1);
 	}
-	
+
+	/**
+	 * Parse an array of strings to extract the relevant field values.
+	 * items is interpreted as a set of values encoding a message. The first
+	 * item (i.e items[offset]) indicates the type of message encoded and must
+	 * correspond to NODEMSG.
+	 * 
+	 * @param items - Array of strings to be parsed
+	 * @param offset - The offset into items. Only items[offset:] are considered
+	 *   items[:offset] are ignored. 
+	 * @throws IOException
+	 */
 	public void parseNodeMsg(String[] items, int offset) throws IOException
 	{
 		if (!items[offset].equals(NODEMSG))
 		{
 			throw new IOException("Unknown code: " + items[offset]);
 		}
-	
+
 		List<String> l = null;
-		
+
 		offset++;
-	
+
 		while (offset < items.length)
 		{
 			if (items[offset].charAt(0) == '*')
 			{
 				String type = items[offset].substring(1);
 				l = fields.get(type);
-			
+
 				if (l == null)
 				{
 					l = new ArrayList<String>();
@@ -877,21 +838,21 @@ public class Node {
 			{
 				l.add(items[offset]);
 			}
-			
+
 			offset++;
 		}
 	}
-	
+
 	public void fromNodeMsg(String nodestr, Set<String> desired)
 	{	
 		fields.clear();
-		
+
 		String [] items = nodestr.split("\t");
 		List<String> l = null;
-	
+
 		// items[0] == nodeid
 		// items[1] == NODEMSG
-	
+
 		for (int i = 2; i < items.length; i++)
 		{
 			if (items[i].charAt(0) == '*')
@@ -917,34 +878,59 @@ public class Node {
 			}
 		}
 	}
-	
+
 	public boolean hasCustom(String key)
 	{
 		return fields.containsKey(key);
 	}
-	
+
+	/**
+	 * Set a custom field.  
+	 * 
+	 * The field is created if it doesn't exist.
+	 * If the field exists, the list of values is cleared before adding the
+	 * value to the list of values for this field.
+	 * 
+	 * @param key - The name for the field.
+	 * @param value - A value to put in the empty list for this key.
+	 */
 	public void setCustom(String key, String value)
 	{
 		List<String> l = getOrAddField(key);
 		l.clear();		
 		l.add(value);
 	}
-	
+
+	/**
+	 * Add a field to the node.
+	 * 
+	 * If the field doesn't exist the node is created. If the
+	 * field exists, the value is added to the list of values for this field.
+	 * 
+	 * @param key - The name for the field.
+	 * @param value - The value to add to the list of values for this field. 
+	 */
 	public void addCustom(String key, String value)
 	{
 		List<String> l = getOrAddField(key);
 		l.add(value);
 	}
-	
+
 	public List<String> getCustom(String key)
 	{
 		return fields.get(key);
 	}
-	
+
+	/**
+	 * Compute the reverse complement of the DNA sequence. 
+	 * 
+	 * @param seq
+	 * @return
+	 */
 	public static String rc(String seq)
 	{
 		StringBuilder sb = new StringBuilder();
-		
+
 		for (int i = seq.length() - 1; i >= 0; i--)
 		{
 			if      (seq.charAt(i) == 'A') { sb.append('T'); }
@@ -952,10 +938,17 @@ public class Node {
 			else if (seq.charAt(i) == 'C') { sb.append('G'); }
 			else if (seq.charAt(i) == 'G') { sb.append('C'); }
 		}
-		
+
 		return sb.toString();
 	}
-	
+
+	/**
+	 * Compare a string to its reverse complement
+	 * 
+	 * @param seq - The sequence.
+	 * @return - 'f' if the DNA sequence precedes is reverse complement
+	 * 	lexicographically. 'r' otherwise. 
+	 */
 	public static char canonicaldir(String seq)
 	{
 		String rc = rc(seq);
@@ -963,10 +956,20 @@ public class Node {
 		{
 			return 'f';
 		}
-		
+
 		return 'r';
 	}
-	
+
+	/**
+	 * Returns the canonical version of a DNA sequence.
+	 * 
+	 * The canonical version of a sequence is the result
+	 * of comparing a DNA sequence to its reverse complement
+	 * and returning the one which comes first when ordered lexicographically.
+	 *  
+	 * @param seq
+	 * @return - The canonical version of the DNA sequence.
+	 */
 	public static String canonicalseq(String seq)
 	{
 		String rc = rc(seq);
@@ -974,78 +977,102 @@ public class Node {
 		{
 			return seq;
 		}
-		
+
 		return rc;
 	}
-	
-	
-	
+
+
+	/**
+	 * Return the opposite direction.
+	 * 
+	 * @param dir
+	 * @return
+	 * @throws IOException
+	 */
 	public static String flip_dir(String dir) throws IOException
 	{
 		if (dir.equals("f")) { return "r"; }
 		if (dir.equals("r")) { return "f"; }
-		
+
 		throw new IOException("Unknown dir type: " + dir);
 	}
-	
+
 	public static String flip_link(String link) throws IOException
 	{
 		if (link.equals("ff")) { return "rr"; }
 		if (link.equals("fr")) { return "fr"; }
 		if (link.equals("rf")) { return "rf"; }
 		if (link.equals("rr")) { return "ff"; }
-		
+
 		throw new IOException("Unknown link type: " + link);
 	}
-	
-	//Accessors
+
+	/**
+	 * @return The DNA sequence represented by this node as a normal ASCII string. 
+	 */
 	public String str()
 	{
 		return dna2str(fields.get(STR).get(0));
 	}
-	
+
+	/**
+	 * @return The tight encoding of the DNA sequence represented by this node. 
+	 */
 	public String str_raw()
 	{
 		return fields.get(STR).get(0);
 	}
-	
+
+	/**
+	 * Set the field encoding the compressed version of the DNA sequence.
+	 * @param rawstr The compressed DNA sequence.
+	 */
 	public void setstr_raw(String rawstr)
 	{
 		List<String> l = getOrAddField(STR);
 		l.clear();		
 		l.add(rawstr);
 	}
-	
+
 	public void setstr(String str)
 	{
 		List<String> l = getOrAddField(STR);
 		l.clear();
 		l.add(Node.str2dna(str));
 	}
-	
-	
+
+
 	public int len()
 	{
 		return str().length();
 	}
-	
+
+	/**
+	 * Compute the degree for this node. 
+	 * 
+	 * The degree is the number of outgoing edges from this node when the kmer 
+	 * sequence represented by this node is read in direction dir.
+	 * 
+	 * @param dir - The orientation direction for this kmer. Can be "r" or "f".
+	 * @return
+	 */
 	public int degree(String dir)
 	{
 		int retval = 0;
-		
+
 		String fd = dir + "f";
 		if (fields.containsKey(fd)) { retval += fields.get(fd).size(); }
-		
+
 		String rd = dir + "r";
 		if (fields.containsKey(rd)) { retval += fields.get(rd).size(); }
-		
+
 		return retval;
 	}
-	
+
 	public String edgestr()
 	{
 		StringBuffer sb = new StringBuffer();
-		
+
 		for (int i = 0; i < edgetypes.length; i++)
 		{
 			if (fields.containsKey(edgetypes[i]))
@@ -1059,56 +1086,67 @@ public class Node {
 				}
 			}
 		}
-		
+
 		return sb.toString();
 	}
-	
-	
+
+
 	public float cov()
 	{
 		return Float.parseFloat(fields.get(COVERAGE).get(0)); 
 	}
-	
+
+	/**
+	 * Concatenate two strings that overlap by k-1 characters.
+	 *
+	 * The last k-1 characters of astr must equal the first k-1 characters of bstr.
+	 * The returned string is astr+bstr[K-1:]
+	 * @param astr
+	 * @param bstr
+	 * @param K
+	 * @return 
+	 * @throws IOException
+	 */
 	public static String str_concat(String astr, String bstr, int K) throws IOException
 	{
 		//System.err.println("Concating: " + astr + " " + bstr);
 		String as = astr.substring(astr.length()-(K-1));
 		String bs = bstr.substring(0, K-1);
-		
+
 		if (!as.equals(bs))
 		{
 			throw new IOException("as (" + as + ") != bs (" + bs + ")");
 		}
-		
+
 		return astr + bstr.substring(K-1);
 	}
-	
+
 	public void addreads(Node othernode, int shift)
 	{
 		if (othernode.fields.containsKey(R5))
 		{
 			List<String> myr5 = getOrAddField(R5);
-			
+
 			for(String rstr : othernode.fields.get(R5))
 			{
 				String [] vals = rstr.split(":");
 				int offset = Integer.parseInt(vals[1]) + shift;
-				
+
 				myr5.add(vals[0] + ":" + offset);
 			}
 		}
 	}
-	
+
 	public List<String> getreads()
 	{
 		if (fields.containsKey(R5))
 		{
 			return fields.get(R5);
 		}
-		
+
 		return null;
 	}
-	
+
 	public void setreads(Node othernode)
 	{
 		if (othernode.fields.containsKey(R5))
@@ -1120,7 +1158,7 @@ public class Node {
 			fields.remove(R5);
 		}
 	}
-	
+
 	public void setR5(Node other)
 	{
 		if (other.fields.containsKey(R5))
@@ -1133,55 +1171,63 @@ public class Node {
 		}
 	}
 
-	
+	/**
+	 * Return the tail information for this node.
+	 * 
+	 * A node is a tail if the degree of the node (# of outgoing edges) is 1.
+	 * 
+	 * @param dir - The read direction for this kmer for which we consider tail information.
+	 * @return - An instance of Tailinfo. ID is set to the compressed kmer representation of the destination node,
+	 * 	 dist is initialized to 1, and dir is the direction coresponding to the destination node. 
+	 */
 	public TailInfo gettail(String dir)
 	{
 		if (degree(dir) != 1)
 		{
 			return null;
 		}
-		
+
 		TailInfo ti = new TailInfo();
 		ti.dist = 1;
-		
+
 		String fd = dir + "f";
 		if (fields.containsKey(fd)) 
 		{ 
-			ti.id = fields.get(fd).get(0);
+			ti.id = fields.get(fd).get(0);  
 			ti.dir = "f";
 		}
-		
+
 		fd = dir + "r";
 		if (fields.containsKey(fd))
 		{
 			ti.id = fields.get(fd).get(0);
 			ti.dir = "r";
 		}
-		
+
 		return ti;
 	}
-	
+
 	public static String mate_basename(String readname)
 	{
 		if (readname.endsWith("_1") || readname.endsWith("_2"))
 		{
 			return readname.substring(0, readname.length()-2);
 		}
-		
+
 		return null;
 	}
-	
+
 	public static int mate_insertlen(String read1, String read2, int INSERT_LEN)
 	{
 		return INSERT_LEN;
 	}
-	
+
 	public static int mate_insertstdev(int INSERT_LEN)
 	{
 		return (int) .1 * INSERT_LEN;
 	}
-	
-	
+
+
 	public static int mate_wiggle(int INSERT_LEN, int MIN_WIGGLE)
 	{
 		int stdev = mate_insertstdev(INSERT_LEN);
@@ -1192,12 +1238,12 @@ public class Node {
 		}
 		return retval;
 	}
-	
-	
+
+
 	public static String joinstr(String sep, List<String> strs)
 	{
 		StringBuffer buffer = new StringBuffer();
-		
+
 		boolean first = true;
 		for (String str : strs)
 		{
@@ -1205,14 +1251,14 @@ public class Node {
 			first = false;
 			buffer.append(str);
 		}
-		
+
 		return buffer.toString();
 	}
-	
+
 	public static String joinstr(String sep, String [] strs, int offset)
 	{
 		StringBuffer buffer = new StringBuffer();
-		
+
 		boolean first = true;
 		while (offset < strs.length)
 		{
@@ -1221,10 +1267,10 @@ public class Node {
 			buffer.append(strs[offset]);
 			offset++;
 		}
-		
+
 		return buffer.toString();
 	}
-	
+
 	public void printlinks()
 	{
 		for(String et : Node.edgetypes)
@@ -1245,10 +1291,29 @@ public class Node {
 			}
 		}
 	}
-	
+
+
+	protected Iterator<String> FieldsIterator(){
+		return this.fields.keySet().iterator();
+	}
+
+
+	protected boolean hasField (String field){
+		return fields.containsKey(field);
+	}
+
 	public static void main(String[] args) throws Exception 
 	{
-		
-	
+
+
+	}
+
+	protected Iterator<?> fieldsIterator(){
+		return fields.keySet().iterator();
+	}
+
+	// Iterator over the list of values associated with a field.
+	protected Iterator<?> fieldValuesIterator(String field) {
+		return fields.get(field).iterator();
 	}
 }
