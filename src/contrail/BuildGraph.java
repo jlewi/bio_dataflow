@@ -112,7 +112,7 @@ public class BuildGraph extends Configured implements Tool
 
 			int startn = 0;
 			while (startn < seq.length() && seq.charAt(startn) == 'N') { startn++; }
-			if (startn > 0) { seq = seq.substring(startn, seq.length() - startn); }
+			if (startn > 0) { seq = seq.substring(startn); }
 
 			// Check for non-dna characters
 			if (seq.matches(".*[^ACGT].*"))
