@@ -65,7 +65,7 @@ public class BuildGraph extends Configured implements Tool
 		 * 	an edge in the DeBruijn graph. The k-mer is represented as compressed version of the DNA sequence. 
 		 *  value - A tab delimited string containing the following fields:
 		 *		field 0 - a two character sequence e.g "ff", "fr", where 
-		 *          each character specificies the canonical direction of one of the kmers.
+		 *          each character specifies the canonical direction of one of the kmers.
 		 *      field 1 - is the last base of the second k-mer.
 		 *      	In conjuction with the key, this allows us to construct the two k-1 Mer nodes which
 		 *        	are connected by the K-mer encoded in the key. 
@@ -152,7 +152,7 @@ public class BuildGraph extends Configured implements Tool
 
 				// f is the first base in u
 				// l is the last base in l
-				// f,l cordrorespond to the non-overlap regions of u,v
+				// f,l correspond to the non-overlap regions of u,v
 				String f = seq.substring(i, i+1);
 				String l = seq.substring(i+K, i+K+1);
 				f = Node.rc(f);

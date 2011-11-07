@@ -166,7 +166,7 @@ public class TimeSerialize
 
 		// Send all output to the Appendable object sb
 		Formatter formatter = new Formatter(sb, Locale.US);
-		formatter.format("Formt:%s \t Write Time(sec): %f \t Read Time(sec): %f \t Output Size (Mb):%f", format,nseconds,read_seconds,size);
+		formatter.format("Format:%s \t Write Time(sec): %f \t Read Time(sec): %f \t Output Size (Mb):%f", format,nseconds,read_seconds,size);
 		formatter.flush();
 		System.out.println(sb.toString());
 

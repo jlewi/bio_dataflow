@@ -1,32 +1,15 @@
 <?xml version="1.0" ?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-  <modelVersion>
-    4.0.0
-  </modelVersion>
-  <groupId>
-    contrail
-  </groupId>
-  <artifactId>
-    contrail
-  </artifactId>
-  <version>
-    1.0-SNAPSHOT
-  </version>
-  <name>
-    contrail
-  </name>
-  <!--<url>http://maven.apache.org</url>-->
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>contrail</groupId>
+  <artifactId>contrail</artifactId>
+  <version>1.0-SNAPSHOT</version>
+  <name>contrail</name>
   <properties>
-    <project.build.sourceEncoding>
-      UTF-8  
-    </project.build.sourceEncoding>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit-version>4.8.2</junit-version>
     <jackson-version>1.7.3</jackson-version>
-    <!--Select your version of hadoop see AVRO-852. Not currently used -->
-    <!--<hadoop-version>0.20.2-cdh3u0</hadoop-version>-->
-    <!--<hadoop-version>0.20.203.0</hadoop-version>-->
-    <!--<hadoop-version>0.20.2</hadoop-version>-->
-    <avro-version>1.5.4</avro-version>    
+    <avro-version>1.5.4</avro-version>
   </properties>
   <dependencies>
     <dependency>
@@ -35,91 +18,78 @@
       <version>1.2</version>
     </dependency>
     <dependency>
-      <groupId>
-        org.apache.hadoop
-      </groupId>
-      <artifactId>
-        hadoop-core
-      </artifactId>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-core</artifactId>
       <!-- hadoop's execution environment provides its own jars, usurping any others.
            So we should not include it here -->
-      <version>
-        0.20.2-cdh3u1
-      </version>
-      <scope>
-        provided
-      </scope>
+      <version>0.20.2-cdh3u1</version>
+      <!--running in net beans we need this b\c netbeans isn't haodop
+      aware. We should uncomment for real runs.-->
+      <!--<scope>-->
+      <!--provided-->
+      <!--</scope>-->
     </dependency>
     <dependency>
-      <groupId>
-        junit
-      </groupId>
-      <artifactId>
-        junit
-      </artifactId>
-      <version>
-        3.8.1
-      </version>
-      <scope>
-        test
-      </scope>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>${junit-version}</version>
+      <!-- Our pom file seems to be misconfigured b\c we seem to always be compiling the sources in test, so if we set the scope to test we get an error about missing junit -->
+      <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>
-        log4j
-      </groupId>
-      <artifactId>
-        log4j
-      </artifactId>
-      <version>
-        1.2.14
-      </version>
-    </dependency>  	
+      <groupId>log4j</groupId>
+      <artifactId>log4j</artifactId>
+      <version>1.2.14</version>
+    </dependency>
     <dependency>
       <groupId>org.apache.avro</groupId>
-      <artifactId>avro </artifactId>
+      <artifactId>avro</artifactId>
       <version>${avro-version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.avro</groupId>
-      <artifactId>avro-mapred </artifactId>
+      <artifactId>avro-mapred</artifactId>
       <version>${avro-version}</version>
     </dependency>
   </dependencies>
   <repositories>
+    <repository>
+      <id>apache.snapshots</id>
+      <name>Apache Snapshot Repository</name>
+      <url>http://repository.apache.org/snapshots</url>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+    </repository>
     <!--cloudera repo-->
     <repository>
-      <id>
-        cloudera
-      </id>
-      <name>
-        Cloudera  Repository
-      </name>
-      <url>
-        https://repository.cloudera.com/content/repositories/releases
-      </url>
-  </repository>  </repositories>
+      <id>cloudera</id>
+      <name>Cloudera  Repository</name>
+      <url>https://repository.cloudera.com/content/repositories/releases</url>
+    </repository>
+  </repositories>
   <build>
     <plugins>
-      <!-- Add to src path src since its not added by default -->
+      <!-- Add to src path src/contrail since its not added by default. We don't use "src" as the directory because we don't want to include the tests.         
+-->
       <plugin>
-	<groupId>org.codehaus.mojo</groupId>
-	<artifactId>build-helper-maven-plugin</artifactId>
-	<executions>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <executions>
           <execution>
             <phase>generate-sources</phase>
-            <goals><goal>add-source</goal></goals>
+            <goals>
+              <goal>add-source</goal>
+            </goals>
             <configuration>
               <sources>
-                <source>src</source>
+                <source>src/contrail</source>
               </sources>
             </configuration>
           </execution>
-	</executions>
+        </executions>
       </plugin>
-      <!-- Plugin to create javadoc. To generate the docs do:
-      mvn javadoc:javadoc
-      -->
+      <!-- Plugin to create javadoc. To generate the docs do:mvn javadoc:javadoc-->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
@@ -132,38 +102,53 @@
           </links>
         </configuration>
       </plugin>
-      <!-- create a bundled jar suitable for execution on hadoop -->    
+      <!--Create a jar containing the tests. This way we can package them into an assembly and run the timing tests on hadoop.-->
       <plugin>
-        <groupId>
-          org.apache.maven.plugins
-        </groupId>
-        <artifactId>
-          maven-assembly-plugin
-        </artifactId>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>2.2</version>
         <executions>
           <execution>
-            <id>
-              job
-            </id>
-            <phase>
-              package
-            </phase>
             <goals>
-              <goal>
-                single
-              </goal>
+              <goal>test-jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- create a bundled jar suitable for execution on hadoop -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>job</id>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
             </goals>
             <configuration>
               <descriptors>
-                <descriptor>
-                  src/main/assembly/job.xml
-                </descriptor>
+                <descriptor>src/main/assembly/job.xml</descriptor>
+              </descriptors>
+            </configuration>
+          </execution>
+          <!--Create a second bundled jar which contains the classes used to
+              run timing experiments.-->
+          <execution>
+            <id>test</id>
+            <phase>process-test-classes</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+            <configuration>
+              <descriptors>
+                <descriptor>src/test/assembly/test.xml</descriptor>
               </descriptors>
             </configuration>
           </execution>
         </executions>
       </plugin>
-      <!--use the maven plugin for avro to generate the sources from the protocols -->        
+      <!--use the maven plugin for avro to generate the sources from the protocols -->
       <plugin>
         <groupId>org.apache.avro</groupId>
         <artifactId>avro-maven-plugin</artifactId>
@@ -172,16 +157,15 @@
           <execution>
             <id>schemas</id>
             <phase>generate-sources</phase>
-            <goals>              
+            <goals>
               <goal>protocol</goal>
             </goals>
-            <configuration>  
+            <configuration>
               <includes>
                 <include>*.avpr</include>
               </includes>
               <sourceDirectory>${project.basedir}/share/schemas/contrail/</sourceDirectory>
-              <!--<sourceDirectory>/home/jlewi/hg_contrail/share/schemas/contrail/</sourceDirectory>-->
-              <outputDirectory>${project.build.directory}/generated-sources/java</outputDirectory>              
+              <outputDirectory>${project.build.directory}/generated-sources/java</outputDirectory>
             </configuration>
           </execution>
         </executions>
@@ -189,4 +173,3 @@
     </plugins>
   </build>
 </project>
-

@@ -1,0 +1,36 @@
+{
+  "namespace": "contrail",
+  "protocol": "ContrailProtocol",
+  "doc": "Data structures for contrail",
+
+
+  "types": [
+	{"name": "SequenceReadByte",
+	 "type": "record",
+	 "doc": "Structure representing a DNA sequence read encoded as byte array.",
+	 "fields":[
+	 	{"name": "id", "type":"string", "doc":"ID for the read."},
+	 	{"name": "dna", "type":"bytes","doc":"The dna sequence for this read."},
+	 	{"name": "mate_pair_id", "type": "int", "doc": "ID indicating which mate pair this sequence belongs to"}
+	 ]
+	},
+	{"name": "NodeData",
+	 "type": "record",
+	 "doc": "Store the data for a node in the DeBrujin graph",
+	 "fields":[
+	 	// Create a string to string mapping to store the fields 
+	 	// to be compatible with the initial node structure.
+	 	// In the future we may want to declare separate fields for some or all of these
+	 	{"name":"fields", "type": {"type": "map", "values": {"type":"array", "items":"string"}}, "doc": "map storing the fields for this node"},
+	 	// should we make each field a separate field or should we just use a string map like the 
+	 	// original node? 
+	    //{"name": "STR", "type":"string", "doc":"Sequence represented by this node"}
+	    // should coverage be an int
+	   	//{"name": "COVERAGE", "type":"float", "doc":"Coverage"}
+	     {"name": "mertag", "type":"string", "doc":"Tag for the kmer"}
+	  	//{"name": "R5", "type":"string"}	  	
+	 ]
+	}
+	
+	] // end types
+}

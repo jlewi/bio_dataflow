@@ -1,6 +1,10 @@
 package contrail;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
 
 import java.util.ArrayList;
 import java.util.Formatter;
@@ -26,7 +30,7 @@ import org.apache.log4j.Logger;
  */
 public class TimeFastq 
 {	
-	private static final Logger sLogger = Logger.getLogger(TimeSerialize.class);
+	private static final Logger sLogger = Logger.getLogger(TimeFastq.class);
 
 	public String time_text(String input, String output) throws Exception{
 		long start_time;
@@ -49,14 +53,14 @@ public class TimeFastq
 		}
 		return print_output(start_time,end_time,"text",part_files);
 	}
-
-	public String time_avro(String input, String output) throws Exception{
+	
+	public String time_avro_byte(String input, String output) throws Exception{
 		long start_time;
 		long end_time;		
 
 		String args[] = {input,output};
 		start_time=System.currentTimeMillis();
-		int res = ToolRunner.run(new Configuration(), new FastqPreprocessorAvro(), args);
+		int res = ToolRunner.run(new Configuration(), new FastqPreprocessorAvroByte(), args);
 		end_time=System.currentTimeMillis();
 
 		ArrayList<String> part_files = new ArrayList<String>();
@@ -68,9 +72,10 @@ public class TimeFastq
 				part_files.add(full_path);
 			}
 		}
-		
-		return print_output(start_time,end_time,"avro", part_files);
+
+		return print_output(start_time,end_time,"avro-byte", part_files);
 	}
+	
 	private String print_output(long start_time, long end_time, String format, ArrayList<String> out_files){
 		// TODO(jlewi): Compute File Size
 		double nseconds = (end_time-start_time)/1000.0;		
@@ -81,10 +86,10 @@ public class TimeFastq
 			File file_handle = new File(it.next());
 			size += file_handle.length()/1e6;	
 		}
-		
+
 		// Send all output to the Appendable object sb
 		Formatter formatter = new Formatter(sb, Locale.US);
-		formatter.format("Formt:%s \t Time(sec): %f \t Output Size (Mb):%f \t #Files: %d", format,nseconds,size, out_files.size());
+		formatter.format("Format:%s \t Time(sec): %f \t Output Size (Mb):%f \t #Files: %d", format,nseconds,size, out_files.size());
 		formatter.flush();
 		System.out.println(sb.toString());
 		return sb.toString();
@@ -93,7 +98,6 @@ public class TimeFastq
 
 	public int run(String[] args) throws Exception 
 	{
-
 		// get stored in CommandLine.args which get passed onto ContrailConfig.parseOptions.		
 		Option input = new Option("input","input",true,"The directory containing the input fastq files to process.");
 		Option output = new Option("output","output",true,"The directory where the output should.");
@@ -115,18 +119,19 @@ public class TimeFastq
 		String inputPath = line.getOptionValue("input");
 		String outputPath = line.getOptionValue("output");
 
+		System.out.println("Converting fastq to modified fastq");
+				
 		ArrayList<String> results = new ArrayList<String>();
-		results.add(time_avro(inputPath,outputPath+"/avro"));
-		results.add(time_text(inputPath,outputPath+"/text"));
-		results.add(time_avro(inputPath,outputPath+"/avro2"));
-		results.add(time_text(inputPath,outputPath+"/text2"));
+                
 		
+        results.add(time_text(inputPath,outputPath+"/text"));
+        results.add(time_avro_byte(inputPath,outputPath+"/avro-byte"));		
+
 		for (Iterator<String> it = results.iterator(); it.hasNext();){
 			System.out.println(it.next());
 		}
 		return 0;
 	}
-
 
 	// Main
 	///////////////////////////////////////////////////////////////////////////	
