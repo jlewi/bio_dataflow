@@ -868,7 +868,20 @@ public class Contrail extends Configured implements Tool
 		//dataset = "202.dad";
 		//dataset = "202.prb";
 		
-		if (dataset.equals("202.prb"))
+		//dataset = "contrail-small";
+		
+		if (dataset.equals("contrail-small"))
+		{
+			ContrailConfig.hadoopReadPath = "/Users/mschatz/build/contrail-bio/data/contrail-small";
+			ContrailConfig.hadoopBasePath = "/users/mschatz/contrail/contrail-small";
+		
+			ContrailConfig.K = 55;
+			ContrailConfig.LOW_COV_THRESH = 3.0f;
+			ContrailConfig.MAX_LOW_COV_LEN = 50;
+			ContrailConfig.MIN_THREAD_WEIGHT = 5;
+
+		}
+		else if (dataset.equals("202.prb"))
 		{
 			ContrailConfig.hadoopReadPath = "/Users/mschatz/build/Contrail/data/202.prb.sfa";
 			ContrailConfig.hadoopBasePath = "/users/mschatz/contrail/202.prb/";
@@ -1096,7 +1109,7 @@ public class Contrail extends Configured implements Tool
 	    BasicConfigurator.resetConfiguration();
 		
 		TTCCLayout lay = new TTCCLayout();
-		lay.setDateFormat("yyyy-mm-dd HH:mm:ss.SSS");
+		lay.setDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
 		
 	    FileAppender fa = new FileAppender(lay, ContrailConfig.localBasePath+"contrail.details.log", true);
 	    fa.setName("File Appender");
