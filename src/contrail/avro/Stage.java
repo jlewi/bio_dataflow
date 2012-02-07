@@ -293,6 +293,12 @@ public abstract class Stage extends Configured implements Tool  {
     // Run the stage.
     return run();
   }
+  
+  public int run(String[] args) throws Exception 
+  {
+    parseCommandLine(args);   
+    return run();
+  }
   /**
    * Run the stage.
    */

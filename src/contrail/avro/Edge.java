@@ -13,7 +13,7 @@ import contrail.sequences.Sequence;
  * 
  * TODO (jlewi): What should the memory model be? Should we own the data?
  * 
- * @author jlewi
+ * TODO(jlewi): We can probably remove this class; I don't think its used anywhere.
  *
  */
 public class Edge {

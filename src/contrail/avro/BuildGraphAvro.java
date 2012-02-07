@@ -366,7 +366,9 @@ public class BuildGraphAvro extends Stage
 			MAXR5 = Integer.parseInt(job.get("MAXR5"));
 			RECORD_ALL_THREADS = Integer.parseInt(job.get("RECORD_ALL_THREADS")) == 1;
 		}
-		
+
+		// TODO(jlewi): Reduce should probably just output GraphNodeData and the 
+		// source KMer should be stored in the node. 
 		@Override
 		public void reduce(ByteBuffer source_kmer_packed_bytes, Iterable<KMerEdge> iterable,
 				AvroCollector<Pair<ByteBuffer, GraphNodeData>> collector, Reporter reporter)
