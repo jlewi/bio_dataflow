@@ -1,5 +1,11 @@
 # Ignore compiled files
 *.class
 
+# Ignore private files.
+.*
+
+# Miscellaneous files
+nbactions.xml
+
 # Ignore build files
 target/*

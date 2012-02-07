@@ -71,6 +71,21 @@ public class DNAUtil {
   }
   
   /**
+   * Return the opposite direction.
+   * 
+   * @param dir
+   * @return
+   * @throws IOException
+   */
+  public static CharSequence flip_dir(CharSequence dir) throws IOException
+  {
+    if (dir.equals("f")) { return "r"; }
+    if (dir.equals("r")) { return "f"; }
+
+    throw new IOException("Unknown dir type: " + dir);
+  }
+    
+  /**
    * Returns the canonical version of a DNA sequence.
    * 
    * The canonical version of a sequence is the result
@@ -102,4 +117,33 @@ public class DNAUtil {
     }
     return reverseComplement(seq);
   }
+  
+  /**
+   * Merge two overlapping sequences. The inputs are modified.
+   * @param src: This sequence is potentially modified by the merge.
+   * @param dest: The second overlapping sequence
+   * @param overlap: The amount of overlap
+   * @return: A reference to the merged sequence.
+   */
+  public static Sequence mergeSequences(
+      Sequence src, Sequence dest, int overlap) {
+    // TODO(jlewi): Add a unittest.
+    // TODO(jlewi): Might be more efficient not to check the overlap.
+    
+    Sequence src_overlap = new Sequence(src); 
+    src = src.subSequence(src.size() - overlap, src.size());
+    Sequence dest_overlap = new Sequence(dest);
+    dest = dest.subSequence(0, overlap);
+    
+    if (!src_overlap.equals(dest_overlap)) {
+      throw new RuntimeException(
+          "Source (" + src_overlap.toString() + ") != dest (" + 
+          dest_overlap.toString() + ")");
+    }
+
+    dest.subSequence(overlap, dest.size());
+    src.add(dest);
+    return src;
+  }
+  
 }
