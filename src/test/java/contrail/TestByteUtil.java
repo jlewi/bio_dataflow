@@ -8,8 +8,41 @@ import java.io.UnsupportedEncodingException;
 
 import org.junit.Test;
 
+import contrail.ByteUtil;
+
 public class TestByteUtil {
 
+  final int BITSINBYTE = 8;
+  @Test
+  public void testByteToUint(){
+    // Test the conversion of bytes to uints and back again.
+    // Test conversion to byte value is correct.
+    for (int num = 0 ; num < 255; num++) {
+      byte bval = ByteUtil.uintToByte(num);
+      
+      // Compute the unsigned integer value of this byte
+      byte bmask = 0x1;
+      
+      int power = 1;
+      
+      int bval_uint = 0;
+      for (int bit_pos = 0; bit_pos < BITSINBYTE; bit_pos++ ){
+        // pick of just the first bit and multiply it by power
+        bval_uint += ((int)(bmask & bval)) * power;
+
+        // Shift bval to the right and double power
+        power *= 2;
+        int shift = 1;
+        bval = (byte)(bval >>> shift);
+                
+      }
+      assertEquals(bval_uint, num);
+      
+      bval = ByteUtil.uintToByte(num);
+      assertEquals(num, ByteUtil.byteToUint(bval));
+    }
+    
+  }
 	@Test
 	public void testhasMultiByteChars(){
 		// Test whether a sequence of bytes contains any multi byte characters.
@@ -31,7 +64,7 @@ public class TestByteUtil {
 	}
 	
 	@Test
-	public void testreplaceMultiByteChars() throws UnsupportedEncodingException{
+	public void testreplaceMultiByteChars() throws UnsupportedEncodingException {
 		// TODO(jlewi): We should really use randomly
 		// generated strings.
 		
@@ -75,4 +108,69 @@ public class TestByteUtil {
 			assertEquals(output,data.output);
 		}
 	}
+	
+	@Test
+  public void testbytesToInts() {
+	  // Test that the converstion of an array of bytes to ints is correct.
+	  
+	  // test it for the following lengts of arrays of bytes. This range ensures we cover all possible
+	  // cases of padding.
+	  for (int blength = 1; blength <= 12; blength++) {
+	    // Generate a random array of bytes.
+	    byte[] bdata = new byte[blength];
+	    for (int index = 0; index < blength; index++){
+	      bdata[index] = ByteUtil.uintToByte((int)Math.floor(Math.random()*256));	      
+	    }
+	    
+	    int[] nums = ByteUtil.bytesToInt(bdata);
+	    
+	    assertEquals(nums.length, (int)Math.ceil(bdata.length/4.0));
+	    for (int bindex = 0; bindex < blength ; bindex++) {
+	      // Determine the offset
+	      int nfull = (int) Math.floor(bindex/4.0);
+	      int offset = bindex % 4;
+	   
+	      int nshift = offset * 8;
+	      byte int_byte = (byte) ((nums [nfull] >>> nshift) & 0xFF);
+	      assertEquals(int_byte, bdata[bindex]);
+	    }	   
+	    
+	    // test that int to bytes returns the inverse value
+	    byte[] byte_check = ByteUtil.intsToBytes(nums);
+	    
+	    for (int pos = 0; pos < bdata.length; pos++){
+	      assertEquals(byte_check[pos], bdata[pos]);
+	    }
+	    // Check that an extra bytes are zeros.
+	    for (int pos = bdata.length; pos < byte_check.length; pos++){
+	      assertEquals(byte_check[pos], 0);
+	    }
+	  }
+	}
+  @Test
+  public void testIntsToBytes() {
+    // Test that the converstion of an array of ints to bytes is correct.
+    
+    // 
+    for (int int_length = 1; int_length <= 5; int_length++) {
+      // Generate a random array of bytes.
+      int[] idata = new int[int_length];
+      for (int index = 0; index < int_length; index++){
+        long range = java.lang.Integer.MAX_VALUE - java.lang.Integer.MIN_VALUE; 
+        idata[index] = (int)Math.floor((Math.random() * range) + java.lang.Integer.MIN_VALUE);       
+      }
+      
+      byte[] bytes = ByteUtil.intsToBytes(idata);
+      
+      assertEquals(bytes.length, 4 * idata.length);
+      for (int bindex = 0; bindex+4 <= bytes.length ; bindex+=4) {
+        int num = 0;
+        num =  ((bytes[bindex] & 0xFF)) 
+            +  ((bytes[bindex+1] & 0xFF) << 8)
+            +  ((bytes[bindex+2] & 0xFF) << 16)
+            +  ((bytes[bindex+3] & 0xFF) << 24);        
+        assertEquals(num, idata[bindex/4]);
+      }    
+    }
+  }	
 }

@@ -1,5 +1,7 @@
 package contrail;
 
+import contrail.Node;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -93,27 +95,6 @@ public class TimeSerialize
 	}
 	
 	/**
-	 * Read the nodes stored in an Avro file
-	 * 
-	 * @param args
-	 * @return List of the read nodes
-	 * @throws Exception
-	 */
-	private void ReadAvroFile(String path) throws java.io.IOException{		
-		NodeData node_data = new NodeData();
-		// Read in the file it should be a text file.
-		DataFileReader<NodeData> file_reader=new DataFileReader<NodeData>(new File(path),new SpecificDatumReader(node_data.getSchema()));		
-
-		while (file_reader.hasNext()){
-			//Don't save them we run out of memory
-			//nodes.add(new NodeAvro(file_reader.next()));
-			new NodeAvro(file_reader.next());
-		}		
-		
-		file_reader.close();
-		
-	}
-	/**
 	 * Write a bunch of nodes to a text file.
 	 * 
 	 * @param args
@@ -136,24 +117,6 @@ public class TimeSerialize
 		file_writer.close();		
 	}
 
-	private void WriteAvroFile(String path, ArrayList<NodeAvro> nodes, int compression) throws java.io.IOException {
-		// write the avro version
-		NodeData node_data= new NodeData();
-		DataFileWriter<NodeData> data_writer =  new DataFileWriter<NodeData>(new SpecificDatumWriter(node_data.getSchema()));
-
-		if (compression>0){
-			data_writer.setCodec(CodecFactory.deflateCodec(compression));
-		}
-		data_writer.create(node_data.getSchema(), new File(path));		
-		Iterator<NodeAvro> it = nodes.iterator();
-		while (it.hasNext()) {
-			node_data = it.next().getData();
-			data_writer.append(node_data);
-		}
-
-		data_writer.close();
-	}
-
 	private void print_output(long start_time, long end_time, long read_start, long read_end, String format, String path){
 		// TODO(jlewi): Compute File Size
 		double nseconds = (end_time-start_time)/1000.0;
@@ -171,31 +134,7 @@ public class TimeSerialize
 		System.out.println(sb.toString());
 
 	}
-
-	/**
-	 * Time how long it takes to write and read the nodes.
-	 * @param path
-	 * @param compression
-	 */
-	private void write_read_avro(ArrayList<NodeAvro> nodes, String avro_file,int compression) throws java.io.IOException{
-		long start_time;
-		long end_time;
-		long read_start;
-		long read_end;
-		double nseconds;
-
-		// TODO(jlewi): get a temporary file name				
-		start_time=System.currentTimeMillis();
-		WriteAvroFile(avro_file,nodes,compression);
-		end_time=System.currentTimeMillis();
-
-		//read the file
-		read_start=System.currentTimeMillis();
-		ReadAvroFile(avro_file);
-		read_end=System.currentTimeMillis();		
-		print_output(start_time,end_time,read_start,read_end,"avro ("+compression+")",avro_file);
-	}
-	
+		
 	/**
 	 * Time how long it takes to write and read the nodes.
 	 * @param path
@@ -241,34 +180,15 @@ public class TimeSerialize
 		}
 		// File containing the data to parse.
 		String inputPath = line.getOptionValue("input");
-
 		ArrayList<Node> txt_nodes = ReadTextFile(inputPath);
-		ArrayList<NodeAvro> avro_nodes = new ArrayList<NodeAvro>();
-		ArrayList<NodeAvro> read_avro;
-		ArrayList<Node> read_txt;
-		// convert the nodes to NodeAvro type
-		for (Iterator<Node> it=txt_nodes.iterator(); it.hasNext();){
-			NodeBase base = it.next();			
-			avro_nodes.add(new NodeAvro(base));
-		}
 
+		ArrayList<Node> read_txt;
 		// time how long it takes to serialize the nodes
 		// TODO(jlewi): get a temporary file name
 		String tmp_text="/tmp/text_nodes";
-		String node_msg;
-		long start_time;
-		long end_time;
-		long read_start;
-		long read_end;
-		double nseconds;
-		int compression = 0;
 		// time serialization using avro
 		// TODO(jlewi): get a temporary file name
-		String avro_file="/tmp/avro_nodes";		
-		write_read_avro(avro_nodes,avro_file,0);
-		write_read_avro(avro_nodes,avro_file,0);
-		write_read_avro(avro_nodes,avro_file,4);
-		
+			
 
 		write_read_text(txt_nodes,tmp_text);
 

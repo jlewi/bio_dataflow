@@ -76,6 +76,28 @@ public class TimeFastq
 		return print_output(start_time,end_time,"avro-byte", part_files);
 	}
 	
+	 public String time_compressed_byte(String input, String output) throws Exception{
+	    long start_time;
+	    long end_time;    
+
+	    String args[] = {input,output};
+	    start_time=System.currentTimeMillis();
+	    int res = ToolRunner.run(new Configuration(), new FastqPreprocessorAvroCompressed(), args);
+	    end_time=System.currentTimeMillis();
+
+	    ArrayList<String> part_files = new ArrayList<String>();
+	    String[] files = (new File(output)).list();
+	    for (int index=0; index< files.length ; index++){
+	      String some_file=files[index];
+	      if (some_file.length()=="part-00000.avro".length() && some_file.startsWith("part-") && some_file.endsWith("avro")) {
+	        String full_path=new File(output,files[index]).getPath();       
+	        part_files.add(full_path);
+	      }
+	    }
+
+	    return print_output(start_time,end_time,"avro-compressed", part_files);
+	  }
+	 
 	private String print_output(long start_time, long end_time, String format, ArrayList<String> out_files){
 		// TODO(jlewi): Compute File Size
 		double nseconds = (end_time-start_time)/1000.0;		
@@ -123,10 +145,10 @@ public class TimeFastq
 				
 		ArrayList<String> results = new ArrayList<String>();
                 
-		
-        results.add(time_text(inputPath,outputPath+"/text"));
-        results.add(time_avro_byte(inputPath,outputPath+"/avro-byte"));		
-
+		results.add(time_avro_byte(inputPath,outputPath+"/avro-byte"));
+                results.add(time_text(inputPath,outputPath+"/text"));
+                results.add(time_compressed_byte(inputPath,outputPath+"/avro-compressed-byte"));
+                
 		for (Iterator<String> it = results.iterator(); it.hasNext();){
 			System.out.println(it.next());
 		}
