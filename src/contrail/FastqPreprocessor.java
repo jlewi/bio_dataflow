@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.List;
 
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
@@ -56,6 +55,11 @@ public class FastqPreprocessor extends Configured implements Tool
 		private String suffix = null;
 		private String counter = "pair_unknown";
 		
+		// Whether or not to time the running
+		public boolean time = true;
+		// Run time for the mapper in seconds.
+		public Timer map_timer; 
+		
 		public void configure(JobConf job) 
 		{
 			filename = job.get("map.input.file");
@@ -70,12 +74,22 @@ public class FastqPreprocessor extends Configured implements Tool
 				
 				System.err.println(filename + " suffix: \"" + suffix + "" + "\"");
 			}
+			
+			if (time) {
+			  map_timer = new Timer("FastqPreProcessor Timer");
+			}
+			
 		}
 		
 		public void map(LongWritable lineid, Text line,
                 OutputCollector<Text, Text> output, Reporter reporter)
                 throws IOException 
         {
+		  
+		  if (time) {
+		    map_timer.start();
+		  }
+		  
 			if (idx == 0) 
 			{ 
 				name = line.toString();
@@ -112,13 +126,21 @@ public class FastqPreprocessor extends Configured implements Tool
 			}
 			
 			idx = (idx + 1) % 4;
-        }
+			
+			if (time) {
+			  map_timer.stop();
+			}
+    }
 		
 		public void close() throws IOException
 		{
 			if (idx != 0)
 			{
 				throw new IOException("ERROR: closing with idx = " + idx + " in " + filename);
+			}
+			
+			if (time) {
+			  System.out.println("FastqPreprocessor Map time (seconds) = " + map_timer.toSeconds());
 			}
 		}
 	}
@@ -155,14 +177,20 @@ public class FastqPreprocessor extends Configured implements Tool
 		conf.setMapperClass(FastqPreprocessorMapper.class);
 		conf.setNumReduceTasks(0);
 		
-        conf.setInputFormat(NLineInputFormat.class);
-        conf.setInt("mapred.line.input.format.linespermap", 2000000); // must be a multiple of 4
+    conf.setInputFormat(NLineInputFormat.class);
+    conf.setInt("mapred.line.input.format.linespermap", 2000000); // must be a multiple of 4
 
-        //FileOutputFormat.setCompressOutput(conf,true);
+    //FileOutputFormat.setCompressOutput(conf,true);
 		//delete the output directory if it exists already
 		FileSystem.get(conf).delete(new Path(outputPath), true);
 
-		return JobClient.runJob(conf);
+    long start_time = System.currentTimeMillis();    
+    RunningJob result = JobClient.runJob(conf);
+    long end_time = System.currentTimeMillis();    
+    double nseconds = (end_time - start_time) / 1000.0;
+    System.out.println("Job took: " + nseconds + " seconds");
+    
+		return result;
 	}
 	
 
@@ -178,7 +206,11 @@ public class FastqPreprocessor extends Configured implements Tool
 		ContrailConfig.PREPROCESS_SUFFIX = 1;
 		ContrailConfig.TEST_MODE = true;
 		
+		Timer timer = new Timer("FastqPreprocessor");
+		timer.start();
 		run(inputPath, outputPath);
+		timer.stop();
+		System.out.println("Fastqpreprocessor: Job took (seconds): " + timer.toSeconds());
 		return 0;
 	}
 

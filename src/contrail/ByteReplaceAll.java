@@ -1,5 +1,7 @@
 package contrail;
 
+import contrail.ByteUtil;
+
 /**
  * Helper class for replacing all occurrences of one or more values in a byte array.
  * 
@@ -61,7 +63,7 @@ public class ByteReplaceAll {
 		java.util.Arrays.fill(values_to_replace, false);
 
 		for (int index = 0; index < match.length; index++){
-			int pos = (match[index]<0) ? 255 + match[index] : match[index];
+			int pos = ByteUtil.byteToUint(match[index]);
 			values_to_replace[pos] = true;
 		}
 		new_value = replace;
@@ -81,7 +83,7 @@ public class ByteReplaceAll {
 			// java represents bytes as signed integers in two's complement.
 			// To convert to the corresponding value of a byte representing an unsigned 
 			// integer we add 255 to negative values.
-			pos = (input[index]<0) ? 255 + input[index] : input[index];
+			pos = ByteUtil.byteToUint(input[index]);
 			if (values_to_replace[pos]){
 				input[index] = new_value;
 			}

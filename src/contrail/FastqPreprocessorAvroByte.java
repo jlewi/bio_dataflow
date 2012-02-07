@@ -39,7 +39,7 @@ import org.apache.hadoop.mapred.lib.NLineInputFormat;
  */
 public class FastqPreprocessorAvroByte extends Configured implements Tool 
 {	
-	private static final Logger sLogger = Logger.getLogger(FastqPreprocessor.class);
+	private static final Logger sLogger = Logger.getLogger(FastqPreprocessorAvroByte.class);
 	
 	
 	/**
@@ -97,9 +97,9 @@ public class FastqPreprocessorAvroByte extends Configured implements Tool
 								
 				System.err.println(filename + " suffix: \"" + suffix + "" + "\"");
 			}            
-            read.dna = ByteBuffer.allocate(START_CAPACITY);
-            read.mate_pair_id = mate_id;
-            replacer = new ByteReplaceAll(":#-.|/","_");
+      read.dna = ByteBuffer.allocate(START_CAPACITY);
+      read.mate_pair_id = mate_id;
+      replacer = new ByteReplaceAll(":#-.|/","_");
 		}
 		
 		public void map(LongWritable lineid, Text line,
@@ -114,7 +114,7 @@ public class FastqPreprocessorAvroByte extends Configured implements Tool
 				byte[] data = line.getBytes();
 				
 				// Replace any multibyte characters with "_"
-				int valid_length = ByteUtil.replaceMultiByteChars(data, MULTIBYTE_REPLACE_VALUE);
+				int valid_length = ByteUtil.replaceMultiByteChars(data, MULTIBYTE_REPLACE_VALUE, line.getLength());
 								
 				// make sure it starts with the @ symbol
 				if (data[0] != 0x40)
@@ -190,16 +190,21 @@ public class FastqPreprocessorAvroByte extends Configured implements Tool
 		conf.setMapperClass(FastqPreprocessorMapper.class);
 		conf.setNumReduceTasks(0);
 		
-        conf.setInputFormat(NLineInputFormat.class);
-        conf.setInt("mapred.line.input.format.linespermap", 2000000); // must be a multiple of 4
+    conf.setInputFormat(NLineInputFormat.class);
+    conf.setInt("mapred.line.input.format.linespermap", 2000000); // must be a multiple of 4
 
-        // TODO(jlewi): use setoutput codec to set the compression codec. 
-        AvroJob.setOutputSchema(conf,new SequenceReadByte().getSchema());
+    // TODO(jlewi): use setoutput codec to set the compression codec. 
+    AvroJob.setOutputSchema(conf,new SequenceReadByte().getSchema());
                 
 		//delete the output directory if it exists already
 		FileSystem.get(conf).delete(new Path(outputPath), true);
 
-		return JobClient.runJob(conf);
+    long start_time = System.currentTimeMillis();    
+    RunningJob result = JobClient.runJob(conf);
+    long end_time = System.currentTimeMillis();    
+    double nseconds = (end_time - start_time) / 1000.0;
+    System.out.println("Job took: " + nseconds + " seconds");
+		return result;
 	}
 	
 
@@ -213,7 +218,11 @@ public class FastqPreprocessorAvroByte extends Configured implements Tool
 		ContrailConfig.PREPROCESS_SUFFIX = 1;
 		ContrailConfig.TEST_MODE = true;
 		
+    Timer timer = new Timer("FastqPreprocessorByte");
+    timer.start();
 		run(inputPath, outputPath);
+		timer.stop();
+		System.out.println("FastqpreprocessorByte: Job took (seconds): " + timer.toSeconds());
 		return 0;
 	}
 

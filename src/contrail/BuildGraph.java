@@ -420,7 +420,7 @@ public class BuildGraph extends Configured implements Tool
 		sLogger.info(" - input: "  + inputPath);
 		sLogger.info(" - output: " + outputPath);
 
-		JobConf conf = new JobConf(Stats.class);
+		JobConf conf = new JobConf(BuildGraph.class);
 		conf.setJobName("BuildGraph " + inputPath + " " + ContrailConfig.K);
 
 		ContrailConfig.initializeConfiguration(conf);
