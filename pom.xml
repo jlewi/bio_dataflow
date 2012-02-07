@@ -9,7 +9,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit-version>4.8.2</junit-version>
     <jackson-version>1.7.3</jackson-version>
-    <avro-version>1.5.4</avro-version>
+    <avro-version>1.6.1</avro-version>
   </properties>
   <dependencies>
     <dependency>
@@ -34,7 +34,8 @@
       <artifactId>junit</artifactId>
       <version>${junit-version}</version>
       <!-- Our pom file seems to be misconfigured b\c we seem to always be compiling the sources in test, so if we set the scope to test we get an error about missing junit -->
-      <scope>test</scope>
+      <!-- Scope should be test except when profiling in netbeans-->
+      <!--<scope>test</scope>-->
     </dependency>
     <dependency>
       <groupId>log4j</groupId>
@@ -83,7 +84,9 @@
             </goals>
             <configuration>
               <sources>
-                <source>src/contrail</source>
+		<source>src/contrail</source>
+		<!-- We add src/test/java only so profiling in netbeans will work -->
+		<source>src/test/java</source>
               </sources>
             </configuration>
           </execution>
