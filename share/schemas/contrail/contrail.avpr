@@ -14,23 +14,131 @@
 	 	{"name": "mate_pair_id", "type": "int", "doc": "ID indicating which mate pair this sequence belongs to"}
 	 ]
 	},
-	{"name": "NodeData",
-	 "type": "record",
-	 "doc": "Store the data for a node in the DeBrujin graph",
-	 "fields":[
-	 	// Create a string to string mapping to store the fields 
-	 	// to be compatible with the initial node structure.
-	 	// In the future we may want to declare separate fields for some or all of these
-	 	{"name":"fields", "type": {"type": "map", "values": {"type":"array", "items":"string"}}, "doc": "map storing the fields for this node"},
-	 	// should we make each field a separate field or should we just use a string map like the 
-	 	// original node? 
-	    //{"name": "STR", "type":"string", "doc":"Sequence represented by this node"}
-	    // should coverage be an int
-	   	//{"name": "COVERAGE", "type":"float", "doc":"Coverage"}
-	     {"name": "mertag", "type":"string", "doc":"Tag for the kmer"}
-	  	//{"name": "R5", "type":"string"}	  	
-	 ]
-	}
-	
+	{"name": "CompressedRead",
+     "type": "record",
+     "doc": "Structure representing a DNA sequence read. Each sequence is packed into an array of bytes using 3 bits per letter.",
+     "fields":[
+        {"name": "id", "type":"string", "doc": "ID for the read."},
+        {"name": "dna", "type": "bytes", "doc": "The dna sequence for this read."},
+        {"name": "length", "type": "int", "doc": "Length of the read."},
+        {"name": "mate_pair_id", "type": "int", "doc": "ID indicating which mate pair this sequence belongs to"}
+     ]
+    },
+   {"name": "CompressedSequence",
+     "type": "record",
+     "doc": "Structure representing a compressed DNA sequence read. Each sequence is packed into an array of bytes using 3 bits per letter.",
+     "fields":[
+        {"name": "dna", "type": "bytes", "doc": "The dna sequence for this read."},
+        {"name": "length", "type": "int", "doc": "Length of the read."}
+     ]
+    },        
+    {"name": "ReadState",
+     "type":  "enum",
+     "symbols": ["END5", "END6", "END3", "MIDDLE", "I"]
+    },
+    
+    
+	{"name": "KMerEdge",
+     "type": "record",
+     "doc": "Represent an edge between two KMers. Used only by BuildGraph.",
+     "fields": [
+        {"name": "link_dir", "type": "string", 
+         "doc": "Two letter string indicating how to map the canonical version of the sequence stored in kmer into the actual sequences represented by the graph nodes.",
+         "order": "ignore"
+        },
+        {"name": "last_base", "type": "bytes", 
+         "doc": "Represent the compressed base that we need to append to kmer to get the sequence in the terminating node for this edge.",
+         "order": "ignore"
+        },
+        {"name": "tag", "type": "string",
+         "doc": "string identifying the node.",
+         "order": "ignore"
+        },
+        {"name": "chunk", "type": "int",
+         "doc": "Integer identifying the chunk within the sequence the edge came from.",
+         "order": "ignore"
+        },
+        {"name": "state", "type": "ReadState",
+         "doc": "An enum identifying the state.",
+         "order": "ignore"
+        }          
+     ]
+    },        
+    {"name": "R5Tag",
+     "type": "record",
+     "doc": "Stores information about tags which come from the 5 end of a read.",
+     "fields": [                  
+                 {"name": "tag",
+                  "type": "string"
+                 },
+                 {"name": "isRC",
+                  "type": "boolean"
+                 },
+                 {"name": "offset",
+                  "type": "int"
+                 }  
+               ]       
+    },
+    {"name": "GraphNodeKMerTag",
+     "type": "record",
+     "doc": "Represent a tag assigned to nodes in the graph.",
+     "fields": [
+            {"name": "read_tag", "type":"string",
+             "doc": "Tag for the read we came from."
+            },
+            {"name": "chunk", "type":"int",
+             "doc": "Identifies the position within the read where it came from."
+            }
+        ]
+    },
+    {"name": "DestForLinkDir",
+     "type": "record",
+     "doc": "Represent the data for a particular instance of an edge.",
+     "fields": [ {"name": "link_dir",
+                "type": "string",
+                "doc": "Two letter string representing the direction for the edge."
+               },
+               {"name": "read_tags",
+                "type": {"type": "array", "items": "string"},
+                "doc": "Array of strings representing the reads this edge came from"
+               }
+             ]
+    },
+    {"name": "EdgeDestNode",
+     "type": "record",
+     "doc": "Represent the destinations for an edge",
+     "fields": [
+                 {"name": "canonical_sequence",
+                  "type": "CompressedSequence",
+                  "doc": "The canonical sequence for the destination node."
+                 },
+                 {"name": "link_dirs", 
+                  "type": {"type": "array", "items": "DestForLinkDir"},
+                  "doc": "Describes the instances for this canonical sequence."
+                 }
+               ]
+    },    
+    {"name": "GraphNodeData",
+     "type": "record",
+     "doc": "Represent a node in the DeBruijn Graph.",
+     "fields": [
+                 {"name": "mertag", "type":"GraphNodeKMerTag",
+                  "doc": "A tag for this node"
+                 },
+                 {"name": "coverage", "type": "int",
+                  "doc": "Coverage."
+                 },
+                 {"name": "canonical_source_kmer", "type":"CompressedSequence", 
+                  "doc": "Sequence of bytes representing the compressed, canonical sequence corresponding to the source."
+                 },
+                 {"name": "dest_nodes", 
+                  "type": {"type": "array", "items":"EdgeDestNode"},
+                  "doc": "A list of EdgeDestNodes representing the canonical destination nodes."
+                 },
+                 {"name": "r5_tags", 
+                  "type": {"type": "array", "items": "R5Tag"}
+                 }
+               ]
+    }
 	] // end types
 }
