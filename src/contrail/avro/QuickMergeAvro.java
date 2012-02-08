@@ -342,15 +342,25 @@ public class QuickMergeAvro extends Stage
   			  }
   			  node.done= true;
 
-  			  // TODO(jlewi): What is the following comment supposed to be. 
-				// {r1,r2} >> rtail -> c1 -> c2 -> c3 -> node -> c4 -> c5 -> c6 -> ftail >> {f1,f2}
-//
-   				TailInfoAvro rtail = TailInfoAvro.find_tail(nodes, node, "r");
-   				GraphNodeForQuickMerge rtnode = 
-   				    (GraphNodeForQuickMerge) nodes.get(rtail.id);
+  	
+  			  // Starting at node follow the chain of nodes in the reverse direction
+  			  // of this edge. If we take the reverse complement of this chain
+  			  // it will form a chain that terminates on node.
+				TailInfoAvro rtail = TailInfoAvro.find_tail(nodes, node, "r");
+				GraphNodeForQuickMerge rtnode = 
+				    (GraphNodeForQuickMerge) nodes.get(rtail.id);
    				
-//
-//				// catch cycles by looking for the ftail from rtail, not node
+				// Now follow the chain along the forward direction starting at node.
+				// The end result is the chain
+				//{r1,r2} >> rtail -> c1 -> c2 -> c3 -> node -> c4 -> c5 -> c6 -> ftail >> {f1,f2}
+				// We catch cycles by looking for the ftail from rtail, not node.
+				// A cycle occurs when we have a repeat along the path e.g
+				// rtail --> R --> node -->R-->ftail which can occur in special 
+				// circumstances. (What are the circumstances? rtail = ftail? repeated KMers?)  
+				// So we need to check no cycles are encountered when merging from 
+				// rtail to ftail. We need to do this when considering the path
+				// from rtail to ftail because the paths rtail->node and node->ftail
+				// may not contain the repeat. 
    				TailInfoAvro ftail = TailInfoAvro.find_tail(
    				    nodes, rtnode, rtail.dir.toString()); 
    				GraphNodeForQuickMerge ftnode = 
@@ -375,7 +385,8 @@ public class QuickMergeAvro extends Stage
 				DoMergeType domerge = DoMergeType.Init;
 				if (chainlen > 1)
 				{
-				  
+				  // We can only merge this node if the destination for this edge
+				  // is in memory
 				  if (allDestNodesInMemory(nodes, rtnode)) {
 				    domerge = DoMergeType.ChainInMem;
 				  } else if (chainlen >2) {
@@ -400,9 +411,11 @@ public class QuickMergeAvro extends Stage
 					throw new RuntimeException("Code below hasn't been updated yet");
 
 
-		      // mergedir is the direction to merge relative to rtail
-		      String mergedir = rtail.dir;
+					// mergedir is the direction to merge relative to rtail
+					String mergedir = rtail.dir;
 
+					// Get data from the merge, e.g the combined sequence etc..
+					// This function handles merging with all nodes except ftail.id
 					MergeData merge_Data = mergeChain(
 					    nodes, rtnode, mergedir);
 
@@ -412,10 +425,15 @@ public class QuickMergeAvro extends Stage
 					// If we made it all the way to the ftail, 
 					// see if we should do the final merge
 					// LEWI: What does he mean do the final merge? 
+					// Is the check for chainlen to check if we hit a cycle?
 					if ((domerge == 2) && 
 							(cur.id.equals(ftail.id)) && 
 							(mergelen == (chainlen-1)))
 					{
+						// Lewi this is where we do the actual merge of the nodes.
+						// In the previous loop (what is now mergechain) I think
+						// he was just taking the data from each node that he needed
+						// but he wasn't actually doing the merge. 
 						mergelen++;
 						rtnode.setCustom(DONE, "2");
 
