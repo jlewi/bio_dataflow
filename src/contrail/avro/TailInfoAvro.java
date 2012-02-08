@@ -131,9 +131,13 @@ public class TailInfoAvro
 		TailInfoAvro retval = new TailInfoAvro();
 		
 		retval.id = curid;
+		// JLEWI: This is an abuse of dir; it shouldn't be used
+		// to represent both the direction of the tail node and the tail 
+		// direction. 
 		retval.dir = DNAUtil.flip_dir(curdir.toString());
 		retval.dist = dist;
 			
 		return retval;
 	}
+	
 }

@@ -25,9 +25,6 @@ import org.apache.tools.ant.taskdefs.Java;
  * This class is used to represent the output of BuildGraphAvro.
  * The class represents a node (KMer) in the graph and all outgoing
  * edges from that sequence
- * 
- * @author jlewi
- *
  */
 public class GraphNode {
 
@@ -323,7 +320,7 @@ public class GraphNode {
    * TODO(jlewi): Add a unittest. 
    * TODO(jlewi): Clean up the docstring once the code is finalized. 
    */
-  public TailInfoAvro gettail(CharSequence dir)
+  public TailInfoAvro getTail(CharSequence dir)
   {    
     if (degree(dir) != 1)
     {
@@ -336,13 +333,13 @@ public class GraphNode {
     // Since the outdegree is 1 we either have 1 edge in direction
     // dir + "f" or 1 edge in direction dir + "r" 
     String fd = dir + "f";
-    List<CharSequence> dest_ids = getDestIdsForSrcDir(fd);
+    List<CharSequence> dest_ids = getDestIdsForLinkDir(fd);
     if (dest_ids != null)  { 
       ti.id = dest_ids.get(0);  
       ti.dir = "f";
     } else {
       fd = dir + "r";
-      dest_ids = getDestIdsForSrcDir(fd);
+      dest_ids = getDestIdsForLinkDir(fd);
       ti.id = dest_ids.get(0);
       ti.dir = "r";
     }
@@ -355,7 +352,7 @@ public class GraphNode {
    * @param link_dir
    * @return
    */
-  public List<CharSequence> getDestIdsForSrcDir(String link_dir) {
+  public List<CharSequence> getDestIdsForLinkDir(String link_dir) {
     return derived_data.getDestNodeIdsForLinkDir(link_dir);
   }
   

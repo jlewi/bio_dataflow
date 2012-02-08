@@ -25,12 +25,13 @@ import contrail.sequences.Sequence;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import org.junit.Test;
 
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.Pair;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.junit.Test;
+
 
 public class TestBuildGraphAvro {
 
