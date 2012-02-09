@@ -1,16 +1,16 @@
 package contrail.sequences;
 
 /**
- * Enumeration which defines the different canonical directions for DNA
- * sequences.
+ * Enumeration which defines which strand a sequence comes from, the forward
+ * or reverse strand. This usually refers to the canonical directions.
  */
-public enum DNADirection {
+public enum DNAStrand {
 	FORWARD,
 	REVERSE;
 	/**
 	 * @return Flip the direction
 	 */
-	public DNADirection flip() {
+	public DNAStrand flip() {
 		if (this == FORWARD) {
 			return REVERSE;
 		} else {
@@ -21,7 +21,7 @@ public enum DNADirection {
 	/**
 	 * Return a random direction
 	 */
-	public static DNADirection random() {
+	public static DNAStrand random() {
 		return Math.random() < .5 ? FORWARD : REVERSE;
 	}
 	

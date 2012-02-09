@@ -1,5 +1,6 @@
 package contrail.avro;
 
+import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAUtil;
 import java.io.IOException;
 import java.util.HashSet;
@@ -21,10 +22,10 @@ public class TailInfoAvro
 	 */
 	public CharSequence id;
 	/**
-	 * dir is the direction in which the destination node k-mer is oriented. Can be either
-	 * "r" or "f".
+	 * Which strand (canonical representation) the destination node comes from.
 	 */
-	public CharSequence dir;
+	public DNAStrand strand;
+	
 	/**
 	 * dist is the number of edges this tail spans. 
 	 */
@@ -46,20 +47,10 @@ public class TailInfoAvro
 	public TailInfoAvro()
 	{
 		id = null;
-		dir = null;
+		strand = null;
 		dist = 0;
 	}
-	
-	public String toString()
-	{
-		if (this == null)
-		{
-			return "null";
-		}
-		
-		return id + " " + dir + " " + dist;
-	}
-	
+
 	/**
 	 * Check if a set of nodes contains a tail terminating on startnode.
 	 * 
@@ -80,6 +71,7 @@ public class TailInfoAvro
 	public static TailInfoAvro find_tail(
 	    Map<String, GraphNode> nodes, GraphNode startnode, String startdir) 
 	        throws IOException {
+		throw new NotImplementedException("02-09-2012 Need to update this function to use DNADirection");
 		//System.err.println("find_tail: " + startnode.getNodeId() + " " + startdir);
 		Set<String> seen = new HashSet<String>();
 		seen.add(startnode.getNodeId());

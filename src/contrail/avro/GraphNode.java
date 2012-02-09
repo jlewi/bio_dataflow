@@ -7,6 +7,7 @@ import contrail.GraphNodeData;
 import contrail.GraphNodeKMerTag;
 import contrail.R5Tag;
 import contrail.sequences.DNAAlphabetFactory;
+import contrail.sequences.DNAStrand;
 import contrail.sequences.Sequence;
 
 import java.nio.ByteBuffer;
@@ -310,8 +311,7 @@ public class GraphNode {
    * Return the tail information for this node. If this node has out degree
    * 1 then its tail is the node we are connected to.
    * 
-   * @param dir - The read direction for the source kmer for which we consider 
-   *   tail information.
+   * @param strand - Which strand of DNA to consider the tail information for.
    * @return - An instance of Tailinfo. ID is set to the  
    *  representation of the destination node,
    *   dist is initialized to 1, and dir is the direction coresponding to the 
@@ -320,7 +320,7 @@ public class GraphNode {
    * TODO(jlewi): Add a unittest. 
    * TODO(jlewi): Clean up the docstring once the code is finalized. 
    */
-  public TailInfoAvro getTail(CharSequence dir)
+  public TailInfoAvro getTail(DNAStrand dir)
   {    
     if (degree(dir) != 1)
     {
@@ -331,17 +331,19 @@ public class GraphNode {
     ti.dist = 1;
     
     // Since the outdegree is 1 we either have 1 edge in direction
-    // dir + "f" or 1 edge in direction dir + "r" 
-    String fd = dir + "f";
+    // dir + "f" or 1 edge in direction dir + "r"
+    // TODO(jlewi): We should use StrandsForEdge instead of strings
+    // once the rest of the code is updated. 
+    String fd = dir.toString() + "f";
     List<CharSequence> dest_ids = getDestIdsForLinkDir(fd);
     if (dest_ids != null)  { 
       ti.id = dest_ids.get(0);  
-      ti.dir = "f";
+      ti.strand = DNAStrand.FORWARD;
     } else {
       fd = dir + "r";
       dest_ids = getDestIdsForLinkDir(fd);
       ti.id = dest_ids.get(0);
-      ti.dir = "r";
+      ti.strand = DNAStrand.REVERSE;
     }
     return ti;
   }
