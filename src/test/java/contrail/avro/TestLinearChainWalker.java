@@ -92,10 +92,12 @@ public class TestLinearChainWalker {
 				dest_for_link_dir.setLinkDir(
 						src.dna_direction.flip().toString() +
 						dest.dna_direction.flip().toString());
-				
+				dest_node.setLinkDirs(new ArrayList<DestForLinkDir> ());
+				dest_node.getLinkDirs().add(dest_for_link_dir);
 				
 			}
 		}
+		return chain;
 	}
 	
 	/*
@@ -171,8 +173,8 @@ public class TestLinearChainWalker {
 			// Which node and strand to start on.
 			int start_pos = (int) Math.floor(Math.random() * chain_length);
 			DNAStrand start_strand = DNAStrand.random();
-			
-			runTrial(chain, nodes_map, start_pos, start_strand);
+			EdgeDirection walk_direction = EdgeDirection.random();
+			runTrial(chain, nodes_map, start_pos, start_strand, walk_direction);
 		}
 	}
 }

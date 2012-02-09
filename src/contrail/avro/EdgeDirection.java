@@ -1,5 +1,7 @@
 package contrail.avro;
 
+import contrail.sequences.DNAStrand;
+
 /**
  * Used to indicate direction of an edge relative to a node.
  *
@@ -17,5 +19,12 @@ public enum EdgeDirection {
 		} else {
 			return INCOMING;
 		}
+	}
+	
+	/**
+	 * Return a random direction.
+	 */
+	public static EdgeDirection random() {
+		return Math.random() < .5 ? INCOMING : OUTGOING;
 	}
 }

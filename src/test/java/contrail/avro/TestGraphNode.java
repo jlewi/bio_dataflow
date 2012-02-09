@@ -94,9 +94,9 @@ public class TestGraphNode {
     String[] all_link_dirs = new String[] {"ff", "fr", "rf", "rr"};
     for (String dir: all_link_dirs) {
       if (!true_nodes_for_link_dirs.containsKey(dir)) {
-        assertEquals(null, node.getDestIdsForSrcDir(dir));
+        assertEquals(null, node.getDestIdsForLinkDir(dir));
       } else {
-        List<CharSequence> dest_ids = node.getDestIdsForSrcDir(dir);
+        List<CharSequence> dest_ids = node.getDestIdsForLinkDir(dir);
         //List<String> dest_ids = new ArrayList<String> ();
         //dest_ids.addAll(dest_ids_char);
         Collections.sort(dest_ids, new CharSequenceComparator());

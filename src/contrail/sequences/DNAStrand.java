@@ -19,7 +19,7 @@ public enum DNAStrand {
 	}
 	
 	/**
-	 * Return a random direction
+	 * Return a random strand.
 	 */
 	public static DNAStrand random() {
 		return Math.random() < .5 ? FORWARD : REVERSE;

@@ -36,15 +36,14 @@ public class GraphNode {
    * we want to avoid recomputing each time it is accessed.
    */
   protected static class DerivedData {
-    public String nodeid_m;
-    
     private GraphNodeData data;
     public DerivedData(GraphNodeData data) {
       this.data = data;
     }
     /**
      * This hash map maps the two letter direction for an edge e.g "fr"
-     * to a list of strings which are the node ids for the destination nodes
+     * to a list of strings which are the node ids for the destination nodes.
+     * If there are no ids for this direction the list is empty (not null);
      */
     private HashMap<CharSequence, List<CharSequence>> 
         linkdirs_to_dest_nodeid;
@@ -56,6 +55,12 @@ public class GraphNode {
         
         EdgeDestNode dest_node;
         List<CharSequence> id_list;
+                
+        linkdirs_to_dest_nodeid.put("ff", new ArrayList<CharSequence> ());
+        linkdirs_to_dest_nodeid.put("fr", new ArrayList<CharSequence> ());
+        linkdirs_to_dest_nodeid.put("rf", new ArrayList<CharSequence> ());
+        linkdirs_to_dest_nodeid.put("rr", new ArrayList<CharSequence> ());
+        
         // Loop over the destination nodes.
         for (Iterator<EdgeDestNode> it = data.getDestNodes().iterator();
              it.hasNext();) {
@@ -65,10 +70,6 @@ public class GraphNode {
             DestForLinkDir dest_for_link_dir = link_it.next();
             java.lang.CharSequence dir = dest_for_link_dir.getLinkDir();
             id_list = linkdirs_to_dest_nodeid.get(dir);
-            if (id_list == null) {
-              id_list = new ArrayList<CharSequence> ();
-              linkdirs_to_dest_nodeid.put(dir, id_list);
-            }
             id_list.add(dest_node.getNodeId());
           }
         }
@@ -272,26 +273,26 @@ public class GraphNode {
    * The degree is the number of outgoing edges from this node when the kmer 
    * sequence represented by this node is read in direction dir.
    * 
-   * @param dir - The orientation direction for this kmer. Can be "r" or "f".
+   * @param strand - Which strand to consider.
    * @return 
    * TODO(jlewi): Add a unittest.
    */
-  public int degree(CharSequence dir) {
+  public int degree(DNAStrand strand) {
     int retval = 0;
 
-    throw new RuntimeException("Need to finish implementing this function");
-//    String fd = dir + "f";
-//    if (fields.containsKey(fd)) { retval += fields.get(fd).size(); }
-//
-//    String rd = dir + "r";
-//    if (fields.containsKey(rd)) { retval += fields.get(rd).size(); }
+    
+    String fd = strand.toString() + "f";    
+    retval += this.derived_data.getDestNodeIdsForLinkDir(fd).size();
+    
+    String rd = strand.toString() + "r";
+    retval += this.derived_data.getDestNodeIdsForLinkDir(rd).size();
   
-    //return retval;
+    return retval;
   }
   
   public String getNodeId() {
     // TODO(jlewi): nodeid should probably be part of the data schema.
-    return derived_data.nodeid_m; 
+    return data.getNodeId().toString(); 
   }
   
   /**

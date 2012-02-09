@@ -54,7 +54,7 @@ public class LinearChainWalker implements Iterator<GraphNode> {
 			EdgeDirection walk_direction) {
 		this.nodes_in_memory = nodes_in_memory;
 		this.current_node = start_node;
-		this.start_strand = start_strand;
+		this.current_strand = start_strand;
 		this.walk_direction = walk_direction;
 		next_node = null;
 		next_strand = null;

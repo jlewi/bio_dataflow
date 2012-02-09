@@ -69,15 +69,14 @@ public class TailInfoAvro
 	 * @throws IOException
 	 */
 	public static TailInfoAvro find_tail(
-	    Map<String, GraphNode> nodes, GraphNode startnode, String startdir) 
-	        throws IOException {
-		throw new NotImplementedException("02-09-2012 Need to update this function to use DNADirection");
+	    Map<String, GraphNode> nodes, GraphNode startnode, DNAStrand startdir) 
+	        throws IOException {		
 		//System.err.println("find_tail: " + startnode.getNodeId() + " " + startdir);
 		Set<String> seen = new HashSet<String>();
 		seen.add(startnode.getNodeId());
 		
 		GraphNode curnode = startnode;
-		CharSequence curdir = startdir;
+		DNAStrand curdir = startdir;
 		String curid = startnode.getNodeId();
 		int dist = 0;
 		
@@ -86,7 +85,7 @@ public class TailInfoAvro
 		do
 		{
 			canCompress = false;			
-			TailInfoAvro next = curnode.gettail(curdir);
+			TailInfoAvro next = curnode.getTail(curdir);
 			
 			//System.err.println(curnode.getNodeId() + " " + curdir + ": " + next);
 
@@ -106,15 +105,14 @@ public class TailInfoAvro
 				// produces a list of incoming edges. If there is a single incoming
 				// edge then there is only a single path between the nodes (i.e they
 				// form a chain with no branching and we can compress the nodes together)
-				TailInfoAvro nexttail = curnode.gettail(
-				    DNAUtil.flip_dir(next.dir.toString()));
+				TailInfoAvro nexttail = curnode.getTail(next.strand.flip());
 				
 				if ((nexttail != null) && (nexttail.id.equals(curid)))
 				{
 					dist++;
 					canCompress = true;					
 					curid = next.id.toString();
-					curdir = next.dir;
+					curdir = next.strand;
 				}
 			}
 		}
@@ -126,7 +124,7 @@ public class TailInfoAvro
 		// JLEWI: This is an abuse of dir; it shouldn't be used
 		// to represent both the direction of the tail node and the tail 
 		// direction. 
-		retval.dir = DNAUtil.flip_dir(curdir.toString());
+		retval.strand = curdir.flip();
 		retval.dist = dist;
 			
 		return retval;
