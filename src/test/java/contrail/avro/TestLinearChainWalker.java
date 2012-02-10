@@ -8,17 +8,26 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-
+import java.util.Random;
+import org.junit.Before;
 import org.junit.Test;
 
 import contrail.DestForLinkDir;
 import contrail.EdgeDestNode;
 import contrail.GraphNodeData;
 import contrail.sequences.DNAStrand;
+import contrail.sequences.StrandsForEdge;
 import contrail.avro.EdgeDirection;
 
 public class TestLinearChainWalker {
 	
+	// Random number generator.
+	private Random generator;
+	@Before 
+	public void setUp() {
+		// Create a random generator so we can make a test repeatable
+		generator = new Random(103);
+	}
 	/**
 	 * Contains information about a chain constructed for some test.
 	 */
@@ -48,7 +57,7 @@ public class TestLinearChainWalker {
 			
 			ChainNode chain_node = new ChainNode();
 			chain_node.graph_node = node;
-			chain_node.dna_direction = DNAStrand.random();
+			chain_node.dna_direction = DNAStrand.random(generator);
 			chain.add(chain_node);
 		}
 		
@@ -61,9 +70,9 @@ public class TestLinearChainWalker {
 			if (pos + 1 < length) {
 				ChainNode src = chain.get(pos);
 				ChainNode dest = chain.get(pos + 1);
-				GraphNodeData node_data = chain.get(pos).graph_node.getData();
+				GraphNodeData node_data = src.graph_node.getData();
 				EdgeDestNode dest_node = new EdgeDestNode();
-				dest_node.setNodeId(chain.get(pos + 1).graph_node.getNodeId());
+				dest_node.setNodeId(dest.graph_node.getNodeId());
 								
 				node_data.getDestNodes().add(dest_node);
 				
@@ -81,7 +90,7 @@ public class TestLinearChainWalker {
 				ChainNode dest = chain.get(pos - 1);
 				GraphNodeData node_data =src.graph_node.getData();
 				EdgeDestNode dest_node = new EdgeDestNode();
-				dest_node.setNodeId(src.graph_node.getNodeId());
+				dest_node.setNodeId(dest.graph_node.getNodeId());
 								
 				node_data.getDestNodes().add(dest_node);
 				
@@ -89,9 +98,10 @@ public class TestLinearChainWalker {
 				
 				// We need to flip the dna direction to get incoming 
 				// edges. 
-				dest_for_link_dir.setLinkDir(
-						src.dna_direction.flip().toString() +
-						dest.dna_direction.flip().toString());
+				StrandsForEdge linkdir = 
+						StrandsForEdge.form(src.dna_direction.flip(), 
+											dest.dna_direction.flip());
+				dest_for_link_dir.setLinkDir(linkdir.toString());
 				dest_node.setLinkDirs(new ArrayList<DestForLinkDir> ());
 				dest_node.getLinkDirs().add(dest_for_link_dir);
 				
@@ -142,11 +152,11 @@ public class TestLinearChainWalker {
 		int pos = start_pos;
 		while (walker.hasNext()) {
 			GraphNode node = walker.next();
+			pos = pos + pos_increment;
 			
 			// Check the node equals the correct node.
 			assertEquals(node.getNodeId(), 
-						 chain.get(pos).graph_node.getNodeId());
-			pos = pos + pos_increment;
+						 chain.get(pos).graph_node.getNodeId());			
 		}
 	}
 	
@@ -160,21 +170,38 @@ public class TestLinearChainWalker {
 		}
 		return map;
 	}
+	
 	@Test
-	public void testLinearChainWalker () {
-		
-		int chain_length = (int) Math.floor(Math.random() * 100 + 5);
+	public void testSpecific () {		
+		int chain_length = generator.nextInt(100) + 5;
 		ArrayList<ChainNode> chain = ConstructChain(chain_length);
 		Map<String, GraphNode> nodes_map = getNodeMap(chain);
 		// How many trials to run. Each trial starts from a different
 		// position and strand.
 		int num_trials = 10;
-		for (int trial = 0; trial < num_trials; trial++) {
-			// Which node and strand to start on.
-			int start_pos = (int) Math.floor(Math.random() * chain_length);
-			DNAStrand start_strand = DNAStrand.random();
-			EdgeDirection walk_direction = EdgeDirection.random();
-			runTrial(chain, nodes_map, start_pos, start_strand, walk_direction);
-		}
+		
+		// Which node and strand to start on.
+		int start_pos = 80;
+		DNAStrand start_strand = DNAStrand.FORWARD;
+		EdgeDirection walk_direction = EdgeDirection.INCOMING;
+		runTrial(chain, nodes_map, start_pos, start_strand, walk_direction);
+		
 	}
+	
+//	@Test
+//	public void testLinearChainWalker () {		
+//		int chain_length = generator.nextInt(100) + 5;
+//		ArrayList<ChainNode> chain = ConstructChain(chain_length);
+//		Map<String, GraphNode> nodes_map = getNodeMap(chain);
+//		// How many trials to run. Each trial starts from a different
+//		// position and strand.
+//		int num_trials = 10;
+//		for (int trial = 0; trial < num_trials; trial++) {
+//			// Which node and strand to start on.
+//			int start_pos = generator.nextInt(chain_length);
+//			DNAStrand start_strand = DNAStrand.random(generator);
+//			EdgeDirection walk_direction = EdgeDirection.random(generator);
+//			runTrial(chain, nodes_map, start_pos, start_strand, walk_direction);
+//		}
+//	}
 }

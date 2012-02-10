@@ -1,5 +1,7 @@
 package contrail.avro;
 
+import java.util.Random;
+
 import contrail.sequences.DNAStrand;
 
 /**
@@ -27,4 +29,12 @@ public enum EdgeDirection {
 	public static EdgeDirection random() {
 		return Math.random() < .5 ? INCOMING : OUTGOING;
 	}
+	
+	/**
+	 * Return a random direction using the supplied generator
+	 */
+	public static EdgeDirection random(Random generator) {
+		return generator.nextDouble() < .5 ? INCOMING : OUTGOING;
+	}
+	
 }

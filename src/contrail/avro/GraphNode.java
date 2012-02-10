@@ -9,6 +9,7 @@ import contrail.R5Tag;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.Sequence;
+import contrail.sequences.StrandsForEdge;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -45,22 +46,27 @@ public class GraphNode {
      * to a list of strings which are the node ids for the destination nodes.
      * If there are no ids for this direction the list is empty (not null);
      */
-    private HashMap<CharSequence, List<CharSequence>> 
+    private HashMap<StrandsForEdge, List<CharSequence>> 
         linkdirs_to_dest_nodeid;
-    
-    public List<CharSequence> getDestNodeIdsForLinkDir(String link_dir) {
+        
+    public List<CharSequence> getDestNodeIdsForLinkDir(StrandsForEdge link_dir) {
       if (linkdirs_to_dest_nodeid == null) {
         linkdirs_to_dest_nodeid = 
-            new HashMap<CharSequence, List<CharSequence>> ();
+            new HashMap<StrandsForEdge, List<CharSequence>> ();
         
         EdgeDestNode dest_node;
         List<CharSequence> id_list;
                 
-        linkdirs_to_dest_nodeid.put("ff", new ArrayList<CharSequence> ());
-        linkdirs_to_dest_nodeid.put("fr", new ArrayList<CharSequence> ());
-        linkdirs_to_dest_nodeid.put("rf", new ArrayList<CharSequence> ());
-        linkdirs_to_dest_nodeid.put("rr", new ArrayList<CharSequence> ());
         
+        linkdirs_to_dest_nodeid.put(
+        		StrandsForEdge.FF, new ArrayList<CharSequence> ());
+        linkdirs_to_dest_nodeid.put(
+        		StrandsForEdge.FR, new ArrayList<CharSequence> ());
+        linkdirs_to_dest_nodeid.put(
+        		StrandsForEdge.RF, new ArrayList<CharSequence> ());
+        linkdirs_to_dest_nodeid.put(
+        		StrandsForEdge.RR, new ArrayList<CharSequence> ());
+                
         // Loop over the destination nodes.
         for (Iterator<EdgeDestNode> it = data.getDestNodes().iterator();
              it.hasNext();) {
@@ -68,7 +74,8 @@ public class GraphNode {
           for (Iterator<DestForLinkDir> link_it = dest_node.getLinkDirs().iterator();
                link_it.hasNext();) {
             DestForLinkDir dest_for_link_dir = link_it.next();
-            java.lang.CharSequence dir = dest_for_link_dir.getLinkDir();
+            StrandsForEdge dir = 
+            		StrandsForEdge.parse(dest_for_link_dir.getLinkDir().toString());
             id_list = linkdirs_to_dest_nodeid.get(dir);
             id_list.add(dest_node.getNodeId());
           }
@@ -281,10 +288,11 @@ public class GraphNode {
     int retval = 0;
 
     
-    String fd = strand.toString() + "f";    
+    StrandsForEdge fd = StrandsForEdge.form(strand, DNAStrand.FORWARD);    
     retval += this.derived_data.getDestNodeIdsForLinkDir(fd).size();
     
-    String rd = strand.toString() + "r";
+    
+    StrandsForEdge rd = StrandsForEdge.form(strand, DNAStrand.REVERSE);
     retval += this.derived_data.getDestNodeIdsForLinkDir(rd).size();
   
     return retval;
@@ -313,6 +321,9 @@ public class GraphNode {
    * 1 then its tail is the node we are connected to.
    * 
    * @param strand - Which strand of DNA to consider the tail information for.
+   * @param tail_dir - The direction of the tail. Outgoing means follow
+   *                   the outgoing edges. Incoming means follow the incoming
+   *                   edges.
    * @return - An instance of Tailinfo. ID is set to the  
    *  representation of the destination node,
    *   dist is initialized to 1, and dir is the direction coresponding to the 
@@ -321,27 +332,29 @@ public class GraphNode {
    * TODO(jlewi): Add a unittest. 
    * TODO(jlewi): Clean up the docstring once the code is finalized. 
    */
-  public TailInfoAvro getTail(DNAStrand dir)
+  public TailInfoAvro getTail(DNAStrand dir, EdgeDirection tail_dir)
   {    
-    if (degree(dir) != 1)
-    {
-      return null;
-    }
-    
+        
     TailInfoAvro ti = new TailInfoAvro();
     ti.dist = 1;
+    ti.direction = tail_dir;
     
+    throw new RunTimeException("Need to finish code");
+    if (tail_dir == EdgeDirection.INCOMING) {
+    	// We need to flip the direction in order to find incoming edges.
+    	;
+    }
     // Since the outdegree is 1 we either have 1 edge in direction
     // dir + "f" or 1 edge in direction dir + "r"
     // TODO(jlewi): We should use StrandsForEdge instead of strings
-    // once the rest of the code is updated. 
-    String fd = dir.toString() + "f";
+    // once the rest of the code is updated.     
+    StrandsForEdge fd = StrandsForEdge.form(dir, DNAStrand.FORWARD);    
     List<CharSequence> dest_ids = getDestIdsForLinkDir(fd);
-    if (dest_ids != null)  { 
+    if (dest_ids.size() > 0)  { 
       ti.id = dest_ids.get(0);  
       ti.strand = DNAStrand.FORWARD;
     } else {
-      fd = dir + "r";
+      fd = StrandsForEdge.form(dir, DNAStrand.REVERSE);
       dest_ids = getDestIdsForLinkDir(fd);
       ti.id = dest_ids.get(0);
       ti.strand = DNAStrand.REVERSE;
@@ -355,7 +368,7 @@ public class GraphNode {
    * @param link_dir
    * @return
    */
-  public List<CharSequence> getDestIdsForLinkDir(String link_dir) {
+  public List<CharSequence> getDestIdsForLinkDir(StrandsForEdge link_dir) {
     return derived_data.getDestNodeIdsForLinkDir(link_dir);
   }
   
@@ -364,5 +377,12 @@ public class GraphNode {
    */
   public List<CharSequence> getAllDestIds() {
     throw new NotImplementedException();
+  }
+  
+  /**
+   * This is mostly intended for displaying in a debugger.
+   */
+  public String toString() {
+	  return data.toString();
   }
 }

@@ -27,6 +27,12 @@ public class TailInfoAvro
 	public DNAStrand strand;
 	
 	/**
+	 * Which direction we walked from the start node. So you reverse
+	 * this direction to get to the start node.
+	 */
+	public EdgeDirection direction;
+	
+	/**
 	 * dist is the number of edges this tail spans. 
 	 */
 	public int    dist;

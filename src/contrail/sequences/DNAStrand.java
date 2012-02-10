@@ -1,5 +1,7 @@
 package contrail.sequences;
 
+import java.util.Random;
+
 /**
  * Enumeration which defines which strand a sequence comes from, the forward
  * or reverse strand. This usually refers to the canonical directions.
@@ -26,6 +28,12 @@ public enum DNAStrand {
 	}
 	
 	/**
+	 * Return a random strand using the supplied generator.
+	 */
+	public static DNAStrand random(Random generator) {
+		return generator.nextDouble() < .5 ? FORWARD : REVERSE;
+	}
+	/**
 	 * For backwards compatibility with string representation.
 	 */
 	public String toString() {
@@ -34,5 +42,5 @@ public enum DNAStrand {
 		} else {
 			return "r";
 		}
-	}
+	}	
 }
