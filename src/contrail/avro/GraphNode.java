@@ -134,6 +134,7 @@ public class GraphNode {
            	r_incoming_edges.add(new EdgeTerminal(
            			terminal.nodeId, terminal.strand.flip()));
         }
+
         // Convert the lists to immutable lists.
         f_outgoing_edges = Collections.unmodifiableList(f_outgoing_edges);
         r_outgoing_edges = Collections.unmodifiableList(r_outgoing_edges);
