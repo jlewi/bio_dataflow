@@ -1,5 +1,6 @@
 package contrail.avro;
 
+import contrail.graph.EdgeTerminal;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAUtil;
 import java.io.IOException;
@@ -15,17 +16,11 @@ import java.util.Set;
 public class TailInfoAvro 
 {
 	/**
-	 * id identifies the second node in the edge. 
-	 * 
-	 * Node.gettail sets the id to the compressed k-mer representation of the
-	 * destination node for the edge.
+	 * Identifies the terminal for the edge. This is always the terminal
+	 * furtherest from the node we start from when finding the tail.
 	 */
-	public CharSequence id;
-	/**
-	 * Which strand (canonical representation) the destination node comes from.
-	 */
-	public DNAStrand strand;
-	
+	public EdgeTerminal terminal;
+		
 	/**
 	 * Which direction we walked from the start node. So you reverse
 	 * this direction to get to the start node.
@@ -44,16 +39,14 @@ public class TailInfoAvro
 	 */
 	public TailInfoAvro(TailInfoAvro o)
 	{
-	  throw new RuntimeException("Class needs to be updated to use datastructures used in avro version of contrail.");
-//		id   = o.id;
-//		dir  = o.dir;
-//		dist = o.dist;
+	  terminal = o.terminal;
+	  direction = o.direction;
+	  dist = o.dist;
 	}
 	
 	public TailInfoAvro()
 	{
-		id = null;
-		strand = null;
+		terminal = null;
 		dist = 0;
 	}
 

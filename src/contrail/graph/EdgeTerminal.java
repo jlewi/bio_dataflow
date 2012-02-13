@@ -16,4 +16,23 @@ public final class EdgeTerminal {
 	  nodeId = node;
 	  strand = dna_strand;
   }  
+  
+  public boolean equals(Object o) {
+	  if (!(o instanceof EdgeTerminal)){
+		  throw new RuntimeException(
+				  "Can only compare to other EdgeTerminals.");
+	  }
+	  EdgeTerminal other = (EdgeTerminal) o;
+	  if (strand != other.strand) {
+		  return false;
+	  }
+	  return this.nodeId.equals(other.nodeId);
+  }
+  
+  /**
+   * A convenience method for displaying the value as a string.
+   */
+  public String toString() {
+	  return nodeId + ":" + strand.toString();
+  }
 }

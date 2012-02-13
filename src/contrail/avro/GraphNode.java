@@ -11,8 +11,11 @@ import contrail.sequences.DNAStrand;
 import contrail.sequences.Sequence;
 import contrail.sequences.StrandsForEdge;
 
+import contrail.graph.EdgeTerminal;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -39,12 +42,23 @@ public class GraphNode {
   protected static class DerivedData {
     private GraphNodeData data;
     
+    
+    // Whether we have created the edge lists.
+    private boolean lists_created;
+    
     // Store list of edge terminals for the specified strand in the given 
     // direction these lists are immutable so that we can safely return 
-    // references to the caller..
-    private List<EdgeTerminal>
+    // references to the caller.
+    
+    // For each strand we store a list of outgoing and incoming edges.
+    private List<EdgeTerminal> f_outgoing_edges;
+    private List<EdgeTerminal> r_outgoing_edges;
+    private List<EdgeTerminal> f_incoming_edges;
+    private List<EdgeTerminal> r_incoming_edges;
+    
     public DerivedData(GraphNodeData data) {
       this.data = data;
+      lists_created = false;
     }
     /**
      * This hash map maps the two letter direction for an edge e.g "fr"
@@ -54,15 +68,14 @@ public class GraphNode {
     private HashMap<StrandsForEdge, List<CharSequence>> 
         linkdirs_to_dest_nodeid;
         
-    public List<CharSequence> getDestNodeIdsForLinkDir(StrandsForEdge link_dir) {
-      if (linkdirs_to_dest_nodeid == null) {
-        linkdirs_to_dest_nodeid = 
-            new HashMap<StrandsForEdge, List<CharSequence>> ();
-        
-        EdgeDestNode dest_node;
-        List<CharSequence> id_list;
-                
-        
+    
+    // TODO(jlewi): Would it be better to use sorted sets for fast lookups?
+    private void createEdgeLists() {
+    	lists_created = true;
+    	
+    	linkdirs_to_dest_nodeid = 
+    			new HashMap<StrandsForEdge, List<CharSequence>> ();
+    	// Initialize the lists.
         linkdirs_to_dest_nodeid.put(
         		StrandsForEdge.FF, new ArrayList<CharSequence> ());
         linkdirs_to_dest_nodeid.put(
@@ -72,7 +85,15 @@ public class GraphNode {
         linkdirs_to_dest_nodeid.put(
         		StrandsForEdge.RR, new ArrayList<CharSequence> ());
                 
-        // Loop over the destination nodes.
+        // We only initialize f_outgoing_edges and r_outgoing_edges
+        // because f_incoming_edges = r_outgoing_edges.
+        f_outgoing_edges = new ArrayList<EdgeTerminal>();
+        r_outgoing_edges = new ArrayList<EdgeTerminal>();
+        
+        EdgeDestNode dest_node;
+        List<CharSequence> id_list;
+        
+    	// Loop over the destination nodes.
         for (Iterator<EdgeDestNode> it = data.getDestNodes().iterator();
              it.hasNext();) {
           dest_node = it.next();
@@ -83,8 +104,37 @@ public class GraphNode {
             		StrandsForEdge.parse(dest_for_link_dir.getLinkDir().toString());
             id_list = linkdirs_to_dest_nodeid.get(dir);
             id_list.add(dest_node.getNodeId());
+            
+            if (dir.src() == DNAStrand.FORWARD) {
+            	f_outgoing_edges.add(
+            			new EdgeTerminal(dest_node.getNodeId().toString(), 
+            							 dir.dest()));
+            } else {
+            	r_outgoing_edges.add(
+            			new EdgeTerminal(dest_node.getNodeId().toString(), 
+            							 dir.dest()));
+            }
           }
         }
+        
+        // Convert the lists to immutable lists.
+        f_outgoing_edges = Collections.unmodifiableList(f_outgoing_edges);
+        r_outgoing_edges = Collections.unmodifiableList(r_outgoing_edges);
+        
+        // Since the lists are immutable we can safely copy references.
+        f_incoming_edges = r_outgoing_edges;
+        r_incoming_edges = f_outgoing_edges;
+        
+        for (StrandsForEdge strands : StrandsForEdge.values()) {
+        	id_list = Collections.unmodifiableList(
+        			linkdirs_to_dest_nodeid.get(strands));
+        	linkdirs_to_dest_nodeid.put(strands, id_list);
+        }
+        
+    }
+    public List<CharSequence> getDestNodeIdsForLinkDir(StrandsForEdge link_dir) {
+      if (!lists_created) {
+    	  createEdgeLists();
       }
       return linkdirs_to_dest_nodeid.get(link_dir);
     }
@@ -96,13 +146,24 @@ public class GraphNode {
      */
     public List<EdgeTerminal>  getEdgeTerminals(
     		DNAStrand strand, EdgeDirection direction) {
-    	StrandsForEdge edge_strands;
-    	if (strand == DNAStrand.FORWARD) {
-    		
-    	} else {
-    		
+    	if (!lists_created) {
+    		createEdgeLists();
     	}
-    	return derived_data.getEdgeTerminals(strand, direction);
+    	List<EdgeTerminal> terminals;
+    	if (strand == DNAStrand.FORWARD) {
+    		if (direction == EdgeDirection.OUTGOING) {    			
+    			terminals = f_outgoing_edges;
+    		} else {
+    			terminals = f_incoming_edges;
+    		}    		
+    	} else {
+    		if (direction == EdgeDirection.OUTGOING) {    			
+    			terminals = r_outgoing_edges;
+    		} else {
+    			terminals = r_incoming_edges;
+    		}
+    	}
+    	return terminals;
     }
   }
   
@@ -360,26 +421,13 @@ public class GraphNode {
     ti.dist = 1;
     ti.direction = tail_dir;
     
-    throw new RunTimeException("Need to finish code");
-    if (tail_dir == EdgeDirection.INCOMING) {
-    	// We need to flip the direction in order to find incoming edges.
-    	;
+
+    List<EdgeTerminal> terminals = getEdgeTerminals(dir, tail_dir);
+    if (terminals.size() != 1) {
+    	// No tail because degree isn't 1.
+    	return null;
     }
-    // Since the outdegree is 1 we either have 1 edge in direction
-    // dir + "f" or 1 edge in direction dir + "r"
-    // TODO(jlewi): We should use StrandsForEdge instead of strings
-    // once the rest of the code is updated.     
-    StrandsForEdge fd = StrandsForEdge.form(dir, DNAStrand.FORWARD);    
-    List<CharSequence> dest_ids = getDestIdsForLinkDir(fd);
-    if (dest_ids.size() > 0)  { 
-      ti.id = dest_ids.get(0);  
-      ti.strand = DNAStrand.FORWARD;
-    } else {
-      fd = StrandsForEdge.form(dir, DNAStrand.REVERSE);
-      dest_ids = getDestIdsForLinkDir(fd);
-      ti.id = dest_ids.get(0);
-      ti.strand = DNAStrand.REVERSE;
-    }
+    ti.terminal = terminals.get(0);
     return ti;
   }
   
@@ -412,7 +460,8 @@ public class GraphNode {
    * @param strand: Which strand in this node to consider.
    * @param direction: Direction of the edge to consider.
    */
-  public List<EdgeTerminal>  getEdgeTerminals(DNAStrand strand, EdgeDirection direction) {
+  public List<EdgeTerminal>  getEdgeTerminals(
+		  DNAStrand strand, EdgeDirection direction) {
 	  return derived_data.getEdgeTerminals(strand, direction);
   }
 }
