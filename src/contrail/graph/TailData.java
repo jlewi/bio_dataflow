@@ -1,6 +1,7 @@
 package contrail.graph;
 
 import contrail.avro.GraphNode;
+import contrail.avro.NotImplementedException;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAUtil;
 import java.io.IOException;
@@ -51,82 +52,87 @@ public class TailData
 	}
 
 	/**
-	 * Check if a set of nodes contains a tail terminating on startnode.
+	 * Find a tail.
 	 * 
-	 * A tail is a sequence of nodes which have outdegree 1. If a subset of the nodes
-	 * in nodes forms a tail terminating on startnode, then we can compress these nodes
-	 * because there's only one path through the nodes.
+	 * A tail is a sequence of nodes with degree 1. We can only follow the
+	 * tail if the nodes are in memory.
 	 * 
-	 * @param nodes - A map of nodes. We can only compress a chain terminating on startnode
-	 *   if the nodes startnode is connected to are stored in this map. The keys of the map 
+	 * @param nodes: A map of nodes. We can only follow a chain if the nodes
+	 *   are stored in this map. The keys of the map 
 	 *   are the node ids and the values are the actual nodes.   
-	 * @param startnode - Node where we begin our search for the tail. 
-	 * @param startdir - The direction of the sequence in startnode to consider. 
-	 * @return An instance of TailInfo describing the tail/chain. The id of the 
-	 *   tail will be the last node in the chain; startnode is the other end. 
+	 * @param startnode: Node where we begin our search for the tail. 
+	 * @param start_strand: Which strand in node to begin on.
+	 * @param direction: Which direction to find the tail in. 
+	 * @return An instance of TailDaita describing the tail/chain. The 
+	 *   last terminal in the chain is given by terminal.   
 	 *   dist will be the number of edges spanned by the chain.
 	 * @throws IOException
 	 */
 	public static TailData find_tail(
-	    Map<String, GraphNode> nodes, GraphNode startnode, DNAStrand startdir) 
-	        throws IOException {		
-		//System.err.println("find_tail: " + startnode.getNodeId() + " " + startdir);
+	    Map<String, GraphNode> nodes, GraphNode startnode, 
+	    DNAStrand start_strand, EdgeDirection direction) throws IOException {		
 		Set<String> seen = new HashSet<String>();
 		seen.add(startnode.getNodeId());
 		
-		GraphNode curnode = startnode;
-		DNAStrand curdir = startdir;
+		GraphNode curnode = startnode;		
 		String curid = startnode.getNodeId();
 		int dist = 0;
 		
 		boolean canCompress = false;
 		
-		do
-		{
-			canCompress = false;			
-			TailData next = curnode.getTail(curdir);
-			
-			//System.err.println(curnode.getNodeId() + " " + curdir + ": " + next);
-
-			if ((next != null) &&
-				(nodes.containsKey(next.id)) &&
-				(!seen.contains(next.id)))
-			{
-				// curnode has a tail (has outgoing degree 1); the tail 
-				// is in nodes and we haven't seen it before
-				
-				seen.add(next.id.toString());
-				curnode = nodes.get(next.id);
-
-				// We can only compress the tail if the tail has a single incoming edge.
-				// To check whether curnode has a single incoming edge, we look
-				// for outgoing edges with the direction for the source flipped; this
-				// produces a list of incoming edges. If there is a single incoming
-				// edge then there is only a single path between the nodes (i.e they
-				// form a chain with no branching and we can compress the nodes together)
-				TailData nexttail = curnode.getTail(next.strand.flip());
-				
-				if ((nexttail != null) && (nexttail.id.equals(curid)))
-				{
-					dist++;
-					canCompress = true;					
-					curid = next.id.toString();
-					curdir = next.strand;
-				}
-			}
-		}
-		while (canCompress);
-
-		TailData retval = new TailData();
+		LinearChainWalker walker = new LinearChainWalker(
+				nodes, startnode, start_strand, direction);
 		
-		retval.id = curid;
-		// JLEWI: This is an abuse of dir; it shouldn't be used
-		// to represent both the direction of the tail node and the tail 
-		// direction. 
-		retval.strand = curdir.flip();
-		retval.dist = dist;
+		while(walker.hasNext()) {
+			EdgeTerminal terminal = walker.next();
 			
-		return retval;
+			throw new RuntimeException("Left of here");			
+		}
+		throw new NotImplementedException("Need to finish code");
+		
+//		do
+//		{
+//			canCompress = false;			
+//			TailData next = curnode.getTail(start_strand, direction);
+//			
+//			if ((next != null) &&
+//				(nodes.containsKey(next.terminal.nodeId)) &&
+//				(!seen.contains(next.terminal.nodeId)))
+//			{
+//				// curnode has a tail (has outgoing degree 1); the tail 
+//				// is in nodes and we haven't seen it before				
+//				seen.add(next.id.toString());
+//				curnode = nodes.get(next.id);
+//
+//				// We can only compress the tail if the tail has a single incoming edge.
+//				// To check whether curnode has a single incoming edge, we look
+//				// for outgoing edges with the direction for the source flipped; this
+//				// produces a list of incoming edges. If there is a single incoming
+//				// edge then there is only a single path between the nodes (i.e they
+//				// form a chain with no branching and we can compress the nodes together)
+//				TailData nexttail = curnode.getTail(next.strand.flip());
+//				
+//				if ((nexttail != null) && (nexttail.id.equals(curid)))
+//				{
+//					dist++;
+//					canCompress = true;					
+//					curid = next.id.toString();
+//					curdir = next.strand;
+//				}
+//			}
+//		}
+//		while (canCompress);
+//
+//		TailData retval = new TailData();
+//		
+//		retval.id = curid;
+//		// JLEWI: This is an abuse of dir; it shouldn't be used
+//		// to represent both the direction of the tail node and the tail 
+//		// direction. 
+//		retval.strand = curdir.flip();
+//		retval.dist = dist;
+			
+		//return retval;
 	}
 	
 }

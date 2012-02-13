@@ -4,9 +4,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
-import contrail.avro.EdgeDirection;
 import contrail.avro.GraphNode;
-import contrail.avro.TailInfoAvro;
 import contrail.sequences.DNAStrand;
 
 /**
@@ -29,17 +27,30 @@ import contrail.sequences.DNAStrand;
  * The walk is always with respect to the sequence represented by
  * the canonical direction of start_node.
  */
-public class LinearChainWalker implements Iterator<GraphNode> {
+public class LinearChainWalker implements Iterator<EdgeTerminal> {
 		
 	private Map<String, GraphNode> nodes_in_memory;
 
 	private EdgeDirection walk_direction;
-	private GraphNode current_node;
-	private DNAStrand current_strand;
+	private EdgeTerminal current_terminal;
 	
 	private Boolean has_next;
-	private GraphNode next_node; 	
-	private DNAStrand next_strand;
+	private EdgeTerminal next_terminal;
+	
+	/**
+	 * Initialize the walker.
+	 * @param nodes_in_memory
+	 * @param start
+	 */
+	private void init(
+			Map<String, GraphNode> nodes_in_memory, EdgeTerminal start,
+			EdgeDirection direction) {
+		this.nodes_in_memory = nodes_in_memory;
+		current_terminal = start;
+		has_next = null;
+		walk_direction = direction;
+	}
+	
 	/**
 	 * Construct the walker.
 	 * @param nodes_in_memory: A map containing the nodes keyed by node id
@@ -54,13 +65,24 @@ public class LinearChainWalker implements Iterator<GraphNode> {
 			Map<String, GraphNode> nodes_in_memory, GraphNode start_node,
 			DNAStrand start_strand,
 			EdgeDirection walk_direction) {
-		this.nodes_in_memory = nodes_in_memory;
-		this.current_node = start_node;
-		this.current_strand = start_strand;
-		this.walk_direction = walk_direction;
-		next_node = null;
-		next_strand = null;
-		has_next = null;
+		init (nodes_in_memory, 
+			  new EdgeTerminal(start_node.getNodeId(), start_strand),
+			  walk_direction);		
+	}
+	
+	/**
+	 * Construct the walker.
+	 * @param nodes_in_memory: A map containing the nodes keyed by node id
+	 *   that we know about. 
+	 * @param start: The terminal to start on.
+	 * @param start_strand: Which strand of the start node to start on.
+	 * @param walk_direction: Indicates in which direction to walk the graph
+	 *   starting at start_node. 
+	 */
+	public LinearChainWalker(
+			Map<String, GraphNode> nodes_in_memory, EdgeTerminal start,
+			EdgeDirection walk_direction) {
+		init (nodes_in_memory, start, walk_direction);		
 	}
 	
 	public boolean hasNext() {		
@@ -69,13 +91,12 @@ public class LinearChainWalker implements Iterator<GraphNode> {
 			// Also cache the next node to return.
 			has_next = false;
 			
-			
-			TailInfoAvro tail = this.current_node.getTail(
-					current_strand, this.walk_direction);
+			GraphNode node = nodes_in_memory.get(current_terminal.nodeId);			
+			TailData tail = node.getTail(
+					current_terminal.strand, this.walk_direction);
 			if (tail != null) {
 				if (nodes_in_memory.containsKey(tail.terminal.nodeId)) {
-					next_node = nodes_in_memory.get(tail.terminal.nodeId);
-					next_strand = tail.terminal.strand;
+					next_terminal = tail.terminal;
 					has_next = true;
 				}
 			}
@@ -84,19 +105,17 @@ public class LinearChainWalker implements Iterator<GraphNode> {
 		return has_next.booleanValue();
 	}
 	
-	public GraphNode next() {
+	public EdgeTerminal next() {
 		if (!hasNext()) {
 			throw new NoSuchElementException();
 		}
 		// Advance current node.
-		current_node = next_node;
-		current_strand = next_strand;
-		
+		current_terminal = next_terminal;
+				
 		// Clear the cache
 		has_next = null;
-		next_node = null;
-		next_strand = null;
-		return current_node;
+		next_terminal = null;		
+		return current_terminal;
 	}
 
 	public void remove() {

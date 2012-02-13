@@ -17,7 +17,6 @@ import contrail.EdgeDestNode;
 import contrail.GraphNodeData;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.StrandsForEdge;
-import contrail.avro.EdgeDirection;
 import contrail.avro.GraphNode;
 
 public class TestLinearChainWalker {
@@ -151,12 +150,13 @@ public class TestLinearChainWalker {
 		
 		int pos = start_pos;
 		while (walker.hasNext()) {
-			GraphNode node = walker.next();
+			EdgeTerminal node = walker.next();			
 			pos = pos + pos_increment;
 			
 			// Check the node equals the correct node.
-			assertEquals(node.getNodeId(), 
+			assertEquals(node.nodeId, 
 						 chain.get(pos).graph_node.getNodeId());			
+			assertEquals(node.strand, chain.get(pos).dna_direction);
 		}
 	}
 	

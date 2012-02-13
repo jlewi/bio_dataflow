@@ -11,7 +11,9 @@ import contrail.sequences.DNAStrand;
 import contrail.sequences.Sequence;
 import contrail.sequences.StrandsForEdge;
 
+import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
+import contrail.graph.TailData;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -430,10 +432,10 @@ public class GraphNode {
    * TODO(jlewi): Add a unittest. 
    * TODO(jlewi): Clean up the docstring once the code is finalized. 
    */
-  public TailInfoAvro getTail(DNAStrand dir, EdgeDirection tail_dir)
+  public TailData getTail(DNAStrand dir, EdgeDirection tail_dir)
   {    
         
-    TailInfoAvro ti = new TailInfoAvro();
+    TailData ti = new TailData();
     ti.dist = 1;
     ti.direction = tail_dir;
     
