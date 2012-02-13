@@ -38,6 +38,11 @@ public class GraphNode {
    */
   protected static class DerivedData {
     private GraphNodeData data;
+    
+    // Store list of edge terminals for the specified strand in the given 
+    // direction these lists are immutable so that we can safely return 
+    // references to the caller..
+    private List<EdgeTerminal>
     public DerivedData(GraphNodeData data) {
       this.data = data;
     }
@@ -82,6 +87,22 @@ public class GraphNode {
         }
       }
       return linkdirs_to_dest_nodeid.get(link_dir);
+    }
+    
+    /**
+     * Retuns an immutable list of the terminals for outgoing or incoming edges.
+     * @param strand: Which strand in this node to consider.
+     * @param direction: Direction of the edge to consider.
+     */
+    public List<EdgeTerminal>  getEdgeTerminals(
+    		DNAStrand strand, EdgeDirection direction) {
+    	StrandsForEdge edge_strands;
+    	if (strand == DNAStrand.FORWARD) {
+    		
+    	} else {
+    		
+    	}
+    	return derived_data.getEdgeTerminals(strand, direction);
     }
   }
   
@@ -384,5 +405,14 @@ public class GraphNode {
    */
   public String toString() {
 	  return data.toString();
+  }
+  
+  /**
+   * Returns an immutable list of the terminals for outgoing or incoming edges.
+   * @param strand: Which strand in this node to consider.
+   * @param direction: Direction of the edge to consider.
+   */
+  public List<EdgeTerminal>  getEdgeTerminals(DNAStrand strand, EdgeDirection direction) {
+	  return derived_data.getEdgeTerminals(strand, direction);
   }
 }
