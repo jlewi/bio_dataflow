@@ -1,9 +1,11 @@
-package contrail.avro;
+package contrail.graph;
 
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
+import contrail.avro.EdgeDirection;
+import contrail.avro.GraphNode;
 import contrail.sequences.DNAStrand;
 
 /**

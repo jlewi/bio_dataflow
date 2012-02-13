@@ -21,9 +21,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.tools.ant.taskdefs.Java;
-
-
 /**
  * Wrapper class for accessing modifying the GraphNodeData structure.
  * 

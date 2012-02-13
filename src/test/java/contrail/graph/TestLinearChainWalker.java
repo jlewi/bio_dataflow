@@ -1,4 +1,4 @@
-package contrail.avro;
+package contrail.graph;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -18,6 +18,7 @@ import contrail.GraphNodeData;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.StrandsForEdge;
 import contrail.avro.EdgeDirection;
+import contrail.avro.GraphNode;
 
 public class TestLinearChainWalker {
 	
