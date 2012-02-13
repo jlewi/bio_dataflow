@@ -27,7 +27,8 @@ public class TestLinearChainWalker {
 	@Before 
 	public void setUp() {
 		// Create a random generator so we can make a test repeatable
-		generator = new Random(103);
+		// generator = new Random(103);
+		generator = new Random();
 	}
 	/**
 	 * Contains information about a chain constructed for some test.
@@ -38,6 +39,10 @@ public class TestLinearChainWalker {
 		
 		// The direction for the dna in this chain.
 		DNAStrand dna_direction;
+		
+		public String toString() {
+			return graph_node.getNodeId() + ":" + dna_direction.toString();
+		}
 	}
 	/**
 	 * 
@@ -118,12 +123,13 @@ public class TestLinearChainWalker {
 	 */
 	public void runTrial(ArrayList<ChainNode> chain,
 						 Map<String, GraphNode> nodes_in_memory,
-						 int start_pos, 
-			             DNAStrand start_strand, 
+						 int start_pos,  
 			             EdgeDirection walk_direction) {
 		
 		ChainNode chain_start = chain.get(start_pos);
 		GraphNode start_node = chain_start.graph_node;
+		DNAStrand start_strand = chain_start.dna_direction;
+		
 		// Construct the iterator
 		LinearChainWalker walker = new LinearChainWalker(
 				nodes_in_memory, start_node, start_strand,
@@ -134,19 +140,12 @@ public class TestLinearChainWalker {
 		// Compute what the last node in the chain should be. We
 		// need to consider both start_strand and walk direction to figure
 		// out which end the chain ends on.
-		if (start_strand == chain_start.dna_direction) {
-			if (walk_direction == EdgeDirection.OUTGOING) {
-				end_pos = chain.size() -1;
-			} else {
-				end_pos = 0;
-			}
+		if (walk_direction == EdgeDirection.OUTGOING) {
+			end_pos = chain.size() -1;
 		} else {
-			if (walk_direction == EdgeDirection.INCOMING) {
-				end_pos = chain.size() -1;
-			} else {
-				end_pos = 0;
-			}
+			end_pos = 0;
 		}
+
 		
 		int pos_increment = end_pos >= start_pos ? 1 : -1; 
 		
@@ -172,37 +171,35 @@ public class TestLinearChainWalker {
 		return map;
 	}
 	
-	@Test
-	public void testSpecific () {		
-		int chain_length = generator.nextInt(100) + 5;
-		ArrayList<ChainNode> chain = ConstructChain(chain_length);
-		Map<String, GraphNode> nodes_map = getNodeMap(chain);
-		// How many trials to run. Each trial starts from a different
-		// position and strand.
-		int num_trials = 10;
-		
-		// Which node and strand to start on.
-		int start_pos = 80;
-		DNAStrand start_strand = DNAStrand.FORWARD;
-		EdgeDirection walk_direction = EdgeDirection.INCOMING;
-		runTrial(chain, nodes_map, start_pos, start_strand, walk_direction);
-		
-	}
-	
 //	@Test
-//	public void testLinearChainWalker () {		
+//	public void testSpecific () {		
 //		int chain_length = generator.nextInt(100) + 5;
 //		ArrayList<ChainNode> chain = ConstructChain(chain_length);
 //		Map<String, GraphNode> nodes_map = getNodeMap(chain);
 //		// How many trials to run. Each trial starts from a different
 //		// position and strand.
 //		int num_trials = 10;
-//		for (int trial = 0; trial < num_trials; trial++) {
-//			// Which node and strand to start on.
-//			int start_pos = generator.nextInt(chain_length);
-//			DNAStrand start_strand = DNAStrand.random(generator);
-//			EdgeDirection walk_direction = EdgeDirection.random(generator);
-//			runTrial(chain, nodes_map, start_pos, start_strand, walk_direction);
-//		}
+//		
+//		// Which node and strand to start on.
+//		int start_pos = 80;
+//		EdgeDirection walk_direction = EdgeDirection.INCOMING;
+//		runTrial(chain, nodes_map, start_pos, walk_direction);
+//		
 //	}
+	
+	@Test
+	public void testLinearChainWalker () {		
+		int chain_length = generator.nextInt(100) + 5;
+		ArrayList<ChainNode> chain = ConstructChain(chain_length);
+		Map<String, GraphNode> nodes_map = getNodeMap(chain);
+		// How many trials to run. Each trial starts from a different
+		// position and strand.
+		int num_trials = 10;
+		for (int trial = 0; trial < num_trials; trial++) {
+			// Which node and strand to start on.
+			int start_pos = generator.nextInt(chain_length);
+			EdgeDirection walk_direction = EdgeDirection.random(generator);
+			runTrial(chain, nodes_map, start_pos, walk_direction);
+		}
+	}
 }

@@ -6,6 +6,7 @@ import java.util.NoSuchElementException;
 
 import contrail.avro.EdgeDirection;
 import contrail.avro.GraphNode;
+import contrail.avro.TailInfoAvro;
 import contrail.sequences.DNAStrand;
 
 /**
@@ -32,7 +33,6 @@ public class LinearChainWalker implements Iterator<GraphNode> {
 		
 	private Map<String, GraphNode> nodes_in_memory;
 
-	//private GraphNode start_node;
 	private EdgeDirection walk_direction;
 	private GraphNode current_node;
 	private DNAStrand current_strand;
@@ -69,17 +69,13 @@ public class LinearChainWalker implements Iterator<GraphNode> {
 			// Also cache the next node to return.
 			has_next = false;
 			
-			DNAStrand tail_strand = this.current_strand;
-			if (walk_direction == EdgeDirection.INCOMING) {
-				// To get incoming edges we need look at the complement
-				// strand.
-				tail_strand = tail_strand.flip();
-			}
-			TailInfoAvro tail = this.current_node.getTail(tail_strand);
+			
+			TailInfoAvro tail = this.current_node.getTail(
+					current_strand, this.walk_direction);
 			if (tail != null) {
-				if (nodes_in_memory.containsKey(tail.id)) {
-					next_node = nodes_in_memory.get(tail.id);
-					next_strand = tail.strand;
+				if (nodes_in_memory.containsKey(tail.terminal.nodeId)) {
+					next_node = nodes_in_memory.get(tail.terminal.nodeId);
+					next_strand = tail.terminal.strand;
 					has_next = true;
 				}
 			}

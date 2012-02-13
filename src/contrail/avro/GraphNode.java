@@ -114,14 +114,32 @@ public class GraphNode {
           }
         }
         
+        // We can construct the incoming edges as follows,
+        // An edge x->y implies an edge RC(y)->RC(X) where RC is the reverse
+        // complement. Thus the edge  w->x implies an edge RC(X) -> RC(W)
+        // So to get the incoming edges for x we look at outgoing edges
+        // RC(x) and then flip the direction of the destination.
+        f_incoming_edges = new ArrayList<EdgeTerminal>();
+        for (Iterator<EdgeTerminal> it = r_outgoing_edges.iterator();
+             it.hasNext();) {
+        	EdgeTerminal terminal = it.next();
+        	f_incoming_edges.add(new EdgeTerminal(
+        			terminal.nodeId, terminal.strand.flip()));
+        }
+        
+        r_incoming_edges = new ArrayList<EdgeTerminal>();
+        for (Iterator<EdgeTerminal> it = f_outgoing_edges.iterator();
+                it.hasNext();) {
+           	EdgeTerminal terminal = it.next();
+           	r_incoming_edges.add(new EdgeTerminal(
+           			terminal.nodeId, terminal.strand.flip()));
+        }
         // Convert the lists to immutable lists.
         f_outgoing_edges = Collections.unmodifiableList(f_outgoing_edges);
         r_outgoing_edges = Collections.unmodifiableList(r_outgoing_edges);
-        
-        // Since the lists are immutable we can safely copy references.
-        f_incoming_edges = r_outgoing_edges;
-        r_incoming_edges = f_outgoing_edges;
-        
+        f_incoming_edges = Collections.unmodifiableList(f_incoming_edges);
+        r_incoming_edges = Collections.unmodifiableList(r_incoming_edges);
+                
         for (StrandsForEdge strands : StrandsForEdge.values()) {
         	id_list = Collections.unmodifiableList(
         			linkdirs_to_dest_nodeid.get(strands));

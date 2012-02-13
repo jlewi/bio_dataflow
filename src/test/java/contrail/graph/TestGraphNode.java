@@ -17,10 +17,8 @@ import contrail.EdgeDestNode;
 import contrail.GraphNodeData;
 import contrail.avro.EdgeDirection;
 import contrail.avro.GraphNode;
-import contrail.avro.TestGraphNode.CharSequenceComparator;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.StrandsForEdge;
-//import contrail.sequences.DNAStrand;
 import org.junit.Before;
 import org.junit.Test;
 
