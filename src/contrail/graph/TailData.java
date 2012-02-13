@@ -1,6 +1,6 @@
-package contrail.avro;
+package contrail.graph;
 
-import contrail.graph.EdgeTerminal;
+import contrail.avro.GraphNode;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAUtil;
 import java.io.IOException;
@@ -13,7 +13,7 @@ import java.util.Set;
  * a node has out degree 1. 
  * 
  */
-public class TailInfoAvro 
+public class TailData 
 {
 	/**
 	 * Identifies the terminal for the edge. This is always the terminal
@@ -37,14 +37,14 @@ public class TailInfoAvro
 	 * 
 	 * @param o
 	 */
-	public TailInfoAvro(TailInfoAvro o)
+	public TailData(TailData o)
 	{
 	  terminal = o.terminal;
 	  direction = o.direction;
 	  dist = o.dist;
 	}
 	
-	public TailInfoAvro()
+	public TailData()
 	{
 		terminal = null;
 		dist = 0;
@@ -67,7 +67,7 @@ public class TailInfoAvro
 	 *   dist will be the number of edges spanned by the chain.
 	 * @throws IOException
 	 */
-	public static TailInfoAvro find_tail(
+	public static TailData find_tail(
 	    Map<String, GraphNode> nodes, GraphNode startnode, DNAStrand startdir) 
 	        throws IOException {		
 		//System.err.println("find_tail: " + startnode.getNodeId() + " " + startdir);
@@ -84,7 +84,7 @@ public class TailInfoAvro
 		do
 		{
 			canCompress = false;			
-			TailInfoAvro next = curnode.getTail(curdir);
+			TailData next = curnode.getTail(curdir);
 			
 			//System.err.println(curnode.getNodeId() + " " + curdir + ": " + next);
 
@@ -104,7 +104,7 @@ public class TailInfoAvro
 				// produces a list of incoming edges. If there is a single incoming
 				// edge then there is only a single path between the nodes (i.e they
 				// form a chain with no branching and we can compress the nodes together)
-				TailInfoAvro nexttail = curnode.getTail(next.strand.flip());
+				TailData nexttail = curnode.getTail(next.strand.flip());
 				
 				if ((nexttail != null) && (nexttail.id.equals(curid)))
 				{
@@ -117,7 +117,7 @@ public class TailInfoAvro
 		}
 		while (canCompress);
 
-		TailInfoAvro retval = new TailInfoAvro();
+		TailData retval = new TailData();
 		
 		retval.id = curid;
 		// JLEWI: This is an abuse of dir; it shouldn't be used
