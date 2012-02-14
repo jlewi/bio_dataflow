@@ -71,8 +71,6 @@
   </repositories>
   <build>
     <plugins>
-      <!-- Add to src path src/contrail since its not added by default. We don't use "src" as the directory because we don't want to include the tests.         
--->
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
@@ -84,7 +82,6 @@
             </goals>
             <configuration>
               <sources>
-		<source>src/contrail</source>
 		<!-- We add src/test/java only so profiling in netbeans will work -->
 		<source>src/test/java</source>
               </sources>
