@@ -84,8 +84,32 @@ public class TailData
 				nodes, startnode, start_strand, direction);
 		
 		while(walker.hasNext()) {
+			// The walker only returnes a terminal if the corresponding
+			// GraphNode is in the map passed to LinearChainWalker.
 			EdgeTerminal terminal = walker.next();
 			
+			if (!seen.contains(terminal.nodeId)) {
+				// curnode has a tail (has outgoing degree 1); the tail 
+//				// is in nodes and we haven't seen it before				
+				seen.add(terminal.nodeId);
+//				curnode = nodes.get(next.id);
+//
+//				// We can only compress the tail if the tail has a single incoming edge.
+//				// To check whether curnode has a single incoming edge, we look
+//				// for outgoing edges with the direction for the source flipped; this
+//				// produces a list of incoming edges. If there is a single incoming
+//				// edge then there is only a single path between the nodes (i.e they
+//				// form a chain with no branching and we can compress the nodes together)
+//				TailData nexttail = curnode.getTail(next.strand.flip());
+//				
+//				if ((nexttail != null) && (nexttail.id.equals(curid)))
+//				{
+//					dist++;
+//					canCompress = true;					
+//					curid = next.id.toString();
+//					curdir = next.strand;
+//				}
+			}
 			throw new RuntimeException("Left of here");			
 		}
 		throw new NotImplementedException("Need to finish code");
