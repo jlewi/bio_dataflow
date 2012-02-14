@@ -19,7 +19,7 @@ import contrail.sequences.DNAStrand;
 import contrail.sequences.StrandsForEdge;
 import contrail.avro.GraphNode;
 
-public class TestLinearChainWalker {
+public class TestTailData {
 	
 	// Random number generator.
 	private Random generator;
@@ -29,6 +29,7 @@ public class TestLinearChainWalker {
 		// generator = new Random(103);
 		generator = new Random();
 	}
+	
 	/**
 	 * Contains information about a chain constructed for some test.
 	 */
@@ -43,6 +44,7 @@ public class TestLinearChainWalker {
 			return graph_node.getNodeId() + ":" + dna_direction.toString();
 		}
 	}
+	
 	/**
 	 * 
 	 * @param length
@@ -145,19 +147,20 @@ public class TestLinearChainWalker {
 			end_pos = 0;
 		}
 
+		// Find the tail.
+		TailData tail = TailData.findTail(
+				nodes_in_memory, start_node, start_strand, walk_direction);
 		
-		int pos_increment = end_pos >= start_pos ? 1 : -1; 
-		
-		int pos = start_pos;
-		while (walker.hasNext()) {
-			EdgeTerminal node = walker.next();			
-			pos = pos + pos_increment;
-			
+		if (start_pos == end_pos) {
+			assertEquals(tail, null);
+		} else {
 			// Check the node equals the correct node.
-			assertEquals(node.nodeId, 
-						 chain.get(pos).graph_node.getNodeId());			
-			assertEquals(node.strand, chain.get(pos).dna_direction);
-		}
+			assertEquals(tail.terminal.nodeId, 
+						 chain.get(end_pos).graph_node.getNodeId());			
+			assertEquals(
+					tail.terminal.strand, chain.get(end_pos).dna_direction);
+			assertEquals(tail.dist, Math.abs(start_pos - end_pos));
+		}	
 	}
 	
 	public Map<String, GraphNode> getNodeMap(ArrayList<ChainNode> chain) {
@@ -172,7 +175,7 @@ public class TestLinearChainWalker {
 	}
 	
 	@Test
-	public void testLinearChainWalker () {		
+	public void testLinearTail () {		
 		int chain_length = generator.nextInt(100) + 5;
 		ArrayList<ChainNode> chain = ConstructChain(chain_length);
 		Map<String, GraphNode> nodes_map = getNodeMap(chain);
@@ -185,5 +188,62 @@ public class TestLinearChainWalker {
 			EdgeDirection walk_direction = EdgeDirection.random(generator);
 			runTrial(chain, nodes_map, start_pos, walk_direction);
 		}
+	}
+	
+	@Test
+	public void testBranch () {
+		// We construct the following graph.
+		// A->B->C  E->C.
+		// We check that findTail starting at A stops at B.		
+		int chain_length = 3;
+		ArrayList<ChainNode> chain = ConstructChain(chain_length);
+		Map<String, GraphNode> nodes_map = getNodeMap(chain);
+
+		// Add the branch edge.
+		{
+			GraphNode branch_node = new GraphNode();
+			GraphNodeData node_data = new GraphNodeData();
+			DNAStrand branch_strand = DNAStrand.FORWARD;
+			branch_node.setData(node_data);
+			node_data.setNodeId("branch");
+			
+			EdgeTerminal branch_terminal = new EdgeTerminal(
+					branch_node.getNodeId(), branch_strand);
+			
+			nodes_map.put(branch_node.getNodeId(), branch_node);
+			
+			GraphNode last_node = chain.get(chain_length -1).graph_node;
+			DNAStrand last_strand = chain.get(chain_length -1).dna_direction;
+			last_node.addIncomingEdge(last_strand, branch_terminal);						
+		}
+		
+		{
+			// Find the tail starting at A.
+			GraphNode start_node = chain.get(0).graph_node;
+			DNAStrand start_strand = chain.get(0).dna_direction;
+			TailData tail = TailData.findTail(
+					nodes_map, start_node, start_strand,  
+					EdgeDirection.OUTGOING);
+		
+			// Check the node equals the correct node.
+			int end_pos = chain_length - 2;
+			assertEquals(tail.terminal.nodeId, 
+						 chain.get(end_pos).graph_node.getNodeId());			
+			assertEquals(
+					tail.terminal.strand, chain.get(end_pos).dna_direction);
+			assertEquals(tail.dist, chain_length - 2);
+		}
+		
+		{
+			// Find the tail starting at C. No tail should be found because
+			// C has two incoming edges.
+			GraphNode start_node = chain.get(chain_length - 1).graph_node;
+			DNAStrand start_strand = chain.get(1).dna_direction;
+			TailData tail = TailData.findTail(
+					nodes_map, start_node, start_strand,  
+					EdgeDirection.OUTGOING);
+		
+			assertEquals(tail, null);					
+		}	
 	}
 }

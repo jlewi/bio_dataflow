@@ -1,9 +1,7 @@
 package contrail.graph;
 
 import contrail.avro.GraphNode;
-import contrail.avro.NotImplementedException;
 import contrail.sequences.DNAStrand;
-import contrail.sequences.DNAUtil;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Map;
@@ -68,95 +66,65 @@ public class TailData
 	 *   dist will be the number of edges spanned by the chain.
 	 * @throws IOException
 	 */
-	public static TailData find_tail(
+	public static TailData findTail(
 	    Map<String, GraphNode> nodes, GraphNode startnode, 
-	    DNAStrand start_strand, EdgeDirection direction) throws IOException {		
+	    DNAStrand start_strand, EdgeDirection direction) {		
 		Set<String> seen = new HashSet<String>();
 		seen.add(startnode.getNodeId());
 		
 		GraphNode curnode = startnode;		
 		String curid = startnode.getNodeId();
 		int dist = 0;
-		
-		boolean canCompress = false;
-		
+				
+		EdgeTerminal previous_terminal = new EdgeTerminal(
+				startnode.getNodeId(), start_strand); 
 		LinearChainWalker walker = new LinearChainWalker(
-				nodes, startnode, start_strand, direction);
-		
+				nodes, previous_terminal, direction);
+											
 		while(walker.hasNext()) {
-			// The walker only returnes a terminal if the corresponding
+			// The walker only returns a terminal if the corresponding
 			// GraphNode is in the map passed to LinearChainWalker.
 			EdgeTerminal terminal = walker.next();
 			
 			if (!seen.contains(terminal.nodeId)) {
 				// curnode has a tail (has outgoing degree 1); the tail 
-//				// is in nodes and we haven't seen it before				
+				// is in nodes and we haven't seen it before				
 				seen.add(terminal.nodeId);
-//				curnode = nodes.get(next.id);
-//
-//				// We can only compress the tail if the tail has a single incoming edge.
-//				// To check whether curnode has a single incoming edge, we look
-//				// for outgoing edges with the direction for the source flipped; this
-//				// produces a list of incoming edges. If there is a single incoming
-//				// edge then there is only a single path between the nodes (i.e they
-//				// form a chain with no branching and we can compress the nodes together)
-//				TailData nexttail = curnode.getTail(next.strand.flip());
-//				
-//				if ((nexttail != null) && (nexttail.id.equals(curid)))
-//				{
-//					dist++;
-//					canCompress = true;					
-//					curid = next.id.toString();
-//					curdir = next.strand;
-//				}
+
+				// Suppose node A has out degree 1 and A->B. 
+				// B, however, might have indegree 2; i.e there exists edge
+				// C->B. In this case, we don't have  a tail. So
+				// We need to check that the current terminal corresponds to
+				// an edge with degree in the direction opposite walk direction.
+				// If there is a single edge then there is a single path between 
+				// the nodes (i.e they form a chain with no branching and we 
+				// can compress the nodes together)
+				
+				// Get the graph node associated with terminal and check
+				// it has a single edge connected to previous_terminal.
+				GraphNode node = nodes.get(terminal.nodeId);
+				TailData tail = node.getTail(
+						terminal.strand, direction.flip());						
+				if ((tail != null) && 
+					(tail.terminal.equals(previous_terminal))) {
+					dist++;										
+				} else {
+					// Break out out of the loop because we don't have
+					// a chain.
+					break;
+				}
 			}
-			throw new RuntimeException("Left of here");			
+			previous_terminal = terminal;			
 		}
-		throw new NotImplementedException("Need to finish code");
+
+		if (dist == 0) {
+			return null;
+		}
 		
-//		do
-//		{
-//			canCompress = false;			
-//			TailData next = curnode.getTail(start_strand, direction);
-//			
-//			if ((next != null) &&
-//				(nodes.containsKey(next.terminal.nodeId)) &&
-//				(!seen.contains(next.terminal.nodeId)))
-//			{
-//				// curnode has a tail (has outgoing degree 1); the tail 
-//				// is in nodes and we haven't seen it before				
-//				seen.add(next.id.toString());
-//				curnode = nodes.get(next.id);
-//
-//				// We can only compress the tail if the tail has a single incoming edge.
-//				// To check whether curnode has a single incoming edge, we look
-//				// for outgoing edges with the direction for the source flipped; this
-//				// produces a list of incoming edges. If there is a single incoming
-//				// edge then there is only a single path between the nodes (i.e they
-//				// form a chain with no branching and we can compress the nodes together)
-//				TailData nexttail = curnode.getTail(next.strand.flip());
-//				
-//				if ((nexttail != null) && (nexttail.id.equals(curid)))
-//				{
-//					dist++;
-//					canCompress = true;					
-//					curid = next.id.toString();
-//					curdir = next.strand;
-//				}
-//			}
-//		}
-//		while (canCompress);
-//
-//		TailData retval = new TailData();
-//		
-//		retval.id = curid;
-//		// JLEWI: This is an abuse of dir; it shouldn't be used
-//		// to represent both the direction of the tail node and the tail 
-//		// direction. 
-//		retval.strand = curdir.flip();
-//		retval.dist = dist;
-			
-		//return retval;
-	}
-	
+		TailData tail = new TailData();
+		tail.terminal = previous_terminal;
+		tail.dist = dist;
+		tail.direction = direction;
+		return tail;
+	}	
 }
