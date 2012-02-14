@@ -1,7 +1,7 @@
 package contrail.sequences;
 
 /**
- * This enumeration is used to indicate which strand of DNA (in canonical form)
+ * This enumeration is used to indicate which strands of DNA (in canonical form)
  * the source and destination sequence in an edge come from. 
  * 
  * @author jlewi

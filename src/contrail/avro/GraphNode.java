@@ -21,7 +21,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Wrapper class for accessing modifying the GraphNodeData structure.
@@ -60,8 +59,8 @@ public class GraphNode {
 			lists_created = false;
 		}
 		/**
-		 * This hash map maps the two letter direction for an edge e.g "fr"
-		 * to a list of strings which are the node ids for the destination nodes.
+		 * This hash map maps the enum StrandsForEdge to a list of strings  
+		 * which are the node ids for the destination nodes.
 		 * If there are no ids for this direction the list is empty (not null);
 		 */
 		private HashMap<StrandsForEdge, List<CharSequence>> 
@@ -84,8 +83,6 @@ public class GraphNode {
 			linkdirs_to_dest_nodeid.put(
 					StrandsForEdge.RR, new ArrayList<CharSequence> ());
 
-			// We only initialize f_outgoing_edges and r_outgoing_edges
-			// because f_incoming_edges = r_outgoing_edges.
 			f_outgoing_edges = new ArrayList<EdgeTerminal>();
 			r_outgoing_edges = new ArrayList<EdgeTerminal>();
 
@@ -103,11 +100,13 @@ public class GraphNode {
 					        dest_node.getNodeId() + 
 					        " this should not happend.");
 				}
-				for (Iterator<DestForLinkDir> link_it = dest_node.getLinkDirs().iterator();
-						link_it.hasNext();) {
+				for (Iterator<DestForLinkDir> link_it = 
+						dest_node.getLinkDirs().iterator();
+				     link_it.hasNext();) {
 					DestForLinkDir dest_for_link_dir = link_it.next();
 					StrandsForEdge dir = 
-							StrandsForEdge.parse(dest_for_link_dir.getLinkDir().toString());
+							StrandsForEdge.parse(
+									dest_for_link_dir.getLinkDir().toString());
 					id_list = linkdirs_to_dest_nodeid.get(dir);
 					id_list.add(dest_node.getNodeId());
 
@@ -206,11 +205,6 @@ public class GraphNode {
 	}
 
 	protected DerivedData derived_data;
-
-	/**
-	 * Valid values for the direction.
-	 */
-	public static final String[] DIRS = {"f", "r"};
 
 	/**
 	 * Construct a new object with a new GraphNodeData to store the data.
@@ -502,7 +496,6 @@ public class GraphNode {
 	}
 
 	public String getNodeId() {
-		// TODO(jlewi): nodeid should probably be part of the data schema.
 		return data.getNodeId().toString(); 
 	}
 
@@ -560,13 +553,6 @@ public class GraphNode {
 	 */
 	public List<CharSequence> getDestIdsForLinkDir(StrandsForEdge link_dir) {
 		return derived_data.getDestNodeIdsForLinkDir(link_dir);
-	}
-
-	/**
-	 * Return a list of all the ids for destination nodes.
-	 */
-	public List<CharSequence> getAllDestIds() {
-		throw new NotImplementedException();
 	}
 
 	/**

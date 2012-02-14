@@ -9,9 +9,9 @@ import contrail.sequences.DNAStrand;
 
 /**
  * This class provides a walker that walks the graph starting at the node 
- * provided (the start node is not included). The walk continues as long as
- * 1) the node has outdegree or indegree 1 (depending on the direction of 
- * the walk), and 2) the next node is in the group of nodes passed as input
+ * provided (this node is not returned by the itertor). The walk continues as 
+ * long as 1) the node has outdegree or indegree 1 (depending on the direction 
+ * of the walk), and 2) the next node is in the group of nodes passed as input
  * to the walker (this is necessary so the destination can be retrieved). 
  * 
  * If direction is OUTGOING then we walk the outgoing edges, so the nodes
@@ -24,8 +24,6 @@ import contrail.sequences.DNAStrand;
  * ...-> c2 -> c1 -> start_node
  * where c1 is the first node returned.
  * 
- * The walk is always with respect to the sequence represented by
- * the canonical direction of start_node.
  */
 public class LinearChainWalker implements Iterator<EdgeTerminal> {
 		

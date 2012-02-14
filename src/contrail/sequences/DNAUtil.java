@@ -62,6 +62,8 @@ public class DNAUtil {
    */
   public static String flip_link(String link) throws IOException
   {
+	// TODO(jlewi): This function is obsolete now that we have enums
+	// DNAStrand EdgeDirection.
     if (link.equals("ff")) { return "rr"; }
     if (link.equals("fr")) { return "fr"; }
     if (link.equals("rf")) { return "rf"; }
@@ -70,21 +72,6 @@ public class DNAUtil {
     throw new IOException("Unknown link type: " + link);
   }
   
-  /**
-   * Return the opposite direction.
-   * 
-   * @param dir
-   * @return
-   * @throws IOException
-   */
-  public static CharSequence flip_dir(CharSequence dir) throws IOException
-  {
-    if (dir.equals("f")) { return "r"; }
-    if (dir.equals("r")) { return "f"; }
-
-    throw new IOException("Unknown dir type: " + dir);
-  }
-    
   /**
    * Returns the canonical version of a DNA sequence.
    * 

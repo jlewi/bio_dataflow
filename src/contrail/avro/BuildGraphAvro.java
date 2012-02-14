@@ -388,7 +388,7 @@ public class BuildGraphAvro extends Stage
 			// the input key. Since the source and destination KMers overlap for K-1
 			// bases, we can construct the destination KMer using the last K-1 bases 
 			// of the source and the additional base for the destination stored in 
-		  // KMerEdge. 
+		    // KMerEdge. 
 			while(iter.hasNext()) {
 			  KMerEdge edge = iter.next();
 			  Sequence last_base = new Sequence(alphabet);

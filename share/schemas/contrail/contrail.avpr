@@ -161,11 +161,12 @@
      "type": "record",
      "doc": "Message used in the remove tip stage.",
      "fields": [
-                 // TODO(jlewi): We probably should store canonical_dest_kmer.
+                 // TODO(jlewi): We probably shouldn't store canonical_dest_kmer.
                  // Rather, we should identify the nodes using the node_id.
                  {"name": "canonical_dest_kmer", 
                   "type": ["null", "CompressedSequence"],
-                  "doc": "The canonical sequence for the destination KMer to remove the edge from."
+                  "doc": ["The canonical sequence for the destination KMer to ",
+                          "remove the edge from."]
                  },
                  {"name": "link_dir", 
                   "type": ["null", "string"],
