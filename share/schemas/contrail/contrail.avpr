@@ -3,7 +3,7 @@
   "protocol": "ContrailProtocol",
   "doc": "Data structures for contrail",
 
-  "import": "graph.avpr",
+
   "types": [
 	{"name": "SequenceReadByte",
 	 "type": "record",
@@ -35,7 +35,9 @@
     {"name": "ReadState",
      "type":  "enum",
      "symbols": ["END5", "END6", "END3", "MIDDLE", "I"]
-    },        
+    },
+    
+    
 	{"name": "KMerEdge",
      "type": "record",
      "doc": "Represent an edge between two KMers. Used only by BuildGraph.",
@@ -92,6 +94,69 @@
             }
         ]
     },
+    {"name": "DestForLinkDir",
+     "type": "record",
+     "doc": "Represent the data for a particular instance of an edge.",
+     "fields": [ {"name": "link_dir",
+                "type": "string",
+                "doc": "Two letter string representing the direction for the edge."
+               },
+               {"name": "read_tags",
+                "type": {"type": "array", "items": "string"},
+                "doc": "Array of strings representing the reads this edge came from"
+               }
+             ]
+    },
+    {"name": "EdgeDestNode",
+     "type": "record",
+     "doc": "Represent the destinations for an edge",
+     "fields": [
+     			 // TODO(jlewi): Do we actually need to store the canonical sequence?
+     			 // Is it sufficient to store an id for the destination node
+                 {"name": "canonical_sequence",
+                  "type": "CompressedSequence",
+                  "doc": "The canonical sequence for the destination node."
+                 },
+                 {"name": "node_id",
+                  "type": "string",
+                  "doc": "The id for the destination node."
+                 },
+                 {"name": "link_dirs", 
+                  "type": {"type": "array", "items": "DestForLinkDir"},
+                  "doc": "Describes the instances for this canonical sequence."
+                 }
+               ]
+    },    
+    {"name": "GraphNodeData",
+     "type": "record",
+     "doc": "Represent a node in the DeBruijn Graph.",
+     "fields": [
+     		     // TODO(jlewi): This field contains information about which read the sequence 
+     		     // came from. We might want to rename this field. 
+                 {"name": "mertag", "type":"GraphNodeKMerTag",
+                  "doc": "A tag for this node"
+                 },
+                 {"name": "node_id", 
+                  "type": "string",
+                  "doc": "An id for this node. This must be consistent with the id used in destination nodes."
+                 },
+                 {"name": "coverage", "type": "int",
+                  "doc": "Coverage."
+                 },
+                 // TODO(jlewi): We should rename this canonical_source 
+                 // because it won't always be length K.
+                 {"name": "canonical_source_kmer", "type":"CompressedSequence", 
+                  "doc": "Sequence of bytes representing the compressed, canonical sequence corresponding to the source."
+                 },
+                 {"name": "dest_nodes", 
+                  "type": {"type": "array", "items":"EdgeDestNode"},
+                  "doc": "A list of EdgeDestNodes representing the canonical destination nodes."
+                 },
+                 {"name": "r5_tags", 
+                  "type": {"type": "array", "items": "R5Tag"}
+                 }
+               ]
+    },    
     {"name": "RemoveTipMessage",
      "type": "record",
      "doc": "Message used in the remove tip stage.",
@@ -107,7 +172,7 @@
                   "type": ["null", "string"],
                   "doc": "The two letter code for the edge direction we want to delete."
                  },
-                 {"name": "node", "type": ["null", "contrail.graph.GraphNodeData"],
+                 {"name": "node", "type": ["null", "GraphNodeData"],
                   "doc": "The node the messages are sent to."
                  }                 
                ]
