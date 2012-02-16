@@ -1,4 +1,4 @@
-package contrail.avro;
+package contrail.graph;
 
 import contrail.CompressedSequence;
 import contrail.DestForLinkDir;
