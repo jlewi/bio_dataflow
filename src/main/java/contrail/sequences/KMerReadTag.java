@@ -1,6 +1,4 @@
-package contrail.avro;
-
-import contrail.sequences.Sequence;
+package contrail.sequences;
 
 /**
  * This class represents a tag which is used to identify where a kmer

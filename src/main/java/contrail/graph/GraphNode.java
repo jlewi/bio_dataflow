@@ -8,6 +8,7 @@ import contrail.GraphNodeKMerTag;
 import contrail.R5Tag;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
+import contrail.sequences.KMerReadTag;
 import contrail.sequences.Sequence;
 import contrail.sequences.StrandsForEdge;
 

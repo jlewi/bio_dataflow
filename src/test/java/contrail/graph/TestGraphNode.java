@@ -15,7 +15,6 @@ import java.util.Random;
 import contrail.DestForLinkDir;
 import contrail.EdgeDestNode;
 import contrail.GraphNodeData;
-import contrail.avro.GraphNode;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.StrandsForEdge;
 import org.junit.Before;

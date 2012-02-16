@@ -4,7 +4,6 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
-import contrail.avro.GraphNode;
 import contrail.sequences.DNAStrand;
 
 /**

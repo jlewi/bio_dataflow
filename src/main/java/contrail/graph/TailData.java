@@ -1,6 +1,5 @@
 package contrail.graph;
 
-import contrail.avro.GraphNode;
 import contrail.sequences.DNAStrand;
 import java.io.IOException;
 import java.util.HashSet;

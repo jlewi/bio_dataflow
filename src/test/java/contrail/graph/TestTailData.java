@@ -17,7 +17,6 @@ import contrail.EdgeDestNode;
 import contrail.GraphNodeData;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.StrandsForEdge;
-import contrail.avro.GraphNode;
 
 public class TestTailData {
 	

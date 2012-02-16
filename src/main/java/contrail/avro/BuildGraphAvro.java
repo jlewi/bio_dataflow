@@ -4,10 +4,14 @@ import contrail.ContrailConfig;
 import contrail.GraphNodeData;
 import contrail.KMerEdge;
 import contrail.ReadState;
+
+import contrail.graph.GraphNode;
+
 import contrail.sequences.Alphabet;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
+import contrail.sequences.KMerReadTag;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
