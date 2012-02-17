@@ -525,8 +525,8 @@ public class TestBuildGraphAvro {
           new BuildGraphAvro.BuildGraphReducer();
       reducer.configure(job);
 
-      AvroCollectorMock<Pair<ByteBuffer, GraphNodeData>> collector_mock = 
-          new AvroCollectorMock<Pair<ByteBuffer, GraphNodeData>>();
+      AvroCollectorMock<GraphNodeData> collector_mock = 
+          new AvroCollectorMock<GraphNodeData>();
 
       ReporterMock reporter_mock = new ReporterMock();
       Reporter reporter = (Reporter) reporter_mock;
@@ -546,14 +546,7 @@ public class TestBuildGraphAvro {
         List<KMerEdge> input_edges = reduce_data.getInputEdges();
         assertEquals(collector_mock.data.size(), 1);
 
-        Pair<ByteBuffer, GraphNodeData> out_pair = collector_mock.data.get(0);
-
-        // Check the output key is the sequence specified in reduce_data.
-        Sequence out_key = new Sequence(alphabet);
-        out_key.readPackedBytes(out_pair.key().array(), (int)ContrailConfig.K);
-        assertEquals(out_key, src_canonical);
-
-        GraphNodeData graph_data = out_pair.value();
+        GraphNodeData graph_data = collector_mock.data.get(0);
 
         // edges_to_find keeps track of all input KMerEdge's which we haven't
         // matched to the output yet. We use this to verify that all KMerEdges
