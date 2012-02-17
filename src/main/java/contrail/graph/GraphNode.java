@@ -1,8 +1,8 @@
 package contrail.graph;
 
 import contrail.CompressedSequence;
-import contrail.DestForLinkDir;
-import contrail.EdgeDestNode;
+import contrail.EdgeData;
+import contrail.NeighborData;
 import contrail.GraphNodeData;
 import contrail.GraphNodeKMerTag;
 import contrail.R5Tag;
@@ -11,6 +11,7 @@ import contrail.sequences.DNAStrand;
 import contrail.sequences.KMerReadTag;
 import contrail.sequences.Sequence;
 import contrail.sequences.StrandsForEdge;
+import contrail.sequences.StrandsUtil;
 
 import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
@@ -61,64 +62,63 @@ public class GraphNode {
 		}
 		/**
 		 * This hash map maps the enum StrandsForEdge to a list of strings  
-		 * which are the node ids for the destination nodes.
-		 * If there are no ids for this direction the list is empty (not null);
+		 * which are the node ids for the neighbors.
+		 * If there are no ids for this value of StrandsForEdge the list is 
+		 * empty (not null);
 		 */
 		private HashMap<StrandsForEdge, List<CharSequence>> 
-		linkdirs_to_dest_nodeid;
+		strands_to_neighbors;
 
 
 		// TODO(jlewi): Would it be better to use sorted sets for fast lookups?
 		private void createEdgeLists() {
 			lists_created = true;
 
-			linkdirs_to_dest_nodeid = 
+			strands_to_neighbors = 
 					new HashMap<StrandsForEdge, List<CharSequence>> ();
 			// Initialize the lists.
-			linkdirs_to_dest_nodeid.put(
+			strands_to_neighbors.put(
 					StrandsForEdge.FF, new ArrayList<CharSequence> ());
-			linkdirs_to_dest_nodeid.put(
+			strands_to_neighbors.put(
 					StrandsForEdge.FR, new ArrayList<CharSequence> ());
-			linkdirs_to_dest_nodeid.put(
+			strands_to_neighbors.put(
 					StrandsForEdge.RF, new ArrayList<CharSequence> ());
-			linkdirs_to_dest_nodeid.put(
+			strands_to_neighbors.put(
 					StrandsForEdge.RR, new ArrayList<CharSequence> ());
 
 			f_outgoing_edges = new ArrayList<EdgeTerminal>();
 			r_outgoing_edges = new ArrayList<EdgeTerminal>();
 
-			EdgeDestNode dest_node;
+			NeighborData dest_node;
 			List<CharSequence> id_list;
 
 			// Loop over the destination nodes.
-			for (Iterator<EdgeDestNode> it = data.getDestNodes().iterator();
+			for (Iterator<NeighborData> it = data.getNeighbors().iterator();
 					it.hasNext();) {
 				dest_node = it.next();
-				List<DestForLinkDir> list_link_dirs = dest_node.getLinkDirs();
+				List<EdgeData> list_link_dirs = dest_node.getEdges();
 				if (list_link_dirs == null) {
 					throw new RuntimeException(
-							"The list of link dirs is null for destination:" +
+							"The list of StrandsForEdge is null for destination:" +
 					        dest_node.getNodeId() + 
-					        " this should not happend.");
+					        " this should not happen.");
 				}
-				for (Iterator<DestForLinkDir> link_it = 
-						dest_node.getLinkDirs().iterator();
-				     link_it.hasNext();) {
-					DestForLinkDir dest_for_link_dir = link_it.next();
-					StrandsForEdge dir = 
-							StrandsForEdge.parse(
-									dest_for_link_dir.getLinkDir().toString());
-					id_list = linkdirs_to_dest_nodeid.get(dir);
+				for (Iterator<EdgeData> edge_it = 
+						dest_node.getEdges().iterator();
+				     edge_it.hasNext();) {
+					EdgeData edge_data = edge_it.next();
+					StrandsForEdge strands = edge_data.getStrands();
+					id_list = strands_to_neighbors.get(strands);
 					id_list.add(dest_node.getNodeId());
 
-					if (dir.src() == DNAStrand.FORWARD) {
+					if (StrandsUtil.src(strands) == DNAStrand.FORWARD) {
 						f_outgoing_edges.add(
 								new EdgeTerminal(dest_node.getNodeId().toString(), 
-										dir.dest()));
+										StrandsUtil.dest(strands)));
 					} else {
 						r_outgoing_edges.add(
 								new EdgeTerminal(dest_node.getNodeId().toString(), 
-										dir.dest()));
+										StrandsUtil.dest(strands)));
 					}
 				}
 			}
@@ -152,16 +152,16 @@ public class GraphNode {
 
 			for (StrandsForEdge strands : StrandsForEdge.values()) {
 				id_list = Collections.unmodifiableList(
-						linkdirs_to_dest_nodeid.get(strands));
-				linkdirs_to_dest_nodeid.put(strands, id_list);
+						strands_to_neighbors.get(strands));
+				strands_to_neighbors.put(strands, id_list);
 			}
 
 		}
-		public List<CharSequence> getDestNodeIdsForLinkDir(StrandsForEdge link_dir) {
+		public List<CharSequence> getNeighborsForStrands(StrandsForEdge strands) {
 			if (!lists_created) {
 				createEdgeLists();
 			}
-			return linkdirs_to_dest_nodeid.get(link_dir);
+			return strands_to_neighbors.get(strands);
 		}
 
 		/**
@@ -201,7 +201,7 @@ public class GraphNode {
 			r_outgoing_edges = null;
 			f_incoming_edges = null;
 			r_incoming_edges = null;
-			linkdirs_to_dest_nodeid = null;
+			strands_to_neighbors = null;
 		}
 	}
 
@@ -293,74 +293,72 @@ public class GraphNode {
 	 *   edge came from.
 	 * @param MAXTHREADREADS - Maximum number of threads to record the tags for.
 	 */
-	public void addEdge(CharSequence link_dir, Sequence canonical_dest, String tag, long MAXTHREADREADS) {
-		if (data.getDestNodes() == null) {
-			data.setDestNodes(new ArrayList<EdgeDestNode>());
-		}
-		// Get a list of the edges for this direction.
-		// Create the list if it doesn't exist.
-		EdgeDestNode dest_node = findDestNode(canonical_dest);
-
-		if (dest_node == null) {
-			dest_node = new EdgeDestNode();
-			CompressedSequence compressed = new CompressedSequence();
-			compressed.setDna(ByteBuffer.wrap(canonical_dest.toPackedBytes(), 0, canonical_dest.numPackedBytes()));
-			compressed.setLength(canonical_dest.size());      
-			dest_node.setCanonicalSequence(compressed);
-			dest_node.setLinkDirs(new ArrayList<DestForLinkDir>());
-			data.getDestNodes().add(dest_node);
-		}
-
-
-		// Check if we already have an instance for this link direction.
-		DestForLinkDir link_info = findInstancesForLinkDir(dest_node, link_dir);
-
-		if (link_info == null) {
-			link_info = new DestForLinkDir();
-			link_info.setReadTags(new ArrayList<CharSequence>());
-			dest_node.getLinkDirs().add(link_info);      
-		}
-
-		link_info.setLinkDir(link_dir);
-
-		if (link_info.getReadTags().size() < MAXTHREADREADS)
-		{
-			link_info.getReadTags().add(tag);
-		}
-	}
-
-
+//	public void addEdge(CharSequence link_dir, Sequence canonical_dest, String tag, long MAXTHREADREADS) {
+//		if (data.getNeighbors() == null) {
+//			data.setDestNodes(new ArrayList<NeighborData>());
+//		}
+//		// Get a list of the edges for this direction.
+//		// Create the list if it doesn't exist.
+//		NeighborData dest_node = findDestNode(canonical_dest);
+//
+//		if (dest_node == null) {
+//			dest_node = new NeighborData();
+//			CompressedSequence compressed = new CompressedSequence();
+//			compressed.setDna(ByteBuffer.wrap(canonical_dest.toPackedBytes(), 0, canonical_dest.numPackedBytes()));
+//			compressed.setLength(canonical_dest.size());      
+//			dest_node.setCanonicalSequence(compressed);
+//			dest_node.setLinkDirs(new ArrayList<EdgeData>());
+//			data.getNeighbors().add(dest_node);
+//		}
+//
+//
+//		// Check if we already have an instance for this link direction.
+//		EdgeData edge_info = findInstancesForLinkDir(dest_node, link_dir);
+//
+//		if (edge_info == null) {
+//			edge_info = new EdgeData();
+//			edge_info.setReadTags(new ArrayList<CharSequence>());
+//			dest_node.getEdges().add(edge_info);      
+//		}
+//
+//		edge_info.setLinkDir(link_dir);
+//
+//		if (edge_info.getReadTags().size() < MAXTHREADREADS)
+//		{
+//			edge_info.getReadTags().add(tag);
+//		}
+//	}
 
 	/**
-	 * Find the instance of EdgeDestNodes representing the given canonical_sequence.
+	 * Find the instance of NeighborData representing the given canonical_sequence.
 	 * @param canonical_sequence
 	 * @return The instance if found or null otherwise.
 	 * 
 	 * TODO(jlewi): We could probably speed this up by creating a hash map for the 
 	 * destination sequences.
 	 */
-	private EdgeDestNode findDestNode(Sequence canonical_sequence) {
-		// TODO(jlewi): We should probably get rid of this function
-		// and just use findDestNode(String nodeId)
-		if (data.getDestNodes() == null) {
-			return null;
-		}
-		Sequence canonical = new Sequence(DNAAlphabetFactory.create());
-		for (Iterator<EdgeDestNode> it_dest_node = data.getDestNodes().iterator();
-				it_dest_node.hasNext();) {
-			EdgeDestNode dest = it_dest_node.next();
-			canonical.readPackedBytes(dest.getCanonicalSequence().getDna().array(), 
-					dest.getCanonicalSequence().getLength());
-
-			if (canonical.equals(canonical_sequence)) {
-				return dest;
-			}
-		}
-		return null;   
-	}
+//	private NeighborData findDestNode(Sequence canonical_sequence) {
+//		// TODO(jlewi): We should probably get rid of this function
+//		// and just use findDestNode(String nodeId)
+//		if (data.getNeighbors() == null) {
+//			return null;
+//		}
+//		Sequence canonical = new Sequence(DNAAlphabetFactory.create());
+//		for (Iterator<NeighborData> it_dest_node = data.getNeighbors().iterator();
+//				it_dest_node.hasNext();) {
+//			NeighborData dest = it_dest_node.next();
+//			canonical.readPackedBytes(dest.getCanonicalSequence().getDna().array(), 
+//					dest.getCanonicalSequence().getLength());
+//
+//			if (canonical.equals(canonical_sequence)) {
+//				return dest;
+//			}
+//		}
+//		return null;   
+//	}
 
 	/**
-	 * Find the instance of EdgeDestNode for the specified nodeId.
+	 * Find the instance of NeighborData for the specified nodeId.
 	 * @param: nodeId 
 	 * @return The instance if found or null otherwise.
 	 * 
@@ -368,18 +366,69 @@ public class GraphNode {
 	 * the destination nodeIds. This function should probably go in
 	 * derived_data.
 	 */
-	private EdgeDestNode findDestNode(String nodeId) {
-		if (data.getDestNodes() == null) {
+	private NeighborData findNeighbor(String nodeId) {
+		if (data.getNeighbors() == null) {
 			return null;
 		}		
-		for (Iterator<EdgeDestNode> it_dest_node = data.getDestNodes().iterator();
+		for (Iterator<NeighborData> it_dest_node = data.getNeighbors().iterator();
 				it_dest_node.hasNext();) {
-			EdgeDestNode dest = it_dest_node.next();		
+			NeighborData dest = it_dest_node.next();		
 			if (dest.getNodeId().toString().equals(nodeId)) {
 				return dest;
 			}
 		}
 		return null;   
+	}
+	  
+	/**
+	 * Add an outgoing edge to this node. 
+	 * @param strand: Which strand to add the edge to.
+	 * @param dest: The destination
+	 * @param tag: (Optional): String identifying the read where this edge 
+	 *   came from.
+	 * @param MAXTHREADREADS: The tag will only be recorded if we have fewer
+	 *   than this number of tags associated with this read.
+	 */
+	public void addOutgoingEdge(DNAStrand strand, EdgeTerminal dest, String tag, 
+	                            long MAXTHREADREADS) {
+		// Clear the derived data.
+		this.derived_data.clear();
+		NeighborData dest_node = findNeighbor(dest.nodeId);
+		
+		if (dest_node == null) {
+			dest_node = new NeighborData();
+			dest_node.setNodeId(dest.nodeId);
+			List<NeighborData> neighbors = data.getNeighbors();
+			if (neighbors == null) {
+				neighbors = new ArrayList<NeighborData>();
+				data.setNeighbors(neighbors);
+			}
+			neighbors.add(dest_node);			
+		}
+		
+		List<EdgeData> list_edge_strands = dest_node.getEdges();
+		if (list_edge_strands == null) {
+			list_edge_strands = new ArrayList<EdgeData> ();
+			dest_node.setEdges(list_edge_strands);
+		}
+		
+		StrandsForEdge strands = StrandsUtil.form(strand, dest.strand);
+		EdgeData edge = findEdgeDataForStrands(
+				dest_node, strands);
+		
+		if (edge == null) {
+		  edge = new EdgeData();
+      list_edge_strands.add(edge);
+      edge.setStrands(strands);
+      edge.setReadTags(new ArrayList<CharSequence>());
+		}
+		
+		if (tag !=null) {
+      if (edge.getReadTags().size() < MAXTHREADREADS){
+          edge.getReadTags().add(tag);
+      }
+		}
+		
 	}
 	
 	/**
@@ -388,43 +437,9 @@ public class GraphNode {
 	 * @param dest: The destination
 	 */
 	public void addOutgoingEdge(DNAStrand strand, EdgeTerminal dest) {
-		// Clear the derived data.
-		this.derived_data.clear();
-		EdgeDestNode dest_node = findDestNode(dest.nodeId);
-		
-		if (dest_node == null) {
-			dest_node = new EdgeDestNode();
-			dest_node.setNodeId(dest.nodeId);
-			List<EdgeDestNode> list_dest_nodes = data.getDestNodes();
-			if (list_dest_nodes == null) {
-				list_dest_nodes = new ArrayList<EdgeDestNode>();
-				data.setDestNodes(list_dest_nodes);
-			}
-			list_dest_nodes.add(dest_node);			
-		}
-		
-		List<DestForLinkDir> list_edge_strands = dest_node.getLinkDirs();
-		if (list_edge_strands == null) {
-			list_edge_strands = new ArrayList<DestForLinkDir> ();
-			dest_node.setLinkDirs(list_edge_strands);
-		}
-		
-		StrandsForEdge strands = StrandsForEdge.form(strand, dest.strand);
-		DestForLinkDir link_dir = findInstancesForLinkDir(
-				dest_node, strands.toString());
-		
-		if (link_dir != null) {
-			// TODO(jlewi): If the edge already exists we should probably
-			// just add the read tag if there is one.
-			throw new RuntimeException(
-					"Edge already exists. What should be done?");
-		}
-		
-		link_dir = new DestForLinkDir();
-		list_edge_strands.add(link_dir);
-		link_dir.setLinkDir(strands.toString());
+	  addOutgoingEdge(strand, dest, null, 0);
 	}
-	
+ 
 	/**
 	 * Add an incoming edge to this node. 
 	 * @param strand: Which strand to add the edge to.
@@ -439,7 +454,7 @@ public class GraphNode {
 	}
 	
 	/**
-	 * Find the edge instances inside EdgeDestNode for the given link direction.
+	 * Find the edge instances inside NeighborData for the given strands.
 	 * 
 	 * @param canonical_sequence
 	 * @return The instance if found or null otherwise.
@@ -447,17 +462,17 @@ public class GraphNode {
 	 * TODO(jlewi): We could probably speed this up by creating a hash map for the 
 	 * destination sequences.
 	 */
-	private DestForLinkDir findInstancesForLinkDir(EdgeDestNode node, CharSequence link_dir) {
-
-		if (node.getLinkDirs() == null) {
+	private EdgeData findEdgeDataForStrands(NeighborData node, 
+	                                        StrandsForEdge strands) {
+		if (node.getEdges() == null) {
 			return null;
 		}
 
-		for (Iterator<DestForLinkDir> it = node.getLinkDirs().iterator();
+		for (Iterator<EdgeData> it = node.getEdges().iterator();
 				it.hasNext();) {
-			DestForLinkDir link_info = it.next();
-			if (link_info.getLinkDir() == link_dir) {
-				return link_info;
+			EdgeData edge_info = it.next();
+			if (edge_info.getStrands() == strands) {
+				return edge_info;
 			}
 		}
 		return null;
@@ -486,12 +501,12 @@ public class GraphNode {
 		int retval = 0;
 
 
-		StrandsForEdge fd = StrandsForEdge.form(strand, DNAStrand.FORWARD);    
-		retval += this.derived_data.getDestNodeIdsForLinkDir(fd).size();
+		StrandsForEdge fd = StrandsUtil.form(strand, DNAStrand.FORWARD);    
+		retval += this.derived_data.getNeighborsForStrands(fd).size();
 
 
-		StrandsForEdge rd = StrandsForEdge.form(strand, DNAStrand.REVERSE);
-		retval += this.derived_data.getDestNodeIdsForLinkDir(rd).size();
+		StrandsForEdge rd = StrandsUtil.form(strand, DNAStrand.REVERSE);
+		retval += this.derived_data.getNeighborsForStrands(rd).size();
 
 		return retval;
 	}
@@ -509,7 +524,7 @@ public class GraphNode {
 	 * @return: List of the CompressedSequences for the canonical 
 	 *   represention for the destination KMer.
 	 */
-	public List<CompressedSequence> getCanonicalDestForLinkDir(String key) {
+	public List<CompressedSequence> getCanonicalEdgeData(String key) {
 		throw new RuntimeException("Need to implement this method");
 	}
 
@@ -547,13 +562,13 @@ public class GraphNode {
 	}
 
 	/** 
-	 * Return a list of strings containing the ids of the destination nodes 
-	 * for links corresponding to the two letter link direction given by link_dir.
+	 * Return a list of the node ids for neighbors with edges corresponding
+	 * to the given strands. 
 	 * @param link_dir
 	 * @return
 	 */
-	public List<CharSequence> getDestIdsForLinkDir(StrandsForEdge link_dir) {
-		return derived_data.getDestNodeIdsForLinkDir(link_dir);
+	public List<CharSequence> getNeighborsForStrands(StrandsForEdge strands) {
+		return derived_data.getNeighborsForStrands(strands);
 	}
 
 	/**
