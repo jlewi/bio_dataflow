@@ -1,13 +1,11 @@
 package contrail.graph;
 
-import contrail.CompressedSequence;
-import contrail.EdgeData;
-import contrail.NeighborData;
-import contrail.GraphNodeData;
+import contrail.sequences.CompressedSequence;
 import contrail.GraphNodeKMerTag;
-import contrail.R5Tag;
+
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
+import contrail.sequences.DNAStrandUtil;
 import contrail.sequences.KMerReadTag;
 import contrail.sequences.Sequence;
 import contrail.sequences.StrandsForEdge;
@@ -133,7 +131,7 @@ public class GraphNode {
 					it.hasNext();) {
 				EdgeTerminal terminal = it.next();
 				f_incoming_edges.add(new EdgeTerminal(
-						terminal.nodeId, terminal.strand.flip()));
+						terminal.nodeId, DNAStrandUtil.flip(terminal.strand)));
 			}
 
 			r_incoming_edges = new ArrayList<EdgeTerminal>();
@@ -141,7 +139,7 @@ public class GraphNode {
 					it.hasNext();) {
 				EdgeTerminal terminal = it.next();
 				r_incoming_edges.add(new EdgeTerminal(
-						terminal.nodeId, terminal.strand.flip()));
+						terminal.nodeId, DNAStrandUtil.flip(terminal.strand)));
 			}
 
 			// Convert the lists to immutable lists.
@@ -449,8 +447,9 @@ public class GraphNode {
 		// Let this node be X.
 		// Then edge Y->X implies edge RC(x)->RC(y).
 		// So we add RC(x)->RC(y) to this node.		
-		EdgeTerminal dest = new EdgeTerminal(src.nodeId, src.strand.flip());
-		addOutgoingEdge(strand.flip(), dest);
+		EdgeTerminal dest = new EdgeTerminal(
+		    src.nodeId, DNAStrandUtil.flip(src.strand));
+		addOutgoingEdge(DNAStrandUtil.flip(strand), dest);
 	}
 	
 	/**

@@ -12,11 +12,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
-import contrail.DestForLinkDir;
-import contrail.EdgeDestNode;
-import contrail.GraphNodeData;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.StrandsForEdge;
+import contrail.sequences.StrandsUtil;
+import contrail.sequences.DNAStrandUtil;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -28,7 +27,6 @@ public class TestGraphNode {
 	public void setUp() {
 		// Create a random generator.
 		generator = new Random();
-		//generator = new Random(103);
 	}
 
 	/**
@@ -39,25 +37,24 @@ public class TestGraphNode {
 		GraphNodeData node_data = new GraphNodeData();
 		node.setData(node_data);
 		node_data.setNodeId("node");
-		node_data.setDestNodes(new ArrayList<EdgeDestNode>());
+		node_data.setNeighbors(new ArrayList<NeighborData>());
 
 		int num_dest_nodes = generator.nextInt(30) + 5;
 		//int num_dest_nodes = 2;
 		for (int index = 0; index < num_dest_nodes; index++) {
-			EdgeDestNode dest_node = new EdgeDestNode();
+			NeighborData dest_node = new NeighborData();
 			dest_node.setNodeId("dest_" + index);
-			node_data.getDestNodes().add(dest_node);
-			dest_node.setLinkDirs(new ArrayList<DestForLinkDir> ());
+			node_data.getNeighbors().add(dest_node);
+			dest_node.setEdges(new ArrayList<EdgeData> ());
 
 			// generate some links for this node.
-			int num_links = 
+			int num_edges = 
 					generator.nextInt(StrandsForEdge.values().length) + 1;
 
-			for (int link_index = 0; link_index < num_links; link_index++) {
-				DestForLinkDir dest_for_linkdir = new DestForLinkDir();
-				dest_for_linkdir.setLinkDir(
-						StrandsForEdge.values()[link_index].toString());
-				dest_node.getLinkDirs().add(dest_for_linkdir);
+			for (int edge_index = 0; edge_index < num_edges; edge_index++) {
+				EdgeData edge = new EdgeData();
+				edge.setStrands(StrandsForEdge.values()[edge_index]);
+				dest_node.getEdges().add(edge);
 			}			
 		}
 		return node;
@@ -75,21 +72,19 @@ public class TestGraphNode {
 		List<EdgeTerminal> all_terminals = new ArrayList<EdgeTerminal>();
 
 		GraphNodeData node_data = node.getData();
-		for (Iterator<EdgeDestNode> edge_it = 
-				node_data.getDestNodes().iterator(); edge_it.hasNext();) {
-			EdgeDestNode dest_node = edge_it.next();
-			for (Iterator<DestForLinkDir> link_it = 
-					dest_node.getLinkDirs().iterator(); link_it.hasNext();) {								
-				DestForLinkDir dest_for_link_dir = link_it.next();
-				StrandsForEdge edge_strands = 
-						StrandsForEdge.parse(
-								dest_for_link_dir.getLinkDir().toString());
-				if (edge_strands.src() != strand) {
-					continue;
-				}
+		
+		StrandsForEdge[] strands_array = 
+		  {StrandsUtil.form(strand, DNAStrand.FORWARD), 
+		   StrandsUtil.form(strand, DNAStrand.REVERSE)};
+		    		
+		for (StrandsForEdge strands: strands_array) {		 
+			List<CharSequence> neighborids = node.getNeighborsForStrands(strands);			
+			for (Iterator<CharSequence> nodeid_it = 
+					neighborids.iterator(); nodeid_it.hasNext();) {								
+				CharSequence nodeid = nodeid_it.next();				
 				all_terminals.add(
-						new EdgeTerminal(dest_node.getNodeId().toString(), 
-								edge_strands.dest()));
+						new EdgeTerminal(nodeid.toString(), 
+								StrandsUtil.dest(strands)));
 			}
 		}
 		return all_terminals;
@@ -101,7 +96,7 @@ public class TestGraphNode {
 		for (Iterator<EdgeTerminal> it = terminals.iterator(); it.hasNext();) {
 			EdgeTerminal terminal = it.next();
 			flipped.add(new EdgeTerminal(
-					terminal.nodeId, terminal.strand.flip()));
+					terminal.nodeId, DNAStrandUtil.flip(terminal.strand)));
 		}
 		return flipped;
 	}
@@ -156,7 +151,7 @@ public class TestGraphNode {
 	 * Return the list of possible link direction in random permutation order
 	 * @return
 	 */
-	protected StrandsForEdge[] permuteLinkDirs() {
+	protected StrandsForEdge[] permuteEdges() {
 		List<StrandsForEdge> link_dirs = new ArrayList<StrandsForEdge>();
 
 		for (StrandsForEdge dir: StrandsForEdge.values()) {
@@ -179,32 +174,31 @@ public class TestGraphNode {
 	}
 
 	@Test
-	public void testGetDestIdsForSrcDir() {
+	public void testGetNeighborIdsForDNAStrand() {
 		// Create a graph node with some edges and verify getDestIdsForSrcDir
 		// returns the correct data.
 		GraphNodeData node_data = new GraphNodeData();
 		node_data.setNodeId("node");
-		node_data.setDestNodes(new ArrayList<EdgeDestNode> ());
+		node_data.setNeighbors(new ArrayList<NeighborData> ());
 		int num_edges = (int) Math.floor(Math.random() * 100) + 1;
 
 		HashMap<StrandsForEdge, List<String>> true_nodes_for_link_dirs =
 				new HashMap<StrandsForEdge, List<String>> ();
 
 		for (int index = 0; index < num_edges; index++) {
-			EdgeDestNode edge_dest = new EdgeDestNode();
-			node_data.getDestNodes().add(edge_dest);
+			NeighborData edge_dest = new NeighborData();
+			node_data.getNeighbors().add(edge_dest);
 			edge_dest.setNodeId("edge_" + index);
 
-			//List<DestForLink>dests_for_links = new ArrayList<DestForLinkDir>()
-			edge_dest.setLinkDirs(new ArrayList<DestForLinkDir>());
+			edge_dest.setEdges(new ArrayList<EdgeData>());
 
 			int num_links = (int) Math.floor(Math.random() * 4) + 1;
-			StrandsForEdge[] link_dirs = permuteLinkDirs();
+			StrandsForEdge[] link_dirs = permuteEdges();
 			for (int link_index = 0; link_index < num_links; link_index++) {
 				StrandsForEdge dir = link_dirs[link_index];
-				DestForLinkDir dest_for_link = new DestForLinkDir();
-				dest_for_link.setLinkDir(dir.toString());
-				edge_dest.getLinkDirs().add(dest_for_link);
+				EdgeData dest_for_link = new EdgeData();
+				dest_for_link.setStrands(dir);
+				edge_dest.getEdges().add(dest_for_link);
 
 
 				// Add this node to true_nodes_for_link_dirs;
@@ -223,10 +217,10 @@ public class TestGraphNode {
 		node.setData(node_data);
 		for (StrandsForEdge dir: StrandsForEdge.values()) {
 			if (!true_nodes_for_link_dirs.containsKey(dir)) {
-				assertEquals(null, node.getDestIdsForLinkDir(dir));
+				assertEquals(null, node.getNeighborsForStrands(dir));
 			} else {
 				List<CharSequence> immutable_dest_ids = 
-						node.getDestIdsForLinkDir(dir);
+						node.getNeighborsForStrands(dir);
 				// Copy the list because the existing list is immutable.
 				List<CharSequence> dest_ids = new ArrayList<CharSequence>();
 				dest_ids.addAll(immutable_dest_ids);	        
@@ -257,7 +251,7 @@ public class TestGraphNode {
 		GraphNodeData terminal_data = new GraphNodeData();		
 		terminal_node.setData(terminal_data);
 		terminal_data.setNodeId("terminal");
-		DNAStrand terminal_strand = DNAStrand.random();
+		DNAStrand terminal_strand = DNAStrandUtil.random();
 		EdgeTerminal terminal = new EdgeTerminal(
 				terminal_node.getNodeId(), terminal_strand);
 		
