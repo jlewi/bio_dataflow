@@ -12,11 +12,10 @@ import java.util.Random;
 import org.junit.Before;
 import org.junit.Test;
 
-import contrail.DestForLinkDir;
-import contrail.EdgeDestNode;
-import contrail.GraphNodeData;
 import contrail.sequences.DNAStrand;
+import contrail.sequences.DNAStrandUtil;
 import contrail.sequences.StrandsForEdge;
+import contrail.sequences.StrandsUtil;
 
 public class TestLinearChainWalker {
 	
@@ -57,11 +56,11 @@ public class TestLinearChainWalker {
 			GraphNodeData node_data = new GraphNodeData();
 			node.setData(node_data);
 			node_data.setNodeId("node_" + pos);
-			node_data.setDestNodes(new ArrayList<EdgeDestNode>());
+			node_data.setNeighbors(new ArrayList<NeighborData>());
 			
 			ChainNode chain_node = new ChainNode();
 			chain_node.graph_node = node;
-			chain_node.dna_direction = DNAStrand.random(generator);
+			chain_node.dna_direction = DNAStrandUtil.random(generator);
 			chain.add(chain_node);
 		}
 		
@@ -75,17 +74,16 @@ public class TestLinearChainWalker {
 				ChainNode src = chain.get(pos);
 				ChainNode dest = chain.get(pos + 1);
 				GraphNodeData node_data = src.graph_node.getData();
-				EdgeDestNode dest_node = new EdgeDestNode();
+				NeighborData dest_node = new NeighborData();
 				dest_node.setNodeId(dest.graph_node.getNodeId());
 								
-				node_data.getDestNodes().add(dest_node);
+				node_data.getNeighbors().add(dest_node);
 				
-				DestForLinkDir dest_for_link_dir = new DestForLinkDir();
-				dest_for_link_dir.setLinkDir(
-						src.dna_direction.toString() +
-						dest.dna_direction.toString());
-				dest_node.setLinkDirs(new ArrayList<DestForLinkDir> ());
-				dest_node.getLinkDirs().add(dest_for_link_dir);
+				EdgeData dest_for_link_dir = new EdgeData();
+				dest_for_link_dir.setStrands(StrandsUtil.form(
+				    src.dna_direction, dest.dna_direction));
+				dest_node.setEdges(new ArrayList<EdgeData> ());
+				dest_node.getEdges().add(dest_for_link_dir);
 			}
 			
 			// Add the incoming edge.
@@ -93,22 +91,22 @@ public class TestLinearChainWalker {
 				ChainNode src = chain.get(pos);
 				ChainNode dest = chain.get(pos - 1);
 				GraphNodeData node_data =src.graph_node.getData();
-				EdgeDestNode dest_node = new EdgeDestNode();
+				NeighborData dest_node = new NeighborData();
 				dest_node.setNodeId(dest.graph_node.getNodeId());
 								
-				node_data.getDestNodes().add(dest_node);
+				node_data.getNeighbors().add(dest_node);
 				
-				DestForLinkDir dest_for_link_dir = new DestForLinkDir();
+				EdgeData dest_for_link_dir = new EdgeData();
 				
 				// We need to flip the dna direction to get incoming 
 				// edges. 
 				StrandsForEdge linkdir = 
-						StrandsForEdge.form(src.dna_direction.flip(), 
-											dest.dna_direction.flip());
-				dest_for_link_dir.setLinkDir(linkdir.toString());
-				dest_node.setLinkDirs(new ArrayList<DestForLinkDir> ());
-				dest_node.getLinkDirs().add(dest_for_link_dir);
-				
+						StrandsUtil.form(
+						    DNAStrandUtil.flip(src.dna_direction), 
+								DNAStrandUtil.flip(dest.dna_direction));
+				dest_for_link_dir.setStrands(linkdir);
+				dest_node.setEdges(new ArrayList<EdgeData> ());
+				dest_node.getEdges().add(dest_for_link_dir);
 			}
 		}
 		return chain;
@@ -133,7 +131,6 @@ public class TestLinearChainWalker {
 				nodes_in_memory, start_node, start_strand,
 				walk_direction);
 		
-		
 		int end_pos = -1;
 		// Compute what the last node in the chain should be. We
 		// need to consider both start_strand and walk direction to figure
@@ -143,8 +140,7 @@ public class TestLinearChainWalker {
 		} else {
 			end_pos = 0;
 		}
-
-		
+	
 		int pos_increment = end_pos >= start_pos ? 1 : -1; 
 		
 		int pos = start_pos;
