@@ -1,5 +1,6 @@
 package contrail.graph;
 import contrail.sequences.DNAStrand;
+import contrail.sequences.DNAStrandUtil;
 
 /**
  * An immutable class for representing the terminal for an edge. 
@@ -12,6 +13,8 @@ import contrail.sequences.DNAStrand;
 public final class EdgeTerminal {
   public final String nodeId;
   public final DNAStrand strand;
+ 
+  private Integer hash_code;
   
   public EdgeTerminal(String node, DNAStrand dna_strand) {
 	  nodeId = node;
@@ -28,6 +31,15 @@ public final class EdgeTerminal {
 		  return false;
 	  }
 	  return this.nodeId.equals(other.nodeId);
+  }
+  
+  @Override 
+  public int hashCode() {
+    if (hash_code == null) {
+      String value = nodeId + ":" + DNAStrandUtil.toString(strand);
+      hash_code = new Integer(value.hashCode());
+    }
+    return hash_code.intValue();
   }
   
   /**
