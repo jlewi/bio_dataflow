@@ -10,17 +10,22 @@ import java.util.List;
 
 import contrail.CompressedRead;
 import contrail.ContrailConfig;
-import contrail.DestForLinkDir;
-import contrail.EdgeDestNode;
-import contrail.KMerEdge;
-import contrail.GraphNodeData;
 import contrail.ReadState;
 import contrail.ReporterMock;
 
+import contrail.graph.EdgeData;
+import contrail.graph.EdgeTerminal;
+import contrail.graph.NeighborData;
+import contrail.graph.KMerEdge;
+import contrail.graph.GraphNodeData;
+
 import contrail.sequences.Alphabet;
 import contrail.sequences.DNAAlphabetFactory;
+import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
+import contrail.sequences.StrandsForEdge;
+import contrail.sequences.StrandsUtil;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -214,33 +219,25 @@ public class TestBuildGraphAvro {
   
         KMerEdge edge = pair.value();      
   
-        // Check data in edge is valid.
-        assertEquals(edge.getLinkDir().length(), 2);
-  
         Sequence last_base = new Sequence(alphabet);
         last_base.readPackedBytes(edge.getLastBase().array(), 1);
   
         // Reconstruct the K+1 string this edge came from.
         Sequence edge_seq = new Sequence(alphabet);  
-        if (edge.getLinkDir().charAt(0) == 'f') {
-          edge_seq.add(canonical_key);        
-        } else if (edge.getLinkDir().charAt(0) == 'r')  {
-          edge_seq.add(rc_key);       
-        } else {
-          fail ("link dir should only consist of the letters r and f");
-        }
         edge_seq.add(last_base);
   
         Sequence dest_kmer = edge_seq.subSequence(1, test_data.getK() + 1);
         // Check that the direction of the destination node is properly encoded.
         // If the sequence and its reverse complement are equal then the link 
-        // direction could be either 'r' or 'f' because of DNAUtil.flip_link.
+        // direction could be either forward or reverse because of 
+        // StransUtil.flip_link.
+        DNAStrand src_strand = StrandsUtil.src(edge.getStrands());
+        DNAStrand dest_strand = StrandsUtil.dest(edge.getStrands());
         if (dest_kmer.equals(DNAUtil.reverseComplement(dest_kmer))) {
-          assertTrue(edge.getLinkDir().charAt(1) == 'f' || 
-                     edge.getLinkDir().charAt(1) == 'r');
+          assertTrue(dest_strand == DNAStrand.FORWARD || 
+                     dest_strand == DNAStrand.REVERSE);
         } else {
-          assertEquals(DNAUtil.canonicaldir(dest_kmer), 
-              edge.getLinkDir().charAt(1));
+          assertEquals(DNAUtil.canonicaldir(dest_kmer), dest_strand);
         }
         
   
@@ -257,11 +254,11 @@ public class TestBuildGraphAvro {
         String uncompressed = test_data.getUncompressed();
         // Check the state as best we can.
         if (edge.getState() == ReadState.END5) {
-          assertEquals(edge.getLinkDir().charAt(0), 'f');
+          assertEquals(src_strand, DNAStrand.FORWARD);
           // The first characters in the string should match this edge. 
           assertEquals(canonical_key.toString(), uncompressed.substring(0, K));        
         } else if (edge.getState() == ReadState.END6) {
-          assertEquals(edge.getLinkDir().charAt(0), 'r');
+          assertEquals(src_strand, DNAStrand.REVERSE);
           // The first characters in the string should be the reverse complement
           // of the start node.
           assertEquals(rc_key.toString(), uncompressed.substring(0, K));
@@ -292,80 +289,99 @@ public class TestBuildGraphAvro {
    * Used by the testReduce to find a KMerEdge which would have produced
    * an edge between the given source and destination.
    * 
-   * @param canonical_src: The canonical representation of the source.
-   * @param dest_node: Represents the destination node. 
-   * @param link_dir: A particular link direction for this source and 
-   *   destination. 
+   * @param nodeid: The id for the source node. This will be a string 
+   *   representation of the canonical sequence.
+   * @param neighbor_id: Id for the neighbor.
+   * @param strands: Which strands each end of the edge comes from.
+   * @param read_tag: The read tag to match. null if you don't want it to
+   *   be taken into acount 
    * @param Edges: The list of KMerEdges to search to see if it contains one 
    *   that could have produced the edge defined by the tuple 
    *   (canonical_src, dest_node, link_dir).
    */
   private static boolean foundKMerEdge(
-      Sequence canonical_src, EdgeDestNode dest_node, DestForLinkDir link_info, 
-      ArrayList<KMerEdge> edges) {
+      String nodeid, String neighbor_id, StrandsForEdge strands, 
+      String read_tag, ArrayList<KMerEdge> edges) {
     Alphabet alphabet = DNAAlphabetFactory.create();
-    // Get the destination canonical sequence.
-    Sequence canonical_dest = new Sequence(alphabet);
-    canonical_dest.readPackedBytes(
-        dest_node.getCanonicalSequence().getDna().array(), 
-        dest_node.getCanonicalSequence().getLength());
 
-    // Check that the lengths of the src and dest are the same.
-    assertEquals(canonical_src.size(), canonical_dest.size());
-
-    int K = canonical_src.size();
-
-    // Convert the canonical representations of the source and destination
-    // to the direction for this edge.
-    Sequence src = new Sequence(canonical_src);
-    src = DNAUtil.canonicalToDir(canonical_src, link_info.getLinkDir().charAt(0));
-
-    Sequence dest = new Sequence(canonical_dest);
-    dest = DNAUtil.canonicalToDir(dest, link_info.getLinkDir().charAt(1));
-
-    // Check that the src and dest overlap by K -1 bases.
-    assertEquals(src.subSequence(1, K), dest.subSequence(0, K-1));
-
-
-    // The edge given by (source kmer, dest kmer, edge direction) could
-    // appear multiple times with different tags for the destination KMer.
-    // We want to find all such edges. So we construct a list of all
-    // the tags that we need to match.
-    HashSet<String> tags_to_find = new HashSet<String>();
-    for (Iterator<CharSequence> it = link_info.getReadTags().iterator();
-        it.hasNext();) {        
-      tags_to_find.add(it.next().toString());
-    }
-
-    Sequence dest_last_base = dest.subSequence(K-1, K);
-    
-    // Set of edges that we found.
-    HashSet<CharSequence> found_tags = new HashSet<CharSequence>();
+//    throw new RuntimeException("broken;");
+//    // To form the destination node id we take all but the first
+//    // character of the source KMer and add the last base to it.
+//    
+//    Sequence canonical_dest = new Sequence(alphabet);
+//    
+//    canonical_dest.readPackedBytes(
+//        dest_node.getCanonicalSequence().getDna().array(), 
+//        dest_node.getCanonicalSequence().getLength());
+//
+//    // Check that the lengths of the src and dest are the same.
+//    assertEquals(canonical_src.size(), canonical_dest.size());
+//
+//    int K = canonical_src.size();
+//
+//    // Convert the canonical representations of the source and destination
+//    // to the direction for this edge.
+//    Sequence src = new Sequence(canonical_src);
+//    src = DNAUtil.canonicalToDir(canonical_src, edge_data.getEdgeData().charAt(0));
+//
+//    Sequence dest = new Sequence(canonical_dest);
+//    dest = DNAUtil.canonicalToDir(dest, edge_data.getEdgeData().charAt(1));
+//
+//    // Check that the src and dest overlap by K -1 bases.
+//    assertEquals(src.subSequence(1, K), dest.subSequence(0, K-1));
+//
+//
+//    // The edge given by (source kmer, dest kmer, edge direction) could
+//    // appear multiple times with different tags for the destination KMer.
+//    // We want to find all such edges. So we construct a list of all
+//    // the tags that we need to match.
+//    HashSet<String> tags_to_find = new HashSet<String>();
+//    for (Iterator<CharSequence> it = edge_data.getReadTags().iterator();
+//        it.hasNext();) {        
+//      tags_to_find.add(it.next().toString());
+//    }
+//
+//    Sequence dest_last_base = dest.subSequence(K-1, K);
+//    
+//    // Set of edges that we found.
+//    HashSet<CharSequence> found_tags = new HashSet<CharSequence>();
 
     // Keep track of the positions in edges of the edges that we matched.
     // We will delete these edges so that edges will only contain unmatched
     // eges.
     List<Integer> pos_to_delete = new ArrayList<Integer>();
 
+    Sequence canonical_src = new Sequence(nodeid, alphabet);
+    
     for (int index = 0; index < edges.size(); index++) {
       KMerEdge edge = edges.get(index);            
-      Sequence edge_last_base = new Sequence(alphabet);
-      edge_last_base.readPackedBytes(
-          edge.getLastBase().array(), 1);
-      if (dest_last_base.equals(edge_last_base)) {
-        String x = link_info.getLinkDir().toString();
-        String y = edge.getLinkDir().toString();
-        if (x.compareTo(y) == 0) {
-          if (tags_to_find.contains(edge.getTag().toString())) {
-            found_tags.add(edge.getTag());
-            pos_to_delete.add(index);
-          }
-        }
+      
+      if (strands != edge.getStrands()) {
+        continue;
+      }
+      
+      // Form the destination sequence for this edge.
+      Sequence dest_sequence = BuildGraphAvro.ConstructDestSequence(
+          canonical_src, edge.getLastBase(), strands, alphabet);
+      
+      Sequence canonical_dest = DNAUtil.canonicalseq(dest_sequence);
+      
+      String kmer_nodeid = canonical_dest.toString();
+      
+      if (!kmer_nodeid.equals(neighbor_id)) {
+        // Destination nodeids don't match.
+        continue;
+      }
+      
+      if (read_tag == null) {
+        pos_to_delete.add(index);
+      } else {
+        throw new NotImplementedException("Need to check the tag");
       }
     }
 
     // Check we found edges that matched.
-    assertEquals(found_tags, tags_to_find);
+    assertTrue(pos_to_delete.size() > 0);
 
     Iterator<Integer> it_pos_to_delete = pos_to_delete.iterator();
     while (it_pos_to_delete.hasNext()) {     
@@ -387,11 +403,12 @@ public class TestBuildGraphAvro {
     /**
      * Construct a specific test case.
      * @param uncompressed: The uncompressed K-mer for the source sequence.
-     * @param src_dir: 'f' or 'r' representing the direction of the source KMer.
+     * @param src_strand: Strand of the source KMer.
      * @param last_base: The base we need to add to the soruce KMer to 
      *   get the destination KMer.
      */
-    public ReduceTest(String uncompressed, String src_dir, String last_base) {
+    public ReduceTest(String uncompressed, DNAStrand src_strand, 
+                      String last_base) {
       this.uncompressed = uncompressed;
       this.K = uncompressed.length();
       input_edges = new ArrayList<KMerEdge>();
@@ -399,20 +416,20 @@ public class TestBuildGraphAvro {
       KMerEdge node = new KMerEdge();      
 
       Sequence seq_uncompressed = new Sequence(uncompressed, alphabet);
-      Sequence src_canonical = DNAUtil.canonicalseq(seq_uncompressed);         
-      String link_dir = src_dir;
+      Sequence src_canonical = DNAUtil.canonicalseq(seq_uncompressed);               
       Sequence seq_last_base = new Sequence(last_base, alphabet);
 
       // The destination direction depends on the source direction
       // and the K-1 overlap
       Sequence dest_kmer = 
-          DNAUtil.canonicalToDir(src_canonical, link_dir.charAt(0));
+          DNAUtil.canonicalToDir(src_canonical, src_strand);
       dest_kmer = dest_kmer.subSequence(1,  dest_kmer.size());
       dest_kmer.add(seq_last_base);
 
-      link_dir += DNAUtil.canonicaldir(dest_kmer);
-
-      node.setLinkDir(link_dir);
+      DNAStrand dest_strand = DNAUtil.canonicaldir(dest_kmer);
+      
+      StrandsForEdge strands = StrandsUtil.form(src_strand, dest_strand);
+      node.setStrands(strands);
 
       node.setLastBase(ByteBuffer.wrap(
           seq_last_base.toPackedBytes(), 0, seq_last_base.numPackedBytes()));                
@@ -559,19 +576,20 @@ public class TestBuildGraphAvro {
         // generated that edge. We also count the number of edges to make sure 
         // we don't have extra edges. As we go we delete KMerEdges so we don't 
         // count any twice.
-        for (Iterator<EdgeDestNode> it_dest = graph_data.getDestNodes().iterator();
+        for (Iterator<NeighborData> it_dest = graph_data.getNeighbors().iterator();
             it_dest.hasNext();) {
 
-          EdgeDestNode dest_node = it_dest.next();
+          NeighborData dest_node = it_dest.next();
 
-          for (Iterator<DestForLinkDir> it_instances = 
-               dest_node.getLinkDirs().iterator(); it_instances.hasNext();) {
-            DestForLinkDir link_info = it_instances.next();
+          for (Iterator<EdgeData> it_instances = 
+               dest_node.getEdges().iterator(); it_instances.hasNext();) {
+            EdgeData edge_data = it_instances.next();
 
             // FoundKMerEdge will search for the edge in edges_to_find and 
             // remove it if its found.
             assertTrue(foundKMerEdge(
-                src_canonical, dest_node, link_info,  edges_to_find));
+                graph_data.getNodeId(), dest_node.getNodeId(), 
+                edge_data.getStrands(), null,  edges_to_find));
           } // for it_instances
         } // for edge_dir 
         // Check there were no edges that didn't match.

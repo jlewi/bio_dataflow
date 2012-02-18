@@ -42,34 +42,7 @@
     {"name": "ReadState",
      "type":  "enum",
      "symbols": ["END5", "END6", "END3", "MIDDLE", "I"]
-    },       
-	{"name": "KMerEdge",
-     "type": "record",
-     "namespace": "contrail.graph",
-     "doc": "Represent an edge between two KMers. Used only by BuildGraph.",
-     "fields": [
-        {"name": "link_dir", "type": "string", 
-         "doc": "Two letter string indicating how to map the canonical version of the sequence stored in kmer into the actual sequences represented by the graph nodes.",
-         "order": "ignore"
-        },
-        {"name": "last_base", "type": "bytes", 
-         "doc": "Represent the compressed base that we need to append to kmer to get the sequence in the terminating node for this edge.",
-         "order": "ignore"
-        },
-        {"name": "tag", "type": "string",
-         "doc": "string identifying the node.",
-         "order": "ignore"
-        },
-        {"name": "chunk", "type": "int",
-         "doc": "Integer identifying the chunk within the sequence the edge came from.",
-         "order": "ignore"
-        },
-        {"name": "state", "type": "contrail.ReadState",
-         "doc": "An enum identifying the state.",
-         "order": "ignore"
-        }          
-     ]
-    },        
+    },               
     {"name": "R5Tag",
      "namespace": "contrail.graph",
      "type": "record",
@@ -106,6 +79,33 @@
      "symbols": ["FF", "FR", "RF", "RR"],
      "namespace": "contrail.sequences"
     }, 
+    {"name": "KMerEdge",
+     "type": "record",
+     "namespace": "contrail.graph",
+     "doc": "Represent an edge between two KMers. Used only by BuildGraph.",
+     "fields": [
+        {"name": "strands", "type": "contrail.sequences.StrandsForEdge", 
+         "doc": "Enum containing the strands for the edge",
+         "order": "ignore"
+        },
+        {"name": "last_base", "type": "bytes", 
+         "doc": "Represent the compressed base that we need to append to kmer to get the sequence in the terminating node for this edge.",
+         "order": "ignore"
+        },
+        {"name": "tag", "type": "string",
+         "doc": "string identifying the node.",
+         "order": "ignore"
+        },
+        {"name": "chunk", "type": "int",
+         "doc": "Integer identifying the chunk within the sequence the edge came from.",
+         "order": "ignore"
+        },
+        {"name": "state", "type": "contrail.ReadState",
+         "doc": "An enum identifying the state.",
+         "order": "ignore"
+        }          
+     ]
+    },
     {"name": "EdgeData",
      "namespace": "contrail.graph",
      "type": "record",

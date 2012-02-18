@@ -1,17 +1,21 @@
 package contrail.avro;
 import contrail.CompressedRead;
 import contrail.ContrailConfig;
-import contrail.GraphNodeData;
-import contrail.KMerEdge;
 import contrail.ReadState;
 
+import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
+import contrail.graph.GraphNodeData;
+import contrail.graph.KMerEdge;
 
 import contrail.sequences.Alphabet;
 import contrail.sequences.DNAAlphabetFactory;
+import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
 import contrail.sequences.KMerReadTag;
+import contrail.sequences.StrandsForEdge;
+import contrail.sequences.StrandsUtil;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -73,6 +77,20 @@ public class BuildGraphAvro extends Stage
   public static final Schema REDUCE_OUT_SCHEMA = graph_node_data_schema;
 
 
+  /**
+   * Construct the nodeId for a given sequence.
+   * 
+   * We currently assign a nodeId based on the actual sequence to ensure 
+   * uniqueness.
+   * @param sequence
+   * @return
+   */
+  public static String constructNodeIdForSequence(Sequence sequence) {
+    // TODO(jlewi): We should at the very least use a compact 
+    // representation of the sequence.
+    return sequence.toString();
+  }
+  
   protected void initializeDefaultOptions() {
     super.initializeDefaultOptions();
     default_options.put("TRIM3", new Long(0));
@@ -110,6 +128,37 @@ public class BuildGraphAvro extends Stage
 
     options.addAll(ContrailOptions.getInputOutputPathOptions());
     return options;
+  }
+  
+  /**
+   * Construct the destination KMer in an edge using the source KMer,
+   * the last base for the sequence, and the strands for the edge.
+   * 
+   * The mapper does a micro optimization. Since, the two KMers overlap by 
+   * K-1 bases we can construct the destination KMer from the
+   * source KMer and the non-overlap region of the destination
+   *  
+   * @param canonical_src: Canonical representation of the source KMer.
+   * @param last_base: The non overlap region of the destination KMer.
+   * @param strands: Which strands the source and destination kmer came from.
+   * @param alphabet: The alphabet for the encoding.
+   * @return: The destination KMer.
+   */
+  public static Sequence ConstructDestSequence(
+      Sequence canonical_src, ByteBuffer last_base_byte, StrandsForEdge strands,
+      Alphabet alphabet) {
+    Sequence last_base = new Sequence(alphabet);
+    last_base.readPackedBytes(last_base_byte.array(), 1);
+    Sequence dest;
+
+    int K = canonical_src.size();
+    if (StrandsUtil.src(strands) == DNAStrand.FORWARD) {
+      dest = canonical_src.subSequence(1, K);
+    } else {
+      dest = DNAUtil.reverseComplement(canonical_src).subSequence(1, K);
+    }
+    dest.add(last_base);
+    return dest;
   }
   /**
    * This class contains the operations for preprocessing sequences.
@@ -268,23 +317,23 @@ public class BuildGraphAvro extends Stage
         Sequence vkmer_canonical = DNAUtil.canonicalseq(vkmer);
 
         // The canonical direction of the two kmers.
-        char ukmer_dir;
-        char vkmer_dir;
+        DNAStrand ukmer_strand;
+        DNAStrand vkmer_strand;
         if (ukmer_canonical.equals(ukmer)) {
-          ukmer_dir = 'f';
+          ukmer_strand = DNAStrand.FORWARD;
         } else {
-          ukmer_dir = 'r';
+          ukmer_strand = DNAStrand.REVERSE;
         }
         if (vkmer_canonical.equals(vkmer)) {
-          vkmer_dir = 'f';
+          vkmer_strand = DNAStrand.FORWARD;
         } else {
-          vkmer_dir = 'r';
+          vkmer_strand = DNAStrand.REVERSE;
         }
+       
+        StrandsForEdge strands = StrandsUtil.form(ukmer_strand, vkmer_strand);
+        StrandsForEdge rc_strands = StrandsUtil.complement(strands);
 
-        String link_dir = Character.toString(ukmer_dir) + vkmer_dir;
-        String reverse_link = DNAUtil.flip_link(link_dir);
-
-        if ((i == 0) && (ukmer_dir == 'r'))  { ustate = ReadState.END6; }
+        if ((i == 0) && (ukmer_strand == DNAStrand.REVERSE))  { ustate = ReadState.END6; }
         if (i+1 == end) { vstate = ReadState.END3; }
 
         // TODO(jlewi): It would probably be more efficient not to use a string
@@ -306,8 +355,10 @@ public class BuildGraphAvro extends Stage
 
           // TODO(jlewi): Should we verify that all unset bits in node.kmer are
           // 0?
-          node.setLinkDir(link_dir);
-          node.setLastBase(ByteBuffer.wrap(vkmer_end.toPackedBytes(), 0, vkmer_end.numPackedBytes()));
+          node.setStrands(strands);
+          node.setLastBase(
+              ByteBuffer.wrap(vkmer_end.toPackedBytes(), 0, 
+                              vkmer_end.numPackedBytes()));
           node.setTag(compressed_read.getId());
           node.setState(ustate);
           node.setChunk(chunk);
@@ -328,7 +379,7 @@ public class BuildGraphAvro extends Stage
           // Output an edge assuming we are reading the reverse strand.
           // TODO(jlewi): Should we verify that all unset bits in node.kmer are
           // 0?
-          node.setLinkDir(reverse_link);
+          node.setStrands(rc_strands);
           node.setLastBase(ByteBuffer.wrap(ukmer_start.toPackedBytes(), 0, ukmer_start.numPackedBytes()));
           node.setTag(compressed_read.id);
           node.setState(vstate);
@@ -394,24 +445,14 @@ public class BuildGraphAvro extends Stage
       // KMerEdge. 
       while(iter.hasNext()) {
         KMerEdge edge = iter.next();
-        Sequence last_base = new Sequence(alphabet);
-
-        CharSequence edge_dir = edge.getLinkDir();			    
-
-        last_base.readPackedBytes(edge.getLastBase().array(), 1);
-
+                
+        StrandsForEdge strands = edge.getStrands();			    
+     
         String read_id = edge.getTag().toString();			   			  
         KMerReadTag tag = new KMerReadTag(read_id, edge.getChunk());
 
-        Sequence dest;
-
-        if (edge_dir.charAt(0) == 'f') {
-          dest = canonical_src.subSequence(1, K);
-        } else {
-          dest = DNAUtil.reverseComplement(canonical_src).subSequence(1, K);
-        }
-        dest.add(last_base);
-
+        Sequence dest = ConstructDestSequence(
+            canonical_src, edge.getLastBase(), strands, alphabet);
         Sequence canonical_dest = DNAUtil.canonicalseq(dest);
 
         // Set mertag to the smallest (lexicographically) tag 
@@ -431,7 +472,11 @@ public class BuildGraphAvro extends Stage
           }
         }
         // Add an edge to this destination.
-        graphnode.addEdge(edge.getLinkDir(), canonical_dest, tag.toString(), 
+        DNAStrand src_strand = StrandsUtil.src(strands);
+        String terminalid = constructNodeIdForSequence(canonical_dest);
+        EdgeTerminal terminal = new EdgeTerminal(
+            terminalid, StrandsUtil.dest(strands));
+        graphnode.addOutgoingEdge(src_strand, terminal, tag.toString(), 
             MAXTHREADREADS);
       }
 
@@ -440,7 +485,8 @@ public class BuildGraphAvro extends Stage
 
       // TODO(jlewi): We should at the very least use a compact 
       // representation of the sequence.
-      graphnode.getData().setNodeId(canonical_src.toString());
+      graphnode.getData().setNodeId(
+          constructNodeIdForSequence(canonical_src));
 
       collector.collect(graphnode.getData());
       reporter.incrCounter("Contrail", "nodecount", 1);

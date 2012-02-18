@@ -44,34 +44,16 @@ public class DNAUtil {
    * @return - 'f' if the DNA sequence precedes is reverse complement
    *  lexicographically (based on the integer values of the sequence). 'r' otherwise. 
    */
-  public static char canonicaldir(Sequence seq)
+  public static DNAStrand canonicaldir(Sequence seq)
   {    
     Sequence complement = reverseComplement(seq);
     if (seq.compareTo(complement) <= 0)
     {
-      return 'f';
+      return DNAStrand.FORWARD;
     }
-    return 'r';
+    return DNAStrand.REVERSE;
   }
-  
-  /**
-   *  
-   * @param link
-   * @return
-   * @throws IOException
-   */
-  public static String flip_link(String link) throws IOException
-  {
-	// TODO(jlewi): This function is obsolete now that we have enums
-	// DNAStrand EdgeDirection.
-    if (link.equals("ff")) { return "rr"; }
-    if (link.equals("fr")) { return "fr"; }
-    if (link.equals("rf")) { return "rf"; }
-    if (link.equals("rr")) { return "ff"; }
-
-    throw new IOException("Unknown link type: " + link);
-  }
-  
+    
   /**
    * Returns the canonical version of a DNA sequence.
    * 
@@ -98,8 +80,8 @@ public class DNAUtil {
    * given by the argument. The sequence is only copied if the direction
    * is "r"
    */
-  public static Sequence canonicalToDir(Sequence seq, char dir) {
-    if (dir == 'f') {
+  public static Sequence canonicalToDir(Sequence seq, DNAStrand strand) {
+    if (strand == DNAStrand.FORWARD) {
       return seq;
     }
     return reverseComplement(seq);
