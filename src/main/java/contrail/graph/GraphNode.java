@@ -1,19 +1,18 @@
 package contrail.graph;
 
-import contrail.sequences.CompressedSequence;
 import contrail.GraphNodeKMerTag;
 
-import contrail.sequences.DNAAlphabetFactory;
+import contrail.graph.EdgeDirection;
+import contrail.graph.EdgeTerminal;
+import contrail.graph.TailData;
+
+import contrail.sequences.CompressedSequence;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAStrandUtil;
 import contrail.sequences.KMerReadTag;
 import contrail.sequences.Sequence;
 import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
-
-import contrail.graph.EdgeDirection;
-import contrail.graph.EdgeTerminal;
-import contrail.graph.TailData;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -281,80 +280,6 @@ public class GraphNode {
 	public GraphNodeData getData() {
 		return data;
 	}
-
-	/**
-	 * Add an outgoing edge to this node.
-	 *
-	 * @param link_dir - Two letter string such as 'ff' which indicates the canonical
-	 *   direction of the source and destination KMers. 
-	 * @param canonical_dest - The canonical sequence for the destination KMer.
-	 * @param tag - A string identifying the read (and location within the read) where this 
-	 *   edge came from.
-	 * @param MAXTHREADREADS - Maximum number of threads to record the tags for.
-	 */
-//	public void addEdge(CharSequence link_dir, Sequence canonical_dest, String tag, long MAXTHREADREADS) {
-//		if (data.getNeighbors() == null) {
-//			data.setDestNodes(new ArrayList<NeighborData>());
-//		}
-//		// Get a list of the edges for this direction.
-//		// Create the list if it doesn't exist.
-//		NeighborData dest_node = findDestNode(canonical_dest);
-//
-//		if (dest_node == null) {
-//			dest_node = new NeighborData();
-//			CompressedSequence compressed = new CompressedSequence();
-//			compressed.setDna(ByteBuffer.wrap(canonical_dest.toPackedBytes(), 0, canonical_dest.numPackedBytes()));
-//			compressed.setLength(canonical_dest.size());      
-//			dest_node.setCanonicalSequence(compressed);
-//			dest_node.setLinkDirs(new ArrayList<EdgeData>());
-//			data.getNeighbors().add(dest_node);
-//		}
-//
-//
-//		// Check if we already have an instance for this link direction.
-//		EdgeData edge_info = findInstancesForLinkDir(dest_node, link_dir);
-//
-//		if (edge_info == null) {
-//			edge_info = new EdgeData();
-//			edge_info.setReadTags(new ArrayList<CharSequence>());
-//			dest_node.getEdges().add(edge_info);      
-//		}
-//
-//		edge_info.setLinkDir(link_dir);
-//
-//		if (edge_info.getReadTags().size() < MAXTHREADREADS)
-//		{
-//			edge_info.getReadTags().add(tag);
-//		}
-//	}
-
-	/**
-	 * Find the instance of NeighborData representing the given canonical_sequence.
-	 * @param canonical_sequence
-	 * @return The instance if found or null otherwise.
-	 * 
-	 * TODO(jlewi): We could probably speed this up by creating a hash map for the 
-	 * destination sequences.
-	 */
-//	private NeighborData findDestNode(Sequence canonical_sequence) {
-//		// TODO(jlewi): We should probably get rid of this function
-//		// and just use findDestNode(String nodeId)
-//		if (data.getNeighbors() == null) {
-//			return null;
-//		}
-//		Sequence canonical = new Sequence(DNAAlphabetFactory.create());
-//		for (Iterator<NeighborData> it_dest_node = data.getNeighbors().iterator();
-//				it_dest_node.hasNext();) {
-//			NeighborData dest = it_dest_node.next();
-//			canonical.readPackedBytes(dest.getCanonicalSequence().getDna().array(), 
-//					dest.getCanonicalSequence().getLength());
-//
-//			if (canonical.equals(canonical_sequence)) {
-//				return dest;
-//			}
-//		}
-//		return null;   
-//	}
 
 	/**
 	 * Find the instance of NeighborData for the specified nodeId.
