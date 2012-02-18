@@ -1,5 +1,7 @@
 package contrail.sequences;
 
+import java.util.Random;
+
 /**
  * strands enumeration is used to indicate which strands of DNA (in canonical form)
  * the source and destination sequence in an edge come strands.FRom. 
@@ -8,9 +10,10 @@ package contrail.sequences;
  *
  */
 public class StrandsUtil {
+  private static Random cls_generator;
 	/**
-	 * strands function computes the costrands.RResponding edge that would
-	 * come strands.FRom the reverse complement of strands edge. 
+	 * Function computes the corresponding edge that would
+	 * come from the reverse complement of the strand which produced this edge. 
 	 * Do not confuse strands with flipping an edge to find the incoming
 	 * edges to a node.
 	 */
@@ -64,6 +67,25 @@ public class StrandsUtil {
 			}
 		}
 	}
+
+	/**
+   * Return a random value.
+   */
+  public static StrandsForEdge random(Random generator) {
+    int index = generator.nextInt(StrandsForEdge.values().length);
+    return StrandsForEdge.values()[index];
+  }
+  
+  /**
+   * Return a random value.
+  */
+  public static StrandsForEdge random() {
+    if (cls_generator == null) {
+      cls_generator = new Random();
+    }
+    return StrandsUtil.random(cls_generator);
+  }
+	
 	
 	/** 
 	 * Convert a string representation.
