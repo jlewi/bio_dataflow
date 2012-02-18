@@ -302,48 +302,6 @@ public class TestBuildGraphAvro {
       String read_tag, ArrayList<KMerEdge> edges) {
     Alphabet alphabet = DNAAlphabetFactory.create();
 
-//    throw new RuntimeException("broken;");
-//    // To form the destination node id we take all but the first
-//    // character of the source KMer and add the last base to it.
-//    
-//    Sequence canonical_dest = new Sequence(alphabet);
-//    
-//    canonical_dest.readPackedBytes(
-//        dest_node.getCanonicalSequence().getDna().array(), 
-//        dest_node.getCanonicalSequence().getLength());
-//
-//    // Check that the lengths of the src and dest are the same.
-//    assertEquals(canonical_src.size(), canonical_dest.size());
-//
-//    int K = canonical_src.size();
-//
-//    // Convert the canonical representations of the source and destination
-//    // to the direction for this edge.
-//    Sequence src = new Sequence(canonical_src);
-//    src = DNAUtil.canonicalToDir(canonical_src, edge_data.getEdgeData().charAt(0));
-//
-//    Sequence dest = new Sequence(canonical_dest);
-//    dest = DNAUtil.canonicalToDir(dest, edge_data.getEdgeData().charAt(1));
-//
-//    // Check that the src and dest overlap by K -1 bases.
-//    assertEquals(src.subSequence(1, K), dest.subSequence(0, K-1));
-//
-//
-//    // The edge given by (source kmer, dest kmer, edge direction) could
-//    // appear multiple times with different tags for the destination KMer.
-//    // We want to find all such edges. So we construct a list of all
-//    // the tags that we need to match.
-//    HashSet<String> tags_to_find = new HashSet<String>();
-//    for (Iterator<CharSequence> it = edge_data.getReadTags().iterator();
-//        it.hasNext();) {        
-//      tags_to_find.add(it.next().toString());
-//    }
-//
-//    Sequence dest_last_base = dest.subSequence(K-1, K);
-//    
-//    // Set of edges that we found.
-//    HashSet<CharSequence> found_tags = new HashSet<CharSequence>();
-
     // Keep track of the positions in edges of the edges that we matched.
     // We will delete these edges so that edges will only contain unmatched
     // eges.

@@ -1,6 +1,5 @@
 package contrail.avro;
 import contrail.CompressedRead;
-import contrail.ContrailConfig;
 import contrail.ReadState;
 
 import contrail.graph.EdgeTerminal;
@@ -32,14 +31,9 @@ import org.apache.avro.mapred.Pair;
 import org.apache.avro.Schema;
 
 import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.GnuParser;
-import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.OptionBuilder;
-import org.apache.commons.cli.Options;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
@@ -47,8 +41,6 @@ import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
-import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -391,7 +383,6 @@ public class BuildGraphAvro extends Stage
         }
         ustate = ReadState.MIDDLE;
       }
-
       reporter.incrCounter("Contrail", "reads_good", 1);
       reporter.incrCounter("Contrail", "reads_goodbp", seq.size());
     }			
