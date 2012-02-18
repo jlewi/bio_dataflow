@@ -22,6 +22,7 @@ import contrail.graph.GraphNodeData;
 import contrail.sequences.Alphabet;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
+import contrail.sequences.DNAStrandUtil;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
 import contrail.sequences.StrandsForEdge;
@@ -100,15 +101,6 @@ public class TestBuildGraphAvro {
       letters[pos] = alphabet.validChars()[rnd_int];        
     }
     return String.valueOf(letters);
-  }
-
-  /**
-   * Return a random letter r or f with equal probability
-   */
-  public static String randomDir() {
-    double rnd = Math.random();
-    String letter = rnd > .5 ? "f" : "r";
-    return letter;
   }
   
   /**
@@ -211,28 +203,34 @@ public class TestBuildGraphAvro {
           it.hasNext(); ) {
         Pair<ByteBuffer, KMerEdge> pair = it.next();
   
+        
         Sequence canonical_key = 
             new Sequence(DNAAlphabetFactory.create(), (int)ContrailConfig.K);      
         canonical_key.readPackedBytes(pair.key().array(), test_data.getK());
-  
         Sequence rc_key = DNAUtil.reverseComplement(canonical_key);
   
         KMerEdge edge = pair.value();      
   
+        DNAStrand src_strand = StrandsUtil.src(edge.getStrands());
+        DNAStrand dest_strand = StrandsUtil.dest(edge.getStrands());
+        
+        // Reconstruct the K+1 string this edge came from.
         Sequence last_base = new Sequence(alphabet);
         last_base.readPackedBytes(edge.getLastBase().array(), 1);
-  
-        // Reconstruct the K+1 string this edge came from.
-        Sequence edge_seq = new Sequence(alphabet);  
+        
+        Sequence edge_seq = new Sequence(alphabet);
+        if (src_strand == DNAStrand.FORWARD) {
+        	edge_seq.add(canonical_key);
+        } else {
+        	edge_seq.add(DNAUtil.reverseComplement(canonical_key));
+        }
         edge_seq.add(last_base);
   
         Sequence dest_kmer = edge_seq.subSequence(1, test_data.getK() + 1);
         // Check that the direction of the destination node is properly encoded.
         // If the sequence and its reverse complement are equal then the link 
         // direction could be either forward or reverse because of 
-        // StransUtil.flip_link.
-        DNAStrand src_strand = StrandsUtil.src(edge.getStrands());
-        DNAStrand dest_strand = StrandsUtil.dest(edge.getStrands());
+        // StransUtil.flip_link.                
         if (dest_kmer.equals(DNAUtil.reverseComplement(dest_kmer))) {
           assertTrue(dest_strand == DNAStrand.FORWARD || 
                      dest_strand == DNAStrand.REVERSE);
@@ -376,7 +374,9 @@ public class TestBuildGraphAvro {
       if (read_tag == null) {
         pos_to_delete.add(index);
       } else {
-        throw new NotImplementedException("Need to check the tag");
+        if (edge.getTag().toString().equals(read_tag)) {
+          pos_to_delete.add(index);
+        }
       }
     }
 
@@ -485,7 +485,7 @@ public class TestBuildGraphAvro {
         KMerEdge node = new KMerEdge();
   
         // Randomly determine the direction for the source.         
-        String link_dir = randomDir();
+        DNAStrand src_strand = DNAStrandUtil.random();
   
         // Generate the base.
         Sequence last_base = new Sequence(randomString(1, alphabet), alphabet);
@@ -493,13 +493,14 @@ public class TestBuildGraphAvro {
         // The destination direction depends on the source direction
         // and the K-1 overlap
         Sequence dest_kmer = 
-            DNAUtil.canonicalToDir(src_canonical, link_dir.charAt(0));
+            DNAUtil.canonicalToDir(src_canonical, src_strand);
         dest_kmer = dest_kmer.subSequence(1,  dest_kmer.size());
         dest_kmer.add(last_base);
   
-        link_dir += DNAUtil.canonicaldir(dest_kmer);
-  
-        node.setLinkDir(link_dir);
+        DNAStrand dest_strand = DNAUtil.canonicaldir(dest_kmer);
+        StrandsForEdge strands = StrandsUtil.form(src_strand, dest_strand);
+         
+        node.setStrands(strands);
   
         node.setLastBase(ByteBuffer.wrap(
             last_base.toPackedBytes(), 0, last_base.numPackedBytes()));                
@@ -585,11 +586,17 @@ public class TestBuildGraphAvro {
                dest_node.getEdges().iterator(); it_instances.hasNext();) {
             EdgeData edge_data = it_instances.next();
 
-            // FoundKMerEdge will search for the edge in edges_to_find and 
-            // remove it if its found.
-            assertTrue(foundKMerEdge(
-                graph_data.getNodeId(), dest_node.getNodeId(), 
-                edge_data.getStrands(), null,  edges_to_find));
+            for (Iterator<CharSequence> it_tag = 
+            		edge_data.getReadTags().iterator();
+            	 it_tag.hasNext();) {
+            	String tag= it_tag.next().toString();
+	            // FoundKMerEdge will search for the edge in edges_to_find and 
+	            // remove it if its found.
+	            assertTrue(foundKMerEdge(
+	                graph_data.getNodeId().toString(), 
+	                dest_node.getNodeId().toString(), 
+	                edge_data.getStrands(), tag,  edges_to_find));
+            }
           } // for it_instances
         } // for edge_dir 
         // Check there were no edges that didn't match.

@@ -209,7 +209,8 @@ public class GraphNode {
 	 * Construct a new object with a new GraphNodeData to store the data.
 	 */
 	public GraphNode() {
-		data = new GraphNodeData();   
+		data = new GraphNodeData();
+		derived_data = new DerivedData(data);
 		// Initialize any member variables so that if we serialzie it we don't 
 		// get null objects.
 		data.setR5Tags(new ArrayList<R5Tag>());
