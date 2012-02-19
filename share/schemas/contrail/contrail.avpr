@@ -46,16 +46,16 @@
     {"name": "R5Tag",
      "namespace": "contrail.graph",
      "type": "record",
-     "doc": ["Stores information about how reads align in the graph. ",
-             "Tag identifies the read a subsequence came from. ",
-             "If isRC is true then the read was the reverse complement of ",
-             "the sequence with this tag."],
+     "doc": ["Stores information about how reads align to the sequence stored ",
+             "in a node. Tag identifies the read a subsequence came from. ",
+             "DNAStrand tells us which strand of this node corresponds to ",
+             "the read."],
      "fields": [                  
                  {"name": "tag",
                   "type": "string"
                  },
-                 {"name": "isRC",
-                  "type": "boolean"
+                 {"name": "strand",
+                  "type": "DNAStrand"
                  },
                  {"name": "offset",
                   "type": "int"

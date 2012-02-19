@@ -420,7 +420,7 @@ public class BuildGraphAvro extends Stage
             throws IOException {		  
       Alphabet alphabet = DNAAlphabetFactory.create();		  
       GraphNode graphnode = new GraphNode();
-      graphnode.setCanonicalSourceKMer(source_kmer_packed_bytes, K);
+      graphnode.setCanonicalSequence(source_kmer_packed_bytes, K);
 
       Sequence canonical_src = new Sequence(alphabet);
       canonical_src.readPackedBytes(source_kmer_packed_bytes.array(), K);

@@ -7,6 +7,7 @@ import contrail.graph.EdgeTerminal;
 import contrail.graph.TailData;
 
 import contrail.sequences.CompressedSequence;
+import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAStrandUtil;
 import contrail.sequences.KMerReadTag;
@@ -53,6 +54,11 @@ public class GraphNode {
 		private List<EdgeTerminal> f_incoming_edges;
 		private List<EdgeTerminal> r_incoming_edges;
 
+		// For each strand we store a hash map which maps an EdgeTerminal
+		// to a list of the read tags that gave rise to that edge.
+		private HashMap<EdgeTerminal, List<CharSequence>> f_edge_tags_map;
+		private HashMap<EdgeTerminal, List<CharSequence>> r_edge_tags_map;
+		
 		public DerivedData(GraphNodeData data) {
 			this.data = data;
 			lists_created = false;
@@ -70,7 +76,7 @@ public class GraphNode {
 		// TODO(jlewi): Would it be better to use sorted sets for fast lookups?
 		private void createEdgeLists() {
 			lists_created = true;
-
+			
 			strands_to_neighbors = 
 					new HashMap<StrandsForEdge, List<CharSequence>> ();
 			// Initialize the lists.
@@ -86,6 +92,9 @@ public class GraphNode {
 			f_outgoing_edges = new ArrayList<EdgeTerminal>();
 			r_outgoing_edges = new ArrayList<EdgeTerminal>();
 
+			f_edge_tags_map = new HashMap<EdgeTerminal, List<CharSequence>>();
+			r_edge_tags_map = new HashMap<EdgeTerminal, List<CharSequence>>();
+			
 			NeighborData dest_node;
 			List<CharSequence> id_list;
 
@@ -107,16 +116,22 @@ public class GraphNode {
 					StrandsForEdge strands = edge_data.getStrands();
 					id_list = strands_to_neighbors.get(strands);
 					id_list.add(dest_node.getNodeId());
-
+					
+					EdgeTerminal terminal = 
+					    new EdgeTerminal(dest_node.getNodeId().toString(), 
+					                     StrandsUtil.dest(strands)); 
+					
+					// Create an immutable list out of the read tags.
+					List<CharSequence> immutable_tags = 
+					    Collections.unmodifiableList(edge_data.getReadTags());
 					if (StrandsUtil.src(strands) == DNAStrand.FORWARD) {
-						f_outgoing_edges.add(
-								new EdgeTerminal(dest_node.getNodeId().toString(), 
-										StrandsUtil.dest(strands)));
+						f_outgoing_edges.add(terminal);
+						f_edge_tags_map.put(terminal, immutable_tags);		
 					} else {
-						r_outgoing_edges.add(
-								new EdgeTerminal(dest_node.getNodeId().toString(), 
-										StrandsUtil.dest(strands)));
+						r_outgoing_edges.add(terminal);
+						r_edge_tags_map.put(terminal, immutable_tags);
 					}
+					
 				}
 			}
 
@@ -188,6 +203,26 @@ public class GraphNode {
 			return terminals;
 		}
 		
+	  /**
+	   * Returns an unmodifiable view of all of the tags for which this terminal
+	   * came from.
+	   * @param strand: Which strand of this node to get the tags for.
+	   * @param terminal: The other end of the edge for which we want the tags.
+	   * @return: An unmodifiable list of the tags for these edges.  
+	   */
+	  public List<CharSequence> getTagsForEdge(
+	      DNAStrand strand, EdgeTerminal terminal) {
+	    if (!lists_created) {
+	      createEdgeLists();
+	    }
+	    
+	    if (strand == DNAStrand.FORWARD) {
+	      return f_edge_tags_map.get(terminal);
+	    } else {
+	      return r_edge_tags_map.get(terminal);
+	    }
+	  }
+	  
 		/**
 		 * Clear any precomputed data. This function needs to be called
 		 * whenever the graph changes so that we don't return stale data;
@@ -199,6 +234,8 @@ public class GraphNode {
 			f_incoming_edges = null;
 			r_incoming_edges = null;
 			strands_to_neighbors = null;
+			f_edge_tags_map = null;
+			r_edge_tags_map = null;
 		}
 	}
 
@@ -254,9 +291,10 @@ public class GraphNode {
 	}
 
 	/** 
+	 * Set the canonical sequence represented by this node.
 	 * @param seq
 	 */
-	public void setCanonicalSourceKMer(Sequence seq) {
+	public void setCanonicalSequence(Sequence seq) {
 		CompressedSequence compressed = new CompressedSequence();
 		compressed.setDna(ByteBuffer.wrap(seq.toPackedBytes(), 0, seq.numPackedBytes()));
 		compressed.setLength(seq.size()); 
@@ -266,7 +304,7 @@ public class GraphNode {
 	/** 
 	 * @param seq
 	 */
-	public void setCanonicalSourceKMer(ByteBuffer seq, int length) {
+	public void setCanonicalSequence(ByteBuffer seq, int length) {
 		CompressedSequence compressed = new CompressedSequence();
 		compressed.setDna(seq);
 		compressed.setLength(length); 
@@ -303,7 +341,64 @@ public class GraphNode {
 		}
 		return null;   
 	}
-	  
+
+	 /**
+   * Add an outgoing edge to this node. 
+   * @param strand: Which strand to add the edge to.
+   * @param dest: The destination
+   * @param tags: (Optional): List of strings identifying the reads where this
+   *   edge came from.
+   * @param MAXTHREADREADS: The tag will only be recorded if we have fewer
+   *   than this number of tags associated with this read.
+   */
+  public void addOutgoingEdgeWithTags(DNAStrand strand, EdgeTerminal dest, 
+                                      List<CharSequence> tags, 
+                                      long MAXTHREADREADS) {
+    // Clear the derived data.
+    this.derived_data.clear();
+    NeighborData dest_node = findNeighbor(dest.nodeId);
+    
+    if (dest_node == null) {
+      dest_node = new NeighborData();
+      dest_node.setNodeId(dest.nodeId);
+      List<NeighborData> neighbors = data.getNeighbors();
+      if (neighbors == null) {
+        neighbors = new ArrayList<NeighborData>();
+        data.setNeighbors(neighbors);
+      }
+      neighbors.add(dest_node);     
+    }
+    
+    List<EdgeData> list_edge_strands = dest_node.getEdges();
+    if (list_edge_strands == null) {
+      list_edge_strands = new ArrayList<EdgeData> ();
+      dest_node.setEdges(list_edge_strands);
+    }
+    
+    StrandsForEdge strands = StrandsUtil.form(strand, dest.strand);
+    EdgeData edge = findEdgeDataForStrands(
+        dest_node, strands);
+    
+    if (edge == null) {
+      edge = new EdgeData();
+      list_edge_strands.add(edge);
+      edge.setStrands(strands);
+      edge.setReadTags(new ArrayList<CharSequence>());
+    }
+    
+    if (tags !=null) {
+      if (edge.getReadTags().size() < MAXTHREADREADS){
+        List<CharSequence> edge_tags = edge.getReadTags();
+        long max_insert = MAXTHREADREADS - edge.getReadTags().size();        
+        long num_to_insert = max_insert > tags.size() ? tags.size() : 
+            max_insert; 
+        for (int i = 0 ; i < num_to_insert; i++) {
+          edge_tags.add(tags.get(i));
+        }
+      }
+    }   
+  }
+  
 	/**
 	 * Add an outgoing edge to this node. 
 	 * @param strand: Which strand to add the edge to.
@@ -315,44 +410,9 @@ public class GraphNode {
 	 */
 	public void addOutgoingEdge(DNAStrand strand, EdgeTerminal dest, String tag, 
 	                            long MAXTHREADREADS) {
-		// Clear the derived data.
-		this.derived_data.clear();
-		NeighborData dest_node = findNeighbor(dest.nodeId);
-		
-		if (dest_node == null) {
-			dest_node = new NeighborData();
-			dest_node.setNodeId(dest.nodeId);
-			List<NeighborData> neighbors = data.getNeighbors();
-			if (neighbors == null) {
-				neighbors = new ArrayList<NeighborData>();
-				data.setNeighbors(neighbors);
-			}
-			neighbors.add(dest_node);			
-		}
-		
-		List<EdgeData> list_edge_strands = dest_node.getEdges();
-		if (list_edge_strands == null) {
-			list_edge_strands = new ArrayList<EdgeData> ();
-			dest_node.setEdges(list_edge_strands);
-		}
-		
-		StrandsForEdge strands = StrandsUtil.form(strand, dest.strand);
-		EdgeData edge = findEdgeDataForStrands(
-				dest_node, strands);
-		
-		if (edge == null) {
-		  edge = new EdgeData();
-      list_edge_strands.add(edge);
-      edge.setStrands(strands);
-      edge.setReadTags(new ArrayList<CharSequence>());
-		}
-		
-		if (tag !=null) {
-      if (edge.getReadTags().size() < MAXTHREADREADS){
-          edge.getReadTags().add(tag);
-      }
-		}
-		
+	  List<CharSequence> tags = new ArrayList<CharSequence>();
+	  tags.add(tag);
+		addOutgoingEdgeWithTags(strand, dest, tags, MAXTHREADREADS);
 	}
 	
 	/**
@@ -361,9 +421,29 @@ public class GraphNode {
 	 * @param dest: The destination
 	 */
 	public void addOutgoingEdge(DNAStrand strand, EdgeTerminal dest) {
-	  addOutgoingEdge(strand, dest, null, 0);
+	  addOutgoingEdgeWithTags(strand, dest, null, 0);
 	}
- 
+ 	
+  /**
+   * Add an incoming edge to this node. 
+   * @param strand: Which strand to add the edge to.
+   * @param src: The destination
+   * @param tags: (Optional): List of strings identifying the reads where this
+   *   edge came from.
+   * @param MAXTHREADREADS: The tag will only be recorded if we have fewer
+   *   than this number of tags associated with this read.
+   */
+  public void addIncomingEdgeWithTags(DNAStrand strand, EdgeTerminal src, 
+                                      List<CharSequence> tags, 
+                                      long MAXTHREADREADS) {
+    // Let this node be X.
+    // Then edge Y->X implies edge RC(x)->RC(y).
+    // So we add RC(x)->RC(y) to this node.   
+    EdgeTerminal dest = new EdgeTerminal(
+        src.nodeId, DNAStrandUtil.flip(src.strand));
+    addOutgoingEdge(DNAStrandUtil.flip(strand), dest);
+  }
+  
 	/**
 	 * Add an incoming edge to this node. 
 	 * @param strand: Which strand to add the edge to.
@@ -512,4 +592,28 @@ public class GraphNode {
 			DNAStrand strand, EdgeDirection direction) {
 		return derived_data.getEdgeTerminals(strand, direction);
 	}
+	
+	/**
+	 * Returns an unmodifiable view of all of the tags for which this terminal
+	 * came from.
+	 * @param strand: Which strand of this node to get the tags for.
+	 * @param terminal: The other end of the edge for which we want the tags.
+	 * @return: An unmodifiable list of the tags for these edges.  
+	 */
+	public List<CharSequence> getTagsForEdge(
+	    DNAStrand strand, EdgeTerminal terminal) {
+	  return derived_data.getTagsForEdge(strand, terminal);
+	}
+	
+	/**
+	 * Return the canonical sequence for this node.
+	 * @return
+	 */
+	public Sequence getCanonicalSequence() {
+	  Sequence sequence = new Sequence(DNAAlphabetFactory.create());
+	  byte[] bytes = data.getCanonicalSourceKmer().getDna().array();
+	  int length = data.getCanonicalSourceKmer().getLength();
+	  sequence.readPackedBytes(bytes, length);
+	  return sequence;
+	}	
 }
