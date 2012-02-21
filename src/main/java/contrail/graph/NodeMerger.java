@@ -220,7 +220,7 @@ public class NodeMerger {
         info.dest_reverse = true;
       }
       // We need to shift it by the length of the unique part of the src.
-      info.dest_shift = canonical_src.size() - overlap;
+      info.dest_shift = info.src_size - overlap;
       
     } else {
       // AB > RC(AB).
@@ -234,7 +234,7 @@ public class NodeMerger {
       } else {
         info.src_reverse = false;
       }
-      info.src_shift = canonical_dest.size() - overlap;
+      info.src_shift = info.dest_size - overlap;
       
       if (StrandsUtil.dest(strands) == DNAStrand.FORWARD) {
         // We don't need to reverse this strand. 

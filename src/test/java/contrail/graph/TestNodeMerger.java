@@ -130,9 +130,10 @@ public class TestNodeMerger extends NodeMerger {
       {
         // Overlap by at most size(src) - 1 and at least 1.
         testcase.overlap = overlap;
-        Sequence dest = DNAUtil.canonicalToDir(
-            testcase.canonical_src, src_strand); 
-        dest = dest.subSequence(testcase.overlap, dest.size());
+        // Make a copy of canonical_src before we modify it.
+        Sequence dest = new Sequence(testcase.canonical_src); 
+        dest = DNAUtil.canonicalToDir(dest, src_strand); 
+        dest = dest.subSequence(dest.size() - testcase.overlap, dest.size());
         
         String non_overlap = randomString(
             generator, dest_length - overlap, DNAAlphabetFactory.create());
@@ -218,9 +219,7 @@ public class TestNodeMerger extends NodeMerger {
   public void testMergeSequences() {
     int ntrials = 20;
     for (int trial = 0; trial < ntrials; trial++) {
-      // SequenceTestCase testcase = SequenceTestCase.random(generator);
-      SequenceTestCase testcase = SequenceTestCase.random(
-          generator, 4, 4, 2, 2);
+      SequenceTestCase testcase = SequenceTestCase.random(generator);
       MergeInfo merge_info;
       {
         // Make copies of the sequences so that merge won't modify them.
