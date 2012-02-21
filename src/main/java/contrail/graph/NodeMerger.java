@@ -22,7 +22,7 @@ public class NodeMerger {
    * @param strand: Which strand of the node we are considering.
    * @param direction: Whether to consider  incoming or outgoing edges.
    */
-  protected void copyEdgesForStrand(
+  protected static void copyEdgesForStrand(
       GraphNode new_node, DNAStrand new_strand, GraphNode old_node,
       DNAStrand old_strand,
       EdgeDirection direction) {
@@ -90,7 +90,7 @@ public class NodeMerger {
    * @param tags
    * @return
    */
-  protected List<R5Tag> copyR5Tags(List<R5Tag> tags) {       
+  protected static List<R5Tag> copyR5Tags(List<R5Tag> tags) {       
     List<R5Tag> new_list = new ArrayList<R5Tag>();
     for (R5Tag tag: tags) {      
       R5Tag copy = new R5Tag();
@@ -107,9 +107,9 @@ public class NodeMerger {
    * @param tags
    * @return
    */
-  protected void reverseReads(List<R5Tag> tags, int length) {       
+  protected static void reverseReads(List<R5Tag> tags, int length) {       
     for (R5Tag tag: tags) {      
-      tag.setStrand(DNAUtil.flip(tag.getStrand()));
+      tag.setStrand(DNAStrandUtil.flip(tag.getStrand()));
       tag.setOffset(length - tag.getOffset() -1);
     }
   }
@@ -121,7 +121,7 @@ public class NodeMerger {
    * @author jlewi
    *
    */
-  protected class MergeInfo {
+  protected static class MergeInfo {
     /**
      * This is the canonical representation of the merged sequences.
      */
@@ -132,27 +132,36 @@ public class NodeMerger {
      */
     public DNAStrand merged_strand;   
     
+    public int src_size;
+    public int dest_size;
     /**
      * Whether we need to reverse the read tags.
      */
-    public boolean reverse_reads;
+    public boolean src_reverse;
+    public int src_shift;
+    public boolean dest_reverse;
+    public int dest_shift;
     
   }
   
   /**
-   * Merge two sequences. This is not really a public function. Its
-   * @param strands: Which strands to do the merge along. 
+   * Warning: This function potentially modifies the inputs so
+   * make copies. 
    */
-  protected MergeInfo mergeSequences(
+  protected static MergeInfo mergeSequences(
       Sequence canonical_src, Sequence canonical_dest, 
       StrandsForEdge strands, int overlap) {
     MergeInfo info = new MergeInfo();
+    
+    // Save the original sizes.
+    info.src_size = canonical_src.size();
+    info.dest_size = canonical_dest.size();
     
     Sequence src_sequence = DNAUtil.canonicalToDir(
         canonical_src, StrandsUtil.src(strands));
     
     Sequence dest_sequence = DNAUtil.canonicalToDir(
-        canonical_dest, StrandsUtil.dest((strands)); 
+        canonical_dest, StrandsUtil.dest(strands)); 
         
       //dest.getCanonicalSequence();
     
@@ -163,33 +172,140 @@ public class NodeMerger {
     // Copying the data to form new sequences is probably inefficient.
     Sequence src_overlap = src_sequence.subSequence(
         src_sequence.size() - overlap, src_sequence.size());
-    Sequence dest_overlap = src_sequence.subSequence(0, overlap);
+    Sequence dest_overlap = dest_sequence.subSequence(0, overlap);
 
     if (!src_overlap.equals(dest_overlap)) {
       throw new RuntimeException(
-          "Can't merge nodes. Sequences don't overlap by: " + overlap + 
+          "Can't merge nodes. Sequences don't overlap by: " + overlap + " " +
           "bases.");
     }
     
     // Combine the sequences.
-    Sequence dest_nonoverlap = dest_sequence.subSequence(
-        overlap, dest_sequence.size());
-    src_sequence.add(dest_nonoverlap);
-    
-    info.canonical_merged = DNAUtil.canonicalseq(src_sequence);
-    info.merged_strand = DNAUtil.canonicaldir(src_sequence);
-    
+    {
+      Sequence merged = src_sequence;
+      // Set src_sequence to null because it is no longer valid, 
+      // because we will modify it.
+      src_sequence = null;
+      Sequence dest_nonoverlap = dest_sequence.subSequence(
+          overlap, dest_sequence.size());
+      merged.add(dest_nonoverlap);
+      
+      info.merged_strand = DNAUtil.canonicaldir(merged);
+      info.canonical_merged = DNAUtil.canonicalseq(merged);   
+    }
+            
     // Determine whether we need to reverse the reads. 
     // We need to reverse the reads if the direction of the merged
-    // sequence and the original src_sequence don't match    
-    if (info.merged_strand != StrandsUtil.src(strands)) {
-      info.reverse_reads = true;
+    // sequence and the original src_sequence don't match
+    // Let A = The strand from the source node.
+    // Let B = The strand from the destination node.
+    if (info.merged_strand == DNAStrand.FORWARD) {
+      // So AB < RC(AB) 
+      // The fragment from the source node appears first.
+      if (StrandsUtil.src(strands) == DNAStrand.FORWARD) {
+        // A < RC(A)
+        // The src strand is already aligned.
+        info.src_reverse = false;
+      } else {
+        // A > RC(A)
+        // We have to reverse the source strand but we don't need to flip it.
+        info.src_reverse = true;
+      }
+      info.src_shift = 0;
+      
+      if (StrandsUtil.dest(strands) == DNAStrand.FORWARD) {
+        // We don't need to reverse this strand. 
+        info.dest_reverse = false;
+      } else {
+        info.dest_reverse = true;
+      }
+      // We need to shift it by the length of the unique part of the src.
+      info.dest_shift = canonical_src.size() - overlap;
+      
     } else {
-      info.reverse_reads = false;
+      // AB > RC(AB).
+      // So the canonical representation is: RC(B)RC(A)
+      // The strand from the destination node appears at the start
+      // of the canonical representation of the merged sequence.      
+      if (StrandsUtil.src(strands) == DNAStrand.FORWARD) {
+        // The reverse complement of the src strand appears
+        // at the end of the merged sequence.
+        info.src_reverse = true;
+      } else {
+        info.src_reverse = false;
+      }
+      info.src_shift = canonical_dest.size() - overlap;
+      
+      if (StrandsUtil.dest(strands) == DNAStrand.FORWARD) {
+        // We don't need to reverse this strand. 
+        info.dest_reverse = true;
+      } else {
+        info.dest_reverse = false;
+      }
+      // We don't shift it because the destination sequence appears first.
+      info.dest_shift = 0;
     }
+//    if (info.merged_strand != StrandsUtil.src(strands)) {
+//      info.src_reverse = true;
+//      info.src_shift = canonical_dest.size() - overlap;
+//    } else {
+//      info.src_reverse = false;
+//      info.src_shift = 0;
+//    }
+//    
+//    if (info.merged_strand == StrandsUtil.dest(strands)) {
+//      info.dest_reverse = false;
+//      info.dest_shift = canonical_src.size() - overlap;
+//    } else {
+//      info.dest_reverse = true;
+//      info.dest_shift = 0;
+//    }
+    
     return info;
   }
   
+  /**
+   * Construct a list of the R5 tags aligned with the merged sequence. 
+   * @param info
+   * @param src_r5tags
+   * @param dest_r5tags
+   * @return
+   */
+  protected static List<R5Tag> alignTags(
+      MergeInfo info, List<R5Tag> src_r5tags, List<R5Tag> dest_r5tags) {
+   
+    // Update the read alignment tags (R5Fields).
+    // Make a copy of src tags.
+    List<R5Tag> src_tags = copyR5Tags(src_r5tags);
+    List<R5Tag> dest_tags = copyR5Tags(dest_r5tags);
+    
+    // Reverse the reads if necessary.
+    if (info.src_reverse) {
+      reverseReads(src_tags, info.src_size);
+    }
+    
+    if (info.dest_reverse) {
+      reverseReads(dest_tags, info.dest_size);
+    }
+    
+    if (info.src_shift > 0) {
+      for (R5Tag tag : src_tags) {
+        tag.setOffset(tag.getOffset() + info.src_shift);
+      }
+    }
+    
+    if (info.dest_shift > 0) {
+      for (R5Tag tag : dest_tags) {
+        tag.setOffset(tag.getOffset() + info.dest_shift);
+      }
+    }
+    
+    src_tags.addAll(dest_tags);
+    return src_tags;
+  }
+  /**
+   * 
+   */
   /**
    * Merge two nodes
    * @param src: The source node
@@ -200,7 +316,7 @@ public class NodeMerger {
    * @return
    * @throws RuntimeException if the nodes can't be merged.
    */
-  public GraphNode mergeNodes(
+  public static GraphNode mergeNodes(
       GraphNode src, GraphNode dest, StrandsForEdge strands, int overlap) {
     // To merge two nodes we need to
     // 1. Form the combined sequences
@@ -213,46 +329,43 @@ public class NodeMerger {
     Sequence src_sequence = src.getCanonicalSequence();
     Sequence dest_sequence = dest.getCanonicalSequence();
     MergeInfo merge_info = mergeSequences(
-        src_sequence, dest_sequence, strands);
+        src_sequence, dest_sequence, strands, overlap);
     
     GraphNode new_node = new GraphNode();
-    new_node.setCanonicalSequence(canonical_sequence);
+    new_node.setCanonicalSequence(merge_info.canonical_merged);
     
     // Preserve the edges we need to preserve the incoming/outgoing
     // edges corresponding to the strands but we also need to consider
     // the reverse complement of the strand.
     // Add the incoming edges.
-    copyEdgesForStrand(new_node, new_strand, src, StrandsUtil.src(strands),
-                       EdgeDirection.INCOMING);
+    copyEdgesForStrand(
+        new_node, merge_info.merged_strand, src, StrandsUtil.src(strands),
+        EdgeDirection.INCOMING);
+    
     // add the outgoing edges.
-    copyEdgesForStrand(new_node, new_strand, dest, StrandsUtil.dest(strands),
+    copyEdgesForStrand(
+        new_node, merge_info.merged_strand, dest, StrandsUtil.dest(strands),
         EdgeDirection.OUTGOING);
     
     
     // Now add the incoming and outgoing edges for the reverse complement.
-    DNAStrand rc_strand = DNAStrandUtil.flip(new_strand);
+    DNAStrand rc_strand = DNAStrandUtil.flip(merge_info.merged_strand);
     StrandsForEdge rc_edge_strands = StrandsUtil.complement(strands);
-    copyEdgesForStrand(new_node, rc_strand, src, 
-        StrandsUtil.src(rc_edge_strands),
+    copyEdgesForStrand(
+        new_node, rc_strand, src, StrandsUtil.src(rc_edge_strands),
         EdgeDirection.INCOMING);
 
     // add the outgoing edges.
-    copyEdgesForStrand(new_node, rc_strand, dest, 
-        StrandsUtil.dest(rc_edge_strands),
+    copyEdgesForStrand(
+        new_node, rc_strand, dest, StrandsUtil.dest(rc_edge_strands),
         EdgeDirection.OUTGOING);    
     
-    // Update the read alignment tags (R5Fields).
-    // Make a copy of src tags.
-    List<R5Tag> src_tags = copyR5Tags(src.getData().getR5Tags());
     
-    // Reverse the reads if necessary.
-    if (new_strand == DNAStrand.FORWARD) {
-      // We don't need to reverse the reads.
-      
-    }
+    // Align the tags.
+    new_node.getData().setR5Tags(alignTags(
+            merge_info, src.getData().getR5Tags(), dest.getData().getR5Tags()));
     
-    for (R5Tag rtag: src.getData().getR5Tags()) {
-      if (rtag.)
-    }
+    
+    throw new RuntimeException("Need to update the coverage.");
   }
 }

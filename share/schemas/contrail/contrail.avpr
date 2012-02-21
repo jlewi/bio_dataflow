@@ -55,7 +55,7 @@
                   "type": "string"
                  },
                  {"name": "strand",
-                  "type": "DNAStrand"
+                  "type": "contrail.sequences.DNAStrand"
                  },
                  {"name": "offset",
                   "type": "int"
