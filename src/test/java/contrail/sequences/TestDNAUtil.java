@@ -70,22 +70,22 @@ public class TestDNAUtil {
       Sequence seq = new Sequence(str_seq, alphabet);
       Sequence rc_seq = DNAUtil.reverseComplement(seq);
       String rc_str = rc_seq.toString();
-      char true_dir;
+      DNAStrand true_strand;
       if (seq.toString().compareTo(rc_seq.toString()) <= 0) {
-        true_dir = 'f';          
+        true_strand = DNAStrand.FORWARD;          
         assertEquals(seq, DNAUtil.canonicalseq(seq));
       }
       else {
-        true_dir = 'r';
+        true_strand = DNAStrand.REVERSE;
         assertEquals(rc_seq, DNAUtil.canonicalseq(seq));
       }
-      assertEquals(DNAUtil.canonicaldir(seq), true_dir);
+      assertEquals(DNAUtil.canonicaldir(seq), true_strand);
     }
 
     // Special case; string equals its reverse complement.
     Sequence seq = new Sequence("AT",alphabet);
     assertEquals(seq, DNAUtil.reverseComplement(seq));
-    assertEquals(DNAUtil.canonicaldir(seq), 'f');
+    assertEquals(DNAUtil.canonicaldir(seq), DNAStrand.FORWARD);
     assertEquals(seq, DNAUtil.canonicalseq(seq));
   }
 }

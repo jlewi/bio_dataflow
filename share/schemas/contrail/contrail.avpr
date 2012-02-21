@@ -25,46 +25,26 @@
      ]
     },
    {"name": "CompressedSequence",
-     "type": "record",
-     "doc": "Structure representing a compressed DNA sequence read. Each sequence is packed into an array of bytes using 3 bits per letter.",
-     "fields":[
-        {"name": "dna", "type": "bytes", "doc": "The dna sequence for this read."},
-        {"name": "length", "type": "int", "doc": "Length of the read."}
+    "type": "record",
+    "namespace": "contrail.sequences",
+    "doc": "Structure representing a compressed DNA sequence read. Each sequence is packed into an array of bytes using 3 bits per letter.",
+    "fields":[
+       {"name": "dna", "type": "bytes", "doc": "The dna sequence for this read."},
+       {"name": "length", "type": "int", "doc": "Length of the read."}
      ]
     },        
+    {"name": "DNAStrand",
+     "type":  "enum",
+     "namespace": "contrail.sequences",
+     "doc": "Enumeration for representing which DNAStrand a fragment comes from.",
+     "symbols": ["FORWARD", "REVERSE"]
+    },
     {"name": "ReadState",
      "type":  "enum",
      "symbols": ["END5", "END6", "END3", "MIDDLE", "I"]
-    },
-    
-    
-	{"name": "KMerEdge",
-     "type": "record",
-     "doc": "Represent an edge between two KMers. Used only by BuildGraph.",
-     "fields": [
-        {"name": "link_dir", "type": "string", 
-         "doc": "Two letter string indicating how to map the canonical version of the sequence stored in kmer into the actual sequences represented by the graph nodes.",
-         "order": "ignore"
-        },
-        {"name": "last_base", "type": "bytes", 
-         "doc": "Represent the compressed base that we need to append to kmer to get the sequence in the terminating node for this edge.",
-         "order": "ignore"
-        },
-        {"name": "tag", "type": "string",
-         "doc": "string identifying the node.",
-         "order": "ignore"
-        },
-        {"name": "chunk", "type": "int",
-         "doc": "Integer identifying the chunk within the sequence the edge came from.",
-         "order": "ignore"
-        },
-        {"name": "state", "type": "ReadState",
-         "doc": "An enum identifying the state.",
-         "order": "ignore"
-        }          
-     ]
-    },        
+    },               
     {"name": "R5Tag",
+     "namespace": "contrail.graph",
      "type": "record",
      "doc": ["Stores information about how reads align in the graph. ",
              "Tag identifies the read a subsequence came from. ",
@@ -94,12 +74,45 @@
             }
         ]
     },
-    {"name": "DestForLinkDir",
+    {"type": "enum",
+     "name": "StrandsForEdge",
+     "symbols": ["FF", "FR", "RF", "RR"],
+     "namespace": "contrail.sequences"
+    }, 
+    {"name": "KMerEdge",
+     "type": "record",
+     "namespace": "contrail.graph",
+     "doc": "Represent an edge between two KMers. Used only by BuildGraph.",
+     "fields": [
+        {"name": "strands", "type": "contrail.sequences.StrandsForEdge", 
+         "doc": "Enum containing the strands for the edge",
+         "order": "ignore"
+        },
+        {"name": "last_base", "type": "bytes", 
+         "doc": "Represent the compressed base that we need to append to kmer to get the sequence in the terminating node for this edge.",
+         "order": "ignore"
+        },
+        {"name": "tag", "type": "string",
+         "doc": "string identifying the node.",
+         "order": "ignore"
+        },
+        {"name": "chunk", "type": "int",
+         "doc": "Integer identifying the chunk within the sequence the edge came from.",
+         "order": "ignore"
+        },
+        {"name": "state", "type": "contrail.ReadState",
+         "doc": "An enum identifying the state.",
+         "order": "ignore"
+        }          
+     ]
+    },
+    {"name": "EdgeData",
+     "namespace": "contrail.graph",
      "type": "record",
      "doc": "Represent the data for a particular instance of an edge.",
-     "fields": [ {"name": "link_dir",
-                "type": "string",
-                "doc": "Two letter string representing the direction for the edge."
+     "fields": [ {"name": "strands",
+                "type": "contrail.sequences.StrandsForEdge",
+                "doc": "An enumeration indicating which strands are used in this edge."
                },
                {"name": "read_tags",
                 "type": {"type": "array", "items": "string"},
@@ -107,33 +120,29 @@
                }
              ]
     },
-    {"name": "EdgeDestNode",
+    {"name": "NeighborData",
      "type": "record",
-     "doc": "Represent the destinations for an edge",
+     "namespace": "contrail.graph",
+     "doc": "Represent the neighbor of some node.",
      "fields": [
-     			 // TODO(jlewi): Do we actually need to store the canonical sequence?
-     			 // Is it sufficient to store an id for the destination node
-                 {"name": "canonical_sequence",
-                  "type": "CompressedSequence",
-                  "doc": "The canonical sequence for the destination node."
-                 },
                  {"name": "node_id",
                   "type": "string",
                   "doc": "The id for the destination node."
                  },
-                 {"name": "link_dirs", 
-                  "type": {"type": "array", "items": "DestForLinkDir"},
-                  "doc": "Describes the instances for this canonical sequence."
+                 {"name": "edges", 
+                  "type": {"type": "array", "items": "contrail.graph.EdgeData"},
+                  "doc": "Describes the edges between these two nodes."
                  }
                ]
     },    
     {"name": "GraphNodeData",
+     "namespace": "contrail.graph",
      "type": "record",
      "doc": "Represent a node in the DeBruijn Graph.",
      "fields": [
      		     // TODO(jlewi): This field contains information about which read the sequence 
      		     // came from. We might want to rename this field. 
-                 {"name": "mertag", "type":"GraphNodeKMerTag",
+                 {"name": "mertag", "type":"contrail.GraphNodeKMerTag",
                   "doc": "A tag for this node"
                  },
                  {"name": "node_id", 
@@ -145,12 +154,13 @@
                  },
                  // TODO(jlewi): We should rename this canonical_source 
                  // because it won't always be length K.
-                 {"name": "canonical_source_kmer", "type":"CompressedSequence", 
+                 {"name": "canonical_source_kmer", 
+                  "type":"contrail.sequences.CompressedSequence", 
                   "doc": "Sequence of bytes representing the compressed, canonical sequence corresponding to the source."
                  },
-                 {"name": "dest_nodes", 
-                  "type": {"type": "array", "items":"EdgeDestNode"},
-                  "doc": "A list of EdgeDestNodes representing the canonical destination nodes."
+                 {"name": "neighbors", 
+                  "type": {"type": "array", "items":"contrail.graph.NeighborData"},
+                  "doc": "An array of this node's neighbors."
                  },
                  {"name": "r5_tags", 
                   "type": {"type": "array", "items": "R5Tag"}
@@ -164,15 +174,15 @@
                  // TODO(jlewi): We probably shouldn't store canonical_dest_kmer.
                  // Rather, we should identify the nodes using the node_id.
                  {"name": "canonical_dest_kmer", 
-                  "type": ["null", "CompressedSequence"],
+                  "type": ["null", "contrail.sequences.CompressedSequence"],
                   "doc": ["The canonical sequence for the destination KMer to ",
                           "remove the edge from."]
                  },
-                 {"name": "link_dir", 
-                  "type": ["null", "string"],
-                  "doc": "The two letter code for the edge direction we want to delete."
+                 {"name": "edge_strands", 
+                  "type": ["null", "contrail.sequences.StrandsForEdge"],
+                  "doc": "The enumeration for the edge strands we want to delete."
                  },
-                 {"name": "node", "type": ["null", "GraphNodeData"],
+                 {"name": "node", "type": ["null", "contrail.graph.GraphNodeData"],
                   "doc": "The node the messages are sent to."
                  }                 
                ]
