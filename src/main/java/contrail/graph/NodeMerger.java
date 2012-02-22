@@ -245,21 +245,6 @@ public class NodeMerger {
       // We don't shift it because the destination sequence appears first.
       info.dest_shift = 0;
     }
-//    if (info.merged_strand != StrandsUtil.src(strands)) {
-//      info.src_reverse = true;
-//      info.src_shift = canonical_dest.size() - overlap;
-//    } else {
-//      info.src_reverse = false;
-//      info.src_shift = 0;
-//    }
-//    
-//    if (info.merged_strand == StrandsUtil.dest(strands)) {
-//      info.dest_reverse = false;
-//      info.dest_shift = canonical_src.size() - overlap;
-//    } else {
-//      info.dest_reverse = true;
-//      info.dest_shift = 0;
-//    }
     
     return info;
   }
@@ -303,6 +288,31 @@ public class NodeMerger {
     src_tags.addAll(dest_tags);
     return src_tags;
   }
+  
+  /**
+   * Compute the coverage for the result of merging two nodes.
+   * 
+   * The resulting coverage is a weighted average of the source and destination
+   * coverages. The weights are typically the length measured in # of Kmers
+   * spanning the sequence; as opposed to base pairs. Consequently, the length
+   * of a sequence is typically len(sequence) - K + 1, when len(sequence)
+   * is the nubmer of pairs pairs.
+   * @param src_coverage
+   * @param src_coverage_length
+   * @param dest_coverage
+   * @param dest_coverage_length
+   * @return
+   */
+  protected static float computeCoverage(
+      float src_coverage, int src_coverage_length, float dest_coverage, 
+      int dest_coverage_length) {
+    
+    float coverage = (src_coverage * src_coverage_length) + 
+        (dest_coverage * dest_coverage_length);
+    coverage = coverage / (float) (src_coverage_length + dest_coverage_length);
+    return coverage;
+  }
+  
   /**
    * 
    */
@@ -313,19 +323,24 @@ public class NodeMerger {
    * @param strands: Which strands the edge from src->dest comes from.
    * @param overlap: The number of bases that should overlap between
    *   the two sequences.
+   * @param src_coverage_length: The length to associate with the source
+   *   for the purpose of computing the coverage. This is typically the number
+   *   of KMers in the source i.e it is len(src) - K + 1. 
+   * @param dest_coverage_length: The length to associate with the destination
+   *   for the purpose of computing the coverage.
    * @return
    * @throws RuntimeException if the nodes can't be merged.
    */
   public static GraphNode mergeNodes(
-      GraphNode src, GraphNode dest, StrandsForEdge strands, int overlap) {
+      GraphNode src, GraphNode dest, StrandsForEdge strands, int overlap,
+      int src_coverage_length, int dest_coverage_length) {
     // To merge two nodes we need to
     // 1. Form the combined sequences
     // 2. Update the coverage
     // 3. Remove outgoing edges from src.
     // 4. Remove Incoming edges to dest
     // 5. Add Incoming edges to src
-    // 6. Add outgoing edges from dest
-    
+    // 6. Add outgoing edges from dest    
     Sequence src_sequence = src.getCanonicalSequence();
     Sequence dest_sequence = dest.getCanonicalSequence();
     MergeInfo merge_info = mergeSequences(
@@ -365,7 +380,11 @@ public class NodeMerger {
     new_node.getData().setR5Tags(alignTags(
             merge_info, src.getData().getR5Tags(), dest.getData().getR5Tags()));
     
+    // Compute the coverage.
+    new_node.getData().setCoverage(computeCoverage(
+        src.getCoverage(), src_coverage_length, dest.getCoverage(), 
+        dest_coverage_length));
     
-    throw new RuntimeException("Need to update the coverage.");
+    return new_node;
   }
 }

@@ -215,6 +215,7 @@ public class TestNodeMerger extends NodeMerger {
       assertTrue(prefix.startsWith(true_prefix));
     }
   }
+  
   @Test
   public void testMergeSequences() {
     int ntrials = 20;
@@ -236,5 +237,136 @@ public class TestNodeMerger extends NodeMerger {
       
       checkAlignTags(testcase, merge_info);
     }        
+  }
+  
+  protected static class NodesTestCase{
+    public GraphNode src;
+    public GraphNode dest;
+    
+    public int src_coverage_length;
+    public int dest_coverage_length;
+  }
+  
+  protected static GraphNode createNode(
+      String nodeid, Sequence sequence, Random generator) {
+    long kMaxThreads = 1000;
+    // Create a node with some edges.
+    GraphNode node = new GraphNode();
+    node.getData().setNodeId(nodeid);
+    
+    int num_edges = generator.nextInt(15);
+    for (int edge_index = 0; edge_index < num_edges; edge_index++) {
+      EdgeDirection direction = EdgeDirection.random(generator);      
+      List<CharSequence> tags = new ArrayList<CharSequence>();
+      int num_tags = generator.nextInt(10);
+      for (int tag_index = 0; tag_index < num_tags; tag_index++) {
+        tags.add("tag_" + nodeid + "_" + edge_index + "_" + tag_index);
+      }
+      
+      EdgeTerminal terminal = new EdgeTerminal(
+          nodeid + ":" + edge_index, DNAStrandUtil.random(generator));
+      
+      DNAStrand strand = DNAStrandUtil.random(generator);
+      if (direction == EdgeDirection.INCOMING) {
+        node.addIncomingEdgeWithTags(strand, terminal, tags, kMaxThreads);
+      } else {
+        node.addOutgoingEdgeWithTags(strand, terminal, tags, kMaxThreads);
+      }
+    }
+    node.setCanonicalSequence(sequence);
+    
+    return node;
+  }
+  
+  protected static NodesTestCase createMergeTestCase(
+      SequenceTestCase sequence_case, Random generator) {
+    NodesTestCase node_case = new NodesTestCase();
+    
+    node_case.src = createNode("src", sequence_case.canonical_src, generator);
+    node_case.dest = createNode(
+        "dest", sequence_case.canonical_dest, generator);
+    
+    // Set the coverage.
+    node_case.src.setCoverage(generator.nextFloat() * 100);
+    node_case.dest.setCoverage(generator.nextFloat() * 100);
+    
+    node_case.src_coverage_length = generator.nextInt(100) + 1;
+    node_case.dest_coverage_length = generator.nextInt(100) + 1;
+    
+    // Add bidirectional edge to src between src and dest.
+    {
+      EdgeTerminal terminal = new EdgeTerminal(
+          node_case.dest.getNodeId(), StrandsUtil.dest(sequence_case.strands));
+      DNAStrand strand = StrandsUtil.src(sequence_case.strands);
+      node_case.src.addBidirectionalEdge(strand, terminal);
+    }
+    
+    // Add bidirectional edge to dest between src and dest.
+    {
+      StrandsForEdge rcstrands = StrandsUtil.complement(sequence_case.strands);
+      DNAStrand strand = DNAStrandUtil.flip(
+          StrandsUtil.src(rcstrands));
+      EdgeTerminal terminal = new EdgeTerminal(
+          node_case.src.getNodeId(), StrandsUtil.dest(rcstrands));      
+      node_case.src.addBidirectionalEdge(strand, terminal);
+    }
+    
+    return node_case;
+  }
+  
+  /**
+   * Check the coverage is set correctly.
+   * @param testcase
+   * @param merged
+   */
+  protected static void assertCoverage(
+      NodesTestCase testcase, GraphNode merged) {
+    double true_coverage = 
+        testcase.src_coverage_length * testcase.src.getCoverage() +
+        testcase.dest_coverage_length * testcase.dest.getCoverage();
+    double denominator = 
+        testcase.src_coverage_length + testcase.dest_coverage_length;
+    true_coverage = true_coverage / denominator;
+    
+    // Compute the fractional difference.
+    double err_fraction = Math.abs(merged.getCoverage() - true_coverage) / 
+                          true_coverage;
+    
+    double delta = 1E-4;
+    assertEquals(0.0, err_fraction, delta);
+  }
+  
+  /**
+   * Check the edges are set correctly.
+   */
+  protected static void assertEdges(NodesTestCase testcase, GraphNode merged) {
+    
+  }
+  @Test
+  public void testMergeNodes() {
+    int ntrials = 20;
+    for (int trial = 0; trial < ntrials; trial++) {
+      SequenceTestCase sequence_testcase = SequenceTestCase.random(generator);
+      
+      NodesTestCase node_testcase = createMergeTestCase(
+          sequence_testcase, generator);
+      
+      // Merge the nodes.
+      GraphNode merged = NodeMerger.mergeNodes(
+          node_testcase.src, node_testcase.dest, sequence_testcase.strands, 
+          sequence_testcase.overlap, node_testcase.src_coverage_length, 
+          node_testcase.dest_coverage_length);
+      
+      // Check the sequence is set correctly.
+      assertEquals(
+          sequence_testcase.merged_sequence, 
+          merged.getCanonicalSequence().toString());
+      
+      // Check the coverage.
+      assertCoverage(node_testcase, merged);
+      
+      // Check the edges are correct.
+      assertEdges(node_testcase, merged);
+    }
   }
 }

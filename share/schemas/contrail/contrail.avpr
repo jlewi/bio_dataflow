@@ -149,8 +149,10 @@
                   "type": "string",
                   "doc": "An id for this node. This must be consistent with the id used in destination nodes."
                  },
-                 {"name": "coverage", "type": "int",
-                  "doc": "Coverage."
+                 {"name": "coverage", "type": "doc",
+                  "doc": ["Coverage is a float because when merging nodes it ",
+                          "is set to a weighted average of the coverage of ",
+                          "the nodes being merged."]
                  },
                  // TODO(jlewi): We should rename this canonical_source 
                  // because it won't always be length K.

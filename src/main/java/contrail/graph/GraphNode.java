@@ -261,11 +261,10 @@ public class GraphNode {
 	 * @param tag - String identifying the read from where the destination KMer came
 	 *              from. 
 	 * @param offset - 0 if isRC is false, K-1 otherwise.
-	 * @param isRC - True if the actual KMer is the reverse complement of the 
-	 *     canonical version of the KMer.
+	 * @param strand - The strand that is aligned with the start of the read.
 	 * @param maxR5 - Maximum number of r5 tags to store.
 	 */
-	public void addR5(KMerReadTag tag, int offset, boolean isRC, int maxR5)
+	public void addR5(KMerReadTag tag, int offset, DNAStrand strand, int maxR5)
 	{
 
 		if (data.r5_tags.size() < maxR5)
@@ -274,7 +273,7 @@ public class GraphNode {
 
 			val.tag = tag.toString();
 			val.offset = offset;
-			val.isRC = val.isRC;
+			val.setStrand(strand);
 			data.r5_tags.add(val);
 		}
 	}
@@ -286,8 +285,8 @@ public class GraphNode {
 		data.setMertag(tag);
 	}
 
-	public void setCoverage(int cov) {
-		data.coverage = cov;
+	public void setCoverage(float cov) {
+		data.setCoverage(cov);
 	}
 
 	/** 
@@ -459,6 +458,27 @@ public class GraphNode {
 	}
 	
 	/**
+	 * Add a bidirectional edge.
+	 * We add an outgoing edge from outgoing_strand to outgoing terminal.
+	 * We also add an incoming edge corresponding to the reverse complement 
+	 * of this edge.
+	 * 
+	 * @param outgoing_strand
+	 * @param outgoing_terminal
+	 */
+	public void addBidirectionalEdge(
+	    DNAStrand outgoing_strand, EdgeTerminal outgoing_terminal) {
+          
+    addOutgoingEdge(outgoing_strand, outgoing_terminal);                 
+    EdgeTerminal incoming_terminal = new EdgeTerminal(
+        outgoing_terminal.nodeId, DNAStrandUtil.flip(outgoing_terminal.strand));
+    
+    DNAStrand incoming_strand = DNAStrandUtil.flip(outgoing_strand);    
+    addIncomingEdge(
+        incoming_strand, incoming_terminal);    
+	}
+	
+	/**
 	 * Find the edge instances inside NeighborData for the given strands.
 	 * 
 	 * @param canonical_sequence
@@ -615,5 +635,12 @@ public class GraphNode {
 	  int length = data.getCanonicalSourceKmer().getLength();
 	  sequence.readPackedBytes(bytes, length);
 	  return sequence;
+	}	
+	
+	/**
+	 * Return the coverage.
+	 */
+	public float getCoverage() {
+	  return this.data.getCoverage();
 	}	
 }
