@@ -22,6 +22,7 @@ import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
 import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
+import contrail.util.ListUtil;
 
 public class TestNodeMerger extends NodeMerger {
 
@@ -63,7 +64,10 @@ public class TestNodeMerger extends NodeMerger {
     public StrandsForEdge strands;
     public int overlap;
     
+    // Information about the merged sequence.
+    // Merged sequence will be the actual sequence not the canonical sequence.
     public String merged_sequence;
+    public DNAStrand merged_strand;
     
     public List<R5Tag> src_r5tags;
     public List<R5Tag> dest_r5tags;
@@ -147,6 +151,10 @@ public class TestNodeMerger extends NodeMerger {
         dest_strand = DNAUtil.canonicaldir(dest); 
         testcase.canonical_dest = DNAUtil.canonicalseq(dest);
       }            
+      
+      Sequence merged_sequence = new Sequence(
+          testcase.merged_sequence, DNAAlphabetFactory.create());      
+      testcase.merged_strand = DNAUtil.canonicaldir(merged_sequence);
       
       testcase.strands = StrandsUtil.form(src_strand, dest_strand);
       
@@ -245,6 +253,8 @@ public class TestNodeMerger extends NodeMerger {
     
     public int src_coverage_length;
     public int dest_coverage_length;
+    
+    public SequenceTestCase sequence_info;
   }
   
   protected static GraphNode createNode(
@@ -267,6 +277,7 @@ public class TestNodeMerger extends NodeMerger {
           nodeid + ":" + edge_index, DNAStrandUtil.random(generator));
       
       DNAStrand strand = DNAStrandUtil.random(generator);
+      // TODO(jlewi): Should we be adding bidirectional edges.
       if (direction == EdgeDirection.INCOMING) {
         node.addIncomingEdgeWithTags(strand, terminal, tags, kMaxThreads);
       } else {
@@ -281,6 +292,7 @@ public class TestNodeMerger extends NodeMerger {
   protected static NodesTestCase createMergeTestCase(
       SequenceTestCase sequence_case, Random generator) {
     NodesTestCase node_case = new NodesTestCase();
+    node_case.sequence_info = sequence_case;
     
     node_case.src = createNode("src", sequence_case.canonical_src, generator);
     node_case.dest = createNode(
@@ -301,14 +313,14 @@ public class TestNodeMerger extends NodeMerger {
       node_case.src.addBidirectionalEdge(strand, terminal);
     }
     
-    // Add bidirectional edge to dest between src and dest.
+    // Add bidirectional edge to dest between src and dest. 
     {
       StrandsForEdge rcstrands = StrandsUtil.complement(sequence_case.strands);
       DNAStrand strand = DNAStrandUtil.flip(
           StrandsUtil.src(rcstrands));
       EdgeTerminal terminal = new EdgeTerminal(
           node_case.src.getNodeId(), StrandsUtil.dest(rcstrands));      
-      node_case.src.addBidirectionalEdge(strand, terminal);
+      node_case.dest.addBidirectionalEdge(strand, terminal);
     }
     
     return node_case;
@@ -335,12 +347,123 @@ public class TestNodeMerger extends NodeMerger {
     double delta = 1E-4;
     assertEquals(0.0, err_fraction, delta);
   }
+
+  /**
+   * Check that the list of the tags associated with a set of 
+   * @param true_node: The original node.
+   * @param true_strand: The strand to compare edge tags for.
+   * @param merged_node: The merged node.
+   * @param merged_strand: The strand of the merged node.
+   * @param terminals: The terminals to compare.
+   */
+  protected  static void assertEdgeTagsAreEqual(
+      GraphNode true_node, DNAStrand true_strand, GraphNode merged_node,
+      DNAStrand merged_strand, List<EdgeTerminal> terminals) {
+    
+    // Check the threads associated with the edges.
+    for (EdgeTerminal terminal: terminals) {
+      List<CharSequence> expected_tags =
+          true_node.getTagsForEdge(true_strand, terminal);
+      List<CharSequence> tags =
+          merged_node.getTagsForEdge(merged_strand, terminal);      
+      assertTrue(ListUtil.listsAreEqual(expected_tags, tags));
+    }
+  }
+  
+  protected static void assertEdgesForDirection(
+      GraphNode expected_node, DNAStrand expected_strand, GraphNode merged,
+      DNAStrand merged_strand, EdgeDirection direction) {
+    
+      // Check the terminal lists.
+      List<EdgeTerminal> expected_incoming = 
+          expected_node.getEdgeTerminals(expected_strand, direction);        
+      List<EdgeTerminal> incoming = 
+          merged.getEdgeTerminals(merged_strand, direction);   
+      assertTrue(ListUtil.listsAreEqual(expected_incoming, incoming)); 
+      
+      // Check the threads associated with the edges match.
+      DNAStrand expected_tag_strand = expected_strand;
+      DNAStrand merged_tag_strand = merged_strand;
+      List<EdgeTerminal> tag_terminals = new ArrayList<EdgeTerminal>();
+      // For incoming edges we need to flip the strand that we get the tag for.
+      if (direction == EdgeDirection.INCOMING) {
+        expected_tag_strand = DNAStrandUtil.flip(expected_strand);
+        merged_tag_strand = DNAStrandUtil.flip(merged_strand);
+        
+        // We also need to flip the strand for the terminals.
+        for(EdgeTerminal terminal: expected_incoming) {
+          tag_terminals.add(new EdgeTerminal(
+              terminal.nodeId, DNAStrandUtil.flip(terminal.strand)));
+        }
+      } else {
+        tag_terminals.addAll(expected_incoming);
+      }
+            
+      assertEdgeTagsAreEqual(
+          expected_node, expected_tag_strand, merged, merged_tag_strand, 
+          tag_terminals);
+  }
   
   /**
    * Check the edges are set correctly.
    */
-  protected static void assertEdges(NodesTestCase testcase, GraphNode merged) {
+  protected static void assertEdges(NodesTestCase node_case, GraphNode merged) {
+        
+    {
+      // Check the incoming edges for the edge corresponding
+      // to the strands node_case.sequence_info.strands.
+      GraphNode expected_node = node_case.src;
+      DNAStrand expected_strand = 
+          StrandsUtil.src(node_case.sequence_info.strands);
+         
+      DNAStrand merged_strand = node_case.sequence_info.merged_strand;
+      
+      assertEdgesForDirection(
+          expected_node, expected_strand, merged, merged_strand, 
+          EdgeDirection.INCOMING);
+    }
+    {
+      // Check the outgoing edges.
+      GraphNode expected_node = node_case.dest;
+      DNAStrand expected_strand = 
+          StrandsUtil.dest(node_case.sequence_info.strands);
+                    
+      DNAStrand merged_strand = node_case.sequence_info.merged_strand;
+      
+      assertEdgesForDirection(
+          expected_node, expected_strand, merged, merged_strand, 
+          EdgeDirection.OUTGOING);    
+    }  
     
+    // Now do the same for the reverse complement.
+    {
+      StrandsForEdge rcstrands = StrandsUtil.complement(
+          node_case.sequence_info.strands);
+      GraphNode expected_node = node_case.dest;
+      DNAStrand expected_strand = 
+          StrandsUtil.src(rcstrands);
+         
+      DNAStrand merged_strand = 
+          DNAStrandUtil.flip(node_case.sequence_info.merged_strand);
+      
+      assertEdgesForDirection(
+          expected_node, expected_strand, merged, merged_strand, 
+          EdgeDirection.INCOMING);
+    }
+    {
+      StrandsForEdge rcstrands = StrandsUtil.complement(
+          node_case.sequence_info.strands);
+      GraphNode expected_node = node_case.src;
+      DNAStrand expected_strand = 
+          StrandsUtil.dest(rcstrands);
+         
+      DNAStrand merged_strand = 
+          DNAStrandUtil.flip(node_case.sequence_info.merged_strand);
+      
+      assertEdgesForDirection(
+          expected_node, expected_strand, merged, merged_strand, 
+          EdgeDirection.OUTGOING);
+    }  
   }
   @Test
   public void testMergeNodes() {
@@ -358,9 +481,12 @@ public class TestNodeMerger extends NodeMerger {
           node_testcase.dest_coverage_length);
       
       // Check the sequence is set correctly.
+      Sequence merged_sequence = DNAUtil.canonicalToDir(
+          merged.getCanonicalSequence(), 
+          node_testcase.sequence_info.merged_strand);
       assertEquals(
           sequence_testcase.merged_sequence, 
-          merged.getCanonicalSequence().toString());
+          merged_sequence.toString());
       
       // Check the coverage.
       assertCoverage(node_testcase, merged);

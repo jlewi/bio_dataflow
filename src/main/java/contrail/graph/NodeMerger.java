@@ -45,8 +45,13 @@ public class NodeMerger {
 //        int offset = Integer.parseInt(vals[1]) + shift;
 //        shifted_tags.add(vals[0] + ":" + offset);
 //      }
-      new_node.addIncomingEdgeWithTags(
-          new_strand, terminal, tags, ContrailConfig.MAXTHREADREADS);
+      if (direction == EdgeDirection.INCOMING) {
+        new_node.addIncomingEdgeWithTags(
+            new_strand, terminal, tags, ContrailConfig.MAXTHREADREADS);
+      } else {
+        new_node.addOutgoingEdgeWithTags(
+            new_strand, terminal, tags, ContrailConfig.MAXTHREADREADS);
+      }
     }
   }
   
@@ -367,12 +372,12 @@ public class NodeMerger {
     DNAStrand rc_strand = DNAStrandUtil.flip(merge_info.merged_strand);
     StrandsForEdge rc_edge_strands = StrandsUtil.complement(strands);
     copyEdgesForStrand(
-        new_node, rc_strand, src, StrandsUtil.src(rc_edge_strands),
+        new_node, rc_strand, dest, StrandsUtil.src(rc_edge_strands),
         EdgeDirection.INCOMING);
 
     // add the outgoing edges.
     copyEdgesForStrand(
-        new_node, rc_strand, dest, StrandsUtil.dest(rc_edge_strands),
+        new_node, rc_strand, src, StrandsUtil.dest(rc_edge_strands),
         EdgeDirection.OUTGOING);    
     
     

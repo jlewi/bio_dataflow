@@ -149,7 +149,7 @@
                   "type": "string",
                   "doc": "An id for this node. This must be consistent with the id used in destination nodes."
                  },
-                 {"name": "coverage", "type": "doc",
+                 {"name": "coverage", "type": "float",
                   "doc": ["Coverage is a float because when merging nodes it ",
                           "is set to a weighted average of the coverage of ",
                           "the nodes being merged."]
