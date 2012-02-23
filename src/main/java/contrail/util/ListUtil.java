@@ -40,7 +40,7 @@ public class ListUtil {
   }
   
   /**
-   * Compare two lists.
+   * Check if the contents of two lists are equal.
    * 
    * This function assumes the element type implements the hash code
    * function and hashing is consistent with equals.

@@ -38,13 +38,6 @@ public class NodeMerger {
       // TODO(jlewi): We need to get the tags. 
       List<CharSequence> tags = old_node.getTagsForEdge(old_strand, terminal);
 
-      // I got confused; we only shift the R5Tags.
-//      List<CharSequence> shifted_tags = new ArrayList<CharSequence>();
-//      for (CharSequence tag: tags) {
-//        String [] vals = tag.toString().split(":");
-//        int offset = Integer.parseInt(vals[1]) + shift;
-//        shifted_tags.add(vals[0] + ":" + offset);
-//      }
       if (direction == EdgeDirection.INCOMING) {
         new_node.addIncomingEdgeWithTags(
             new_strand, terminal, tags, ContrailConfig.MAXTHREADREADS);
@@ -55,41 +48,6 @@ public class NodeMerger {
     }
   }
   
-//  protected void addOutgoingEdgesForStrand(
-//        GraphNode new_node, GraphNode src, 
-//        DNAStrand strand, int shift) {
-//      
-//            
-//      List<EdgeTerminal> terminals = 
-//        src.getEdgeTerminals(strand, EdgeDirection.OUTGOING);
-//        
-//      
-//      for (Iterator<EdgeTerminal> it = terminals.iterator();
-//           it.hasNext();) {
-//        EdgeTerminal terminal;
-//        
-//        // TODO(jlewi): We need to get the tags. 
-//        List<CharSequence> tags = src.getTagsForEdge(strand, terminal);
-//        List<CharSequence> shifted_tags;
-//        for (CharSequence tag: tags) {
-//          String [] vals = tag.toString().split(":");
-//          int offset = Integer.parseInt(vals[1]) + shift;
-//          shifted_tags.add(vals[0] + ":" + offset);
-//        }
-//        new_node.addOutgoingEdge(strand, terminal, shifted_tags);
-//      }
-//  }
-//  protected List<EdgeTerminal> addEdgesForStrand(
-//      GraphNode new_node, GraphNode src, GraphNode dest, 
-//      StrandsForEdge strands) {
-//    
-//    addIncomingEdgesForStrand(new_node, src, dest, strands); 
-//        
-//    
-//    List<EdgeTerminal> outgoing_edges = 
-//        src.getEdgeTerminals(StrandsUtil.src(strands), EdgeDirection.INCOMING);
-//  }
-
   /**
    * Make a copy of the R5Tags. 
    * @param tags
@@ -122,31 +80,22 @@ public class NodeMerger {
   /**
    * Datastructure for returning information about the merging of
    * two sequences.
-   * 
-   * @author jlewi
-   *
    */
   protected static class MergeInfo {
-    /**
-     * This is the canonical representation of the merged sequences.
-     */
+    // The canonical representation of the merged sequences.
     public Sequence canonical_merged;
     
-    /**
-     * This indicates which strand the merged sequence came from. 
-     */
+    // merged_strand is the strand the merged sequence came from. 
     public DNAStrand merged_strand;   
     
     public int src_size;
     public int dest_size;
-    /**
-     * Whether we need to reverse the read tags.
-     */
+   
+    // Whether we need to reverse the read tags.
     public boolean src_reverse;
     public int src_shift;
     public boolean dest_reverse;
-    public int dest_shift;
-    
+    public int dest_shift;    
   }
   
   /**
@@ -168,10 +117,6 @@ public class NodeMerger {
     Sequence dest_sequence = DNAUtil.canonicalToDir(
         canonical_dest, StrandsUtil.dest(strands)); 
         
-      //dest.getCanonicalSequence();
-    
-    //DNAStrand original_src_strand = DNAUtil.canonicaldir(src_sequence);
-    
     // Check the overlap.
     // TODO(jlewi): We could probably make this comparison more efficient.
     // Copying the data to form new sequences is probably inefficient.
@@ -249,8 +194,7 @@ public class NodeMerger {
       }
       // We don't shift it because the destination sequence appears first.
       info.dest_shift = 0;
-    }
-    
+    }    
     return info;
   }
   
@@ -262,8 +206,7 @@ public class NodeMerger {
    * @return
    */
   protected static List<R5Tag> alignTags(
-      MergeInfo info, List<R5Tag> src_r5tags, List<R5Tag> dest_r5tags) {
-   
+      MergeInfo info, List<R5Tag> src_r5tags, List<R5Tag> dest_r5tags) {   
     // Update the read alignment tags (R5Fields).
     // Make a copy of src tags.
     List<R5Tag> src_tags = copyR5Tags(src_r5tags);
@@ -317,10 +260,7 @@ public class NodeMerger {
     coverage = coverage / (float) (src_coverage_length + dest_coverage_length);
     return coverage;
   }
-  
-  /**
-   * 
-   */
+
   /**
    * Merge two nodes
    * @param src: The source node
@@ -367,7 +307,6 @@ public class NodeMerger {
         new_node, merge_info.merged_strand, dest, StrandsUtil.dest(strands),
         EdgeDirection.OUTGOING);
     
-    
     // Now add the incoming and outgoing edges for the reverse complement.
     DNAStrand rc_strand = DNAStrandUtil.flip(merge_info.merged_strand);
     StrandsForEdge rc_edge_strands = StrandsUtil.complement(strands);
@@ -379,7 +318,6 @@ public class NodeMerger {
     copyEdgesForStrand(
         new_node, rc_strand, src, StrandsUtil.dest(rc_edge_strands),
         EdgeDirection.OUTGOING);    
-    
     
     // Align the tags.
     new_node.getData().setR5Tags(alignTags(

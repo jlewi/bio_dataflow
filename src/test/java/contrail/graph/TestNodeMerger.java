@@ -2,18 +2,15 @@ package contrail.graph;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 
 import org.junit.Before;
 import org.junit.Test;
 
-import contrail.graph.NodeMerger.MergeInfo;
 import contrail.sequences.Alphabet;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
@@ -31,7 +28,7 @@ public class TestNodeMerger extends NodeMerger {
   @Before 
   public void setUp() {
     // Create a random generator so we can make a test repeatable
-    generator = new Random(103);
+    generator = new Random();
   }
   
   /**
@@ -56,7 +53,6 @@ public class TestNodeMerger extends NodeMerger {
   
   /**
    * Container for the data used to test merging sequences.
-   *
    */
   protected static class SequenceTestCase {
     public Sequence canonical_src;
@@ -77,7 +73,6 @@ public class TestNodeMerger extends NodeMerger {
      * after the merge.
      */
     HashMap<String, String> r5prefix;
-    
     
     /**
      * Create some R5Tags for this sequence.  
@@ -101,7 +96,6 @@ public class TestNodeMerger extends NodeMerger {
         tag.setStrand(DNAStrandUtil.random(generator));
         
         String prefix = R5TagUtil.prefixForTag(canonical,tag).toString();
-        
         prefixes.put(tag.getTag().toString(), prefix);                
       }
     }
@@ -111,8 +105,7 @@ public class TestNodeMerger extends NodeMerger {
      */
     public static SequenceTestCase random(
         Random generator, int src_length, int dest_length, int overlap, 
-        int num_tags) {
-      
+        int num_tags) {      
       SequenceTestCase testcase = new SequenceTestCase();
                         
       DNAStrand src_strand;
@@ -126,7 +119,8 @@ public class TestNodeMerger extends NodeMerger {
         
         testcase.canonical_src = DNAUtil.canonicalseq(src);        
         testcase.merged_sequence = 
-            DNAUtil.canonicalToDir(testcase.canonical_src, src_strand).toString();
+            DNAUtil.canonicalToDir(
+                testcase.canonical_src, src_strand).toString();
       }
       
       DNAStrand dest_strand;
@@ -241,7 +235,6 @@ public class TestNodeMerger extends NodeMerger {
       Sequence merged_sequence = DNAUtil.canonicalToDir(
           merge_info.canonical_merged, merge_info.merged_strand);
       assertEquals(testcase.merged_sequence, merged_sequence.toString());
-      
       
       checkAlignTags(testcase, merge_info);
     }        
@@ -408,7 +401,6 @@ public class TestNodeMerger extends NodeMerger {
    * Check the edges are set correctly.
    */
   protected static void assertEdges(NodesTestCase node_case, GraphNode merged) {
-        
     {
       // Check the incoming edges for the edge corresponding
       // to the strands node_case.sequence_info.strands.
