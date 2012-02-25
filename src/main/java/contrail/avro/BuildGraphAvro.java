@@ -457,9 +457,9 @@ public class BuildGraphAvro extends Stage
         if (state != ReadState.I) {
           cov++;
           if (state == ReadState.END6) {
-            graphnode.addR5(tag, K-1, true, MAXR5);
+            graphnode.addR5(tag, K-1, DNAStrand.REVERSE, MAXR5);
           } else if (state == ReadState.END5) {
-            graphnode.addR5(tag, 0, false, MAXR5);
+            graphnode.addR5(tag, 0, DNAStrand.FORWARD, MAXR5);
           }
         }
         // Add an edge to this destination.

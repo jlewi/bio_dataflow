@@ -81,6 +81,7 @@ public class TestTailData {
 				node_data.getNeighbors().add(dest_node);
 				
 				EdgeData edge_data = new EdgeData();
+				edge_data.setReadTags(new ArrayList<CharSequence>());
 				edge_data.setStrands(StrandsUtil.form(
 						src.dna_direction, dest.dna_direction));
 				dest_node.setEdges(new ArrayList<EdgeData> ());
@@ -97,16 +98,16 @@ public class TestTailData {
 								
 				node_data.getNeighbors().add(dest_node);
 				
-				EdgeData dest_for_link_dir = new EdgeData();
-				
+				EdgeData edge_data = new EdgeData();
+				edge_data.setReadTags(new ArrayList<CharSequence>());
 				// We need to flip the dna direction to get incoming 
 				// edges. 
-				StrandsForEdge linkdir = 
+				StrandsForEdge strands = 
 						StrandsUtil.form(DNAStrandUtil.flip(src.dna_direction), 
 						    DNAStrandUtil.flip(dest.dna_direction));
-				dest_for_link_dir.setStrands(linkdir);
+				edge_data.setStrands(strands);
 				dest_node.setEdges(new ArrayList<EdgeData> ());
-				dest_node.getEdges().add(dest_for_link_dir);
+				dest_node.getEdges().add(edge_data);
 				
 			}
 		}
