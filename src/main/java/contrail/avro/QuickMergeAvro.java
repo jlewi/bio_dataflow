@@ -1,13 +1,15 @@
 package contrail.avro;
 
-import contrail.CompressedRead;
+import contrail.sequences.CompressedSequence;
 import contrail.ContrailConfig;
-import contrail.GraphNodeData;
-import contrail.GraphNodeKMerTag;
+
 import contrail.Stats;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
+
+import contrail.graph.GraphNode;
+import contrail.graph.GraphNodeData;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
