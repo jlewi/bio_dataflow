@@ -2,7 +2,6 @@ package contrail.graph;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -40,7 +39,6 @@ public class TestGraphNode {
 		node_data.setNeighbors(new ArrayList<NeighborData>());
 
 		int num_dest_nodes = generator.nextInt(30) + 5;
-		//int num_dest_nodes = 2;
 		for (int index = 0; index < num_dest_nodes; index++) {
 			NeighborData dest_node = new NeighborData();
 			dest_node.setNodeId("dest_" + index);
@@ -54,6 +52,7 @@ public class TestGraphNode {
 			for (int edge_index = 0; edge_index < num_edges; edge_index++) {
 				EdgeData edge = new EdgeData();
 				edge.setStrands(StrandsForEdge.values()[edge_index]);
+				edge.setReadTags(new ArrayList<CharSequence>());
 				dest_node.getEdges().add(edge);
 			}			
 		}
@@ -186,19 +185,20 @@ public class TestGraphNode {
 				new HashMap<StrandsForEdge, List<String>> ();
 
 		for (int index = 0; index < num_edges; index++) {
-			NeighborData edge_dest = new NeighborData();
-			node_data.getNeighbors().add(edge_dest);
-			edge_dest.setNodeId("edge_" + index);
+			NeighborData neighbor = new NeighborData();
+			node_data.getNeighbors().add(neighbor);
+			neighbor.setNodeId("edge_" + index);
 
-			edge_dest.setEdges(new ArrayList<EdgeData>());
+			neighbor.setEdges(new ArrayList<EdgeData>());
 
 			int num_links = (int) Math.floor(Math.random() * 4) + 1;
 			StrandsForEdge[] link_dirs = permuteEdges();
 			for (int link_index = 0; link_index < num_links; link_index++) {
 				StrandsForEdge dir = link_dirs[link_index];
-				EdgeData dest_for_link = new EdgeData();
-				dest_for_link.setStrands(dir);
-				edge_dest.getEdges().add(dest_for_link);
+				EdgeData edge_data = new EdgeData();
+				edge_data.setReadTags(new ArrayList<CharSequence>());
+				edge_data.setStrands(dir);
+				neighbor.getEdges().add(edge_data);
 
 
 				// Add this node to true_nodes_for_link_dirs;
@@ -206,7 +206,7 @@ public class TestGraphNode {
 					true_nodes_for_link_dirs.put(dir, new ArrayList<String>());
 				}
 				true_nodes_for_link_dirs.get(dir).add(
-						edge_dest.getNodeId().toString());
+				    neighbor.getNodeId().toString());
 			}
 		}
 
@@ -217,7 +217,7 @@ public class TestGraphNode {
 		node.setData(node_data);
 		for (StrandsForEdge dir: StrandsForEdge.values()) {
 			if (!true_nodes_for_link_dirs.containsKey(dir)) {
-				assertEquals(null, node.getNeighborsForStrands(dir));
+				assertEquals(0, node.getNeighborsForStrands(dir).size());
 			} else {
 				List<CharSequence> immutable_dest_ids = 
 						node.getNeighborsForStrands(dir);
