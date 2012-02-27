@@ -176,7 +176,8 @@ public class QuickMergeUtil {
       // We should already have checked that all incoming nodes are in the
       // map.
       GraphNode source_node = nodes.get(source.nodeId);
-      source_node.moveOutgoingEdge(terminal, new_terminal)
+      source_node.moveOutgoingEdge(
+          source.strand, terminal, new_terminal);
     }
   }
   
@@ -248,13 +249,15 @@ public class QuickMergeUtil {
           dest.getCanonicalSequence().size() - 
           (int) ContrailConfig.K + 1;
       
-      merged_node = NodeMerger.mergeNodes(
+      NodeMerger.MergeResult merge_result = NodeMerger.mergeNodes(
           merged_node, dest, strands, (int) ContrailConfig.K,
           src_coverage_length, dest_coverage_length);
+      
+      merged_node = merge_result.node;
       merged_node.getData().setNodeId(merged_id);
       
       // Which strand corresponds to the merged strand.
-      merged_strand = merged_node.strand; 
+      merged_strand = merge_result.strand; 
     }
     
     merged_node.getData().setNodeId(merged_id);
