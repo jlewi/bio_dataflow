@@ -1,5 +1,6 @@
 package contrail.graph;
 
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -23,6 +24,11 @@ import contrail.sequences.DNAStrand;
  * ...-> c2 -> c1 -> start_node
  * where c1 is the first node returned.
  * 
+ * Cycles: Suppose we have the chain
+ * start_node -> c1 -> c2 -> c3 -> c1-> c2 -> ...
+ * The nodes returned will be,
+ * c1, c2, c3
+ * and hitCycle will return true.
  */
 public class LinearChainWalker implements Iterator<EdgeTerminal> {
 		
@@ -34,6 +40,11 @@ public class LinearChainWalker implements Iterator<EdgeTerminal> {
 	private Boolean has_next;
 	private EdgeTerminal next_terminal;
 	
+	// Keep track of the nodes we've already seen so we can detect cycles.
+	private HashSet<EdgeTerminal> seen_nodes;
+	
+	// Keep track of whether we hit a cycle.
+	private boolean hit_cycle;
 	/**
 	 * Initialize the walker.
 	 * @param nodes_in_memory
@@ -46,6 +57,9 @@ public class LinearChainWalker implements Iterator<EdgeTerminal> {
 		current_terminal = start;
 		has_next = null;
 		walk_direction = direction;
+		seen_nodes = new HashSet<EdgeTerminal>();
+		seen_nodes.add(start);
+		hit_cycle = false;
 	}
 	
 	/**
@@ -64,7 +78,7 @@ public class LinearChainWalker implements Iterator<EdgeTerminal> {
 			EdgeDirection walk_direction) {
 		init (nodes_in_memory, 
 			  new EdgeTerminal(start_node.getNodeId(), start_strand),
-			  walk_direction);		
+			  walk_direction);				
 	}
 	
 	/**
@@ -93,8 +107,15 @@ public class LinearChainWalker implements Iterator<EdgeTerminal> {
 					current_terminal.strand, this.walk_direction);
 			if (tail != null) {
 				if (nodes_in_memory.containsKey(tail.terminal.nodeId)) {
-					next_terminal = tail.terminal;
-					has_next = true;
+				  // Check if we've already seen this node. If we have then 
+				  // we hit a cycle and we stop.
+				  if (seen_nodes.contains(tail.terminal)) {
+				    has_next = false;
+				    hit_cycle = true;
+				  } else {
+				    next_terminal = tail.terminal;
+				    has_next = true;
+				  }
 				}
 			}
 		}
@@ -105,10 +126,11 @@ public class LinearChainWalker implements Iterator<EdgeTerminal> {
 	public EdgeTerminal next() {
 		if (!hasNext()) {
 			throw new NoSuchElementException();
-		}
+		}		
 		// Advance current node.
 		current_terminal = next_terminal;
-				
+			
+		seen_nodes.add(current_terminal);
 		// Clear the cache
 		has_next = null;
 		next_terminal = null;		
@@ -118,5 +140,14 @@ public class LinearChainWalker implements Iterator<EdgeTerminal> {
 	public void remove() {
 		throw new UnsupportedOperationException(
 				"Remove isn't supported for this iterator");
+	}
+	
+	/**
+	 * Returns true if we hit a cycle; i.e we stopped walking because
+	 * we hit a node we already visited.
+	 * @return
+	 */
+	public boolean hitCycle() {
+	  return hit_cycle;
 	}
 }

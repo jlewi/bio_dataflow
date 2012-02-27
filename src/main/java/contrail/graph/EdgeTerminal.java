@@ -48,4 +48,11 @@ public final class EdgeTerminal {
   public String toString() {
 	  return nodeId + ":" + strand.toString();
   }
+  
+  /**
+   * Return an EdgeTerminal identifying the opposite strand for this node.
+   */
+  public EdgeTerminal flip() {
+    return new EdgeTerminal(nodeId, DNAStrandUtil.flip(strand));
+  }
 }

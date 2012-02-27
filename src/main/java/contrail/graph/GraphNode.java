@@ -643,4 +643,116 @@ public class GraphNode {
 	public float getCoverage() {
 	  return this.data.getCoverage();
 	}	
+	
+	/**
+	 * Move the outgoing edge. 
+	 * 
+	 * This function is used when the terminal for an outgoing edge gets merged
+	 * with other nodes. Thus, we need to update the nodeid and strand for this
+	 * terminal
+	 * @param strand: Which strand the edge is on.
+	 * @param old_terminal: The old terminal
+	 * @param new_terminal: The new terminal
+	 */
+	public void moveOutgoingEdge(
+	    DNAStrand strand, EdgeTerminal old_terminal, EdgeTerminal new_terminal) {
+	  NeighborData old_neighbor = findNeighbor(old_terminal.nodeId);
+	  
+	  if (old_neighbor == null) {
+	    throw new RuntimeException(
+	        "Could not find a neighbor with id:" + old_terminal.nodeId);
+	  }
+	  
+	  if (old_terminal.nodeId == new_terminal.nodeId) {
+	    throw new RuntimeException("New node is the same as the old node");
+	  }
+	  
+	  NeighborData new_neighbor = findNeighbor(new_terminal.nodeId);
+	  if (new_neighbor == null) {
+	    new_neighbor = new NeighborData();
+	    new_neighbor.setNodeId(new_terminal.nodeId);
+	    new_neighbor.setEdges(new ArrayList<EdgeData>());
+	    data.getNeighbors().add(new_neighbor);
+	  }
+	  
+	  // Find the edge data.
+	  StrandsForEdge old_strands = StrandsUtil.form(strand, old_terminal.strand);
+	  EdgeData old_edgedata = findEdgeDataForStrands(old_neighbor, old_strands);
+	  if (old_edgedata == null) {
+	    throw new RuntimeException(
+	        "Could not find edge data for the edge being moved");
+	  }
+	  
+	  // Find the new edge data.
+	  StrandsForEdge new_strands = StrandsUtil.form(strand, new_terminal.strand);
+	  EdgeData new_edgedata = findEdgeDataForStrands(new_neighbor, new_strands);
+	  if (new_edgedata == null) {
+	    new_edgedata = new EdgeData();
+	    new_edgedata.setStrands(new_strands);
+	    new_edgedata.setReadTags(new ArrayList<CharSequence>());	   
+	    new_neighbor.getEdges().add(new_edgedata);
+	  }
+	  
+	  // Copy the data.
+	  new_edgedata.getReadTags().addAll(old_edgedata.getReadTags());
+	  
+	  // Remove this data from the old neighbor.
+	  removeEdgesForNeighbor(old_neighbor, old_strands);
+	  
+	  for (int index = 0; index < old_neighbor.getEdges().size(); index++) {
+	    if (old_neighbor.getEdges().get(index).getStrands() == old_strands) {
+	      old_neighbor.getEdges().remove(index);
+	      break;
+	    }
+	  }
+	  
+	  // Remove old_neighbor if there are no more edges to it.
+	  if (old_neighbor.getEdges().size() == 0) {
+	    removeNeighbor(old_neighbor.getNodeId().toString());
+	  }
+	  
+	  // Clear the derived data because it is invalid.
+	  derived_data.clear();
+	}
+	
+  /**
+   * Remove the edge for the given strands from the given neighbor.
+   * Neighbor should be a reference to data inside this.data.
+   * We don't check to verify this.
+   * 
+   * @return: True on success false otherwise.
+   */
+  protected boolean removeEdgesForNeighbor(
+      NeighborData neighbor, StrandsForEdge strands) {
+    for (int index = 0; index < neighbor.getEdges().size(); index++) {
+      if (neighbor.getEdges().get(index).getStrands() == strands) {
+        // We assume that each instance of strands appears at most once.
+        // so after removing it we can just return.
+        neighbor.getEdges().remove(index);
+        derived_data.clear();
+        return true;
+      }    
+    }
+    return false;
+  }
+
+  /**
+   * Remove the neighbor with the given id from this node.
+   * 
+   * @return: True on success false otherwise.
+   */
+  protected boolean removeNeighbor(
+      String neighborid) {
+    for (int index = 0; index < data.getNeighbors().size(); index++) {
+      if (data.getNeighbors().get(index).getNodeId().toString().equals(
+          neighborid)) {
+        // We assume that each instance of a neighbor appears at most once.
+        // so after removing it we can just return.
+        data.getNeighbors().remove(index);
+        derived_data.clear();
+        return true;
+      }    
+    }
+    return false;
+  }
 }

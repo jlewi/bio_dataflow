@@ -263,4 +263,13 @@ public class TestGraphNode {
 		assertEquals(1, outgoing_edges.size());
 		assertEquals(terminal, outgoing_edges.get(0));
 	}
+	
+	@Test
+	public void testMoveOutgoingEdge() {
+	  // Test moving an outgoing edge. There are 4 cases we want
+	  // For the old neighbor: the old neighbor could either have 1 or more
+	  // edges. For the neighbor, the new neighbor might already be a neigbhor
+	  // for the node.
+	  fail("Test not implemented");
+	}
 }

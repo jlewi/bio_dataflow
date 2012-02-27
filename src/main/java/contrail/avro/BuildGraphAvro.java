@@ -329,13 +329,18 @@ public class BuildGraphAvro extends Stage
         if (i+1 == end) { vstate = ReadState.END3; }
 
         // TODO(jlewi): It would probably be more efficient not to use a string
-        // representation of the Kmers in seen.				
+        // representation of the Kmers in seen. If the strand its reverse
+        // complement are the same then we want seen to be true
+        // becuase we want to assign the edges from the two strands to
+        // different chunk segments. 
         boolean seen = (seenmers.contains(ukmer.toString()) || 
             seenmers.contains(vkmer.toString()) || 
             ukmer.equals(vkmer));
         seenmers.add(ukmer.toString());
-        if (seen)
-        {
+        if (seen) {
+          // We use the chunk to segment the nodes based on repeat KMers.
+          // We use this segmentation at several stages. For example,
+          // We use it in QuickMerge to deal with cycles. 
           chunk++;
         }
 
