@@ -15,6 +15,8 @@ import contrail.sequences.DNAStrand;
 import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
 import contrail.sequences.DNAStrandUtil;
+import contrail.util.ListUtil;
+
 import org.junit.Before;
 import org.junit.Test;
 
@@ -270,6 +272,105 @@ public class TestGraphNode {
 	  // For the old neighbor: the old neighbor could either have 1 or more
 	  // edges. For the neighbor, the new neighbor might already be a neigbhor
 	  // for the node.
-	  fail("Test not implemented");
+	  
+	  {
+	    // Case 1: Old neighbor has one edge, so it should be removed
+	    // after edge is moved. New neighbor doesn't exist yet.
+	    GraphNode node = new GraphNode();
+	    
+	    List<CharSequence> old_tags = new ArrayList<CharSequence> ();
+	    old_tags.add("old_tag");
+	    EdgeTerminal old_terminal = new EdgeTerminal(
+	        "old_terminal", DNAStrandUtil.random(generator));
+	    EdgeTerminal new_terminal = new EdgeTerminal(
+          "new_terminal", DNAStrandUtil.random(generator));
+	    
+	    DNAStrand strand = DNAStrandUtil.random(generator);
+	    node.addOutgoingEdgeWithTags(strand, old_terminal, old_tags, 10);
+	    
+	    node.moveOutgoingEdge(strand, old_terminal, new_terminal);
+	    
+	    // Check the result.
+	    List<EdgeTerminal> out_edges =
+	        node.getEdgeTerminals(strand, EdgeDirection.OUTGOING);
+	    
+	    assertEquals(out_edges.size(), 1);
+	    assertEquals(out_edges.get(0), new_terminal);
+	    List<CharSequence> new_tags = node.getTagsForEdge(strand, new_terminal);
+	    ListUtil.listsAreEqual(old_tags, new_tags);
+	  }
+	  {
+	    // Case 2: Old neighbor has two edges, so it should not be removed
+	    // after edge is moved. New neighbor doesn't exist yet.
+	    GraphNode node = new GraphNode();
+
+	    List<CharSequence> old_tags = new ArrayList<CharSequence> ();
+	    old_tags.add("old_tag");
+	    EdgeTerminal old_terminal = new EdgeTerminal(
+	        "old_terminal", DNAStrandUtil.random(generator));
+	    EdgeTerminal new_terminal = new EdgeTerminal(
+	        "new_terminal", DNAStrandUtil.random(generator));
+
+	    EdgeTerminal other_terminal = old_terminal.flip();
+
+	    DNAStrand strand = DNAStrandUtil.random(generator);
+	    node.addOutgoingEdgeWithTags(strand, old_terminal, old_tags, 10);
+	    node.addOutgoingEdge(strand, other_terminal);
+
+	    node.moveOutgoingEdge(strand, old_terminal, new_terminal);
+
+	    // Check the result.
+	    List<EdgeTerminal> out_edges =
+	        node.getEdgeTerminals(strand, EdgeDirection.OUTGOING);
+
+	    assertEquals(out_edges.size(), 2);
+	    for (EdgeTerminal terminal: out_edges) {
+	      if (terminal.nodeId.equals(other_terminal.nodeId)) {
+	        assertEquals(other_terminal, terminal);
+	      } else {
+	        assertEquals(new_terminal, terminal);
+	        List<CharSequence> new_tags = node.getTagsForEdge(
+	            strand, new_terminal);
+	        ListUtil.listsAreEqual(old_tags, new_tags);
+	      }
+	    }            
+	  }
+	  {
+	    // Case 3: Old neighbor has one edge, so it should be removed
+      // after edge is moved. New neighbor already exists so edge
+	    // should be preserved.
+      GraphNode node = new GraphNode();
+      
+      List<CharSequence> old_tags = new ArrayList<CharSequence> ();
+      old_tags.add("old_tag");
+      EdgeTerminal old_terminal = new EdgeTerminal(
+          "old_terminal", DNAStrandUtil.random(generator));
+      EdgeTerminal new_terminal = new EdgeTerminal(
+          "new_terminal", DNAStrandUtil.random(generator));
+      
+      EdgeTerminal other_terminal = new_terminal.flip();
+      
+      DNAStrand strand = DNAStrandUtil.random(generator);
+      node.addOutgoingEdgeWithTags(strand, old_terminal, old_tags, 10);
+      node.addOutgoingEdge(strand, other_terminal);
+      
+      node.moveOutgoingEdge(strand, old_terminal, new_terminal);
+      
+      // Check the result.
+      List<EdgeTerminal> out_edges =
+          node.getEdgeTerminals(strand, EdgeDirection.OUTGOING);
+      
+      assertEquals(out_edges.size(), 2);
+      for (EdgeTerminal terminal: out_edges) {
+        if (terminal.equals(other_terminal)) {
+          assertEquals(0, node.getTagsForEdge(strand, terminal).size());
+        } else {
+          assertEquals(new_terminal, terminal);
+          List<CharSequence> new_tags = node.getTagsForEdge(
+              strand, new_terminal);
+          ListUtil.listsAreEqual(old_tags, new_tags);
+        }
+      }
+	  }
 	}
 }
