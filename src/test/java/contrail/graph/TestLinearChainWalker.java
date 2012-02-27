@@ -27,6 +27,7 @@ public class TestLinearChainWalker {
 		// generator = new Random(103);
 		generator = new Random();
 	}
+	
 	/**
 	 * Contains information about a chain constructed for some test.
 	 */

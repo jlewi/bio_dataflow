@@ -247,9 +247,11 @@ public class GraphNode {
 	public GraphNode() {
 		data = new GraphNodeData();
 		derived_data = new DerivedData(data);
-		// Initialize any member variables so that if we serialzie it we don't 
+		// Initialize any member variables so that if we serialize it we don't 
 		// get null objects.
 		data.setR5Tags(new ArrayList<R5Tag>());
+		data.setNeighbors(new ArrayList<NeighborData>());
+		data.setNodeId("");
 	}
 
 	/**
@@ -469,6 +471,7 @@ public class GraphNode {
 	public void addBidirectionalEdge(
 	    DNAStrand outgoing_strand, EdgeTerminal outgoing_terminal) {
           
+	  throw new RuntimeException("This function is usesless. We are just adding the same edge twice");
     addOutgoingEdge(outgoing_strand, outgoing_terminal);                 
     EdgeTerminal incoming_terminal = new EdgeTerminal(
         outgoing_terminal.nodeId, DNAStrandUtil.flip(outgoing_terminal.strand));

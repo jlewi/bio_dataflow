@@ -78,55 +78,60 @@ public class QuickMergeUtil {
   public static NodesToMerge findNodesToMerge(
       Map<String, GraphNode> nodes_in_memory, GraphNode start_node) {
     NodesToMerge nodes_to_merge = null;
-    
+
     // Different cases we need to consider
     // h1 -> h2 -> h3 -> node -> t1->t2->t3
     // h1 -> h2 -> h3 -> node
     // node -> t1->t2->t3
 
-    // Starting at node follow the incoming edges for the forward strand.
-    TailData head = TailData.findTail(
-        nodes_in_memory, start_node, DNAStrand.FORWARD, EdgeDirection.INCOMING);
-    
     GraphNode head_node;
-    if (head != null) {
-      head_node = nodes_in_memory.get(head.terminal.nodeId);           
-    } else {
-      // There's no head so set the tail to start at the current node.
-      // We might still have a tail  node -> c1, c2, ... that we could
-      // merge.
-      head_node = start_node;
+    DNAStrand head_strand;
+    {
+      // Starting at node follow the incoming edges for the forward strand.
+      TailData head = TailData.findTail(
+          nodes_in_memory, start_node, DNAStrand.FORWARD, 
+          EdgeDirection.INCOMING);
+      
+      if (head != null) {
+        head_node = nodes_in_memory.get(head.terminal.nodeId);
+        head_strand = head.terminal.strand;
+      } else {
+        // There's no head so set the tail to start at the current node.
+        // We might still have a tail  node -> c1, c2, ... that we could
+        // merge.
+        head_node = start_node;
+        head_strand = DNAStrand.FORWARD;
+      }
     }
-    
-    
-  // Now follow the chain along the forward direction starting at node.
-  // The end result is the chain
-  //{r1,r2} >> rtail -> c1 -> c2 -> c3 -> node -> c4 -> c5 -> c6 -> ftail >> {f1,f2}
-  // We catch cycles by looking for the ftail from rtail, not node.
-  // A cycle occurs when we have a repeat along the path e.g
-  // rtail --> R --> node -->R-->ftail which can occur in special 
-  // circumstances. (What are the circumstances? rtail = ftail? repeated KMers?)  
-  // So we need to check no cycles are encountered when merging from 
-  // rtail to ftail. We need to do this when considering the path
-  // from rtail to ftail because the paths rtail->node and node->ftail
-  // may not contain the repeat.
-    
+
+    // Now follow the chain along the forward direction starting at node.
+    // The end result is the chain
+    //{r1,r2} >> rtail -> c1 -> c2 -> c3 -> node -> c4 -> c5 -> c6 -> ftail >> {f1,f2}
+    // We catch cycles by looking for the ftail from rtail, not node.
+    // A cycle occurs when we have a repeat along the path e.g
+    // rtail --> R --> node -->R-->ftail which can occur in special 
+    // circumstances. (What are the circumstances? rtail = ftail? repeated KMers?)  
+    // So we need to check no cycles are encountered when merging from 
+    // rtail to ftail. We need to do this when considering the path
+    // from rtail to ftail because the paths rtail->node and node->ftail
+    // may not contain the repeat.
+
     TailData tail = TailData.findTail(
-        nodes_in_memory, head_node, DNAStrand.FORWARD, EdgeDirection.OUTGOING);
-    
+        nodes_in_memory, head_node, head_strand, 
+        EdgeDirection.OUTGOING);
+
     if (tail == null) {
       // No tail so there are no nodes to merge.
       return null;
     }
-    
+
     {
-    
       // Check for a cycle by finding the outgoing tail from start_node and
       // checking its the same as the tail from node.
       TailData node_tail = TailData.findTail(
           nodes_in_memory, start_node, DNAStrand.FORWARD, 
           EdgeDirection.OUTGOING);
-      
+
       boolean has_cycle;
       if (node_tail == null) {
         // Since node_tail is null, we should have the case
@@ -146,9 +151,10 @@ public class QuickMergeUtil {
         }
       }
     }
-    
+
     nodes_to_merge = new NodesToMerge();
-    nodes_to_merge.start_terminal = head.terminal;
+    nodes_to_merge.start_terminal = new EdgeTerminal(
+        head_node.getNodeId(), head_strand);
     nodes_to_merge.end_terminal = tail.terminal;
     nodes_to_merge.direction = EdgeDirection.OUTGOING;
     nodes_to_merge.include_final_terminal = nodeIsMergeable(
