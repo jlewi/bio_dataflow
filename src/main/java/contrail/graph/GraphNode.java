@@ -343,7 +343,7 @@ public class GraphNode {
 		return null;   
 	}
 
-	 /**
+ /**
    * Add an outgoing edge to this node. 
    * @param strand: Which strand to add the edge to.
    * @param dest: The destination
@@ -444,7 +444,7 @@ public class GraphNode {
         src.nodeId, DNAStrandUtil.flip(src.strand));
     addOutgoingEdge(DNAStrandUtil.flip(strand), dest);
   }
-  
+ 
 	/**
 	 * Add an incoming edge to this node. 
 	 * @param strand: Which strand to add the edge to.
@@ -457,28 +457,6 @@ public class GraphNode {
 		EdgeTerminal dest = new EdgeTerminal(
 		    src.nodeId, DNAStrandUtil.flip(src.strand));
 		addOutgoingEdge(DNAStrandUtil.flip(strand), dest);
-	}
-	
-	/**
-	 * Add a bidirectional edge.
-	 * We add an outgoing edge from outgoing_strand to outgoing terminal.
-	 * We also add an incoming edge corresponding to the reverse complement 
-	 * of this edge.
-	 * 
-	 * @param outgoing_strand
-	 * @param outgoing_terminal
-	 */
-	public void addBidirectionalEdge(
-	    DNAStrand outgoing_strand, EdgeTerminal outgoing_terminal) {
-          
-	  throw new RuntimeException("This function is usesless. We are just adding the same edge twice");
-    addOutgoingEdge(outgoing_strand, outgoing_terminal);                 
-    EdgeTerminal incoming_terminal = new EdgeTerminal(
-        outgoing_terminal.nodeId, DNAStrandUtil.flip(outgoing_terminal.strand));
-    
-    DNAStrand incoming_strand = DNAStrandUtil.flip(outgoing_strand);    
-    addIncomingEdge(
-        incoming_strand, incoming_terminal);    
 	}
 	
 	/**
@@ -758,4 +736,6 @@ public class GraphNode {
     }
     return false;
   }
+=======
+>>>>>>> master
 }

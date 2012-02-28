@@ -303,7 +303,7 @@ public class TestNodeMerger extends NodeMerger {
       EdgeTerminal terminal = new EdgeTerminal(
           node_case.dest.getNodeId(), StrandsUtil.dest(sequence_case.strands));
       DNAStrand strand = StrandsUtil.src(sequence_case.strands);
-      node_case.src.addBidirectionalEdge(strand, terminal);
+      node_case.src.addOutgoingEdge(strand, terminal);
     }
     
     // Add bidirectional edge to dest between src and dest. 
@@ -313,7 +313,7 @@ public class TestNodeMerger extends NodeMerger {
           StrandsUtil.src(rcstrands));
       EdgeTerminal terminal = new EdgeTerminal(
           node_case.src.getNodeId(), StrandsUtil.dest(rcstrands));      
-      node_case.dest.addBidirectionalEdge(strand, terminal);
+      node_case.dest.addOutgoingEdge(strand, terminal);
     }
     
     return node_case;
