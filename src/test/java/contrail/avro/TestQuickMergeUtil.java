@@ -4,6 +4,7 @@ import static org.junit.Assert.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Random;
 
 import org.junit.Before;
@@ -15,8 +16,12 @@ import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.graph.NeighborData;
 
+import contrail.sequences.AlphabetUtil;
+import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAStrandUtil;
+import contrail.sequences.DNAUtil;
+import contrail.sequences.Sequence;
 import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
 import contrail.util.Tuple;
@@ -77,7 +82,7 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
     }
   }
   /**
-   * 
+   * Construct a linear chain
    * @param length
    * @return
    */
@@ -128,6 +133,62 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
     return chain;
   }
   
+  /**
+   * Construct a linear chain from the given sequence using KMers of length K.
+   * @param length
+   * @return
+   */
+  private ArrayList<ChainNode> constructChainForSequence(
+      String full_sequence, int K) {
+    
+    ArrayList<ChainNode> chain = new ArrayList<ChainNode>();
+
+    // Construct the nodes.
+    for (int pos = 0; pos <= full_sequence.length() - K; pos++) {
+      // Construct a graph node.
+      GraphNode node = new GraphNode();
+      GraphNodeData node_data = new GraphNodeData();
+      node.setData(node_data);
+      node_data.setNodeId("node_" + pos);
+      
+      Sequence sequence = new Sequence(
+          full_sequence.substring(pos, pos + K), DNAAlphabetFactory.create());
+      node.setCanonicalSequence(DNAUtil.canonicalseq(sequence));
+      ChainNode chain_node = new ChainNode();
+      chain_node.graph_node = node;
+      chain_node.dna_direction = DNAUtil.canonicaldir(sequence);
+      chain.add(chain_node);
+    }
+    
+    // Now connect the nodes.
+    // TODO(jlewi): We should add incoming and outgoing edges to the first
+    // and last node so that we test that walker stops when the node isn't
+    // in memory.
+    for (int pos = 0; pos < chain.size(); pos++) {
+      // Add the outgoing edge.
+      if (pos + 1 < chain.size()) {
+        ChainNode src = chain.get(pos);
+        ChainNode dest = chain.get(pos + 1);
+        EdgeTerminal terminal = new EdgeTerminal(
+            dest.graph_node.getNodeId(), 
+            dest.dna_direction);
+        src.graph_node.addOutgoingEdge(src.dna_direction, terminal);      
+      }
+      
+      // Add the incoming edge.
+      if (pos > 0) {
+        ChainNode src = chain.get(pos);
+        ChainNode dest = chain.get(pos - 1);
+        EdgeTerminal terminal = new EdgeTerminal(
+            dest.graph_node.getNodeId(), 
+            dest.dna_direction);
+        src.graph_node.addIncomingEdge(src.dna_direction, terminal);
+        
+      }
+    }
+    return chain;
+  }
+  
   
   /**
    * Run a trial to test findNodesTomerge
@@ -146,30 +207,6 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
     // of the merge.
     EdgeTerminal start_terminal;
     EdgeTerminal end_terminal;
-//    if (chain_nodes.get(search_start).dna_direction == DNAStrand.FORWARD) {
-//      int start_pos = 0;
-//      int end_pos = chain_nodes.size() -1;
-//      start_terminal = new EdgeTerminal(
-//          chain_nodes.get(start_pos).graph_node.getNodeId(),
-//          chain_nodes.get(start_pos).dna_direction);
-//      end_terminal = new EdgeTerminal(
-//          chain_nodes.get(end_pos).graph_node.getNodeId(),
-//          chain_nodes.get(end_pos).dna_direction);
-//    } else {
-//      int start_pos = chain_nodes.size() -1;
-//      int end_pos = 0;
-//      start_terminal = new EdgeTerminal(
-//          chain_nodes.get(start_pos).graph_node.getNodeId(),
-//          chain_nodes.get(start_pos).dna_direction);
-//      end_terminal = new EdgeTerminal(
-//          chain_nodes.get(end_pos).graph_node.getNodeId(),
-//          chain_nodes.get(end_pos).dna_direction);
-//      
-//      // Flip the nodes because we are on the opposite strand
-//      // of the one we constructed the chain for.
-//      start_terminal = start_terminal.flip();
-//      end_terminal = end_terminal.flip();
-//    }
            
     Tuple<EdgeTerminal, EdgeTerminal> chain_ends= findChainEnds(
         chain_nodes, search_start);
@@ -296,5 +333,40 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
         assertTrue(merge_info.include_final_terminal);
       }
     }
+  }
+  
+  @Test
+  public void testMergeLinearChain() {
+    int K = 3;
+    String full_sequence = AlphabetUtil.randomString(
+        generator, 6, DNAAlphabetFactory.create());
+    
+    ArrayList<ChainNode> chain_nodes =
+        constructChainForSequence(full_sequence, K);
+    HashMap<String, GraphNode> nodes = new HashMap<String, GraphNode>();
+    for (ChainNode link: chain_nodes) {
+      nodes.put(link.graph_node.getNodeId(), link.graph_node);
+    }
+    
+    // Do the merge.
+    int start_search = generator.nextInt(chain_nodes.size());
+    QuickMergeUtil.NodesToMerge merge_info = 
+        QuickMergeUtil.findNodesToMerge(
+             nodes, chain_nodes.get(start_search).graph_node);
+    QuickMergeUtil.MergeResult result =
+        QuickMergeUtil.mergeLinearChain(nodes, merge_info);
+    
+    Sequence full_canonical = new Sequence(
+        full_sequence, DNAAlphabetFactory.create());
+    
+    full_canonical = DNAUtil.canonicalseq(full_canonical);
+
+    // Check the sequence equals the original sequence.
+    assertEquals(full_canonical, result);
+    
+    // Check the list of merged_nodeids.
+    List<String> expected_merged_ids = new ArrayList<String>();
+    
+    //assertEquals(result.merged_nodeids.si)
   }
 }
