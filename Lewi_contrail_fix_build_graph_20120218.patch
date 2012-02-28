@@ -1,0 +1,2690 @@
+diff --git a/share/schemas/contrail/contrail.avpr b/share/schemas/contrail/contrail.avpr
+index a308659..8614bbb 100644
+--- a/share/schemas/contrail/contrail.avpr
++++ b/share/schemas/contrail/contrail.avpr
+@@ -25,46 +25,26 @@
+      ]
+     },
+    {"name": "CompressedSequence",
+-     "type": "record",
+-     "doc": "Structure representing a compressed DNA sequence read. Each sequence is packed into an array of bytes using 3 bits per letter.",
+-     "fields":[
+-        {"name": "dna", "type": "bytes", "doc": "The dna sequence for this read."},
+-        {"name": "length", "type": "int", "doc": "Length of the read."}
++    "type": "record",
++    "namespace": "contrail.sequences",
++    "doc": "Structure representing a compressed DNA sequence read. Each sequence is packed into an array of bytes using 3 bits per letter.",
++    "fields":[
++       {"name": "dna", "type": "bytes", "doc": "The dna sequence for this read."},
++       {"name": "length", "type": "int", "doc": "Length of the read."}
+      ]
+     },        
++    {"name": "DNAStrand",
++     "type":  "enum",
++     "namespace": "contrail.sequences",
++     "doc": "Enumeration for representing which DNAStrand a fragment comes from.",
++     "symbols": ["FORWARD", "REVERSE"]
++    },
+     {"name": "ReadState",
+      "type":  "enum",
+      "symbols": ["END5", "END6", "END3", "MIDDLE", "I"]
+-    },
+-    
+-    
+-	{"name": "KMerEdge",
+-     "type": "record",
+-     "doc": "Represent an edge between two KMers. Used only by BuildGraph.",
+-     "fields": [
+-        {"name": "link_dir", "type": "string", 
+-         "doc": "Two letter string indicating how to map the canonical version of the sequence stored in kmer into the actual sequences represented by the graph nodes.",
+-         "order": "ignore"
+-        },
+-        {"name": "last_base", "type": "bytes", 
+-         "doc": "Represent the compressed base that we need to append to kmer to get the sequence in the terminating node for this edge.",
+-         "order": "ignore"
+-        },
+-        {"name": "tag", "type": "string",
+-         "doc": "string identifying the node.",
+-         "order": "ignore"
+-        },
+-        {"name": "chunk", "type": "int",
+-         "doc": "Integer identifying the chunk within the sequence the edge came from.",
+-         "order": "ignore"
+-        },
+-        {"name": "state", "type": "ReadState",
+-         "doc": "An enum identifying the state.",
+-         "order": "ignore"
+-        }          
+-     ]
+-    },        
++    },               
+     {"name": "R5Tag",
++     "namespace": "contrail.graph",
+      "type": "record",
+      "doc": ["Stores information about how reads align in the graph. ",
+              "Tag identifies the read a subsequence came from. ",
+@@ -94,12 +74,45 @@
+             }
+         ]
+     },
+-    {"name": "DestForLinkDir",
++    {"type": "enum",
++     "name": "StrandsForEdge",
++     "symbols": ["FF", "FR", "RF", "RR"],
++     "namespace": "contrail.sequences"
++    }, 
++    {"name": "KMerEdge",
++     "type": "record",
++     "namespace": "contrail.graph",
++     "doc": "Represent an edge between two KMers. Used only by BuildGraph.",
++     "fields": [
++        {"name": "strands", "type": "contrail.sequences.StrandsForEdge", 
++         "doc": "Enum containing the strands for the edge",
++         "order": "ignore"
++        },
++        {"name": "last_base", "type": "bytes", 
++         "doc": "Represent the compressed base that we need to append to kmer to get the sequence in the terminating node for this edge.",
++         "order": "ignore"
++        },
++        {"name": "tag", "type": "string",
++         "doc": "string identifying the node.",
++         "order": "ignore"
++        },
++        {"name": "chunk", "type": "int",
++         "doc": "Integer identifying the chunk within the sequence the edge came from.",
++         "order": "ignore"
++        },
++        {"name": "state", "type": "contrail.ReadState",
++         "doc": "An enum identifying the state.",
++         "order": "ignore"
++        }          
++     ]
++    },
++    {"name": "EdgeData",
++     "namespace": "contrail.graph",
+      "type": "record",
+      "doc": "Represent the data for a particular instance of an edge.",
+-     "fields": [ {"name": "link_dir",
+-                "type": "string",
+-                "doc": "Two letter string representing the direction for the edge."
++     "fields": [ {"name": "strands",
++                "type": "contrail.sequences.StrandsForEdge",
++                "doc": "An enumeration indicating which strands are used in this edge."
+                },
+                {"name": "read_tags",
+                 "type": {"type": "array", "items": "string"},
+@@ -107,33 +120,29 @@
+                }
+              ]
+     },
+-    {"name": "EdgeDestNode",
++    {"name": "NeighborData",
+      "type": "record",
+-     "doc": "Represent the destinations for an edge",
++     "namespace": "contrail.graph",
++     "doc": "Represent the neighbor of some node.",
+      "fields": [
+-     			 // TODO(jlewi): Do we actually need to store the canonical sequence?
+-     			 // Is it sufficient to store an id for the destination node
+-                 {"name": "canonical_sequence",
+-                  "type": "CompressedSequence",
+-                  "doc": "The canonical sequence for the destination node."
+-                 },
+                  {"name": "node_id",
+                   "type": "string",
+                   "doc": "The id for the destination node."
+                  },
+-                 {"name": "link_dirs", 
+-                  "type": {"type": "array", "items": "DestForLinkDir"},
+-                  "doc": "Describes the instances for this canonical sequence."
++                 {"name": "edges", 
++                  "type": {"type": "array", "items": "contrail.graph.EdgeData"},
++                  "doc": "Describes the edges between these two nodes."
+                  }
+                ]
+     },    
+     {"name": "GraphNodeData",
++     "namespace": "contrail.graph",
+      "type": "record",
+      "doc": "Represent a node in the DeBruijn Graph.",
+      "fields": [
+      		     // TODO(jlewi): This field contains information about which read the sequence 
+      		     // came from. We might want to rename this field. 
+-                 {"name": "mertag", "type":"GraphNodeKMerTag",
++                 {"name": "mertag", "type":"contrail.GraphNodeKMerTag",
+                   "doc": "A tag for this node"
+                  },
+                  {"name": "node_id", 
+@@ -145,12 +154,13 @@
+                  },
+                  // TODO(jlewi): We should rename this canonical_source 
+                  // because it won't always be length K.
+-                 {"name": "canonical_source_kmer", "type":"CompressedSequence", 
++                 {"name": "canonical_source_kmer", 
++                  "type":"contrail.sequences.CompressedSequence", 
+                   "doc": "Sequence of bytes representing the compressed, canonical sequence corresponding to the source."
+                  },
+-                 {"name": "dest_nodes", 
+-                  "type": {"type": "array", "items":"EdgeDestNode"},
+-                  "doc": "A list of EdgeDestNodes representing the canonical destination nodes."
++                 {"name": "neighbors", 
++                  "type": {"type": "array", "items":"contrail.graph.NeighborData"},
++                  "doc": "An array of this node's neighbors."
+                  },
+                  {"name": "r5_tags", 
+                   "type": {"type": "array", "items": "R5Tag"}
+@@ -164,15 +174,15 @@
+                  // TODO(jlewi): We probably shouldn't store canonical_dest_kmer.
+                  // Rather, we should identify the nodes using the node_id.
+                  {"name": "canonical_dest_kmer", 
+-                  "type": ["null", "CompressedSequence"],
++                  "type": ["null", "contrail.sequences.CompressedSequence"],
+                   "doc": ["The canonical sequence for the destination KMer to ",
+                           "remove the edge from."]
+                  },
+-                 {"name": "link_dir", 
+-                  "type": ["null", "string"],
+-                  "doc": "The two letter code for the edge direction we want to delete."
++                 {"name": "edge_strands", 
++                  "type": ["null", "contrail.sequences.StrandsForEdge"],
++                  "doc": "The enumeration for the edge strands we want to delete."
+                  },
+-                 {"name": "node", "type": ["null", "GraphNodeData"],
++                 {"name": "node", "type": ["null", "contrail.graph.GraphNodeData"],
+                   "doc": "The node the messages are sent to."
+                  }                 
+                ]
+diff --git a/src/main/java/contrail/avro/BuildGraphAvro.java b/src/main/java/contrail/avro/BuildGraphAvro.java
+index 22c6b7c..3f1df7b 100644
+--- a/src/main/java/contrail/avro/BuildGraphAvro.java
++++ b/src/main/java/contrail/avro/BuildGraphAvro.java
+@@ -1,17 +1,20 @@
+ package contrail.avro;
+ import contrail.CompressedRead;
+-import contrail.ContrailConfig;
+-import contrail.GraphNodeData;
+-import contrail.KMerEdge;
+ import contrail.ReadState;
+ 
++import contrail.graph.EdgeTerminal;
+ import contrail.graph.GraphNode;
++import contrail.graph.GraphNodeData;
++import contrail.graph.KMerEdge;
+ 
+ import contrail.sequences.Alphabet;
+ import contrail.sequences.DNAAlphabetFactory;
++import contrail.sequences.DNAStrand;
+ import contrail.sequences.DNAUtil;
+ import contrail.sequences.Sequence;
+ import contrail.sequences.KMerReadTag;
++import contrail.sequences.StrandsForEdge;
++import contrail.sequences.StrandsUtil;
+ 
+ import java.io.IOException;
+ import java.nio.ByteBuffer;
+@@ -28,14 +31,9 @@ import org.apache.avro.mapred.Pair;
+ import org.apache.avro.Schema;
+ 
+ import org.apache.commons.cli.CommandLine;
+-import org.apache.commons.cli.CommandLineParser;
+-import org.apache.commons.cli.GnuParser;
+-import org.apache.commons.cli.HelpFormatter;
+ import org.apache.commons.cli.Option;
+ import org.apache.commons.cli.OptionBuilder;
+-import org.apache.commons.cli.Options;
+ import org.apache.hadoop.conf.Configuration;
+-import org.apache.hadoop.conf.Configured;
+ import org.apache.hadoop.fs.FileSystem;
+ import org.apache.hadoop.fs.Path;
+ import org.apache.hadoop.mapred.FileInputFormat;
+@@ -43,59 +41,70 @@ import org.apache.hadoop.mapred.FileOutputFormat;
+ import org.apache.hadoop.mapred.JobClient;
+ import org.apache.hadoop.mapred.JobConf;
+ import org.apache.hadoop.mapred.Reporter;
+-import org.apache.hadoop.mapred.RunningJob;
+-import org.apache.hadoop.util.Tool;
+ import org.apache.hadoop.util.ToolRunner;
+ import org.apache.log4j.Logger;
+ 
+ 
+ public class BuildGraphAvro extends Stage
+ {	
+-	private static final Logger sLogger = Logger.getLogger(BuildGraphAvro.class);
+-
+-	public static final Schema kmer_edge_schema = (new KMerEdge()).getSchema();
+-	public static final Schema graph_node_data_schema = 
+-	    (new GraphNodeData()).getSchema();
+-	
+-	/**
+-	 * Define the schema for the mapper output. The keys will be a byte buffer
+-	 * representing the compressed source KMer sequence. The value will be an 
+-	 * instance of KMerEdge.
+-	 */
+-	public static final Schema MAP_OUT_SCHEMA = 
+-	    Pair.getPairSchema(Schema.create(Schema.Type.BYTES), kmer_edge_schema);
+-	
+-	/**
+-	 * Define the schema for the reducer output. The keys will be a byte buffer
+-	 * representing the compressed source KMer sequence. The value will be an 
+-	 * instance of GraphNodeData. 
+-	 */
+-	public static final Schema REDUCE_OUT_SCHEMA = 
+-	    Pair.getPairSchema(Schema.create(Schema.Type.BYTES), graph_node_data_schema);
+-	
+-	
+-	protected void initializeDefaultOptions() {
+-	  super.initializeDefaultOptions();
+-	  default_options.put("TRIM3", new Long(0));
+-	  default_options.put("TRIM5", new Long(0));
+-	  default_options.put("MAXR5", new Long(250));
+-	  default_options.put("MAXTHREADREADS", new Long(250));
+-	  default_options.put("RECORD_ALL_THREADS", new Long(0));
+-	}
+-	/**
+-	 * Get the options required by this stage.
+-	 */
+-	protected List<Option> getCommandLineOptions() {
+-	  List<Option> options = super.getCommandLineOptions();
+-	  
+-	  // Default values.
+-	  // hard trim
+-	  long TRIM3 = (Long)default_options.get("TRIM3");
+-	  long TRIM5 = (Long)default_options.get("TRIM5");
+-	  long MAXR5 = (Long)default_options.get("MAXR5");
+-	  long MAXTHREADREADS = (Long)default_options.get("MAXTHREADREADS");
+-	  long  RECORD_ALL_THREADS = (Long)default_options.get("RECORD_ALL_THREADS");
+-	  // Add options specific to this stage.
++  private static final Logger sLogger = Logger.getLogger(BuildGraphAvro.class);
++
++  public static final Schema kmer_edge_schema = (new KMerEdge()).getSchema();
++  public static final Schema graph_node_data_schema = 
++      (new GraphNodeData()).getSchema();
++
++  /**
++   * Define the schema for the mapper output. The keys will be a byte buffer
++   * representing the compressed source KMer sequence. The value will be an 
++   * instance of KMerEdge.
++   */
++  public static final Schema MAP_OUT_SCHEMA = 
++      Pair.getPairSchema(Schema.create(Schema.Type.BYTES), kmer_edge_schema);
++
++  /**
++   * Define the schema for the reducer output. The keys will be a byte buffer
++   * representing the compressed source KMer sequence. The value will be an 
++   * instance of GraphNodeData. 
++   */
++  public static final Schema REDUCE_OUT_SCHEMA = graph_node_data_schema;
++
++
++  /**
++   * Construct the nodeId for a given sequence.
++   * 
++   * We currently assign a nodeId based on the actual sequence to ensure 
++   * uniqueness.
++   * @param sequence
++   * @return
++   */
++  public static String constructNodeIdForSequence(Sequence sequence) {
++    // TODO(jlewi): We should at the very least use a compact 
++    // representation of the sequence.
++    return sequence.toString();
++  }
++  
++  protected void initializeDefaultOptions() {
++    super.initializeDefaultOptions();
++    default_options.put("TRIM3", new Long(0));
++    default_options.put("TRIM5", new Long(0));
++    default_options.put("MAXR5", new Long(250));
++    default_options.put("MAXTHREADREADS", new Long(250));
++    default_options.put("RECORD_ALL_THREADS", new Long(0));
++  }
++  /**
++   * Get the options required by this stage.
++   */
++  protected List<Option> getCommandLineOptions() {
++    List<Option> options = super.getCommandLineOptions();
++
++    // Default values.
++    // hard trim
++    long TRIM3 = (Long)default_options.get("TRIM3");
++    long TRIM5 = (Long)default_options.get("TRIM5");
++    long MAXR5 = (Long)default_options.get("MAXR5");
++    long MAXTHREADREADS = (Long)default_options.get("MAXTHREADREADS");
++    long  RECORD_ALL_THREADS = (Long)default_options.get("RECORD_ALL_THREADS");
++    // Add options specific to this stage.
+     options.add(OptionBuilder.withArgName("k").hasArg().withDescription(
+         "Graph nodes size [required]").create("k"));
+     options.add(OptionBuilder.withArgName(
+@@ -108,48 +117,79 @@ public class BuildGraphAvro extends Stage
+         "Chopped bases (default: " + TRIM5 + ")").create("trim5"));
+     options.add(new Option(
+         "record_all_threads",  "record threads even on non-branching nodes"));
+-    
++
+     options.addAll(ContrailOptions.getInputOutputPathOptions());
+     return options;
+-	}
+-	/**
+-	 * This class contains the operations for preprocessing sequences.
+-	 * 
+-	 * This object is instantiated once for each mapper and customizes the operations
+-	 * based on the settings and the alphabet.
+-	 * 
+-	 * We use a separate class so that its easy to unittest.
+-	 */
+-	public static class SequencePreProcessor {
+-
+-	  private Alphabet alphabet;
+-	  private int trim5;
+-	  private int trim3;
+-	    
+-	  private boolean hasTrimVal;
+-	  private int trimVal;
+-	  
+-	  /**
+-    * @param alphabet - The alphabet. 
+-    * @param trim5 - Number of bases to trim off the start
+-    * @param trim3 - Number of bases to trim off the end.
+-    */	  
+-	  public SequencePreProcessor(Alphabet alphabet, int trim5, int trim3) {
+-	    this.alphabet = alphabet;
+-	    this.trim5 = trim5;
+-	    this.trim3 = trim3;
+-
+-	    // Check if this alphabet has a character which should be removed from 
+-	    // both ends of the sequence.
+-	    if (alphabet.hasLetter('N')) {
+-	      hasTrimVal = true;
+-	      trimVal = alphabet.letterToInt('N');
+-	    } 
+-	    else {
+-	      hasTrimVal = false;
+-	    }
+-	  }
+-	   /**
++  }
++  
++  /**
++   * Construct the destination KMer in an edge using the source KMer,
++   * the last base for the sequence, and the strands for the edge.
++   * 
++   * The mapper does a micro optimization. Since, the two KMers overlap by 
++   * K-1 bases we can construct the destination KMer from the
++   * source KMer and the non-overlap region of the destination
++   *  
++   * @param canonical_src: Canonical representation of the source KMer.
++   * @param last_base: The non overlap region of the destination KMer.
++   * @param strands: Which strands the source and destination kmer came from.
++   * @param alphabet: The alphabet for the encoding.
++   * @return: The destination KMer.
++   */
++  public static Sequence ConstructDestSequence(
++      Sequence canonical_src, ByteBuffer last_base_byte, StrandsForEdge strands,
++      Alphabet alphabet) {
++    Sequence last_base = new Sequence(alphabet);
++    last_base.readPackedBytes(last_base_byte.array(), 1);
++    Sequence dest;
++
++    int K = canonical_src.size();
++    if (StrandsUtil.src(strands) == DNAStrand.FORWARD) {
++      dest = canonical_src.subSequence(1, K);
++    } else {
++      dest = DNAUtil.reverseComplement(canonical_src).subSequence(1, K);
++    }
++    dest.add(last_base);
++    return dest;
++  }
++  /**
++   * This class contains the operations for preprocessing sequences.
++   * 
++   * This object is instantiated once for each mapper and customizes the operations
++   * based on the settings and the alphabet.
++   * 
++   * We use a separate class so that its easy to unittest.
++   */
++  public static class SequencePreProcessor {
++
++    private Alphabet alphabet;
++    private int trim5;
++    private int trim3;
++
++    private boolean hasTrimVal;
++    private int trimVal;
++
++    /**
++     * @param alphabet - The alphabet. 
++     * @param trim5 - Number of bases to trim off the start
++     * @param trim3 - Number of bases to trim off the end.
++     */	  
++    public SequencePreProcessor(Alphabet alphabet, int trim5, int trim3) {
++      this.alphabet = alphabet;
++      this.trim5 = trim5;
++      this.trim3 = trim3;
++
++      // Check if this alphabet has a character which should be removed from 
++      // both ends of the sequence.
++      if (alphabet.hasLetter('N')) {
++        hasTrimVal = true;
++        trimVal = alphabet.letterToInt('N');
++      } 
++      else {
++        hasTrimVal = false;
++      }
++    }
++    /**
+      * Pre process a sequence.
+      * 
+      * @param seq - The sequence to process
+@@ -159,7 +199,7 @@ public class BuildGraphAvro extends Stage
+       // Start and end will store the valid range of the sequence.
+       int start = 0;
+       int end = seq.size();
+-          
++
+       // Hard chop a few bases off each end of the read
+       if (trim5 > 0 || trim3 > 0) {
+         start = trim5;
+@@ -171,285 +211,282 @@ public class BuildGraphAvro extends Stage
+         while (end > 0 && seq.valAt(end) == trimVal) { 
+           end--; 
+         }
+-               
++
+         while (start < seq.size() && seq.valAt(start) == trimVal) { 
+           start++;
+         }
+       } 
+       return seq.subSequence(start, end);
+     }
+-	}
++  }
+ 
+-	 /**
++  /**
+    * Mapper for BuildGraph.
+    * Class is public to facilitate unit-testing.
+    */
+-	public static class BuildGraphMapper extends 
+-	    AvroMapper<CompressedRead, Pair<ByteBuffer, KMerEdge>> 	  
+-	{
+-		private static int K = 0;
+-
+-		private Alphabet alphabet = DNAAlphabetFactory.create();
+-		private Sequence seq = new Sequence(DNAAlphabetFactory.create());
+-		private SequencePreProcessor preprocessor;
+-		
+-		private KMerEdge node = new KMerEdge();
+-		public void configure(JobConf job) 
+-		{
+-			K = Integer.parseInt(job.get("K"));
+-			if (K <= 0) {
+-			  throw new RuntimeException("K must be a positive integer");
+-			}
+-			int TRIM5 = Integer.parseInt(job.get("TRIM5"));
+-			int TRIM3 = Integer.parseInt(job.get("TRIM3"));
+-					
+-			preprocessor = new SequencePreProcessor(alphabet, TRIM5, TRIM3); 
+-		}
+-	  
+- 
+-		/*
+-		 * Input (CompressedRead) - Each input is an instance of CompressedRead. 
+-		 *   
+-		 * Output (ByteBuffer, KMerEdge): The output key is a sequence of bytes
+-		 *   representing the compressed KMer for the source node. The value
+-		 *   is an instance of KMerEdge which contains all the information
+-		 *   for an edge originating from this source KMer.
+-		 *
+-		 * For each successive pair of k-mers in the read, we output two 
+-		 * tuples; where each tuple corresponds to the read coming from a different 
+-		 * strand of the sequence. 
+-		 */
+-		@Override
+-		public void map(CompressedRead compressed_read, 
+-		    AvroCollector<Pair<ByteBuffer, KMerEdge>> output, Reporter reporter)
+-						throws IOException {
+-
+-		  seq.readPackedBytes(compressed_read.getDna().array(), 
+-		                      compressed_read.getLength());		  
+-		  seq = preprocessor.PreProcess(seq);
+-
+-			// Check for short reads.
+-			if (seq.size() <= K)
+-			{
+-				reporter.incrCounter("Contrail", "reads_short", 1);	
+-				return;
+-			}
+-
+-			ReadState ustate = ReadState.END5;
+-			ReadState vstate = ReadState.I;
+-
+-			Set<String> seenmers = new HashSet<String>();
+-			
+-			int chunk = 0;
+-
+-			int end = seq.size() - K;
+-
+-	    // Now emit the edges of the de Bruijn Graph.
++  public static class BuildGraphMapper extends 
++  AvroMapper<CompressedRead, Pair<ByteBuffer, KMerEdge>> 	  
++  {
++    private static int K = 0;
++
++    private Alphabet alphabet = DNAAlphabetFactory.create();
++    private Sequence seq = new Sequence(DNAAlphabetFactory.create());
++    private SequencePreProcessor preprocessor;
++
++    private KMerEdge node = new KMerEdge();
++    public void configure(JobConf job) 
++    {
++      K = Integer.parseInt(job.get("K"));
++      if (K <= 0) {
++        throw new RuntimeException("K must be a positive integer");
++      }
++      int TRIM5 = Integer.parseInt(job.get("TRIM5"));
++      int TRIM3 = Integer.parseInt(job.get("TRIM3"));
++
++      preprocessor = new SequencePreProcessor(alphabet, TRIM5, TRIM3); 
++    }
++
++
++    /*
++     * Input (CompressedRead) - Each input is an instance of CompressedRead. 
++     *   
++     * Output (ByteBuffer, KMerEdge): The output key is a sequence of bytes
++     *   representing the compressed KMer for the source node. The value
++     *   is an instance of KMerEdge which contains all the information
++     *   for an edge originating from this source KMer.
++     *
++     * For each successive pair of k-mers in the read, we output two 
++     * tuples; where each tuple corresponds to the read coming from a different 
++     * strand of the sequence. 
++     */
++    @Override
++    public void map(CompressedRead compressed_read, 
++        AvroCollector<Pair<ByteBuffer, KMerEdge>> output, Reporter reporter)
++            throws IOException {
++
++      seq.readPackedBytes(compressed_read.getDna().array(), 
++          compressed_read.getLength());		  
++      seq = preprocessor.PreProcess(seq);
++
++      // Check for short reads.
++      if (seq.size() <= K)
++      {
++        reporter.incrCounter("Contrail", "reads_short", 1);	
++        return;
++      }
++
++      ReadState ustate = ReadState.END5;
++      ReadState vstate = ReadState.I;
++
++      Set<String> seenmers = new HashSet<String>();
++
++      int chunk = 0;
++
++      int end = seq.size() - K;
++
++      // Now emit the edges of the de Bruijn Graph.
+       // Each successive kmer in the read is a node in the graph
+       // and the edge connecting them is the (k-1) of overlap.
+-			// Since we don't know which strand the read came from, we need
+-			// to consider both the read and its reverse complement when generating
+-			// edges. 
+-			for (int i = 0; i < end; i++)
+-			{
+-				// ukmer and vkmer are sequential KMers in the read.
+-			  Sequence ukmer = seq.subSequence(i, i+K);
+-			  Sequence vkmer = seq.subSequence(i+1, i+1+K);
+-			  
+-			  // ukmer_start and vkmer_end are the base we need to add 
+-			  // to the source kmer in order to generate the destination KMer.
+-			  Sequence ukmer_start = seq.subSequence(i, i+1);
+-			  Sequence vkmer_end = seq.subSequence(i+K, i+K+1);			  
+-			  ukmer_start = DNAUtil.reverseComplement(ukmer_start);
+-
+-	      // Construct the canonical representation of each kmer.
++      // Since we don't know which strand the read came from, we need
++      // to consider both the read and its reverse complement when generating
++      // edges. 
++      for (int i = 0; i < end; i++)
++      {
++        // ukmer and vkmer are sequential KMers in the read.
++        Sequence ukmer = seq.subSequence(i, i+K);
++        Sequence vkmer = seq.subSequence(i+1, i+1+K);
++
++        // ukmer_start and vkmer_end are the base we need to add 
++        // to the source kmer in order to generate the destination KMer.
++        Sequence ukmer_start = seq.subSequence(i, i+1);
++        Sequence vkmer_end = seq.subSequence(i+K, i+K+1);			  
++        ukmer_start = DNAUtil.reverseComplement(ukmer_start);
++
++        // Construct the canonical representation of each kmer.
+         // This ensures that a kmer coming from the forward and reverse
+         // strand are both represented using the same node.
+         Sequence ukmer_canonical = DNAUtil.canonicalseq(ukmer);
+         Sequence vkmer_canonical = DNAUtil.canonicalseq(vkmer);
+-        
+-				// The canonical direction of the two kmers.
+-        char ukmer_dir;
+-        char vkmer_dir;
++
++        // The canonical direction of the two kmers.
++        DNAStrand ukmer_strand;
++        DNAStrand vkmer_strand;
+         if (ukmer_canonical.equals(ukmer)) {
+-          ukmer_dir = 'f';
++          ukmer_strand = DNAStrand.FORWARD;
+         } else {
+-          ukmer_dir = 'r';
++          ukmer_strand = DNAStrand.REVERSE;
+         }
+-			  if (vkmer_canonical.equals(vkmer)) {
+-			    vkmer_dir = 'f';
+-			  } else {
+-			    vkmer_dir = 'r';
+-			  }
+-
+-			  String link_dir = Character.toString(ukmer_dir) + vkmer_dir;
+-			  String reverse_link = DNAUtil.flip_link(link_dir);
+-			  			  
+-				if ((i == 0) && (ukmer_dir == 'r'))  { ustate = ReadState.END6; }
+-				if (i+1 == end) { vstate = ReadState.END3; }
+-
+-				// TODO(jlewi): It would probably be more efficient not to use a string
+-				// representation of the Kmers in seen.				
++        if (vkmer_canonical.equals(vkmer)) {
++          vkmer_strand = DNAStrand.FORWARD;
++        } else {
++          vkmer_strand = DNAStrand.REVERSE;
++        }
++       
++        StrandsForEdge strands = StrandsUtil.form(ukmer_strand, vkmer_strand);
++        StrandsForEdge rc_strands = StrandsUtil.complement(strands);
++
++        if ((i == 0) && (ukmer_strand == DNAStrand.REVERSE))  { ustate = ReadState.END6; }
++        if (i+1 == end) { vstate = ReadState.END3; }
++
++        // TODO(jlewi): It would probably be more efficient not to use a string
++        // representation of the Kmers in seen.				
+         boolean seen = (seenmers.contains(ukmer.toString()) || 
+-                        seenmers.contains(vkmer.toString()) || 
+-                        ukmer.equals(vkmer));
++            seenmers.contains(vkmer.toString()) || 
++            ukmer.equals(vkmer));
+         seenmers.add(ukmer.toString());
+-				if (seen)
+-				{
+-					chunk++;
+-				}
+-
+-				// Output an edge assuming we are reading the forward strand.
+-				{
+-				  Pair<ByteBuffer, KMerEdge> pair = 
+-				      new Pair<ByteBuffer, KMerEdge>(MAP_OUT_SCHEMA);
+-				  ByteBuffer key;
+-
+-				  // TODO(jlewi): Should we verify that all unset bits in node.kmer are
+-				  // 0?
+-				  node.setLinkDir(link_dir);
+-				  node.setLastBase(ByteBuffer.wrap(vkmer_end.toPackedBytes(), 0, vkmer_end.numPackedBytes()));
+-				  node.setTag(compressed_read.getId());
+-				  node.setState(ustate);
+-				  node.setChunk(chunk);
+-				  key = ByteBuffer.wrap(ukmer_canonical.toPackedBytes(), 0, 
+-				      ukmer_canonical.numPackedBytes());
+-				  pair.set(key, node);
+-				  output.collect(pair);
+-				}
+-				if (seen)
+-				{
+-					chunk++;
+-				}
+-
+-				{
+-				  Pair<ByteBuffer, KMerEdge> pair = 
+-				      new Pair<ByteBuffer, KMerEdge>(MAP_OUT_SCHEMA);
+-				  ByteBuffer key;				
+-				  // Output an edge assuming we are reading the reverse strand.
+-				  // TODO(jlewi): Should we verify that all unset bits in node.kmer are
+-				  // 0?
+-				  node.setLinkDir(reverse_link);
+-				  node.setLastBase(ByteBuffer.wrap(ukmer_start.toPackedBytes(), 0, ukmer_start.numPackedBytes()));
+-				  node.setTag(compressed_read.id);
+-				  node.setState(vstate);
+-				  node.setChunk(chunk);
+-				  key = ByteBuffer.wrap(vkmer_canonical.toPackedBytes(), 0, 
+-				      vkmer_canonical.numPackedBytes());
+-				  pair.set(key, node);
+-				  output.collect(pair);
+-				}
+-				ustate = ReadState.MIDDLE;
+-			}
+-
+-			reporter.incrCounter("Contrail", "reads_good", 1);
+-			reporter.incrCounter("Contrail", "reads_goodbp", seq.size());
+-		}			
+-	}
+-
+-	/**
+-	 * Reducer for BuildGraph.
+-	 * 
+-	 * The reducer outputs a set of key value pairs where the key is a sequence
+-	 * of bytes representing the compressed source KMer. The value is a 
+-	 * GraphNodeData datum which contains all the information about edges from
+-	 * the source KMer to different destination KMers.
+-	 * 
+-	 * This class is public to facilitate unit-testing.
+-	 */
+-	public static class BuildGraphReducer extends 
+-	    AvroReducer<ByteBuffer, KMerEdge, Pair<ByteBuffer, GraphNodeData>> {
+-		private static int K = 0;
+-		private static int MAXTHREADREADS = 0;
+-		private static int MAXR5 = 0;
+-		private static boolean RECORD_ALL_THREADS = false;
+-
+-		public void configure(JobConf job) {
+-			K = Integer.parseInt(job.get("K"));
+-			MAXTHREADREADS = Integer.parseInt(job.get("MAXTHREADREADS"));
+-			MAXR5 = Integer.parseInt(job.get("MAXR5"));
+-			RECORD_ALL_THREADS = Integer.parseInt(job.get("RECORD_ALL_THREADS")) == 1;
+-		}
+-
+-		// TODO(jlewi): Reduce should probably just output GraphNodeData and the 
+-		// source KMer should be stored in the node. 
+-		@Override
+-		public void reduce(ByteBuffer source_kmer_packed_bytes, Iterable<KMerEdge> iterable,
+-				AvroCollector<Pair<ByteBuffer, GraphNodeData>> collector, Reporter reporter)
+-						throws IOException {		  
+-		  Alphabet alphabet = DNAAlphabetFactory.create();		  
+-		  GraphNode graphnode = new GraphNode();
+-		  graphnode.setCanonicalSourceKMer(source_kmer_packed_bytes, K);
+-		  
+-		  Sequence canonical_src = new Sequence(alphabet);
+-		  canonical_src.readPackedBytes(source_kmer_packed_bytes.array(), K);
+-		  		  
+-		  KMerReadTag mertag = null;
+-		  int cov = 0;
+-
+-		  Iterator<KMerEdge> iter = iterable.iterator();
+-			// Loop over all KMerEdges which originate with the KMer represented by
+-			// the input key. Since the source and destination KMers overlap for K-1
+-			// bases, we can construct the destination KMer using the last K-1 bases 
+-			// of the source and the additional base for the destination stored in 
+-		    // KMerEdge. 
+-			while(iter.hasNext()) {
+-			  KMerEdge edge = iter.next();
+-			  Sequence last_base = new Sequence(alphabet);
+-
+-			  CharSequence edge_dir = edge.getLinkDir();			    
+-
+-			  last_base.readPackedBytes(edge.getLastBase().array(), 1);
+-			  
+-			  String read_id = edge.getTag().toString();			   			  
+-			  KMerReadTag tag = new KMerReadTag(read_id, edge.getChunk());
+-
+-			  Sequence dest;
+-			  
+-			  if (edge_dir.charAt(0) == 'f') {
+-			    dest = canonical_src.subSequence(1, K);
+-			  } else {
+-			    dest = DNAUtil.reverseComplement(canonical_src).subSequence(1, K);
+-			  }
+-			  dest.add(last_base);
+-			  
+-			  Sequence canonical_dest = DNAUtil.canonicalseq(dest);
+-			  
+-			  // Set mertag to the smallest (lexicographically) tag 
+-			  // of all the tags associated with this key
+-			  if (mertag == null || (tag.compareTo(mertag) < 0)) {
+-			    mertag = tag;
+-			  }
+-
+-			  ReadState state = edge.getState(); 
+-			  // Update coverage and offsets.
+-			  if (state != ReadState.I) {
+-			    cov++;
+-			    if (state == ReadState.END6) {
+-			      graphnode.addR5(tag, K-1, true, MAXR5);
+-			    } else if (state == ReadState.END5) {
+-			      graphnode.addR5(tag, 0, false, MAXR5);
+-			    }
+-			  }
+-			  // Add an edge to this destination.
+-			  graphnode.addEdge(edge.getLinkDir(), canonical_dest, tag.toString(), 
+-			                    MAXTHREADREADS);
+-			}
+-
+-			graphnode.setMertag(mertag);
+-			graphnode.setCoverage(cov);
+-
+-			Pair<ByteBuffer, GraphNodeData> pair = 
+-			    new Pair<ByteBuffer, GraphNodeData>(REDUCE_OUT_SCHEMA);
+-			pair.set(source_kmer_packed_bytes, graphnode.getData());
+-			collector.collect(pair);
+-			reporter.incrCounter("Contrail", "nodecount", 1);
+-		}
+-	}
++        if (seen)
++        {
++          chunk++;
++        }
++
++        // Output an edge assuming we are reading the forward strand.
++        {
++          Pair<ByteBuffer, KMerEdge> pair = 
++              new Pair<ByteBuffer, KMerEdge>(MAP_OUT_SCHEMA);
++          ByteBuffer key;
++
++          // TODO(jlewi): Should we verify that all unset bits in node.kmer are
++          // 0?
++          node.setStrands(strands);
++          node.setLastBase(
++              ByteBuffer.wrap(vkmer_end.toPackedBytes(), 0, 
++                              vkmer_end.numPackedBytes()));
++          node.setTag(compressed_read.getId());
++          node.setState(ustate);
++          node.setChunk(chunk);
++          key = ByteBuffer.wrap(ukmer_canonical.toPackedBytes(), 0, 
++              ukmer_canonical.numPackedBytes());
++          pair.set(key, node);
++          output.collect(pair);
++        }
++        if (seen)
++        {
++          chunk++;
++        }
++
++        {
++          Pair<ByteBuffer, KMerEdge> pair = 
++              new Pair<ByteBuffer, KMerEdge>(MAP_OUT_SCHEMA);
++          ByteBuffer key;				
++          // Output an edge assuming we are reading the reverse strand.
++          // TODO(jlewi): Should we verify that all unset bits in node.kmer are
++          // 0?
++          node.setStrands(rc_strands);
++          node.setLastBase(ByteBuffer.wrap(ukmer_start.toPackedBytes(), 0, ukmer_start.numPackedBytes()));
++          node.setTag(compressed_read.id);
++          node.setState(vstate);
++          node.setChunk(chunk);
++          key = ByteBuffer.wrap(vkmer_canonical.toPackedBytes(), 0, 
++              vkmer_canonical.numPackedBytes());
++          pair.set(key, node);
++          output.collect(pair);
++        }
++        ustate = ReadState.MIDDLE;
++      }
++      reporter.incrCounter("Contrail", "reads_good", 1);
++      reporter.incrCounter("Contrail", "reads_goodbp", seq.size());
++    }			
++  }
++
++  /**
++   * Reducer for BuildGraph.
++   * 
++   * The reducer outputs a set of key value pairs where the key is a sequence
++   * of bytes representing the compressed source KMer. The value is a 
++   * GraphNodeData datum which contains all the information about edges from
++   * the source KMer to different destination KMers.
++   * 
++   * This class is public to facilitate unit-testing.
++   */
++  public static class BuildGraphReducer extends 
++  AvroReducer<ByteBuffer, KMerEdge, GraphNodeData> {
++    private static int K = 0;
++    private static int MAXTHREADREADS = 0;
++    private static int MAXR5 = 0;
++    private static boolean RECORD_ALL_THREADS = false;
++
++    public void configure(JobConf job) {
++      K = Integer.parseInt(job.get("K"));
++      MAXTHREADREADS = Integer.parseInt(job.get("MAXTHREADREADS"));
++      MAXR5 = Integer.parseInt(job.get("MAXR5"));
++      RECORD_ALL_THREADS = Integer.parseInt(job.get("RECORD_ALL_THREADS")) == 1;
++    }
++
++    // TODO(jlewi): Reduce should probably just output GraphNodeData and the 
++    // source KMer should be stored in the node. 
++    @Override
++    public void reduce(ByteBuffer source_kmer_packed_bytes, Iterable<KMerEdge> iterable,
++        AvroCollector<GraphNodeData> collector, Reporter reporter)
++            throws IOException {		  
++      Alphabet alphabet = DNAAlphabetFactory.create();		  
++      GraphNode graphnode = new GraphNode();
++      graphnode.setCanonicalSourceKMer(source_kmer_packed_bytes, K);
++
++      Sequence canonical_src = new Sequence(alphabet);
++      canonical_src.readPackedBytes(source_kmer_packed_bytes.array(), K);
++
++      KMerReadTag mertag = null;
++      int cov = 0;
++
++      Iterator<KMerEdge> iter = iterable.iterator();
++      // Loop over all KMerEdges which originate with the KMer represented by
++      // the input key. Since the source and destination KMers overlap for K-1
++      // bases, we can construct the destination KMer using the last K-1 bases 
++      // of the source and the additional base for the destination stored in 
++      // KMerEdge. 
++      while(iter.hasNext()) {
++        KMerEdge edge = iter.next();
++                
++        StrandsForEdge strands = edge.getStrands();			    
++     
++        String read_id = edge.getTag().toString();			   			  
++        KMerReadTag tag = new KMerReadTag(read_id, edge.getChunk());
++
++        Sequence dest = ConstructDestSequence(
++            canonical_src, edge.getLastBase(), strands, alphabet);
++        Sequence canonical_dest = DNAUtil.canonicalseq(dest);
++
++        // Set mertag to the smallest (lexicographically) tag 
++        // of all the tags associated with this key
++        if (mertag == null || (tag.compareTo(mertag) < 0)) {
++          mertag = tag;
++        }
++
++        ReadState state = edge.getState(); 
++        // Update coverage and offsets.
++        if (state != ReadState.I) {
++          cov++;
++          if (state == ReadState.END6) {
++            graphnode.addR5(tag, K-1, true, MAXR5);
++          } else if (state == ReadState.END5) {
++            graphnode.addR5(tag, 0, false, MAXR5);
++          }
++        }
++        // Add an edge to this destination.
++        DNAStrand src_strand = StrandsUtil.src(strands);
++        String terminalid = constructNodeIdForSequence(canonical_dest);
++        EdgeTerminal terminal = new EdgeTerminal(
++            terminalid, StrandsUtil.dest(strands));
++        graphnode.addOutgoingEdge(src_strand, terminal, tag.toString(), 
++            MAXTHREADREADS);
++      }
++
++      graphnode.setMertag(mertag);
++      graphnode.setCoverage(cov);
++
++      // TODO(jlewi): We should at the very least use a compact 
++      // representation of the sequence.
++      graphnode.getData().setNodeId(
++          constructNodeIdForSequence(canonical_src));
++
++      collector.collect(graphnode.getData());
++      reporter.incrCounter("Contrail", "nodecount", 1);
++    }
++  }
+ 
+   protected void parseCommandLine(CommandLine line) {
+     super.parseCommandLine(line);       
+-    
++
+     if (line.hasOption("k")) {
+       stage_options.put("K", Long.valueOf(line.getOptionValue("k"))); 
+     }    
+@@ -469,20 +506,20 @@ public class BuildGraphAvro extends Stage
+       stage_options.put("outputpath", line.getOptionValue("outputpath")); 
+     }
+   }
+-	
+-	public int run(String[] args) throws Exception 
+-	{
+-	  sLogger.info("Tool name: BuildGraph");
+-	  parseCommandLine(args);	  
+-	  return run();
+-	}
+-	
+-	@Override
+-	protected int run() throws Exception {  
+-	  String inputPath = (String) stage_options.get("inputpath");
+-	  String outputPath = (String) stage_options.get("outputpath");
+-	  long K = (Long)stage_options.get("K");
+-	  
++
++  public int run(String[] args) throws Exception 
++  {
++    sLogger.info("Tool name: BuildGraph");
++    parseCommandLine(args);	  
++    return run();
++  }
++
++  @Override
++  protected int run() throws Exception {  
++    String inputPath = (String) stage_options.get("inputpath");
++    String outputPath = (String) stage_options.get("outputpath");
++    long K = (Long)stage_options.get("K");
++
+     sLogger.info(" - input: "  + inputPath);
+     sLogger.info(" - output: " + outputPath);
+ 
+@@ -498,7 +535,7 @@ public class BuildGraphAvro extends Stage
+     AvroJob.setInputSchema(conf, read.getSchema());
+     AvroJob.setMapOutputSchema(conf, BuildGraphAvro.MAP_OUT_SCHEMA);
+     AvroJob.setOutputSchema(conf, BuildGraphAvro.REDUCE_OUT_SCHEMA);
+-    
++
+     AvroJob.setMapperClass(conf, BuildGraphMapper.class);
+     AvroJob.setReducerClass(conf, BuildGraphReducer.class);
+ 
+@@ -508,23 +545,23 @@ public class BuildGraphAvro extends Stage
+       // TODO(jlewi): We should only delete an existing directory
+       // if explicitly told to do so.
+       sLogger.info("Deleting output path: " + out_path.toString() + " " + 
+-                   "because it already exists.");       
++          "because it already exists.");       
+       FileSystem.get(conf).delete(out_path, true);  
+     }
+-    
+-		long starttime = System.currentTimeMillis();		
+-		JobClient.runJob(conf);
+-		long endtime = System.currentTimeMillis();
+-
+-		float diff = (float) (((float) (endtime - starttime)) / 1000.0);
+-
+-		System.out.println("Runtime: " + diff + " s");
+-		return 0;
+-	}
+-	
+-	public static void main(String[] args) throws Exception 
+-	{
+-		int res = ToolRunner.run(new Configuration(), new BuildGraphAvro(), args);
+-		System.exit(res);
+-	}
++
++    long starttime = System.currentTimeMillis();		
++    JobClient.runJob(conf);
++    long endtime = System.currentTimeMillis();
++
++    float diff = (float) (((float) (endtime - starttime)) / 1000.0);
++
++    System.out.println("Runtime: " + diff + " s");
++    return 0;
++  }
++
++  public static void main(String[] args) throws Exception 
++  {
++    int res = ToolRunner.run(new Configuration(), new BuildGraphAvro(), args);
++    System.exit(res);
++  }
+ }
+diff --git a/src/main/java/contrail/graph/GraphNode.java b/src/main/java/contrail/graph/GraphNode.java
+index 799c05a..dfbf678 100644
+--- a/src/main/java/contrail/graph/GraphNode.java
++++ b/src/main/java/contrail/graph/GraphNode.java
+@@ -1,21 +1,19 @@
+ package contrail.graph;
+ 
+-import contrail.CompressedSequence;
+-import contrail.DestForLinkDir;
+-import contrail.EdgeDestNode;
+-import contrail.GraphNodeData;
+ import contrail.GraphNodeKMerTag;
+-import contrail.R5Tag;
+-import contrail.sequences.DNAAlphabetFactory;
+-import contrail.sequences.DNAStrand;
+-import contrail.sequences.KMerReadTag;
+-import contrail.sequences.Sequence;
+-import contrail.sequences.StrandsForEdge;
+ 
+ import contrail.graph.EdgeDirection;
+ import contrail.graph.EdgeTerminal;
+ import contrail.graph.TailData;
+ 
++import contrail.sequences.CompressedSequence;
++import contrail.sequences.DNAStrand;
++import contrail.sequences.DNAStrandUtil;
++import contrail.sequences.KMerReadTag;
++import contrail.sequences.Sequence;
++import contrail.sequences.StrandsForEdge;
++import contrail.sequences.StrandsUtil;
++
+ import java.nio.ByteBuffer;
+ import java.util.ArrayList;
+ import java.util.Collections;
+@@ -61,64 +59,63 @@ public class GraphNode {
+ 		}
+ 		/**
+ 		 * This hash map maps the enum StrandsForEdge to a list of strings  
+-		 * which are the node ids for the destination nodes.
+-		 * If there are no ids for this direction the list is empty (not null);
++		 * which are the node ids for the neighbors.
++		 * If there are no ids for this value of StrandsForEdge the list is 
++		 * empty (not null);
+ 		 */
+ 		private HashMap<StrandsForEdge, List<CharSequence>> 
+-		linkdirs_to_dest_nodeid;
++		strands_to_neighbors;
+ 
+ 
+ 		// TODO(jlewi): Would it be better to use sorted sets for fast lookups?
+ 		private void createEdgeLists() {
+ 			lists_created = true;
+ 
+-			linkdirs_to_dest_nodeid = 
++			strands_to_neighbors = 
+ 					new HashMap<StrandsForEdge, List<CharSequence>> ();
+ 			// Initialize the lists.
+-			linkdirs_to_dest_nodeid.put(
++			strands_to_neighbors.put(
+ 					StrandsForEdge.FF, new ArrayList<CharSequence> ());
+-			linkdirs_to_dest_nodeid.put(
++			strands_to_neighbors.put(
+ 					StrandsForEdge.FR, new ArrayList<CharSequence> ());
+-			linkdirs_to_dest_nodeid.put(
++			strands_to_neighbors.put(
+ 					StrandsForEdge.RF, new ArrayList<CharSequence> ());
+-			linkdirs_to_dest_nodeid.put(
++			strands_to_neighbors.put(
+ 					StrandsForEdge.RR, new ArrayList<CharSequence> ());
+ 
+ 			f_outgoing_edges = new ArrayList<EdgeTerminal>();
+ 			r_outgoing_edges = new ArrayList<EdgeTerminal>();
+ 
+-			EdgeDestNode dest_node;
++			NeighborData dest_node;
+ 			List<CharSequence> id_list;
+ 
+ 			// Loop over the destination nodes.
+-			for (Iterator<EdgeDestNode> it = data.getDestNodes().iterator();
++			for (Iterator<NeighborData> it = data.getNeighbors().iterator();
+ 					it.hasNext();) {
+ 				dest_node = it.next();
+-				List<DestForLinkDir> list_link_dirs = dest_node.getLinkDirs();
++				List<EdgeData> list_link_dirs = dest_node.getEdges();
+ 				if (list_link_dirs == null) {
+ 					throw new RuntimeException(
+-							"The list of link dirs is null for destination:" +
++							"The list of StrandsForEdge is null for destination:" +
+ 					        dest_node.getNodeId() + 
+-					        " this should not happend.");
++					        " this should not happen.");
+ 				}
+-				for (Iterator<DestForLinkDir> link_it = 
+-						dest_node.getLinkDirs().iterator();
+-				     link_it.hasNext();) {
+-					DestForLinkDir dest_for_link_dir = link_it.next();
+-					StrandsForEdge dir = 
+-							StrandsForEdge.parse(
+-									dest_for_link_dir.getLinkDir().toString());
+-					id_list = linkdirs_to_dest_nodeid.get(dir);
++				for (Iterator<EdgeData> edge_it = 
++						dest_node.getEdges().iterator();
++				     edge_it.hasNext();) {
++					EdgeData edge_data = edge_it.next();
++					StrandsForEdge strands = edge_data.getStrands();
++					id_list = strands_to_neighbors.get(strands);
+ 					id_list.add(dest_node.getNodeId());
+ 
+-					if (dir.src() == DNAStrand.FORWARD) {
++					if (StrandsUtil.src(strands) == DNAStrand.FORWARD) {
+ 						f_outgoing_edges.add(
+ 								new EdgeTerminal(dest_node.getNodeId().toString(), 
+-										dir.dest()));
++										StrandsUtil.dest(strands)));
+ 					} else {
+ 						r_outgoing_edges.add(
+ 								new EdgeTerminal(dest_node.getNodeId().toString(), 
+-										dir.dest()));
++										StrandsUtil.dest(strands)));
+ 					}
+ 				}
+ 			}
+@@ -133,7 +130,7 @@ public class GraphNode {
+ 					it.hasNext();) {
+ 				EdgeTerminal terminal = it.next();
+ 				f_incoming_edges.add(new EdgeTerminal(
+-						terminal.nodeId, terminal.strand.flip()));
++						terminal.nodeId, DNAStrandUtil.flip(terminal.strand)));
+ 			}
+ 
+ 			r_incoming_edges = new ArrayList<EdgeTerminal>();
+@@ -141,7 +138,7 @@ public class GraphNode {
+ 					it.hasNext();) {
+ 				EdgeTerminal terminal = it.next();
+ 				r_incoming_edges.add(new EdgeTerminal(
+-						terminal.nodeId, terminal.strand.flip()));
++						terminal.nodeId, DNAStrandUtil.flip(terminal.strand)));
+ 			}
+ 
+ 			// Convert the lists to immutable lists.
+@@ -152,16 +149,16 @@ public class GraphNode {
+ 
+ 			for (StrandsForEdge strands : StrandsForEdge.values()) {
+ 				id_list = Collections.unmodifiableList(
+-						linkdirs_to_dest_nodeid.get(strands));
+-				linkdirs_to_dest_nodeid.put(strands, id_list);
++						strands_to_neighbors.get(strands));
++				strands_to_neighbors.put(strands, id_list);
+ 			}
+ 
+ 		}
+-		public List<CharSequence> getDestNodeIdsForLinkDir(StrandsForEdge link_dir) {
++		public List<CharSequence> getNeighborsForStrands(StrandsForEdge strands) {
+ 			if (!lists_created) {
+ 				createEdgeLists();
+ 			}
+-			return linkdirs_to_dest_nodeid.get(link_dir);
++			return strands_to_neighbors.get(strands);
+ 		}
+ 
+ 		/**
+@@ -201,7 +198,7 @@ public class GraphNode {
+ 			r_outgoing_edges = null;
+ 			f_incoming_edges = null;
+ 			r_incoming_edges = null;
+-			linkdirs_to_dest_nodeid = null;
++			strands_to_neighbors = null;
+ 		}
+ 	}
+ 
+@@ -211,7 +208,8 @@ public class GraphNode {
+ 	 * Construct a new object with a new GraphNodeData to store the data.
+ 	 */
+ 	public GraphNode() {
+-		data = new GraphNodeData();   
++		data = new GraphNodeData();
++		derived_data = new DerivedData(data);
+ 		// Initialize any member variables so that if we serialzie it we don't 
+ 		// get null objects.
+ 		data.setR5Tags(new ArrayList<R5Tag>());
+@@ -284,83 +282,7 @@ public class GraphNode {
+ 	}
+ 
+ 	/**
+-	 * Add an outgoing edge to this node.
+-	 *
+-	 * @param link_dir - Two letter string such as 'ff' which indicates the canonical
+-	 *   direction of the source and destination KMers. 
+-	 * @param canonical_dest - The canonical sequence for the destination KMer.
+-	 * @param tag - A string identifying the read (and location within the read) where this 
+-	 *   edge came from.
+-	 * @param MAXTHREADREADS - Maximum number of threads to record the tags for.
+-	 */
+-	public void addEdge(CharSequence link_dir, Sequence canonical_dest, String tag, long MAXTHREADREADS) {
+-		if (data.getDestNodes() == null) {
+-			data.setDestNodes(new ArrayList<EdgeDestNode>());
+-		}
+-		// Get a list of the edges for this direction.
+-		// Create the list if it doesn't exist.
+-		EdgeDestNode dest_node = findDestNode(canonical_dest);
+-
+-		if (dest_node == null) {
+-			dest_node = new EdgeDestNode();
+-			CompressedSequence compressed = new CompressedSequence();
+-			compressed.setDna(ByteBuffer.wrap(canonical_dest.toPackedBytes(), 0, canonical_dest.numPackedBytes()));
+-			compressed.setLength(canonical_dest.size());      
+-			dest_node.setCanonicalSequence(compressed);
+-			dest_node.setLinkDirs(new ArrayList<DestForLinkDir>());
+-			data.getDestNodes().add(dest_node);
+-		}
+-
+-
+-		// Check if we already have an instance for this link direction.
+-		DestForLinkDir link_info = findInstancesForLinkDir(dest_node, link_dir);
+-
+-		if (link_info == null) {
+-			link_info = new DestForLinkDir();
+-			link_info.setReadTags(new ArrayList<CharSequence>());
+-			dest_node.getLinkDirs().add(link_info);      
+-		}
+-
+-		link_info.setLinkDir(link_dir);
+-
+-		if (link_info.getReadTags().size() < MAXTHREADREADS)
+-		{
+-			link_info.getReadTags().add(tag);
+-		}
+-	}
+-
+-
+-
+-	/**
+-	 * Find the instance of EdgeDestNodes representing the given canonical_sequence.
+-	 * @param canonical_sequence
+-	 * @return The instance if found or null otherwise.
+-	 * 
+-	 * TODO(jlewi): We could probably speed this up by creating a hash map for the 
+-	 * destination sequences.
+-	 */
+-	private EdgeDestNode findDestNode(Sequence canonical_sequence) {
+-		// TODO(jlewi): We should probably get rid of this function
+-		// and just use findDestNode(String nodeId)
+-		if (data.getDestNodes() == null) {
+-			return null;
+-		}
+-		Sequence canonical = new Sequence(DNAAlphabetFactory.create());
+-		for (Iterator<EdgeDestNode> it_dest_node = data.getDestNodes().iterator();
+-				it_dest_node.hasNext();) {
+-			EdgeDestNode dest = it_dest_node.next();
+-			canonical.readPackedBytes(dest.getCanonicalSequence().getDna().array(), 
+-					dest.getCanonicalSequence().getLength());
+-
+-			if (canonical.equals(canonical_sequence)) {
+-				return dest;
+-			}
+-		}
+-		return null;   
+-	}
+-
+-	/**
+-	 * Find the instance of EdgeDestNode for the specified nodeId.
++	 * Find the instance of NeighborData for the specified nodeId.
+ 	 * @param: nodeId 
+ 	 * @return The instance if found or null otherwise.
+ 	 * 
+@@ -368,64 +290,81 @@ public class GraphNode {
+ 	 * the destination nodeIds. This function should probably go in
+ 	 * derived_data.
+ 	 */
+-	private EdgeDestNode findDestNode(String nodeId) {
+-		if (data.getDestNodes() == null) {
++	private NeighborData findNeighbor(String nodeId) {
++		if (data.getNeighbors() == null) {
+ 			return null;
+ 		}		
+-		for (Iterator<EdgeDestNode> it_dest_node = data.getDestNodes().iterator();
++		for (Iterator<NeighborData> it_dest_node = data.getNeighbors().iterator();
+ 				it_dest_node.hasNext();) {
+-			EdgeDestNode dest = it_dest_node.next();		
++			NeighborData dest = it_dest_node.next();		
+ 			if (dest.getNodeId().toString().equals(nodeId)) {
+ 				return dest;
+ 			}
+ 		}
+ 		return null;   
+ 	}
+-	
++	  
+ 	/**
+ 	 * Add an outgoing edge to this node. 
+ 	 * @param strand: Which strand to add the edge to.
+ 	 * @param dest: The destination
++	 * @param tag: (Optional): String identifying the read where this edge 
++	 *   came from.
++	 * @param MAXTHREADREADS: The tag will only be recorded if we have fewer
++	 *   than this number of tags associated with this read.
+ 	 */
+-	public void addOutgoingEdge(DNAStrand strand, EdgeTerminal dest) {
++	public void addOutgoingEdge(DNAStrand strand, EdgeTerminal dest, String tag, 
++	                            long MAXTHREADREADS) {
+ 		// Clear the derived data.
+ 		this.derived_data.clear();
+-		EdgeDestNode dest_node = findDestNode(dest.nodeId);
++		NeighborData dest_node = findNeighbor(dest.nodeId);
+ 		
+ 		if (dest_node == null) {
+-			dest_node = new EdgeDestNode();
++			dest_node = new NeighborData();
+ 			dest_node.setNodeId(dest.nodeId);
+-			List<EdgeDestNode> list_dest_nodes = data.getDestNodes();
+-			if (list_dest_nodes == null) {
+-				list_dest_nodes = new ArrayList<EdgeDestNode>();
+-				data.setDestNodes(list_dest_nodes);
++			List<NeighborData> neighbors = data.getNeighbors();
++			if (neighbors == null) {
++				neighbors = new ArrayList<NeighborData>();
++				data.setNeighbors(neighbors);
+ 			}
+-			list_dest_nodes.add(dest_node);			
++			neighbors.add(dest_node);			
+ 		}
+ 		
+-		List<DestForLinkDir> list_edge_strands = dest_node.getLinkDirs();
++		List<EdgeData> list_edge_strands = dest_node.getEdges();
+ 		if (list_edge_strands == null) {
+-			list_edge_strands = new ArrayList<DestForLinkDir> ();
+-			dest_node.setLinkDirs(list_edge_strands);
++			list_edge_strands = new ArrayList<EdgeData> ();
++			dest_node.setEdges(list_edge_strands);
+ 		}
+ 		
+-		StrandsForEdge strands = StrandsForEdge.form(strand, dest.strand);
+-		DestForLinkDir link_dir = findInstancesForLinkDir(
+-				dest_node, strands.toString());
++		StrandsForEdge strands = StrandsUtil.form(strand, dest.strand);
++		EdgeData edge = findEdgeDataForStrands(
++				dest_node, strands);
+ 		
+-		if (link_dir != null) {
+-			// TODO(jlewi): If the edge already exists we should probably
+-			// just add the read tag if there is one.
+-			throw new RuntimeException(
+-					"Edge already exists. What should be done?");
++		if (edge == null) {
++		  edge = new EdgeData();
++      list_edge_strands.add(edge);
++      edge.setStrands(strands);
++      edge.setReadTags(new ArrayList<CharSequence>());
++		}
++		
++		if (tag !=null) {
++      if (edge.getReadTags().size() < MAXTHREADREADS){
++          edge.getReadTags().add(tag);
++      }
+ 		}
+ 		
+-		link_dir = new DestForLinkDir();
+-		list_edge_strands.add(link_dir);
+-		link_dir.setLinkDir(strands.toString());
+ 	}
+ 	
+ 	/**
++	 * Add an outgoing edge to this node. 
++	 * @param strand: Which strand to add the edge to.
++	 * @param dest: The destination
++	 */
++	public void addOutgoingEdge(DNAStrand strand, EdgeTerminal dest) {
++	  addOutgoingEdge(strand, dest, null, 0);
++	}
++ 
++	/**
+ 	 * Add an incoming edge to this node. 
+ 	 * @param strand: Which strand to add the edge to.
+ 	 * @param src: The source terminal
+@@ -434,12 +373,13 @@ public class GraphNode {
+ 		// Let this node be X.
+ 		// Then edge Y->X implies edge RC(x)->RC(y).
+ 		// So we add RC(x)->RC(y) to this node.		
+-		EdgeTerminal dest = new EdgeTerminal(src.nodeId, src.strand.flip());
+-		addOutgoingEdge(strand.flip(), dest);
++		EdgeTerminal dest = new EdgeTerminal(
++		    src.nodeId, DNAStrandUtil.flip(src.strand));
++		addOutgoingEdge(DNAStrandUtil.flip(strand), dest);
+ 	}
+ 	
+ 	/**
+-	 * Find the edge instances inside EdgeDestNode for the given link direction.
++	 * Find the edge instances inside NeighborData for the given strands.
+ 	 * 
+ 	 * @param canonical_sequence
+ 	 * @return The instance if found or null otherwise.
+@@ -447,17 +387,17 @@ public class GraphNode {
+ 	 * TODO(jlewi): We could probably speed this up by creating a hash map for the 
+ 	 * destination sequences.
+ 	 */
+-	private DestForLinkDir findInstancesForLinkDir(EdgeDestNode node, CharSequence link_dir) {
+-
+-		if (node.getLinkDirs() == null) {
++	private EdgeData findEdgeDataForStrands(NeighborData node, 
++	                                        StrandsForEdge strands) {
++		if (node.getEdges() == null) {
+ 			return null;
+ 		}
+ 
+-		for (Iterator<DestForLinkDir> it = node.getLinkDirs().iterator();
++		for (Iterator<EdgeData> it = node.getEdges().iterator();
+ 				it.hasNext();) {
+-			DestForLinkDir link_info = it.next();
+-			if (link_info.getLinkDir() == link_dir) {
+-				return link_info;
++			EdgeData edge_info = it.next();
++			if (edge_info.getStrands() == strands) {
++				return edge_info;
+ 			}
+ 		}
+ 		return null;
+@@ -486,12 +426,12 @@ public class GraphNode {
+ 		int retval = 0;
+ 
+ 
+-		StrandsForEdge fd = StrandsForEdge.form(strand, DNAStrand.FORWARD);    
+-		retval += this.derived_data.getDestNodeIdsForLinkDir(fd).size();
++		StrandsForEdge fd = StrandsUtil.form(strand, DNAStrand.FORWARD);    
++		retval += this.derived_data.getNeighborsForStrands(fd).size();
+ 
+ 
+-		StrandsForEdge rd = StrandsForEdge.form(strand, DNAStrand.REVERSE);
+-		retval += this.derived_data.getDestNodeIdsForLinkDir(rd).size();
++		StrandsForEdge rd = StrandsUtil.form(strand, DNAStrand.REVERSE);
++		retval += this.derived_data.getNeighborsForStrands(rd).size();
+ 
+ 		return retval;
+ 	}
+@@ -509,7 +449,7 @@ public class GraphNode {
+ 	 * @return: List of the CompressedSequences for the canonical 
+ 	 *   represention for the destination KMer.
+ 	 */
+-	public List<CompressedSequence> getCanonicalDestForLinkDir(String key) {
++	public List<CompressedSequence> getCanonicalEdgeData(String key) {
+ 		throw new RuntimeException("Need to implement this method");
+ 	}
+ 
+@@ -547,13 +487,13 @@ public class GraphNode {
+ 	}
+ 
+ 	/** 
+-	 * Return a list of strings containing the ids of the destination nodes 
+-	 * for links corresponding to the two letter link direction given by link_dir.
++	 * Return a list of the node ids for neighbors with edges corresponding
++	 * to the given strands. 
+ 	 * @param link_dir
+ 	 * @return
+ 	 */
+-	public List<CharSequence> getDestIdsForLinkDir(StrandsForEdge link_dir) {
+-		return derived_data.getDestNodeIdsForLinkDir(link_dir);
++	public List<CharSequence> getNeighborsForStrands(StrandsForEdge strands) {
++		return derived_data.getNeighborsForStrands(strands);
+ 	}
+ 
+ 	/**
+diff --git a/src/main/java/contrail/sequences/DNAStrand.java b/src/main/java/contrail/sequences/DNAStrand.java
+deleted file mode 100644
+index 2c1a05e..0000000
+--- a/src/main/java/contrail/sequences/DNAStrand.java
++++ /dev/null
+@@ -1,46 +0,0 @@
+-package contrail.sequences;
+-
+-import java.util.Random;
+-
+-/**
+- * Enumeration which defines which strand a sequence comes from, the forward
+- * or reverse strand. This usually refers to the canonical directions.
+- */
+-public enum DNAStrand {
+-	FORWARD,
+-	REVERSE;
+-	/**
+-	 * @return Flip the direction
+-	 */
+-	public DNAStrand flip() {
+-		if (this == FORWARD) {
+-			return REVERSE;
+-		} else {
+-			return FORWARD;
+-		}
+-	}
+-	
+-	/**
+-	 * Return a random strand.
+-	 */
+-	public static DNAStrand random() {
+-		return Math.random() < .5 ? FORWARD : REVERSE;
+-	}
+-	
+-	/**
+-	 * Return a random strand using the supplied generator.
+-	 */
+-	public static DNAStrand random(Random generator) {
+-		return generator.nextDouble() < .5 ? FORWARD : REVERSE;
+-	}
+-	/**
+-	 * For backwards compatibility with string representation.
+-	 */
+-	public String toString() {
+-		if (this == FORWARD) {
+-			return "f";
+-		} else {
+-			return "r";
+-		}
+-	}	
+-}
+diff --git a/src/main/java/contrail/sequences/DNAStrandUtil.java b/src/main/java/contrail/sequences/DNAStrandUtil.java
+new file mode 100644
+index 0000000..270f1de
+--- /dev/null
++++ b/src/main/java/contrail/sequences/DNAStrandUtil.java
+@@ -0,0 +1,44 @@
++package contrail.sequences;
++
++import java.util.Random;
++
++/**
++ * Enumeration which defines which strand a sequence comes from, the forward
++ * or reverse strand. This usually refers to the canonical directions.
++ */
++public class DNAStrandUtil {	
++	/**
++	 * @return Flip the direction
++	 */
++	public static DNAStrand flip(DNAStrand strand) {
++		if (strand == DNAStrand.FORWARD) {
++			return DNAStrand.REVERSE;
++		} else {
++			return DNAStrand.FORWARD;
++		}
++	}
++	
++	/**
++	 * Return a random strand.
++	 */
++	public static DNAStrand random() {
++		return Math.random() < .5 ? DNAStrand.FORWARD : DNAStrand.REVERSE;
++	}
++	
++	/**
++	 * Return a random strand using the supplied generator.
++	 */
++	public static DNAStrand random(Random generator) {
++		return generator.nextDouble() < .5 ? DNAStrand.FORWARD : DNAStrand.REVERSE;
++	}
++	/**
++	 * For backwards compatibility with string representation.
++	 */
++	public String toString(DNAStrand strand) {
++		if (strand == DNAStrand.FORWARD) {
++			return "f";
++		} else {
++			return "r";
++		}
++	}	
++}
+diff --git a/src/main/java/contrail/sequences/DNAUtil.java b/src/main/java/contrail/sequences/DNAUtil.java
+index 2bb6fa5..343611e 100644
+--- a/src/main/java/contrail/sequences/DNAUtil.java
++++ b/src/main/java/contrail/sequences/DNAUtil.java
+@@ -44,34 +44,16 @@ public class DNAUtil {
+    * @return - 'f' if the DNA sequence precedes is reverse complement
+    *  lexicographically (based on the integer values of the sequence). 'r' otherwise. 
+    */
+-  public static char canonicaldir(Sequence seq)
++  public static DNAStrand canonicaldir(Sequence seq)
+   {    
+     Sequence complement = reverseComplement(seq);
+     if (seq.compareTo(complement) <= 0)
+     {
+-      return 'f';
++      return DNAStrand.FORWARD;
+     }
+-    return 'r';
++    return DNAStrand.REVERSE;
+   }
+-  
+-  /**
+-   *  
+-   * @param link
+-   * @return
+-   * @throws IOException
+-   */
+-  public static String flip_link(String link) throws IOException
+-  {
+-	// TODO(jlewi): This function is obsolete now that we have enums
+-	// DNAStrand EdgeDirection.
+-    if (link.equals("ff")) { return "rr"; }
+-    if (link.equals("fr")) { return "fr"; }
+-    if (link.equals("rf")) { return "rf"; }
+-    if (link.equals("rr")) { return "ff"; }
+-
+-    throw new IOException("Unknown link type: " + link);
+-  }
+-  
++    
+   /**
+    * Returns the canonical version of a DNA sequence.
+    * 
+@@ -98,8 +80,8 @@ public class DNAUtil {
+    * given by the argument. The sequence is only copied if the direction
+    * is "r"
+    */
+-  public static Sequence canonicalToDir(Sequence seq, char dir) {
+-    if (dir == 'f') {
++  public static Sequence canonicalToDir(Sequence seq, DNAStrand strand) {
++    if (strand == DNAStrand.FORWARD) {
+       return seq;
+     }
+     return reverseComplement(seq);
+diff --git a/src/main/java/contrail/sequences/StrandsForEdge.java b/src/main/java/contrail/sequences/StrandsForEdge.java
+deleted file mode 100644
+index c1d3409..0000000
+--- a/src/main/java/contrail/sequences/StrandsForEdge.java
++++ /dev/null
+@@ -1,92 +0,0 @@
+-package contrail.sequences;
+-
+-/**
+- * This enumeration is used to indicate which strands of DNA (in canonical form)
+- * the source and destination sequence in an edge come from. 
+- * 
+- * @author jlewi
+- *
+- */
+-public enum StrandsForEdge {
+-	FF,
+-	FR,
+-	RF,
+-	RR;
+-	
+-	/**
+-	 * This function computes the corresponding edge that would
+-	 * come from the reverse complement of this edge. 
+-	 * Do not confuse this with flipping an edge to find the incoming
+-	 * edges to a node.
+-	 */
+-	public StrandsForEdge complement() {
+-	    if (this.equals(FF)) { return RR; }
+-	    if (this.equals(FR)) { return FR; }
+-	    if (this.equals(RF)) { return RF; }
+-	    //if (this.equals(RR)) { return FF; }
+-	    return FF;
+-	}
+-	
+-	/**
+-	 * Return the strand for the src.
+-	 */
+-	public DNAStrand src() {
+-		if (this.equals(FF) || this.equals(FR)) {
+-			return DNAStrand.FORWARD;
+-		}
+-		return DNAStrand.REVERSE;
+-	}
+-
+-	/**
+-	 * @return The strand for the destination
+-	 */
+-	public DNAStrand dest() {
+-		if (this.equals(FF) || this.equals(RF)) {
+-			return DNAStrand.FORWARD;
+-		}
+-		return DNAStrand.REVERSE;
+-	}	
+-	
+-	/** 
+-	 * For the strands from edge from the strand for the source and destination.
+-	 * @param src
+-	 * @param dest
+-	 * @return
+-	 */
+-	public static StrandsForEdge form(DNAStrand src, DNAStrand dest) {
+-		if (src == DNAStrand.FORWARD) {
+-			if (dest == DNAStrand.FORWARD) {
+-				return FF;
+-			} else {
+-				return FR;
+-			}
+-		} else {
+-			if (dest == DNAStrand.FORWARD) {
+-				return RF;
+-			} else {
+-				return RR;
+-			}
+-		}
+-	}
+-	
+-	/** 
+-	 * Convert a string representation.
+-	 * @param src
+-	 * @param dest
+-	 * @return
+-	 */
+-	public static StrandsForEdge parse(String link_dir) {
+-		link_dir = link_dir.toLowerCase();
+-		if (link_dir.equals("ff")) {
+-			return FF;
+-		} else if (link_dir.equals("fr")) {
+-			return FR;
+-		} else if (link_dir.equals("rf")) {
+-			return RF;
+-		} else if (link_dir.equals("rr")) {
+-			return RR;
+-		}
+-		throw new RuntimeException(
+-				"Not a valid value for StrandsForEdge:" + link_dir);
+-	}
+-}
+diff --git a/src/main/java/contrail/sequences/StrandsUtil.java b/src/main/java/contrail/sequences/StrandsUtil.java
+new file mode 100644
+index 0000000..3f6ca3d
+--- /dev/null
++++ b/src/main/java/contrail/sequences/StrandsUtil.java
+@@ -0,0 +1,88 @@
++package contrail.sequences;
++
++/**
++ * strands enumeration is used to indicate which strands of DNA (in canonical form)
++ * the source and destination sequence in an edge come strands.FRom. 
++ * 
++ * @author jlewi
++ *
++ */
++public class StrandsUtil {
++	/**
++	 * strands function computes the costrands.RResponding edge that would
++	 * come strands.FRom the reverse complement of strands edge. 
++	 * Do not confuse strands with flipping an edge to find the incoming
++	 * edges to a node.
++	 */
++	public static StrandsForEdge complement(StrandsForEdge strands) {
++	    if (strands.equals(StrandsForEdge.FF)) { return StrandsForEdge.RR; }
++	    if (strands.equals(StrandsForEdge.FR)) { return StrandsForEdge.FR; }
++	    if (strands.equals(StrandsForEdge.RF)) { return StrandsForEdge.RF; }
++	    return StrandsForEdge.FF;
++	}
++	
++	/**
++	 * Return the strand for the src.
++	 */
++	public static DNAStrand src(StrandsForEdge strands) {
++		if (strands.equals(StrandsForEdge.FF) || 
++		    strands.equals(StrandsForEdge.FR)) {
++			return DNAStrand.FORWARD;
++		}
++		return DNAStrand.REVERSE;
++	}
++
++	/**
++	 * @return The strand for the destination
++	 */
++	public static DNAStrand dest(StrandsForEdge strands) {
++		if (strands.equals(StrandsForEdge.FF) || 
++		    strands.equals(StrandsForEdge.RF)) {
++			return DNAStrand.FORWARD;
++		}
++		return DNAStrand.REVERSE;
++	}	
++	
++	/** 
++	 * For the strands strands.FRom edge strands.FRom the strand for the source and destination.
++	 * @param src
++	 * @param dest
++	 * @return
++	 */
++	public static StrandsForEdge form(DNAStrand src, DNAStrand dest) {
++		if (src == DNAStrand.FORWARD) {
++			if (dest == DNAStrand.FORWARD) {
++				return StrandsForEdge.FF;
++			} else {
++				return StrandsForEdge.FR;
++			}
++		} else {
++			if (dest == DNAStrand.FORWARD) {
++				return StrandsForEdge.RF;
++			} else {
++				return StrandsForEdge.RR;
++			}
++		}
++	}
++	
++	/** 
++	 * Convert a string representation.
++	 * @param src
++	 * @param dest
++	 * @return
++	 */
++	public static StrandsForEdge parse(String strands) {
++		strands = strands.toLowerCase();
++		if (strands.equals("FF")) {
++			return StrandsForEdge.FF;
++		} else if (strands.equals("FR")) {
++			return StrandsForEdge.FR;
++		} else if (strands.equals("RF")) {
++			return StrandsForEdge.RF;
++		} else if (strands.equals("RR")) {
++			return StrandsForEdge.RR;
++		}
++		throw new RuntimeException(
++				"Not a valid value for StrandsForEdge:" + strands);
++	}
++}
+diff --git a/src/test/java/contrail/avro/TestBuildGraphAvro.java b/src/test/java/contrail/avro/TestBuildGraphAvro.java
+index d68baf4..9439b12 100644
+--- a/src/test/java/contrail/avro/TestBuildGraphAvro.java
++++ b/src/test/java/contrail/avro/TestBuildGraphAvro.java
+@@ -10,17 +10,23 @@ import java.util.List;
+ 
+ import contrail.CompressedRead;
+ import contrail.ContrailConfig;
+-import contrail.DestForLinkDir;
+-import contrail.EdgeDestNode;
+-import contrail.KMerEdge;
+-import contrail.GraphNodeData;
+ import contrail.ReadState;
+ import contrail.ReporterMock;
+ 
++import contrail.graph.EdgeData;
++import contrail.graph.EdgeTerminal;
++import contrail.graph.NeighborData;
++import contrail.graph.KMerEdge;
++import contrail.graph.GraphNodeData;
++
+ import contrail.sequences.Alphabet;
+ import contrail.sequences.DNAAlphabetFactory;
++import contrail.sequences.DNAStrand;
++import contrail.sequences.DNAStrandUtil;
+ import contrail.sequences.DNAUtil;
+ import contrail.sequences.Sequence;
++import contrail.sequences.StrandsForEdge;
++import contrail.sequences.StrandsUtil;
+ 
+ import static org.junit.Assert.assertEquals;
+ import static org.junit.Assert.assertTrue;
+@@ -96,15 +102,6 @@ public class TestBuildGraphAvro {
+     }
+     return String.valueOf(letters);
+   }
+-
+-  /**
+-   * Return a random letter r or f with equal probability
+-   */
+-  public static String randomDir() {
+-    double rnd = Math.random();
+-    String letter = rnd > .5 ? "f" : "r";
+-    return letter;
+-  }
+   
+   /**
+    * Helper class which contains the test data for the map phase.
+@@ -206,41 +203,39 @@ public class TestBuildGraphAvro {
+           it.hasNext(); ) {
+         Pair<ByteBuffer, KMerEdge> pair = it.next();
+   
++        
+         Sequence canonical_key = 
+             new Sequence(DNAAlphabetFactory.create(), (int)ContrailConfig.K);      
+         canonical_key.readPackedBytes(pair.key().array(), test_data.getK());
+-  
+         Sequence rc_key = DNAUtil.reverseComplement(canonical_key);
+   
+         KMerEdge edge = pair.value();      
+   
+-        // Check data in edge is valid.
+-        assertEquals(edge.getLinkDir().length(), 2);
+-  
++        DNAStrand src_strand = StrandsUtil.src(edge.getStrands());
++        DNAStrand dest_strand = StrandsUtil.dest(edge.getStrands());
++        
++        // Reconstruct the K+1 string this edge came from.
+         Sequence last_base = new Sequence(alphabet);
+         last_base.readPackedBytes(edge.getLastBase().array(), 1);
+-  
+-        // Reconstruct the K+1 string this edge came from.
+-        Sequence edge_seq = new Sequence(alphabet);  
+-        if (edge.getLinkDir().charAt(0) == 'f') {
+-          edge_seq.add(canonical_key);        
+-        } else if (edge.getLinkDir().charAt(0) == 'r')  {
+-          edge_seq.add(rc_key);       
++        
++        Sequence edge_seq = new Sequence(alphabet);
++        if (src_strand == DNAStrand.FORWARD) {
++        	edge_seq.add(canonical_key);
+         } else {
+-          fail ("link dir should only consist of the letters r and f");
++        	edge_seq.add(DNAUtil.reverseComplement(canonical_key));
+         }
+         edge_seq.add(last_base);
+   
+         Sequence dest_kmer = edge_seq.subSequence(1, test_data.getK() + 1);
+         // Check that the direction of the destination node is properly encoded.
+         // If the sequence and its reverse complement are equal then the link 
+-        // direction could be either 'r' or 'f' because of DNAUtil.flip_link.
++        // direction could be either forward or reverse because of 
++        // StransUtil.flip_link.                
+         if (dest_kmer.equals(DNAUtil.reverseComplement(dest_kmer))) {
+-          assertTrue(edge.getLinkDir().charAt(1) == 'f' || 
+-                     edge.getLinkDir().charAt(1) == 'r');
++          assertTrue(dest_strand == DNAStrand.FORWARD || 
++                     dest_strand == DNAStrand.REVERSE);
+         } else {
+-          assertEquals(DNAUtil.canonicaldir(dest_kmer), 
+-              edge.getLinkDir().charAt(1));
++          assertEquals(DNAUtil.canonicaldir(dest_kmer), dest_strand);
+         }
+         
+   
+@@ -257,11 +252,11 @@ public class TestBuildGraphAvro {
+         String uncompressed = test_data.getUncompressed();
+         // Check the state as best we can.
+         if (edge.getState() == ReadState.END5) {
+-          assertEquals(edge.getLinkDir().charAt(0), 'f');
++          assertEquals(src_strand, DNAStrand.FORWARD);
+           // The first characters in the string should match this edge. 
+           assertEquals(canonical_key.toString(), uncompressed.substring(0, K));        
+         } else if (edge.getState() == ReadState.END6) {
+-          assertEquals(edge.getLinkDir().charAt(0), 'r');
++          assertEquals(src_strand, DNAStrand.REVERSE);
+           // The first characters in the string should be the reverse complement
+           // of the start node.
+           assertEquals(rc_key.toString(), uncompressed.substring(0, K));
+@@ -292,80 +287,59 @@ public class TestBuildGraphAvro {
+    * Used by the testReduce to find a KMerEdge which would have produced
+    * an edge between the given source and destination.
+    * 
+-   * @param canonical_src: The canonical representation of the source.
+-   * @param dest_node: Represents the destination node. 
+-   * @param link_dir: A particular link direction for this source and 
+-   *   destination. 
++   * @param nodeid: The id for the source node. This will be a string 
++   *   representation of the canonical sequence.
++   * @param neighbor_id: Id for the neighbor.
++   * @param strands: Which strands each end of the edge comes from.
++   * @param read_tag: The read tag to match. null if you don't want it to
++   *   be taken into acount 
+    * @param Edges: The list of KMerEdges to search to see if it contains one 
+    *   that could have produced the edge defined by the tuple 
+    *   (canonical_src, dest_node, link_dir).
+    */
+   private static boolean foundKMerEdge(
+-      Sequence canonical_src, EdgeDestNode dest_node, DestForLinkDir link_info, 
+-      ArrayList<KMerEdge> edges) {
++      String nodeid, String neighbor_id, StrandsForEdge strands, 
++      String read_tag, ArrayList<KMerEdge> edges) {
+     Alphabet alphabet = DNAAlphabetFactory.create();
+-    // Get the destination canonical sequence.
+-    Sequence canonical_dest = new Sequence(alphabet);
+-    canonical_dest.readPackedBytes(
+-        dest_node.getCanonicalSequence().getDna().array(), 
+-        dest_node.getCanonicalSequence().getLength());
+-
+-    // Check that the lengths of the src and dest are the same.
+-    assertEquals(canonical_src.size(), canonical_dest.size());
+-
+-    int K = canonical_src.size();
+-
+-    // Convert the canonical representations of the source and destination
+-    // to the direction for this edge.
+-    Sequence src = new Sequence(canonical_src);
+-    src = DNAUtil.canonicalToDir(canonical_src, link_info.getLinkDir().charAt(0));
+-
+-    Sequence dest = new Sequence(canonical_dest);
+-    dest = DNAUtil.canonicalToDir(dest, link_info.getLinkDir().charAt(1));
+-
+-    // Check that the src and dest overlap by K -1 bases.
+-    assertEquals(src.subSequence(1, K), dest.subSequence(0, K-1));
+-
+-
+-    // The edge given by (source kmer, dest kmer, edge direction) could
+-    // appear multiple times with different tags for the destination KMer.
+-    // We want to find all such edges. So we construct a list of all
+-    // the tags that we need to match.
+-    HashSet<String> tags_to_find = new HashSet<String>();
+-    for (Iterator<CharSequence> it = link_info.getReadTags().iterator();
+-        it.hasNext();) {        
+-      tags_to_find.add(it.next().toString());
+-    }
+-
+-    Sequence dest_last_base = dest.subSequence(K-1, K);
+-    
+-    // Set of edges that we found.
+-    HashSet<CharSequence> found_tags = new HashSet<CharSequence>();
+ 
+     // Keep track of the positions in edges of the edges that we matched.
+     // We will delete these edges so that edges will only contain unmatched
+     // eges.
+     List<Integer> pos_to_delete = new ArrayList<Integer>();
+ 
++    Sequence canonical_src = new Sequence(nodeid, alphabet);
++    
+     for (int index = 0; index < edges.size(); index++) {
+       KMerEdge edge = edges.get(index);            
+-      Sequence edge_last_base = new Sequence(alphabet);
+-      edge_last_base.readPackedBytes(
+-          edge.getLastBase().array(), 1);
+-      if (dest_last_base.equals(edge_last_base)) {
+-        String x = link_info.getLinkDir().toString();
+-        String y = edge.getLinkDir().toString();
+-        if (x.compareTo(y) == 0) {
+-          if (tags_to_find.contains(edge.getTag().toString())) {
+-            found_tags.add(edge.getTag());
+-            pos_to_delete.add(index);
+-          }
++      
++      if (strands != edge.getStrands()) {
++        continue;
++      }
++      
++      // Form the destination sequence for this edge.
++      Sequence dest_sequence = BuildGraphAvro.ConstructDestSequence(
++          canonical_src, edge.getLastBase(), strands, alphabet);
++      
++      Sequence canonical_dest = DNAUtil.canonicalseq(dest_sequence);
++      
++      String kmer_nodeid = canonical_dest.toString();
++      
++      if (!kmer_nodeid.equals(neighbor_id)) {
++        // Destination nodeids don't match.
++        continue;
++      }
++      
++      if (read_tag == null) {
++        pos_to_delete.add(index);
++      } else {
++        if (edge.getTag().toString().equals(read_tag)) {
++          pos_to_delete.add(index);
+         }
+       }
+     }
+ 
+     // Check we found edges that matched.
+-    assertEquals(found_tags, tags_to_find);
++    assertTrue(pos_to_delete.size() > 0);
+ 
+     Iterator<Integer> it_pos_to_delete = pos_to_delete.iterator();
+     while (it_pos_to_delete.hasNext()) {     
+@@ -387,11 +361,12 @@ public class TestBuildGraphAvro {
+     /**
+      * Construct a specific test case.
+      * @param uncompressed: The uncompressed K-mer for the source sequence.
+-     * @param src_dir: 'f' or 'r' representing the direction of the source KMer.
++     * @param src_strand: Strand of the source KMer.
+      * @param last_base: The base we need to add to the soruce KMer to 
+      *   get the destination KMer.
+      */
+-    public ReduceTest(String uncompressed, String src_dir, String last_base) {
++    public ReduceTest(String uncompressed, DNAStrand src_strand, 
++                      String last_base) {
+       this.uncompressed = uncompressed;
+       this.K = uncompressed.length();
+       input_edges = new ArrayList<KMerEdge>();
+@@ -399,20 +374,20 @@ public class TestBuildGraphAvro {
+       KMerEdge node = new KMerEdge();      
+ 
+       Sequence seq_uncompressed = new Sequence(uncompressed, alphabet);
+-      Sequence src_canonical = DNAUtil.canonicalseq(seq_uncompressed);         
+-      String link_dir = src_dir;
++      Sequence src_canonical = DNAUtil.canonicalseq(seq_uncompressed);               
+       Sequence seq_last_base = new Sequence(last_base, alphabet);
+ 
+       // The destination direction depends on the source direction
+       // and the K-1 overlap
+       Sequence dest_kmer = 
+-          DNAUtil.canonicalToDir(src_canonical, link_dir.charAt(0));
++          DNAUtil.canonicalToDir(src_canonical, src_strand);
+       dest_kmer = dest_kmer.subSequence(1,  dest_kmer.size());
+       dest_kmer.add(seq_last_base);
+ 
+-      link_dir += DNAUtil.canonicaldir(dest_kmer);
+-
+-      node.setLinkDir(link_dir);
++      DNAStrand dest_strand = DNAUtil.canonicaldir(dest_kmer);
++      
++      StrandsForEdge strands = StrandsUtil.form(src_strand, dest_strand);
++      node.setStrands(strands);
+ 
+       node.setLastBase(ByteBuffer.wrap(
+           seq_last_base.toPackedBytes(), 0, seq_last_base.numPackedBytes()));                
+@@ -468,7 +443,7 @@ public class TestBuildGraphAvro {
+         KMerEdge node = new KMerEdge();
+   
+         // Randomly determine the direction for the source.         
+-        String link_dir = randomDir();
++        DNAStrand src_strand = DNAStrandUtil.random();
+   
+         // Generate the base.
+         Sequence last_base = new Sequence(randomString(1, alphabet), alphabet);
+@@ -476,13 +451,14 @@ public class TestBuildGraphAvro {
+         // The destination direction depends on the source direction
+         // and the K-1 overlap
+         Sequence dest_kmer = 
+-            DNAUtil.canonicalToDir(src_canonical, link_dir.charAt(0));
++            DNAUtil.canonicalToDir(src_canonical, src_strand);
+         dest_kmer = dest_kmer.subSequence(1,  dest_kmer.size());
+         dest_kmer.add(last_base);
+   
+-        link_dir += DNAUtil.canonicaldir(dest_kmer);
+-  
+-        node.setLinkDir(link_dir);
++        DNAStrand dest_strand = DNAUtil.canonicaldir(dest_kmer);
++        StrandsForEdge strands = StrandsUtil.form(src_strand, dest_strand);
++         
++        node.setStrands(strands);
+   
+         node.setLastBase(ByteBuffer.wrap(
+             last_base.toPackedBytes(), 0, last_base.numPackedBytes()));                
+@@ -525,8 +501,8 @@ public class TestBuildGraphAvro {
+           new BuildGraphAvro.BuildGraphReducer();
+       reducer.configure(job);
+ 
+-      AvroCollectorMock<Pair<ByteBuffer, GraphNodeData>> collector_mock = 
+-          new AvroCollectorMock<Pair<ByteBuffer, GraphNodeData>>();
++      AvroCollectorMock<GraphNodeData> collector_mock = 
++          new AvroCollectorMock<GraphNodeData>();
+ 
+       ReporterMock reporter_mock = new ReporterMock();
+       Reporter reporter = (Reporter) reporter_mock;
+@@ -546,14 +522,7 @@ public class TestBuildGraphAvro {
+         List<KMerEdge> input_edges = reduce_data.getInputEdges();
+         assertEquals(collector_mock.data.size(), 1);
+ 
+-        Pair<ByteBuffer, GraphNodeData> out_pair = collector_mock.data.get(0);
+-
+-        // Check the output key is the sequence specified in reduce_data.
+-        Sequence out_key = new Sequence(alphabet);
+-        out_key.readPackedBytes(out_pair.key().array(), (int)ContrailConfig.K);
+-        assertEquals(out_key, src_canonical);
+-
+-        GraphNodeData graph_data = out_pair.value();
++        GraphNodeData graph_data = collector_mock.data.get(0);
+ 
+         // edges_to_find keeps track of all input KMerEdge's which we haven't
+         // matched to the output yet. We use this to verify that all KMerEdges
+@@ -566,19 +535,26 @@ public class TestBuildGraphAvro {
+         // generated that edge. We also count the number of edges to make sure 
+         // we don't have extra edges. As we go we delete KMerEdges so we don't 
+         // count any twice.
+-        for (Iterator<EdgeDestNode> it_dest = graph_data.getDestNodes().iterator();
++        for (Iterator<NeighborData> it_dest = graph_data.getNeighbors().iterator();
+             it_dest.hasNext();) {
+ 
+-          EdgeDestNode dest_node = it_dest.next();
+-
+-          for (Iterator<DestForLinkDir> it_instances = 
+-               dest_node.getLinkDirs().iterator(); it_instances.hasNext();) {
+-            DestForLinkDir link_info = it_instances.next();
+-
+-            // FoundKMerEdge will search for the edge in edges_to_find and 
+-            // remove it if its found.
+-            assertTrue(foundKMerEdge(
+-                src_canonical, dest_node, link_info,  edges_to_find));
++          NeighborData dest_node = it_dest.next();
++
++          for (Iterator<EdgeData> it_instances = 
++               dest_node.getEdges().iterator(); it_instances.hasNext();) {
++            EdgeData edge_data = it_instances.next();
++
++            for (Iterator<CharSequence> it_tag = 
++            		edge_data.getReadTags().iterator();
++            	 it_tag.hasNext();) {
++            	String tag= it_tag.next().toString();
++	            // FoundKMerEdge will search for the edge in edges_to_find and 
++	            // remove it if its found.
++	            assertTrue(foundKMerEdge(
++	                graph_data.getNodeId().toString(), 
++	                dest_node.getNodeId().toString(), 
++	                edge_data.getStrands(), tag,  edges_to_find));
++            }
+           } // for it_instances
+         } // for edge_dir 
+         // Check there were no edges that didn't match.
+diff --git a/src/test/java/contrail/graph/TestGraphNode.java b/src/test/java/contrail/graph/TestGraphNode.java
+index a727b35..d3fc43b 100644
+--- a/src/test/java/contrail/graph/TestGraphNode.java
++++ b/src/test/java/contrail/graph/TestGraphNode.java
+@@ -12,11 +12,10 @@ import java.util.Iterator;
+ import java.util.List;
+ import java.util.Random;
+ 
+-import contrail.DestForLinkDir;
+-import contrail.EdgeDestNode;
+-import contrail.GraphNodeData;
+ import contrail.sequences.DNAStrand;
+ import contrail.sequences.StrandsForEdge;
++import contrail.sequences.StrandsUtil;
++import contrail.sequences.DNAStrandUtil;
+ import org.junit.Before;
+ import org.junit.Test;
+ 
+@@ -28,7 +27,6 @@ public class TestGraphNode {
+ 	public void setUp() {
+ 		// Create a random generator.
+ 		generator = new Random();
+-		//generator = new Random(103);
+ 	}
+ 
+ 	/**
+@@ -39,25 +37,24 @@ public class TestGraphNode {
+ 		GraphNodeData node_data = new GraphNodeData();
+ 		node.setData(node_data);
+ 		node_data.setNodeId("node");
+-		node_data.setDestNodes(new ArrayList<EdgeDestNode>());
++		node_data.setNeighbors(new ArrayList<NeighborData>());
+ 
+ 		int num_dest_nodes = generator.nextInt(30) + 5;
+ 		//int num_dest_nodes = 2;
+ 		for (int index = 0; index < num_dest_nodes; index++) {
+-			EdgeDestNode dest_node = new EdgeDestNode();
++			NeighborData dest_node = new NeighborData();
+ 			dest_node.setNodeId("dest_" + index);
+-			node_data.getDestNodes().add(dest_node);
+-			dest_node.setLinkDirs(new ArrayList<DestForLinkDir> ());
++			node_data.getNeighbors().add(dest_node);
++			dest_node.setEdges(new ArrayList<EdgeData> ());
+ 
+ 			// generate some links for this node.
+-			int num_links = 
++			int num_edges = 
+ 					generator.nextInt(StrandsForEdge.values().length) + 1;
+ 
+-			for (int link_index = 0; link_index < num_links; link_index++) {
+-				DestForLinkDir dest_for_linkdir = new DestForLinkDir();
+-				dest_for_linkdir.setLinkDir(
+-						StrandsForEdge.values()[link_index].toString());
+-				dest_node.getLinkDirs().add(dest_for_linkdir);
++			for (int edge_index = 0; edge_index < num_edges; edge_index++) {
++				EdgeData edge = new EdgeData();
++				edge.setStrands(StrandsForEdge.values()[edge_index]);
++				dest_node.getEdges().add(edge);
+ 			}			
+ 		}
+ 		return node;
+@@ -75,21 +72,19 @@ public class TestGraphNode {
+ 		List<EdgeTerminal> all_terminals = new ArrayList<EdgeTerminal>();
+ 
+ 		GraphNodeData node_data = node.getData();
+-		for (Iterator<EdgeDestNode> edge_it = 
+-				node_data.getDestNodes().iterator(); edge_it.hasNext();) {
+-			EdgeDestNode dest_node = edge_it.next();
+-			for (Iterator<DestForLinkDir> link_it = 
+-					dest_node.getLinkDirs().iterator(); link_it.hasNext();) {								
+-				DestForLinkDir dest_for_link_dir = link_it.next();
+-				StrandsForEdge edge_strands = 
+-						StrandsForEdge.parse(
+-								dest_for_link_dir.getLinkDir().toString());
+-				if (edge_strands.src() != strand) {
+-					continue;
+-				}
++		
++		StrandsForEdge[] strands_array = 
++		  {StrandsUtil.form(strand, DNAStrand.FORWARD), 
++		   StrandsUtil.form(strand, DNAStrand.REVERSE)};
++		    		
++		for (StrandsForEdge strands: strands_array) {		 
++			List<CharSequence> neighborids = node.getNeighborsForStrands(strands);			
++			for (Iterator<CharSequence> nodeid_it = 
++					neighborids.iterator(); nodeid_it.hasNext();) {								
++				CharSequence nodeid = nodeid_it.next();				
+ 				all_terminals.add(
+-						new EdgeTerminal(dest_node.getNodeId().toString(), 
+-								edge_strands.dest()));
++						new EdgeTerminal(nodeid.toString(), 
++								StrandsUtil.dest(strands)));
+ 			}
+ 		}
+ 		return all_terminals;
+@@ -101,7 +96,7 @@ public class TestGraphNode {
+ 		for (Iterator<EdgeTerminal> it = terminals.iterator(); it.hasNext();) {
+ 			EdgeTerminal terminal = it.next();
+ 			flipped.add(new EdgeTerminal(
+-					terminal.nodeId, terminal.strand.flip()));
++					terminal.nodeId, DNAStrandUtil.flip(terminal.strand)));
+ 		}
+ 		return flipped;
+ 	}
+@@ -156,7 +151,7 @@ public class TestGraphNode {
+ 	 * Return the list of possible link direction in random permutation order
+ 	 * @return
+ 	 */
+-	protected StrandsForEdge[] permuteLinkDirs() {
++	protected StrandsForEdge[] permuteEdges() {
+ 		List<StrandsForEdge> link_dirs = new ArrayList<StrandsForEdge>();
+ 
+ 		for (StrandsForEdge dir: StrandsForEdge.values()) {
+@@ -179,32 +174,31 @@ public class TestGraphNode {
+ 	}
+ 
+ 	@Test
+-	public void testGetDestIdsForSrcDir() {
++	public void testGetNeighborIdsForDNAStrand() {
+ 		// Create a graph node with some edges and verify getDestIdsForSrcDir
+ 		// returns the correct data.
+ 		GraphNodeData node_data = new GraphNodeData();
+ 		node_data.setNodeId("node");
+-		node_data.setDestNodes(new ArrayList<EdgeDestNode> ());
++		node_data.setNeighbors(new ArrayList<NeighborData> ());
+ 		int num_edges = (int) Math.floor(Math.random() * 100) + 1;
+ 
+ 		HashMap<StrandsForEdge, List<String>> true_nodes_for_link_dirs =
+ 				new HashMap<StrandsForEdge, List<String>> ();
+ 
+ 		for (int index = 0; index < num_edges; index++) {
+-			EdgeDestNode edge_dest = new EdgeDestNode();
+-			node_data.getDestNodes().add(edge_dest);
++			NeighborData edge_dest = new NeighborData();
++			node_data.getNeighbors().add(edge_dest);
+ 			edge_dest.setNodeId("edge_" + index);
+ 
+-			//List<DestForLink>dests_for_links = new ArrayList<DestForLinkDir>()
+-			edge_dest.setLinkDirs(new ArrayList<DestForLinkDir>());
++			edge_dest.setEdges(new ArrayList<EdgeData>());
+ 
+ 			int num_links = (int) Math.floor(Math.random() * 4) + 1;
+-			StrandsForEdge[] link_dirs = permuteLinkDirs();
++			StrandsForEdge[] link_dirs = permuteEdges();
+ 			for (int link_index = 0; link_index < num_links; link_index++) {
+ 				StrandsForEdge dir = link_dirs[link_index];
+-				DestForLinkDir dest_for_link = new DestForLinkDir();
+-				dest_for_link.setLinkDir(dir.toString());
+-				edge_dest.getLinkDirs().add(dest_for_link);
++				EdgeData dest_for_link = new EdgeData();
++				dest_for_link.setStrands(dir);
++				edge_dest.getEdges().add(dest_for_link);
+ 
+ 
+ 				// Add this node to true_nodes_for_link_dirs;
+@@ -223,10 +217,10 @@ public class TestGraphNode {
+ 		node.setData(node_data);
+ 		for (StrandsForEdge dir: StrandsForEdge.values()) {
+ 			if (!true_nodes_for_link_dirs.containsKey(dir)) {
+-				assertEquals(null, node.getDestIdsForLinkDir(dir));
++				assertEquals(null, node.getNeighborsForStrands(dir));
+ 			} else {
+ 				List<CharSequence> immutable_dest_ids = 
+-						node.getDestIdsForLinkDir(dir);
++						node.getNeighborsForStrands(dir);
+ 				// Copy the list because the existing list is immutable.
+ 				List<CharSequence> dest_ids = new ArrayList<CharSequence>();
+ 				dest_ids.addAll(immutable_dest_ids);	        
+@@ -257,7 +251,7 @@ public class TestGraphNode {
+ 		GraphNodeData terminal_data = new GraphNodeData();		
+ 		terminal_node.setData(terminal_data);
+ 		terminal_data.setNodeId("terminal");
+-		DNAStrand terminal_strand = DNAStrand.random();
++		DNAStrand terminal_strand = DNAStrandUtil.random();
+ 		EdgeTerminal terminal = new EdgeTerminal(
+ 				terminal_node.getNodeId(), terminal_strand);
+ 		
+diff --git a/src/test/java/contrail/graph/TestLinearChainWalker.java b/src/test/java/contrail/graph/TestLinearChainWalker.java
+index ee82ce8..b448a43 100644
+--- a/src/test/java/contrail/graph/TestLinearChainWalker.java
++++ b/src/test/java/contrail/graph/TestLinearChainWalker.java
+@@ -12,11 +12,10 @@ import java.util.Random;
+ import org.junit.Before;
+ import org.junit.Test;
+ 
+-import contrail.DestForLinkDir;
+-import contrail.EdgeDestNode;
+-import contrail.GraphNodeData;
+ import contrail.sequences.DNAStrand;
++import contrail.sequences.DNAStrandUtil;
+ import contrail.sequences.StrandsForEdge;
++import contrail.sequences.StrandsUtil;
+ 
+ public class TestLinearChainWalker {
+ 	
+@@ -57,11 +56,11 @@ public class TestLinearChainWalker {
+ 			GraphNodeData node_data = new GraphNodeData();
+ 			node.setData(node_data);
+ 			node_data.setNodeId("node_" + pos);
+-			node_data.setDestNodes(new ArrayList<EdgeDestNode>());
++			node_data.setNeighbors(new ArrayList<NeighborData>());
+ 			
+ 			ChainNode chain_node = new ChainNode();
+ 			chain_node.graph_node = node;
+-			chain_node.dna_direction = DNAStrand.random(generator);
++			chain_node.dna_direction = DNAStrandUtil.random(generator);
+ 			chain.add(chain_node);
+ 		}
+ 		
+@@ -75,17 +74,16 @@ public class TestLinearChainWalker {
+ 				ChainNode src = chain.get(pos);
+ 				ChainNode dest = chain.get(pos + 1);
+ 				GraphNodeData node_data = src.graph_node.getData();
+-				EdgeDestNode dest_node = new EdgeDestNode();
++				NeighborData dest_node = new NeighborData();
+ 				dest_node.setNodeId(dest.graph_node.getNodeId());
+ 								
+-				node_data.getDestNodes().add(dest_node);
++				node_data.getNeighbors().add(dest_node);
+ 				
+-				DestForLinkDir dest_for_link_dir = new DestForLinkDir();
+-				dest_for_link_dir.setLinkDir(
+-						src.dna_direction.toString() +
+-						dest.dna_direction.toString());
+-				dest_node.setLinkDirs(new ArrayList<DestForLinkDir> ());
+-				dest_node.getLinkDirs().add(dest_for_link_dir);
++				EdgeData dest_for_link_dir = new EdgeData();
++				dest_for_link_dir.setStrands(StrandsUtil.form(
++				    src.dna_direction, dest.dna_direction));
++				dest_node.setEdges(new ArrayList<EdgeData> ());
++				dest_node.getEdges().add(dest_for_link_dir);
+ 			}
+ 			
+ 			// Add the incoming edge.
+@@ -93,22 +91,22 @@ public class TestLinearChainWalker {
+ 				ChainNode src = chain.get(pos);
+ 				ChainNode dest = chain.get(pos - 1);
+ 				GraphNodeData node_data =src.graph_node.getData();
+-				EdgeDestNode dest_node = new EdgeDestNode();
++				NeighborData dest_node = new NeighborData();
+ 				dest_node.setNodeId(dest.graph_node.getNodeId());
+ 								
+-				node_data.getDestNodes().add(dest_node);
++				node_data.getNeighbors().add(dest_node);
+ 				
+-				DestForLinkDir dest_for_link_dir = new DestForLinkDir();
++				EdgeData dest_for_link_dir = new EdgeData();
+ 				
+ 				// We need to flip the dna direction to get incoming 
+ 				// edges. 
+ 				StrandsForEdge linkdir = 
+-						StrandsForEdge.form(src.dna_direction.flip(), 
+-											dest.dna_direction.flip());
+-				dest_for_link_dir.setLinkDir(linkdir.toString());
+-				dest_node.setLinkDirs(new ArrayList<DestForLinkDir> ());
+-				dest_node.getLinkDirs().add(dest_for_link_dir);
+-				
++						StrandsUtil.form(
++						    DNAStrandUtil.flip(src.dna_direction), 
++								DNAStrandUtil.flip(dest.dna_direction));
++				dest_for_link_dir.setStrands(linkdir);
++				dest_node.setEdges(new ArrayList<EdgeData> ());
++				dest_node.getEdges().add(dest_for_link_dir);
+ 			}
+ 		}
+ 		return chain;
+@@ -133,7 +131,6 @@ public class TestLinearChainWalker {
+ 				nodes_in_memory, start_node, start_strand,
+ 				walk_direction);
+ 		
+-		
+ 		int end_pos = -1;
+ 		// Compute what the last node in the chain should be. We
+ 		// need to consider both start_strand and walk direction to figure
+@@ -143,8 +140,7 @@ public class TestLinearChainWalker {
+ 		} else {
+ 			end_pos = 0;
+ 		}
+-
+-		
++	
+ 		int pos_increment = end_pos >= start_pos ? 1 : -1; 
+ 		
+ 		int pos = start_pos;
+diff --git a/src/test/java/contrail/graph/TestTailData.java b/src/test/java/contrail/graph/TestTailData.java
+index 3b1fdc1..55d65d2 100644
+--- a/src/test/java/contrail/graph/TestTailData.java
++++ b/src/test/java/contrail/graph/TestTailData.java
+@@ -12,12 +12,10 @@ import java.util.Random;
+ import org.junit.Before;
+ import org.junit.Test;
+ 
+-import contrail.DestForLinkDir;
+-import contrail.EdgeDestNode;
+-import contrail.GraphNodeData;
+ import contrail.sequences.DNAStrand;
++import contrail.sequences.DNAStrandUtil;
+ import contrail.sequences.StrandsForEdge;
+-
++import contrail.sequences.StrandsUtil;
+ public class TestTailData {
+ 	
+ 	// Random number generator.
+@@ -59,11 +57,11 @@ public class TestTailData {
+ 			GraphNodeData node_data = new GraphNodeData();
+ 			node.setData(node_data);
+ 			node_data.setNodeId("node_" + pos);
+-			node_data.setDestNodes(new ArrayList<EdgeDestNode>());
++			node_data.setNeighbors(new ArrayList<NeighborData>());
+ 			
+ 			ChainNode chain_node = new ChainNode();
+ 			chain_node.graph_node = node;
+-			chain_node.dna_direction = DNAStrand.random(generator);
++			chain_node.dna_direction = DNAStrandUtil.random(generator);
+ 			chain.add(chain_node);
+ 		}
+ 		
+@@ -77,17 +75,16 @@ public class TestTailData {
+ 				ChainNode src = chain.get(pos);
+ 				ChainNode dest = chain.get(pos + 1);
+ 				GraphNodeData node_data = src.graph_node.getData();
+-				EdgeDestNode dest_node = new EdgeDestNode();
++				NeighborData dest_node = new NeighborData();
+ 				dest_node.setNodeId(dest.graph_node.getNodeId());
+ 								
+-				node_data.getDestNodes().add(dest_node);
++				node_data.getNeighbors().add(dest_node);
+ 				
+-				DestForLinkDir dest_for_link_dir = new DestForLinkDir();
+-				dest_for_link_dir.setLinkDir(
+-						src.dna_direction.toString() +
+-						dest.dna_direction.toString());
+-				dest_node.setLinkDirs(new ArrayList<DestForLinkDir> ());
+-				dest_node.getLinkDirs().add(dest_for_link_dir);
++				EdgeData edge_data = new EdgeData();
++				edge_data.setStrands(StrandsUtil.form(
++						src.dna_direction, dest.dna_direction));
++				dest_node.setEdges(new ArrayList<EdgeData> ());
++				dest_node.getEdges().add(edge_data);
+ 			}
+ 			
+ 			// Add the incoming edge.
+@@ -95,21 +92,21 @@ public class TestTailData {
+ 				ChainNode src = chain.get(pos);
+ 				ChainNode dest = chain.get(pos - 1);
+ 				GraphNodeData node_data =src.graph_node.getData();
+-				EdgeDestNode dest_node = new EdgeDestNode();
++				NeighborData dest_node = new NeighborData();
+ 				dest_node.setNodeId(dest.graph_node.getNodeId());
+ 								
+-				node_data.getDestNodes().add(dest_node);
++				node_data.getNeighbors().add(dest_node);
+ 				
+-				DestForLinkDir dest_for_link_dir = new DestForLinkDir();
++				EdgeData dest_for_link_dir = new EdgeData();
+ 				
+ 				// We need to flip the dna direction to get incoming 
+ 				// edges. 
+ 				StrandsForEdge linkdir = 
+-						StrandsForEdge.form(src.dna_direction.flip(), 
+-											dest.dna_direction.flip());
+-				dest_for_link_dir.setLinkDir(linkdir.toString());
+-				dest_node.setLinkDirs(new ArrayList<DestForLinkDir> ());
+-				dest_node.getLinkDirs().add(dest_for_link_dir);
++						StrandsUtil.form(DNAStrandUtil.flip(src.dna_direction), 
++						    DNAStrandUtil.flip(dest.dna_direction));
++				dest_for_link_dir.setStrands(linkdir);
++				dest_node.setEdges(new ArrayList<EdgeData> ());
++				dest_node.getEdges().add(dest_for_link_dir);
+ 				
+ 			}
+ 		}
+diff --git a/src/test/java/contrail/sequences/TestDNAUtil.java b/src/test/java/contrail/sequences/TestDNAUtil.java
+index c620ce9..fb870c7 100644
+--- a/src/test/java/contrail/sequences/TestDNAUtil.java
++++ b/src/test/java/contrail/sequences/TestDNAUtil.java
+@@ -70,22 +70,22 @@ public class TestDNAUtil {
+       Sequence seq = new Sequence(str_seq, alphabet);
+       Sequence rc_seq = DNAUtil.reverseComplement(seq);
+       String rc_str = rc_seq.toString();
+-      char true_dir;
++      DNAStrand true_strand;
+       if (seq.toString().compareTo(rc_seq.toString()) <= 0) {
+-        true_dir = 'f';          
++        true_strand = DNAStrand.FORWARD;          
+         assertEquals(seq, DNAUtil.canonicalseq(seq));
+       }
+       else {
+-        true_dir = 'r';
++        true_strand = DNAStrand.REVERSE;
+         assertEquals(rc_seq, DNAUtil.canonicalseq(seq));
+       }
+-      assertEquals(DNAUtil.canonicaldir(seq), true_dir);
++      assertEquals(DNAUtil.canonicaldir(seq), true_strand);
+     }
+ 
+     // Special case; string equals its reverse complement.
+     Sequence seq = new Sequence("AT",alphabet);
+     assertEquals(seq, DNAUtil.reverseComplement(seq));
+-    assertEquals(DNAUtil.canonicaldir(seq), 'f');
++    assertEquals(DNAUtil.canonicaldir(seq), DNAStrand.FORWARD);
+     assertEquals(seq, DNAUtil.canonicalseq(seq));
+   }
+ }

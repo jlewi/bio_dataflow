@@ -34,7 +34,7 @@ public class DNAStrandUtil {
 	/**
 	 * For backwards compatibility with string representation.
 	 */
-	public String toString(DNAStrand strand) {
+	public static String toString(DNAStrand strand) {
 		if (strand == DNAStrand.FORWARD) {
 			return "f";
 		} else {
