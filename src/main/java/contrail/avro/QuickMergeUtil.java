@@ -198,8 +198,15 @@ public class QuickMergeUtil {
     public GraphNode merged_node;
   }
   
+  /**
+   * Merge together a set of nodes forming a chain.
+   * @param nodes
+   * @param nodes_to_merge
+   * @param overlap
+   * @return
+   */
   public static MergeResult mergeLinearChain(
-      Map<String, GraphNode> nodes, NodesToMerge nodes_to_merge) {
+      Map<String, GraphNode> nodes, NodesToMerge nodes_to_merge, int overlap) {
     
     if (nodes_to_merge.direction != EdgeDirection.OUTGOING) {
       throw new NotImplementedException(
@@ -228,8 +235,7 @@ public class QuickMergeUtil {
     LinearChainWalker walker = new LinearChainWalker(
         nodes, start_terminal, EdgeDirection.OUTGOING);
     
-    // Mark this node as processed.
-    //(GraphNode)
+    result.merged_nodeids.add(start_terminal.nodeId);
     while (walker.hasNext()) {
       // The last node in the chain requires special treatment
       // because nodes with edges to that node may not be in memory.
@@ -256,7 +262,7 @@ public class QuickMergeUtil {
           (int) ContrailConfig.K + 1;
       
       NodeMerger.MergeResult merge_result = NodeMerger.mergeNodes(
-          merged_node, dest, strands, (int) ContrailConfig.K,
+          merged_node, dest, strands, overlap,
           src_coverage_length, dest_coverage_length);
       
       merged_node = merge_result.node;
@@ -266,7 +272,7 @@ public class QuickMergeUtil {
       merged_strand = merge_result.strand; 
     }
     
-    merged_node.getData().setNodeId(merged_id);
+    merged_node.setNodeId(merged_id);
     
     if (nodes_to_merge.include_final_terminal) {
       // We need to update all the edges which have 
@@ -278,8 +284,10 @@ public class QuickMergeUtil {
           merged_node.getNodeId(), DNAStrandUtil.flip(merged_strand));
       
       moveIncomingEdges(nodes, old_terminal, new_terminal);      
+      result.merged_nodeids.add(end_terminal.nodeId);
     }
                 
+    result.merged_node = merged_node;
     return result;
   }
 }

@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -24,6 +25,7 @@ import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
 import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
+import contrail.util.ListUtil;
 import contrail.util.Tuple;
 // Extend QuickMergeUtil so we can test protected methods
 public class TestQuickMergeUtil extends QuickMergeUtil {
@@ -141,15 +143,15 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
   private ArrayList<ChainNode> constructChainForSequence(
       String full_sequence, int K) {
     
+    // TODO(jlewi): We can replace this function with 
+    // conStructChainForSequence.    
     ArrayList<ChainNode> chain = new ArrayList<ChainNode>();
 
     // Construct the nodes.
     for (int pos = 0; pos <= full_sequence.length() - K; pos++) {
       // Construct a graph node.
       GraphNode node = new GraphNode();
-      GraphNodeData node_data = new GraphNodeData();
-      node.setData(node_data);
-      node_data.setNodeId("node_" + pos);
+      node.setNodeId("node_" + pos);
       
       Sequence sequence = new Sequence(
           full_sequence.substring(pos, pos + K), DNAAlphabetFactory.create());
@@ -337,36 +339,39 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
   
   @Test
   public void testMergeLinearChain() {
-    int K = 3;
-    String full_sequence = AlphabetUtil.randomString(
-        generator, 6, DNAAlphabetFactory.create());
-    
-    ArrayList<ChainNode> chain_nodes =
-        constructChainForSequence(full_sequence, K);
-    HashMap<String, GraphNode> nodes = new HashMap<String, GraphNode>();
-    for (ChainNode link: chain_nodes) {
-      nodes.put(link.graph_node.getNodeId(), link.graph_node);
+    for (int trial = 0; trial < 10; trial++) {
+      int K = generator.nextInt(20) + 3;
+      int length = generator.nextInt(100) + K;
+      String full_sequence = AlphabetUtil.randomString(
+          generator, length, DNAAlphabetFactory.create());
+      
+      int overlap = K - 1;
+      ArrayList<ChainNode> chain_nodes =
+          constructChainForSequence(full_sequence, K);
+      HashMap<String, GraphNode> nodes = new HashMap<String, GraphNode>();
+      for (ChainNode link: chain_nodes) {
+        nodes.put(link.graph_node.getNodeId(), link.graph_node);
+      }
+      
+      // Do the merge.
+      int start_search = generator.nextInt(chain_nodes.size());
+      QuickMergeUtil.NodesToMerge merge_info = 
+          QuickMergeUtil.findNodesToMerge(
+               nodes, chain_nodes.get(start_search).graph_node);
+      QuickMergeUtil.MergeResult result =
+          QuickMergeUtil.mergeLinearChain(nodes, merge_info, overlap);
+      
+      Sequence full_canonical = new Sequence(
+          full_sequence, DNAAlphabetFactory.create());
+      
+      full_canonical = DNAUtil.canonicalseq(full_canonical);
+  
+      // Check the sequence equals the original sequence.
+      assertEquals(full_canonical, result.merged_node.getCanonicalSequence());
+      
+      Set<String> expected_merged_ids = nodes.keySet();
+  
+      assertEquals(expected_merged_ids, result.merged_nodeids);
     }
-    
-    // Do the merge.
-    int start_search = generator.nextInt(chain_nodes.size());
-    QuickMergeUtil.NodesToMerge merge_info = 
-        QuickMergeUtil.findNodesToMerge(
-             nodes, chain_nodes.get(start_search).graph_node);
-    QuickMergeUtil.MergeResult result =
-        QuickMergeUtil.mergeLinearChain(nodes, merge_info);
-    
-    Sequence full_canonical = new Sequence(
-        full_sequence, DNAAlphabetFactory.create());
-    
-    full_canonical = DNAUtil.canonicalseq(full_canonical);
-
-    // Check the sequence equals the original sequence.
-    assertEquals(full_canonical, result);
-    
-    // Check the list of merged_nodeids.
-    List<String> expected_merged_ids = new ArrayList<String>();
-    
-    //assertEquals(result.merged_nodeids.si)
   }
 }

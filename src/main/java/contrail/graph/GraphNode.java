@@ -521,6 +521,10 @@ public class GraphNode {
 		return data.getNodeId().toString(); 
 	}
 
+	public void setNodeId(String nodeid) {
+	  data.setNodeId(nodeid); 
+	}
+
 	/**
 	 * Return a list of the canonical compressed sequences for the specific 
 	 * link direction;
@@ -736,6 +740,4 @@ public class GraphNode {
     }
     return false;
   }
-=======
->>>>>>> master
 }
