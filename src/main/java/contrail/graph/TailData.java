@@ -24,11 +24,16 @@ public class TailData
 	 * this direction to get to the start node.
 	 */
 	public EdgeDirection direction;
-	
+		
 	/**
 	 * dist is the number of edges this tail spans. 
 	 */
 	public int    dist;
+	
+	// Set of all the nodes in the tail; this is an inclusive
+	// list of all nodes from [head, end] where head is the terminal
+	// we start at end is the last terminal
+	public HashSet<String> nodes_in_tail;
 	
 	/**
 	 * Copy Constructor.
@@ -40,6 +45,8 @@ public class TailData
 	  terminal = o.terminal;
 	  direction = o.direction;
 	  dist = o.dist;
+	  nodes_in_tail = new HashSet<String>();
+	  nodes_in_tail.addAll(o.nodes_in_tail);
 	}
 	
 	public TailData()
@@ -68,10 +75,7 @@ public class TailData
 	public static TailData findTail(
 	    Map<String, GraphNode> nodes, GraphNode startnode, 
 	    DNAStrand start_strand, EdgeDirection direction) {		
-		Set<String> seen = new HashSet<String>();
-		seen.add(startnode.getNodeId());
-		
-		GraphNode curnode = startnode;		
+			
 		String curid = startnode.getNodeId();
 		int dist = 0;
 				
@@ -79,17 +83,21 @@ public class TailData
 				startnode.getNodeId(), start_strand); 
 		LinearChainWalker walker = new LinearChainWalker(
 				nodes, previous_terminal, direction);
-											
+		
+		TailData tail = new TailData();
+		tail.nodes_in_tail.add(curid);
 		while(walker.hasNext()) {
 			// The walker only returns a terminal if the corresponding
 			// GraphNode is in the map passed to LinearChainWalker.
 			EdgeTerminal terminal = walker.next();
 			
-			if (!seen.contains(terminal.nodeId)) {
+			// TOOD(jlewi): This check should now be unnecessary because
+			// the walker handles cycles.
+			if (!tail.nodes_in_tail.contains(terminal.nodeId)) {
 				// curnode has a tail (has outgoing degree 1); the tail 
 				// is in nodes and we haven't seen it before				
-				seen.add(terminal.nodeId);
-
+				tail.nodes_in_tail.add(curid);
+				
 				// Suppose node A has out degree 1 and A->B. 
 				// B, however, might have indegree 2; i.e there exists edge
 				// C->B. In this case, we don't have  a tail. So
@@ -102,10 +110,10 @@ public class TailData
 				// Get the graph node associated with terminal and check
 				// it has a single edge connected to previous_terminal.
 				GraphNode node = nodes.get(terminal.nodeId);
-				TailData tail = node.getTail(
+				TailData end_tail = node.getTail(
 						terminal.strand, direction.flip());						
-				if ((tail != null) && 
-					(tail.terminal.equals(previous_terminal))) {
+				if ((end_tail != null) && 
+					(end_tail.terminal.equals(previous_terminal))) {
 					dist++;										
 				} else {
 					// Break out out of the loop because we don't have
@@ -119,8 +127,7 @@ public class TailData
 		if (dist == 0) {
 			return null;
 		}
-		
-		TailData tail = new TailData();
+				
 		tail.terminal = previous_terminal;
 		tail.dist = dist;
 		tail.direction = direction;

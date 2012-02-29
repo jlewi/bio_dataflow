@@ -262,10 +262,10 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
       // of the one we constructed the chain for.
       start_terminal = start_terminal.flip();
       end_terminal = end_terminal.flip();
-    }
-    
+    }   
     return new Tuple<EdgeTerminal, EdgeTerminal>(start_terminal, end_terminal);
   }
+  
   @Test
   public void testfindNodesToMerge() {
     ArrayList<ChainNode> chain_nodes = constructChain(5);
@@ -340,6 +340,10 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
   @Test
   public void testMergeLinearChain() {
     for (int trial = 0; trial < 10; trial++) {
+      // Even though we have repeats the merge still work, because
+      // the way we construct the chain, we have one node for each instance
+      // rather than representing all instances of the same KMer using a sngle
+      // node.
       int K = generator.nextInt(20) + 3;
       int length = generator.nextInt(100) + K;
       String full_sequence = AlphabetUtil.randomString(
@@ -369,9 +373,69 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
       // Check the sequence equals the original sequence.
       assertEquals(full_canonical, result.merged_node.getCanonicalSequence());
       
-      Set<String> expected_merged_ids = nodes.keySet();
-  
+      Set<String> expected_merged_ids = nodes.keySet();  
       assertEquals(expected_merged_ids, result.merged_nodeids);
     }
   }
+//    @Test
+//    public void testBreakCycle() {
+//      for (int trial = 0; trial < 10; trial++) {
+//        // Even though we have repeats the merge still work, because
+//        // the way we construct the chain, we have one node for each instance
+//        // rather than representing all instances of the same KMer using a sngle
+//        // node.
+//        int K = generator.nextInt(20) + 3;
+//        int length = generator.nextInt(100) + K;
+//        String full_sequence = AlphabetUtil.randomString(
+//            generator, length, DNAAlphabetFactory.create());
+//        
+//        int overlap = K - 1;
+//        ArrayList<ChainNode> chain_nodes =
+//            constructChainForSequence(full_sequence, K);
+//        
+//        // Add a cycle by connecting the last node in the chain with the first
+//        {
+//          GraphNode node = chain_nodes.get(chain_nodes.size() - 1).graph_node;
+//          DNAStrand strand= chain_nodes.get(
+//              chain_nodes.size() -1).dna_direction;
+//          
+//          EdgeTerminal head = new EdgeTerminal(
+//              chain_nodes.get(0).graph_node.getNodeId(), 
+//              chain_nodes.get(0).dna_direction);
+//          
+//          node.addOutgoingEdge(strand, head);
+//        }
+//        {
+//          GraphNode node = chain_nodes.get(0).graph_node;
+//          DNAStrand strand= chain_nodes.get(0).dna_direction;
+//          EdgeTerminal tail = new EdgeTerminal(
+//              chain_nodes.get(chain_nodes.size() - 1).graph_node.getNodeId(), 
+//              chain_nodes.get(chain_nodes.size() - 1).dna_direction);
+//          
+//          node.addIncomingEdge(strand, tail);
+//        }
+//        
+//        HashMap<String, GraphNode> nodes = new HashMap<String, GraphNode>();
+//        for (ChainNode link: chain_nodes) {
+//          nodes.put(link.graph_node.getNodeId(), link.graph_node);
+//        }
+//        
+//        int chain_start = generator.nextInt(chain_nodes.size());
+//        EdgeTerminal start_walk = new EdgeTerminal(
+//            chain_nodes.get(chain_start).graph_node.getNodeId(), 
+//            chain_nodes.get(chain_start).dna_direction);
+//        
+//        Tuple<EdgeTerminal, EdgeTerminal> terminals = 
+//            QuickMergeUtil.breakCycle(nodes, start_walk);
+//        
+//        EdgeTerminal expected_start = new EdgeTerminal(
+//            chain_nodes.get(1).graph_node.getNodeId(), 
+//            chain_nodes.get(1).dna_direction);
+//        EdgeTerminal expected_end = new EdgeTerminal(
+//            chain_nodes.get(chain_nodes.size() - 2).graph_node.getNodeId(), 
+//            chain_nodes.get(chain_nodes.size() - 2).dna_direction);
+//        assertEquals(expected_start, terminals.first);
+//        assertEquals(expected_end, terminals.second);
+//      }
+//  }
 }

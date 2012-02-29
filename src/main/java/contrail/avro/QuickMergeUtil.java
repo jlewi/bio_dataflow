@@ -15,6 +15,7 @@ import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAStrandUtil;
 import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
+import contrail.util.Tuple;
 
 /**
  * Some utilities for the QuickMergeStage.
@@ -36,10 +37,20 @@ public class QuickMergeUtil {
     
     // Direction for the merge.
     public EdgeDirection direction;
+    
     /**
      * Whether the final terminal can be included in the merge.
      */
-    public boolean include_final_terminal;
+    public Boolean include_final_terminal;
+    
+    // If start_terminal and end_terminal are non null
+    // this be a list of nodes [start, end] (inclusive).
+    // If start_terminal and end_terminal are null then this is a list of
+    // nodes which can't be merged.
+    public HashSet<String> nodeids_visited;
+    
+    // Whether we hit a cycle or not
+    public Boolean hit_cycle;
   }
   
   /* Return true if this node can be merged.
@@ -69,6 +80,111 @@ public class QuickMergeUtil {
     return true;
   }
   
+  
+  // TODO(jlewi): Figure out what to do with this code.
+//  protected static Tuple<EdgeTerminal, EdgeTerminal> breakCycle(
+//      Map<String, GraphNode> nodes, EdgeTerminal head) {
+//    // This function should only be called after we have detected a cycle.
+//    // We have a cycle.
+//    // Try to break the cycle. 
+//    // Case 1: suppose we have the read ATTATT
+//    // which produces the cycle ATT->TTA->TAT->ATT->
+//    // in this case we get a cycle because we have a repeated KMer
+//    // at the start and of the read. We can use the read alignment
+//    // tags to identify the start and end of the read and therefore
+//    // where to break the chain.
+//    LinearChainWalker walker = new LinearChainWalker(
+//        nodes, head, EdgeDirection.OUTGOING);
+//    
+//    // List of edges where we could break the chain.
+//    HashSet<EdgeTerminal> breakpoints = new HashSet<EdgeTerminal>();
+//    
+//    // Check if we can break the cycle at the head
+//    if (nodeIsAtEndsOfRead(nodes.get(head.nodeId))) {
+//      breakpoints.add(head);
+//    }
+//    
+//  }
+  /**
+   * This function returns the start and end terminal for the chain of nodes
+   * to merge. This function takes care of detecting cycles and breaking
+   * them if possible.
+   * 
+   * @param nodes
+   * @param head
+   * @return
+   */
+  protected static NodesToMerge findCycle(
+      Map<String, GraphNode> nodes, EdgeTerminal head) {
+    // We could have a sequence  >R->r2->N->f1-> R
+    // e.g suppose K = 3 and we have the read
+    // ATT->TTA-->TAT->ATT then this will produce a cycle .
+    // To avoid cycling around forever, the findTail methods stops
+    // as soon as it hits a node we've already seen.
+    // We thus detect cycles as follows.
+    // 1. Follow the incoming edge as far as we can go (this is head).
+    // 2. Follow the outgoing edges as far as we can go; recording the 
+    // nodes visited. when the chain ends, check if the last node
+    // has a tail and if it does, check if the node is one we've already
+    // seen.
+    // 3. If we have a cycle we can merge all nodes in between the repeated
+    // nodes.
+    NodesToMerge result = new NodesToMerge();
+    result.nodeids_visited = new HashSet<String>();
+    LinearChainWalker walker = new LinearChainWalker(
+        nodes, head, EdgeDirection.OUTGOING);
+    
+    result.nodeids_visited.add(head.nodeId);
+    //seen_nodes.add(head.nodeId);
+    EdgeTerminal last = null;
+    while (walker.hasNext()) {
+       last = walker.next();
+       result.nodeids_visited.add(last.nodeId);
+    }
+    
+    if (last == null) {
+      // Then there isn't any tail so return null
+      return result;
+    }
+    
+    if (walker.hitCycle()) {
+      // So we started at head->n1 ->n2->n3,->n4->head
+      // To check this we check that the next node in the chain is
+      // where we started from
+      GraphNode node = nodes.get(last.nodeId);
+      TailData last_tail = node.getTail(last.strand, EdgeDirection.OUTGOING);
+      if (last_tail != null && last_tail.terminal.equals(head)) {
+        // We have a cycle, for now just treat this as the nodes not
+        // being able to 
+        // Try to break the cycle. 
+        // Case 1: suppose we have the read ATTATT
+        // which produces the cycle ATT->TTA->TAT->ATT->
+        // in this case we get a cycle because we have a repeated KMer
+        // at the start and of the read. We can use the read alignment
+        // tags to identify the start and end of the read and therefore
+        // where to break the chain.
+        result.hit_cycle = true;
+        return result;
+      } else {
+        throw new RuntimeException(
+            "Looks like we have a repeated node that isn't a cycle. "+
+            "What to do?");
+      }
+      
+      
+//      TailData head_tail = TailData.findTail(
+//          nodes, nodes.get(last_tail.terminal.nodeId), 
+//          last_tail.terminal.strand, EdgeDirection.INCOMING);
+//      
+//      head = head_tail.terminal;
+    }
+    
+    result.start_terminal = head;
+    result.end_terminal = last;
+    result.direction = EdgeDirection.OUTGOING;
+    return result;
+  }
+  
   /**
    * Find a chain of nodes which can be merged
    * @param nodes_in_memory
@@ -84,79 +200,31 @@ public class QuickMergeUtil {
     // h1 -> h2 -> h3 -> node
     // node -> t1->t2->t3
 
-    GraphNode head_node;
-    DNAStrand head_strand;
+    //GraphNode head_node;
+    //DNAStrand head_strand;
+   
+    EdgeTerminal head_terminal;
+    
     {
       // Starting at node follow the incoming edges for the forward strand.
       TailData head = TailData.findTail(
           nodes_in_memory, start_node, DNAStrand.FORWARD, 
           EdgeDirection.INCOMING);
-      
+        
       if (head != null) {
-        head_node = nodes_in_memory.get(head.terminal.nodeId);
-        head_strand = head.terminal.strand;
+        head_terminal = head.terminal;
       } else {
         // There's no head so set the tail to start at the current node.
         // We might still have a tail  node -> c1, c2, ... that we could
         // merge.
-        head_node = start_node;
-        head_strand = DNAStrand.FORWARD;
+        head_terminal = new EdgeTerminal(
+            start_node.getNodeId(), DNAStrand.FORWARD);
       }
     }
 
-    // Now follow the chain along the forward direction starting at node.
-    // The end result is the chain
-    //{r1,r2} >> rtail -> c1 -> c2 -> c3 -> node -> c4 -> c5 -> c6 -> ftail >> {f1,f2}
-    // We catch cycles by looking for the ftail from rtail, not node.
-    // A cycle occurs when we have a repeat along the path e.g
-    // rtail --> R --> node -->R-->ftail which can occur in special 
-    // circumstances. (What are the circumstances? rtail = ftail? repeated KMers?)  
-    // So we need to check no cycles are encountered when merging from 
-    // rtail to ftail. We need to do this when considering the path
-    // from rtail to ftail because the paths rtail->node and node->ftail
-    // may not contain the repeat.
-
-    TailData tail = TailData.findTail(
-        nodes_in_memory, head_node, head_strand, 
-        EdgeDirection.OUTGOING);
-
-    if (tail == null) {
-      // No tail so there are no nodes to merge.
-      return null;
-    }
-
-    {
-      // Check for a cycle by finding the outgoing tail from start_node and
-      // checking its the same as the tail from node.
-      TailData node_tail = TailData.findTail(
-          nodes_in_memory, start_node, DNAStrand.FORWARD, 
-          EdgeDirection.OUTGOING);
-
-      boolean has_cycle;
-      if (node_tail == null) {
-        // Since node_tail is null, we should have the case
-        // h1->h2->h3->start_node.
-        has_cycle = false;
-        if (!tail.terminal.nodeId.equals(start_node.getNodeId())) {
-          // The tail doesn't end at start_node. Should this ever happen?
-          throw new RuntimeException(
-              "Unexpected case happened. We seem to have the tail " +
-              "h3->h2->h1->start_node but the tail doesn't end on start_node");
-        }
-      } else {
-        if (!tail.terminal.equals(node_tail.terminal)) {
-          throw new NotImplementedException("Need to handle cycles");
-        } else {
-          has_cycle = false;
-        }
-      }
-    }
-
-    nodes_to_merge = new NodesToMerge();
-    nodes_to_merge.start_terminal = new EdgeTerminal(
-        head_node.getNodeId(), head_strand);
-    nodes_to_merge.end_terminal = tail.terminal;
-    nodes_to_merge.direction = EdgeDirection.OUTGOING;
+      
+    nodes_to_merge = findCycle(nodes_in_memory, head_terminal);
+            
     nodes_to_merge.include_final_terminal = nodeIsMergeable(
         nodes_in_memory, nodes_to_merge.end_terminal);
     return nodes_to_merge;

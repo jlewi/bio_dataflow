@@ -139,12 +139,14 @@
      "namespace": "contrail.graph",
      "type": "record",
      "doc": "Represent a node in the DeBruijn Graph.",
-     "fields": [
-     		     // TODO(jlewi): This field contains information about which read the sequence 
-     		     // came from. We might want to rename this field. 
-                 {"name": "mertag", "type":"contrail.GraphNodeKMerTag",
-                  "doc": "A tag for this node"
-                 },
+     "fields": [ 
+     		     // TODO(jlewi): Remove this field. We set it to the smallest
+     		     // tag lexicographically of all tags and I think we just
+     		     // use it for quick merge; so we can compute it
+     		     // on the fly and not store it for all nodes.
+                 //{"name": "mertag", "type":"contrail.GraphNodeKMerTag",
+                 // "doc": "A tag for this node"
+                 //},
                  {"name": "node_id", 
                   "type": "string",
                   "doc": "An id for this node. This must be consistent with the id used in destination nodes."

@@ -1,9 +1,11 @@
 package contrail.graph;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 
 import contrail.sequences.DNAStrand;
 

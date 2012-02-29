@@ -119,14 +119,17 @@ public class QuickMergeAvro extends Stage
 		public void map(GraphNodeData graph_data,
 		    AvroCollector<Pair<String, GraphNodeData>> output, Reporter reporter)
 						throws IOException {
-		  GraphNodeKMerTag tag = graph_data.getMertag();
+		  // TODO(jlewi):
+		  String mertag = "";
+		  throw new NotImplementedException("I removed the field getmertag so now I need to find the smallest value for the tag");
+		  //GraphNodeKMerTag tag = graph_data.getMertag();
 		  
 		  // Key is the read tag along with the chunk. 
 		  // We want to group KMers coming from the same read as they are likely
 		  // to form linear chains. We need to use the chunk as well because
 		  // the chunk segments tags based on repeat KMers. If we didn't use
 		  // the chunk we would create cycles which wouldn't know how to merge.
-			String mertag = tag.getReadTag() + "_" + tag.getChunk();
+			//String mertag = tag.getReadTag() + "_" + tag.getChunk();
 			out_pair.set(mertag, graph_data);
 			output.collect(out_pair);
 			reporter.incrCounter("Contrail", "nodes", 1);	
