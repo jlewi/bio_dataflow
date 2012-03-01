@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
 
-import contrail.avro.R5Tag;
+import contrail.graph.R5Tag;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;

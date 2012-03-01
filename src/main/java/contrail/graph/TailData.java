@@ -91,8 +91,9 @@ public class TailData
 			// GraphNode is in the map passed to LinearChainWalker.
 			EdgeTerminal terminal = walker.next();
 			
-			// TOOD(jlewi): This check should now be unnecessary because
-			// the walker handles cycles.
+			// The walker will terminate only if we hit the same EdgeTerminal
+			// again. However, its possible we hit the same node but 
+			// the other strand of that node.
 			if (!tail.nodes_in_tail.contains(terminal.nodeId)) {
 				// curnode has a tail (has outgoing degree 1); the tail 
 				// is in nodes and we haven't seen it before				
@@ -109,6 +110,8 @@ public class TailData
 				
 				// Get the graph node associated with terminal and check
 				// it has a single edge connected to previous_terminal.
+				// TODO(jlewi): This check should be unnecessary because 
+				// LinearChainWalker is already doing it.
 				GraphNode node = nodes.get(terminal.nodeId);
 				TailData end_tail = node.getTail(
 						terminal.strand, direction.flip());						

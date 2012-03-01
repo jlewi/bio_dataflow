@@ -364,7 +364,7 @@ public class QuickMerge extends Configured implements Tool
 						// Now move the can compresflag from rtnode into ftnode
 						ftnode.setCanCompress(ftail.dir, rtnode.canCompress(Node.flip_dir(rtail.dir)));
 
-						// Break cycles
+						// Break ../s
 						for (String dir : Node.dirs)
 						{
 							TailInfo next = ftnode.gettail(dir);
