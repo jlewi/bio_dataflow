@@ -12,9 +12,13 @@ import contrail.sequences.DNAStrand;
 /**
  * This class provides a walker that walks the graph starting at the node 
  * provided (this node is not returned by the itertor). The walk continues as 
- * long as 1) the node has outdegree or indegree 1 (depending on the direction 
+ * long as 1) the node has outdegree(indegree) 1 (depending on the direction 
  * of the walk), and 2) the next node is in the group of nodes passed as input
- * to the walker (this is necessary so the destination can be retrieved). 
+ * to the walker (this is necessary so the destination can be retrieved).
+ * 3) the next node has indegree(outdegree) 1.
+ * 
+ *  These constraints mean the walk is reversible; i.e starting at the last
+ *  terminal we could walk backwards and hit the first terminal.
  * 
  * If direction is OUTGOING then we walk the outgoing edges, so the nodes
  * returned will be 
@@ -43,7 +47,7 @@ public class LinearChainWalker implements Iterator<EdgeTerminal> {
 	private EdgeTerminal next_terminal;
 	
 	// Keep track of the nodes we've already seen so we can detect cycles.
-	private HashSet<EdgeTerminal> seen_nodes;
+	private HashSet<EdgeTerminal> seen_terminals;
 	
 	// Keep track of whether we hit a cycle.
 	private boolean hit_cycle;
@@ -59,8 +63,8 @@ public class LinearChainWalker implements Iterator<EdgeTerminal> {
 		current_terminal = start;
 		has_next = null;
 		walk_direction = direction;
-		seen_nodes = new HashSet<EdgeTerminal>();
-		seen_nodes.add(start);
+		seen_terminals = new HashSet<EdgeTerminal>();
+		seen_terminals.add(start);
 		hit_cycle = false;
 	}
 	
@@ -111,7 +115,7 @@ public class LinearChainWalker implements Iterator<EdgeTerminal> {
 				if (nodes_in_memory.containsKey(tail.terminal.nodeId)) {
 				  // Check if we've already seen this node. If we have then 
 				  // we hit a cycle and we stop.
-				  if (seen_nodes.contains(tail.terminal)) {
+				  if (seen_terminals.contains(tail.terminal)) {
 				    has_next = false;
 				    hit_cycle = true;
 				  } else {
@@ -132,7 +136,7 @@ public class LinearChainWalker implements Iterator<EdgeTerminal> {
 		// Advance current node.
 		current_terminal = next_terminal;
 			
-		seen_nodes.add(current_terminal);
+		seen_terminals.add(current_terminal);
 		// Clear the cache
 		has_next = null;
 		next_terminal = null;		
