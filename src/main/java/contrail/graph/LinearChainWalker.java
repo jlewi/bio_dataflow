@@ -47,6 +47,7 @@ public class LinearChainWalker implements Iterator<EdgeTerminal> {
 	private EdgeTerminal next_terminal;
 	
 	// Keep track of the nodes we've already seen so we can detect cycles.
+	// This will include the terminal at the start.
 	private HashSet<EdgeTerminal> seen_terminals;
 	
 	// Keep track of whether we hit a cycle.

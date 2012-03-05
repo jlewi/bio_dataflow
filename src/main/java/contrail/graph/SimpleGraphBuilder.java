@@ -42,6 +42,7 @@ public class SimpleGraphBuilder {
     String nodeid = canonical_src.toString();
     GraphNode node = new GraphNode(); 
     node.setCanonicalSequence(canonical_src);
+    node.setNodeId(nodeid);
     nodes.put(nodeid, node);  
     return nodeid;    
   }
@@ -69,6 +70,10 @@ public class SimpleGraphBuilder {
   
   public GraphNode getNode(String nodeid) {
     return nodes.get(nodeid);
+  }
+  
+  public Hashtable<String, GraphNode> getAllNodes() {
+    return nodes;
   }
   /**
    * Add an edge.

@@ -28,12 +28,18 @@ public class TailData
 	/**
 	 * dist is the number of edges this tail spans. 
 	 */
-	public int    dist;
+	public int dist;
 	
 	// Set of all the nodes in the tail; this is an inclusive
 	// list of all nodes from [head, end] where head is the terminal
 	// we start at end is the last terminal
 	public HashSet<String> nodes_in_tail;
+	
+	// Whether or not the tail forms a cycle.
+	// A cycle is defined as a sequence of terminals with indegree 1 and 
+	// outdegree 1 which are connected together. Thus, if you follow
+	// outgoing edges or incoming edges you cycle around forever.
+	public boolean hit_cycle;
 	
 	/**
 	 * Copy Constructor.
@@ -53,6 +59,7 @@ public class TailData
 	{
 		terminal = null;
 		dist = 0;
+    nodes_in_tail = new HashSet<String>();
 	}
 
 	/**
@@ -88,42 +95,40 @@ public class TailData
 		tail.nodes_in_tail.add(curid);
 		while(walker.hasNext()) {
 			// The walker only returns a terminal if the corresponding
-			// GraphNode is in the map passed to LinearChainWalker.
+			// GraphNode is in the map passed to LinearChainWalker, so
+		  // we don't have to check if the node is present.
 			EdgeTerminal terminal = walker.next();
 			
-			// The walker will terminate only if we hit the same EdgeTerminal
-			// again. However, its possible we hit the same node but 
-			// the other strand of that node.
-			if (!tail.nodes_in_tail.contains(terminal.nodeId)) {
-				// curnode has a tail (has outgoing degree 1); the tail 
-				// is in nodes and we haven't seen it before				
-				tail.nodes_in_tail.add(curid);
-				
-				// Suppose node A has out degree 1 and A->B. 
-				// B, however, might have indegree 2; i.e there exists edge
-				// C->B. In this case, we don't have  a tail. So
-				// We need to check that the current terminal corresponds to
-				// an edge with degree in the direction opposite walk direction.
-				// If there is a single edge then there is a single path between 
-				// the nodes (i.e they form a chain with no branching and we 
-				// can compress the nodes together)
-				
-				// Get the graph node associated with terminal and check
-				// it has a single edge connected to previous_terminal.
-				// TODO(jlewi): This check should be unnecessary because 
-				// LinearChainWalker is already doing it.
-				GraphNode node = nodes.get(terminal.nodeId);
-				TailData end_tail = node.getTail(
-						terminal.strand, direction.flip());						
-				if ((end_tail != null) && 
-					(end_tail.terminal.equals(previous_terminal))) {
-					dist++;										
-				} else {
-					// Break out out of the loop because we don't have
-					// a chain.
-					break;
-				}
+
+			// curnode has a tail (has outgoing degree 1); the tail 
+			// is in nodes and we haven't seen it before				
+			tail.nodes_in_tail.add(terminal.nodeId);
+			
+			// Suppose node A has out degree 1 and A->B. 
+			// B, however, might have indegree 2; i.e there exists edge
+			// C->B. In this case, we don't have  a tail. So
+			// We need to check that the current terminal corresponds to
+			// an edge with degree in the direction opposite walk direction.
+			// If there is a single edge then there is a single path between 
+			// the nodes (i.e they form a chain with no branching and we 
+			// can compress the nodes together)
+			
+			// Get the graph node associated with terminal and check
+			// it has a single edge connected to previous_terminal.
+			// TODO(jlewi): This check should be unnecessary because 
+			// LinearChainWalker is already doing it.
+			GraphNode node = nodes.get(terminal.nodeId);
+			TailData end_tail = node.getTail(
+					terminal.strand, direction.flip());						
+			if ((end_tail != null) && 
+				(end_tail.terminal.equals(previous_terminal))) {
+				dist++;										
+			} else {
+				// Break out out of the loop because we don't have
+				// a chain.
+				break;
 			}
+		
 			previous_terminal = terminal;			
 		}
 
@@ -134,6 +139,7 @@ public class TailData
 		tail.terminal = previous_terminal;
 		tail.dist = dist;
 		tail.direction = direction;
+		tail.hit_cycle = walker.hitCycle(); 
 		return tail;
 	}	
 }

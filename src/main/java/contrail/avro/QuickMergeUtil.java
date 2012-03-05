@@ -114,76 +114,76 @@ public class QuickMergeUtil {
    * @param head
    * @return
    */
-  protected static NodesToMerge findCycle(
-      Map<String, GraphNode> nodes, EdgeTerminal head) {
-    // We could have a sequence  >R->r2->N->f1-> R
-    // e.g suppose K = 3 and we have the read
-    // ATT->TTA-->TAT->ATT then this will produce a cycle .
-    // To avoid cycling around forever, the findTail methods stops
-    // as soon as it hits a node we've already seen.
-    // We thus detect cycles as follows.
-    // 1. Follow the incoming edge as far as we can go (this is head).
-    // 2. Follow the outgoing edges as far as we can go; recording the 
-    // nodes visited. when the chain ends, check if the last node
-    // has a tail and if it does, check if the node is one we've already
-    // seen.
-    // 3. If we have a cycle we can merge all nodes in between the repeated
-    // nodes.
-    NodesToMerge result = new NodesToMerge();
-    result.nodeids_visited = new HashSet<String>();
-    LinearChainWalker walker = new LinearChainWalker(
-        nodes, head, EdgeDirection.OUTGOING);
-    
-    result.nodeids_visited.add(head.nodeId);
-    //seen_nodes.add(head.nodeId);
-    EdgeTerminal last = null;
-    while (walker.hasNext()) {
-       last = walker.next();
-       result.nodeids_visited.add(last.nodeId);
-    }
-    
-    if (last == null) {
-      // Then there isn't any tail so return null
-      return result;
-    }
-    
-    if (walker.hitCycle()) {
-      // So we started at head->n1 ->n2->n3,->n4->head
-      // To check this we check that the next node in the chain is
-      // where we started from
-      GraphNode node = nodes.get(last.nodeId);
-      TailData last_tail = node.getTail(last.strand, EdgeDirection.OUTGOING);
-      if (last_tail != null && last_tail.terminal.equals(head)) {
-        // We have a cycle, for now just treat this as the nodes not
-        // being able to 
-        // Try to break the cycle. 
-        // Case 1: suppose we have the read ATTATT
-        // which produces the cycle ATT->TTA->TAT->ATT->
-        // in this case we get a cycle because we have a repeated KMer
-        // at the start and of the read. We can use the read alignment
-        // tags to identify the start and end of the read and therefore
-        // where to break the chain.
-        result.hit_cycle = true;
-        return result;
-      } else {
-        throw new RuntimeException(
-            "Looks like we have a repeated node that isn't a cycle. "+
-            "What to do?");
-      }
-      
-      
-//      TailData head_tail = TailData.findTail(
-//          nodes, nodes.get(last_tail.terminal.nodeId), 
-//          last_tail.terminal.strand, EdgeDirection.INCOMING);
+//  protected static NodesToMerge findCycle(
+//      Map<String, GraphNode> nodes, EdgeTerminal head) {
+//    // We could have a sequence  >R->r2->N->f1-> R
+//    // e.g suppose K = 3 and we have the read
+//    // ATT->TTA-->TAT->ATT then this will produce a cycle .
+//    // To avoid cycling around forever, the findTail methods stops
+//    // as soon as it hits a node we've already seen.
+//    // We thus detect cycles as follows.
+//    // 1. Follow the incoming edge as far as we can go (this is head).
+//    // 2. Follow the outgoing edges as far as we can go; recording the 
+//    // nodes visited. when the chain ends, check if the last node
+//    // has a tail and if it does, check if the node is one we've already
+//    // seen.
+//    // 3. If we have a cycle we can merge all nodes in between the repeated
+//    // nodes.
+//    NodesToMerge result = new NodesToMerge();
+//    result.nodeids_visited = new HashSet<String>();
+//    LinearChainWalker walker = new LinearChainWalker(
+//        nodes, head, EdgeDirection.OUTGOING);
+//    
+//    result.nodeids_visited.add(head.nodeId);
+//    //seen_nodes.add(head.nodeId);
+//    EdgeTerminal last = null;
+//    while (walker.hasNext()) {
+//       last = walker.next();
+//       result.nodeids_visited.add(last.nodeId);
+//    }
+//    
+//    if (last == null) {
+//      // Then there isn't any tail so return null
+//      return result;
+//    }
+//    
+//    if (walker.hitCycle()) {
+//      // So we started at head->n1 ->n2->n3,->n4->head
+//      // To check this we check that the next node in the chain is
+//      // where we started from
+//      GraphNode node = nodes.get(last.nodeId);
+//      TailData last_tail = node.getTail(last.strand, EdgeDirection.OUTGOING);
+//      if (last_tail != null && last_tail.terminal.equals(head)) {
+//        // We have a cycle, for now just treat this as the nodes not
+//        // being able to 
+//        // Try to break the cycle. 
+//        // Case 1: suppose we have the read ATTATT
+//        // which produces the cycle ATT->TTA->TAT->ATT->
+//        // in this case we get a cycle because we have a repeated KMer
+//        // at the start and of the read. We can use the read alignment
+//        // tags to identify the start and end of the read and therefore
+//        // where to break the chain.
+//        result.hit_cycle = true;
+//        return result;
+//      } else {
+//        throw new RuntimeException(
+//            "Looks like we have a repeated node that isn't a cycle. "+
+//            "What to do?");
+//      }
 //      
-//      head = head_tail.terminal;
-    }
-    
-    result.start_terminal = head;
-    result.end_terminal = last;
-    result.direction = EdgeDirection.OUTGOING;
-    return result;
-  }
+//      
+////      TailData head_tail = TailData.findTail(
+////          nodes, nodes.get(last_tail.terminal.nodeId), 
+////          last_tail.terminal.strand, EdgeDirection.INCOMING);
+////      
+////      head = head_tail.terminal;
+//    }
+//    
+//    result.start_terminal = head;
+//    result.end_terminal = last;
+//    result.direction = EdgeDirection.OUTGOING;
+//    return result;
+//  }
   
   /**
    * Find a chain of nodes which can be merged
@@ -193,17 +193,18 @@ public class QuickMergeUtil {
    */
   public static NodesToMerge findNodesToMerge(
       Map<String, GraphNode> nodes_in_memory, GraphNode start_node) {
-    NodesToMerge nodes_to_merge = null;
-
     // Different cases we need to consider
     // h1 -> h2 -> h3 -> node -> t1->t2->t3
     // h1 -> h2 -> h3 -> node
-    // node -> t1->t2->t3
-
-    //GraphNode head_node;
-    //DNAStrand head_strand;
-   
+    // node -> t1->t2->t3   
     EdgeTerminal head_terminal;
+    
+    NodesToMerge result = new NodesToMerge();
+    result.direction = EdgeDirection.OUTGOING;
+    result.hit_cycle = false;
+    result.nodeids_visited = new HashSet<String> ();
+    result.nodeids_visited.add(start_node.getNodeId());
+    result.include_final_terminal = false;
     
     {
       // Starting at node follow the incoming edges for the forward strand.
@@ -213,6 +214,13 @@ public class QuickMergeUtil {
         
       if (head != null) {
         head_terminal = head.terminal;
+
+        if (head.hit_cycle) {
+          // Nothing to be done in the case of a cycle.
+          result.nodeids_visited = head.nodes_in_tail;
+          result.hit_cycle = true;
+          return result;
+        }
       } else {
         // There's no head so set the tail to start at the current node.
         // We might still have a tail  node -> c1, c2, ... that we could
@@ -221,13 +229,23 @@ public class QuickMergeUtil {
             start_node.getNodeId(), DNAStrand.FORWARD);
       }
     }
-
       
-    nodes_to_merge = findCycle(nodes_in_memory, head_terminal);
-            
-    nodes_to_merge.include_final_terminal = nodeIsMergeable(
-        nodes_in_memory, nodes_to_merge.end_terminal);
-    return nodes_to_merge;
+    start_node = nodes_in_memory.get(head_terminal.nodeId);
+    
+    TailData full_tail = TailData.findTail(
+        nodes_in_memory, start_node,  head_terminal.strand, 
+        EdgeDirection.OUTGOING);
+    
+    if (full_tail != null) {
+      result.start_terminal = head_terminal;
+      result.end_terminal = full_tail.terminal;
+      result.nodeids_visited.addAll(full_tail.nodes_in_tail);
+      result.include_final_terminal = nodeIsMergeable(
+          nodes_in_memory, result.end_terminal);
+    }
+    
+    
+    return result;
   }
   
   /**
@@ -263,7 +281,7 @@ public class QuickMergeUtil {
     public HashSet<String> merged_nodeids;
     
     // The final merged node.
-    public GraphNode merged_node;
+    public GraphNode merged_node;   
   }
   
   /**

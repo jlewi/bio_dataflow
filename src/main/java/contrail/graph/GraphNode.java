@@ -648,7 +648,9 @@ public class GraphNode {
 	        "Could not find a neighbor with id:" + old_terminal.nodeId);
 	  }
 	  
-	  if (old_terminal.nodeId == new_terminal.nodeId) {
+	  if (old_terminal.equals(new_terminal)) {
+	    // Note: It is possible that the nodeid is the same but the strand
+	    // is different.
 	    throw new RuntimeException("New node is the same as the old node");
 	  }
 	  

@@ -4,6 +4,8 @@ import static org.junit.Assert.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
@@ -12,10 +14,12 @@ import org.junit.Before;
 import org.junit.Test;
 
 import contrail.graph.EdgeData;
+import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.graph.NeighborData;
+import contrail.graph.SimpleGraphBuilder;
 
 import contrail.sequences.AlphabetUtil;
 import contrail.sequences.DNAAlphabetFactory;
@@ -376,6 +380,130 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
       Set<String> expected_merged_ids = nodes.keySet();  
       assertEquals(expected_merged_ids, result.merged_nodeids);
     }
+  }
+  
+  @Test
+  public void testCycle() {
+    // Consider the special case where we have a cycle
+    // e.g: ATTCATT with K = 3 gives rise to
+    // ATT->TTC->TCA->ATT
+    // In this case no nodes should be merged and all should be marked
+    // as being seen.    
+    final int K = 3;
+    SimpleGraphBuilder graph = new SimpleGraphBuilder();
+    graph.addKMersForString("ATTCATT", K);
+    
+    // The KMers where we should start the search.
+    // We start at all KMers in the cycle to make sure te start doesn't matter.
+    String[] start_kmers = {"ATT", "TTC", "TCA", "CAT"};
+    for (String start: start_kmers) {
+      EdgeTerminal terminal = graph.findEdgeTerminalForSequence(start);
+      GraphNode start_node = graph.getNode(terminal.nodeId);
+      NodesToMerge nodes_to_merge = QuickMergeUtil.findNodesToMerge(
+          graph.getAllNodes(), start_node);
+      
+      assertTrue(nodes_to_merge.hit_cycle);
+      assertEquals(null, nodes_to_merge.start_terminal);
+      assertEquals(null, nodes_to_merge.end_terminal);
+      
+      List<String> seen_nodeids = new ArrayList<String>();
+      seen_nodeids.addAll(graph.getAllNodes().keySet());
+      assertEquals(
+          graph.getAllNodes().keySet(), nodes_to_merge.nodeids_visited);     
+    }  
+  }
+  
+  @Test
+  public void testMergeRepeated() {
+    // Consider the special case where we have a chain in which 
+    // some sequence and its reverse complement appears.
+    // Note: if a->y->b ...-c>RC(y)->d
+    // Then a->y implies RC(y)->RC(A)
+    // which implies either 
+    // 1) d = RC(a)
+    // 2) d != RC(A) then RC(Y) has two outgoing edges
+    // RC(y)->d, and RC(y)->RC(a)  in this case we can't merge RC(y) with d 
+    // of each other.
+    // e.g: ATCGAT with K = 3 gives rise to
+    // ATC->TCG->CGA->GAT
+    // ATG = RC(GAT)
+    // TCG = RC(CGA)
+    final int K = 3;
+    SimpleGraphBuilder graph = new SimpleGraphBuilder();
+    String true_sequence_str = "ATCGAT";
+    graph.addKMersForString(true_sequence_str, K);
+    Sequence true_canonical = new Sequence(
+        true_sequence_str, DNAAlphabetFactory.create());
+    DNAStrand true_strand = DNAUtil.canonicaldir(true_canonical);
+    true_canonical = DNAUtil.canonicalseq(true_canonical);
+    
+    // Give GAT incoming degree 2 and ATC outdegree 2
+    // this way we can verify that these edges are preserved.
+    graph.addEdge("CAT", "ATC", 2);
+    graph.addEdge("TAT", "ATC", 2);
+    
+    graph.addEdge("GAT", "ATA", 2);
+    graph.addEdge("GAT", "ATT", 2);
+    
+    {
+      // TODO(jlewi): Verify test is setup correctly i.e we have a KMer
+      // and its reverse complement
+    }
+    
+    Hashtable<String, GraphNode> nodes = graph.getAllNodes();
+    
+    GraphNode start_node;
+    {
+      int start = generator.nextInt(true_sequence_str.length() - K + 1);
+      EdgeTerminal terminal = graph.findEdgeTerminalForSequence(
+          true_sequence_str.substring(start, start + K));
+      start_node = graph.getNode(terminal.nodeId);
+    }
+    NodesToMerge nodes_to_merge = QuickMergeUtil.findNodesToMerge(
+        graph.getAllNodes(), start_node);
+    
+    MergeResult result = QuickMergeUtil.mergeLinearChain(
+        nodes, nodes_to_merge, K - 1);
+    
+    // Check the merged sequence is correct.
+    assertEquals(true_canonical, result.merged_node.getCanonicalSequence());
+                
+    HashSet<String> seen_nodeids = new HashSet<String>();
+    seen_nodeids.add("ATC");
+    seen_nodeids.add("CGA");
+    assertEquals(
+        seen_nodeids, result.merged_nodeids);
+    
+    // Check that the edges at the start and end are correct.
+    {
+      List<EdgeTerminal> expected_outgoing = new ArrayList<EdgeTerminal>();
+      
+      // Add the outgoing edges from GAT.
+      expected_outgoing.add(graph.findEdgeTerminalForSequence("ATA"));
+      expected_outgoing.add(graph.findEdgeTerminalForSequence("ATT"));        
+      
+      // Add the reverse complement for the incoming edges to ATC.
+      expected_outgoing.add(graph.findEdgeTerminalForSequence("ATG"));
+      
+      List<EdgeTerminal> outgoing = result.merged_node.getEdgeTerminals(
+          true_strand, EdgeDirection.OUTGOING);
+      assertTrue(ListUtil.listsAreEqual(expected_outgoing, outgoing));
+    }
+    {
+      List<EdgeTerminal> expected_incoming = new ArrayList<EdgeTerminal>();
+      
+      // Add the incoming edges to ATC.
+      expected_incoming.add(graph.findEdgeTerminalForSequence("CAT"));
+      expected_incoming.add(graph.findEdgeTerminalForSequence("TAT"));
+      
+      // Add the reverse complement for the outgoing edges from GAT.
+      expected_incoming.add(graph.findEdgeTerminalForSequence("AAT"));
+      
+      List<EdgeTerminal> incoming = result.merged_node.getEdgeTerminals(
+          true_strand, EdgeDirection.INCOMING);
+      assertTrue(ListUtil.listsAreEqual(expected_incoming, incoming));
+    }
+      
   }
 //    @Test
 //    public void testBreakCycle() {
