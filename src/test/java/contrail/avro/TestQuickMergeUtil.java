@@ -506,20 +506,20 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
       
   }
 
-@Test
-public void testBreakCycle() {
-  // Consider the special case where we have a cycle
-  final int K = 3;
-  String true_sequence_str = "ATCGCATC";
-  //Hashtable<String, GraphNode> nodes = graph.getAllNodes();
-  String[] true_merged = {"ATCGCAT", "TCGCATC", "CGCATCG", "GCATCGA"};
-  
-  for (int start = 0; start <= true_sequence_str.length() - K - 1; ++start) {
+  @Test
+  public void testBreakCycle() {
+    // Consider the special case where we have a cycle
+    final int K = 3;
+    String true_sequence_str = "ATCGCATC";
+
+    String true_merged = "ATCGCAT";
+
     SimpleGraphBuilder graph = new SimpleGraphBuilder(); 
     graph.addKMersForString(true_sequence_str, K);
+
     // Get the KMer corresponding to the start
-    String start_kmer = true_merged[start].substring(0, K);
-    
+    String start_kmer = true_merged.substring(0, K);
+
     EdgeTerminal start_terminal = graph.findEdgeTerminalForSequence(start_kmer);    
     GraphNode start_node = graph.getAllNodes().get(start_terminal.nodeId);
     NodesToMerge nodes_to_merge = QuickMergeUtil.findNodesToMerge(
@@ -528,134 +528,74 @@ public void testBreakCycle() {
     Sequence true_canonical;
     {
       Sequence true_sequence = new Sequence(
-          true_merged[start], DNAAlphabetFactory.create());
+          true_merged, DNAAlphabetFactory.create());
       //DNAStrand true_strand = DNAUtil.canonicaldir(true_sequence);
       true_canonical = DNAUtil.canonicalseq(true_sequence);
     }
-    {
-      // Check nodes_to_merge is correct.
-      EdgeTerminal expected_start;
-      EdgeTerminal expected_end;
-      {
-        Sequence merged = new Sequence(
-            true_merged[start], DNAAlphabetFactory.create());
-        merged = DNAUtil.canonicalseq(merged);
-        String first_kmer = merged.subSequence(0, K).toString();
-        String last_kmer = merged.subSequence(
-            merged.size() - K, merged.size()).toString();
-        
-      expected_start = graph.findEdgeTerminalForSequence(first_kmer);
-      expected_end = graph.findEdgeTerminalForSequence(last_kmer);
-      }
-//      String first_kmer = true_merged[start].substring(0, K);
-//      String last_kmer = true_merged[start].substring(
-//          true_merged[start].length() - K, true_merged[start].length());
-//      
-//      EdgeTerminal expected_start = 
-//          graph.findEdgeTerminalForSequence(first_kmer);
-//      EdgeTerminal expected_end = 
-//          graph.findEdgeTerminalForSequence(last_kmer);
-//      
-//      // The code always starts on the forward strand.
-//      if (expected_start.strand == DNAStrand.REVERSE) {
-//        expected_start = expected_start.flip();
-//        expected_end = expected_end.flip();
+//    {
+//      // Check nodes_to_merge is correct.
+//      EdgeTerminal expected_start;
+//      EdgeTerminal expected_end;
+//      {
+//        Sequence merged = new Sequence(
+//            true_merged[start], DNAAlphabetFactory.create());
+//        merged = DNAUtil.canonicalseq(merged);
+//        String first_kmer = merged.subSequence(0, K).toString();
+//        String last_kmer = merged.subSequence(
+//            merged.size() - K, merged.size()).toString();
+//
+//        expected_start = graph.findEdgeTerminalForSequence(first_kmer);
+//        expected_end = graph.findEdgeTerminalForSequence(last_kmer);
 //      }
+            //String first_kmer = true_merged[start].substring(0, K);
+            String last_kmer = true_merged.substring(
+                true_merged.length() - K, true_merged.length());
+            
+            EdgeTerminal expected_start = 
+                graph.findEdgeTerminalForSequence(start_kmer);
+            EdgeTerminal expected_end = 
+                graph.findEdgeTerminalForSequence(last_kmer);
+            
+      //      // The code always starts on the forward strand.
+      //      if (expected_start.strand == DNAStrand.REVERSE) {
+      //        expected_start = expected_start.flip();
+      //        expected_end = expected_end.flip();
+      //      }
       assertEquals(nodes_to_merge.start_terminal, expected_start);
       assertEquals(nodes_to_merge.end_terminal, expected_end);
       assertTrue(nodes_to_merge.include_final_terminal);
       assertEquals(
           graph.getAllNodes().keySet(), nodes_to_merge.nodeids_visited);
-    }
+    
     MergeResult result = QuickMergeUtil.mergeLinearChain(
         graph.getAllNodes(), nodes_to_merge, K - 1);
-    
+
     // Check the merged sequence is correct.
     assertEquals(true_canonical, result.merged_node.getCanonicalSequence());
-    
+
     // Check the cycle is closed. There should be an edge to the start kmer
-    Sequence last_kmer = true_canonical.subSequence(0, K);
-    
+    //Sequence last_kmer = true_canonical.subSequence(0, K);
+
     {
       // Since its a cycle, there should be an outgoing edge to itself.      
       List<EdgeTerminal> expected_edges = new ArrayList<EdgeTerminal>();
       expected_edges.add(
           new EdgeTerminal(result.merged_node.getNodeId(), DNAStrand.FORWARD));
-      
+
       List<EdgeTerminal> edges = result.merged_node.getEdgeTerminals(
           DNAStrand.FORWARD, EdgeDirection.OUTGOING);
       assertTrue(ListUtil.listsAreEqual(expected_edges, edges));      
     }
-    
+
     {
       // Since its a cycle, there should be an incoming edge to itself.
       List<EdgeTerminal> expected_edges = new ArrayList<EdgeTerminal>();
       expected_edges.add(
           new EdgeTerminal(result.merged_node.getNodeId(), DNAStrand.FORWARD));
-      
+
       List<EdgeTerminal> edges = result.merged_node.getEdgeTerminals(
           DNAStrand.FORWARD, EdgeDirection.INCOMING);
       assertTrue(ListUtil.listsAreEqual(expected_edges, edges));
     }
-    
-  }
-//      for (int trial = 0; trial < 10; trial++) {
-//        // Even though we have repeats the merge still work, because
-//        // the way we construct the chain, we have one node for each instance
-//        // rather than representing all instances of the same KMer using a sngle
-//        // node.
-//        int K = generator.nextInt(20) + 3;
-//        int length = generator.nextInt(100) + K;
-//        String full_sequence = AlphabetUtil.randomString(
-//            generator, length, DNAAlphabetFactory.create());
-//        
-//        int overlap = K - 1;
-//        ArrayList<ChainNode> chain_nodes =
-//            constructChainForSequence(full_sequence, K);
-//        
-//        // Add a cycle by connecting the last node in the chain with the first
-//        {
-//          GraphNode node = chain_nodes.get(chain_nodes.size() - 1).graph_node;
-//          DNAStrand strand= chain_nodes.get(
-//              chain_nodes.size() -1).dna_direction;
-//          
-//          EdgeTerminal head = new EdgeTerminal(
-//              chain_nodes.get(0).graph_node.getNodeId(), 
-//              chain_nodes.get(0).dna_direction);
-//          
-//          node.addOutgoingEdge(strand, head);
-//        }
-//        {
-//          GraphNode node = chain_nodes.get(0).graph_node;
-//          DNAStrand strand= chain_nodes.get(0).dna_direction;
-//          EdgeTerminal tail = new EdgeTerminal(
-//              chain_nodes.get(chain_nodes.size() - 1).graph_node.getNodeId(), 
-//              chain_nodes.get(chain_nodes.size() - 1).dna_direction);
-//          
-//          node.addIncomingEdge(strand, tail);
-//        }
-//        
-//        HashMap<String, GraphNode> nodes = new HashMap<String, GraphNode>();
-//        for (ChainNode link: chain_nodes) {
-//          nodes.put(link.graph_node.getNodeId(), link.graph_node);
-//        }
-//        
-//        int chain_start = generator.nextInt(chain_nodes.size());
-//        EdgeTerminal start_walk = new EdgeTerminal(
-//            chain_nodes.get(chain_start).graph_node.getNodeId(), 
-//            chain_nodes.get(chain_start).dna_direction);
-//        
-//        Tuple<EdgeTerminal, EdgeTerminal> terminals = 
-//            QuickMergeUtil.breakCycle(nodes, start_walk);
-//        
-//        EdgeTerminal expected_start = new EdgeTerminal(
-//            chain_nodes.get(1).graph_node.getNodeId(), 
-//            chain_nodes.get(1).dna_direction);
-//        EdgeTerminal expected_end = new EdgeTerminal(
-//            chain_nodes.get(chain_nodes.size() - 2).graph_node.getNodeId(), 
-//            chain_nodes.get(chain_nodes.size() - 2).dna_direction);
-//        assertEquals(expected_start, terminals.first);
-//        assertEquals(expected_end, terminals.second);
-//      }
   }
 }
