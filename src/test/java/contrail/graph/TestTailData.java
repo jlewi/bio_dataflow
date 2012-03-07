@@ -7,11 +7,14 @@ import static org.junit.Assert.fail;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import org.junit.Before;
 import org.junit.Test;
 
+import contrail.avro.QuickMergeUtil;
+import contrail.avro.QuickMergeUtil.NodesToMerge;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAStrandUtil;
 import contrail.sequences.StrandsForEdge;
@@ -81,6 +84,7 @@ public class TestTailData {
 				node_data.getNeighbors().add(dest_node);
 				
 				EdgeData edge_data = new EdgeData();
+				edge_data.setReadTags(new ArrayList<CharSequence>());
 				edge_data.setStrands(StrandsUtil.form(
 						src.dna_direction, dest.dna_direction));
 				dest_node.setEdges(new ArrayList<EdgeData> ());
@@ -97,16 +101,16 @@ public class TestTailData {
 								
 				node_data.getNeighbors().add(dest_node);
 				
-				EdgeData dest_for_link_dir = new EdgeData();
-				
+				EdgeData edge_data = new EdgeData();
+				edge_data.setReadTags(new ArrayList<CharSequence>());
 				// We need to flip the dna direction to get incoming 
 				// edges. 
-				StrandsForEdge linkdir = 
+				StrandsForEdge strands = 
 						StrandsUtil.form(DNAStrandUtil.flip(src.dna_direction), 
 						    DNAStrandUtil.flip(dest.dna_direction));
-				dest_for_link_dir.setStrands(linkdir);
+				edge_data.setStrands(strands);
 				dest_node.setEdges(new ArrayList<EdgeData> ());
-				dest_node.getEdges().add(dest_for_link_dir);
+				dest_node.getEdges().add(edge_data);
 				
 			}
 		}
@@ -241,5 +245,29 @@ public class TestTailData {
 		
 			assertEquals(tail, null);					
 		}	
+	}
+	
+	@Test
+	public void testCycle() {
+	  // A special test case to ensure cycles are properly detected.
+    final int K = 3;
+    SimpleGraphBuilder graph = new SimpleGraphBuilder();
+    graph.addKMersForString("ATTCATT", K);
+    
+    // The KMers where we should start the search.
+    // We start at all KMers in the cycle to make sure te start doesn't matter.
+    String[] start_kmers = {"ATT", "TTC", "TCA", "CAT"};
+    for (String start: start_kmers) {
+      EdgeTerminal terminal = graph.findEdgeTerminalForSequence(start);
+      GraphNode start_node = graph.getNode(terminal.nodeId);
+      
+      TailData tail = TailData.findTail(
+          graph.getAllNodes(), start_node, DNAStrandUtil.random(generator), 
+          EdgeDirection.random(generator));
+      
+      assertTrue(tail.hit_cycle);            
+      assertEquals(
+          graph.getAllNodes().keySet(), tail.nodes_in_tail);     
+    }  
 	}
 }

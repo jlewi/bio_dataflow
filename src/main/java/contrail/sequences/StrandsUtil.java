@@ -78,7 +78,7 @@ public class StrandsUtil {
   
   /**
    * Return a random value.
-  */
+   */
   public static StrandsForEdge random() {
     if (cls_generator == null) {
       cls_generator = new Random();

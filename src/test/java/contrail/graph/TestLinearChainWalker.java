@@ -27,6 +27,7 @@ public class TestLinearChainWalker {
 		// generator = new Random(103);
 		generator = new Random();
 	}
+	
 	/**
 	 * Contains information about a chain constructed for some test.
 	 */
@@ -79,11 +80,12 @@ public class TestLinearChainWalker {
 								
 				node_data.getNeighbors().add(dest_node);
 				
-				EdgeData dest_for_link_dir = new EdgeData();
-				dest_for_link_dir.setStrands(StrandsUtil.form(
+				EdgeData edge_data = new EdgeData();
+				edge_data.setReadTags(new ArrayList<CharSequence>());
+				edge_data.setStrands(StrandsUtil.form(
 				    src.dna_direction, dest.dna_direction));
 				dest_node.setEdges(new ArrayList<EdgeData> ());
-				dest_node.getEdges().add(dest_for_link_dir);
+				dest_node.getEdges().add(edge_data);
 			}
 			
 			// Add the incoming edge.
@@ -96,17 +98,17 @@ public class TestLinearChainWalker {
 								
 				node_data.getNeighbors().add(dest_node);
 				
-				EdgeData dest_for_link_dir = new EdgeData();
-				
+				EdgeData edge_data = new EdgeData();
+				edge_data.setReadTags(new ArrayList<CharSequence>());
 				// We need to flip the dna direction to get incoming 
 				// edges. 
 				StrandsForEdge linkdir = 
 						StrandsUtil.form(
 						    DNAStrandUtil.flip(src.dna_direction), 
 								DNAStrandUtil.flip(dest.dna_direction));
-				dest_for_link_dir.setStrands(linkdir);
+				edge_data.setStrands(linkdir);
 				dest_node.setEdges(new ArrayList<EdgeData> ());
-				dest_node.getEdges().add(dest_for_link_dir);
+				dest_node.getEdges().add(edge_data);
 			}
 		}
 		return chain;

@@ -303,7 +303,7 @@ public class TestNodeMerger extends NodeMerger {
       EdgeTerminal terminal = new EdgeTerminal(
           node_case.dest.getNodeId(), StrandsUtil.dest(sequence_case.strands));
       DNAStrand strand = StrandsUtil.src(sequence_case.strands);
-      node_case.src.addBidirectionalEdge(strand, terminal);
+      node_case.src.addOutgoingEdge(strand, terminal);
     }
     
     // Add bidirectional edge to dest between src and dest. 
@@ -313,7 +313,7 @@ public class TestNodeMerger extends NodeMerger {
           StrandsUtil.src(rcstrands));
       EdgeTerminal terminal = new EdgeTerminal(
           node_case.src.getNodeId(), StrandsUtil.dest(rcstrands));      
-      node_case.dest.addBidirectionalEdge(strand, terminal);
+      node_case.dest.addOutgoingEdge(strand, terminal);
     }
     
     return node_case;
@@ -457,6 +457,7 @@ public class TestNodeMerger extends NodeMerger {
           EdgeDirection.OUTGOING);
     }  
   }
+  
   @Test
   public void testMergeNodes() {
     int ntrials = 20;
@@ -467,24 +468,76 @@ public class TestNodeMerger extends NodeMerger {
           sequence_testcase, generator);
       
       // Merge the nodes.
-      GraphNode merged = NodeMerger.mergeNodes(
+      MergeResult result = NodeMerger.mergeNodes(
           node_testcase.src, node_testcase.dest, sequence_testcase.strands, 
           sequence_testcase.overlap, node_testcase.src_coverage_length, 
           node_testcase.dest_coverage_length);
       
       // Check the sequence is set correctly.
       Sequence merged_sequence = DNAUtil.canonicalToDir(
-          merged.getCanonicalSequence(), 
+          result.node.getCanonicalSequence(), 
           node_testcase.sequence_info.merged_strand);
       assertEquals(
           sequence_testcase.merged_sequence, 
           merged_sequence.toString());
       
       // Check the coverage.
-      assertCoverage(node_testcase, merged);
+      assertCoverage(node_testcase, result.node);
       
       // Check the edges are correct.
-      assertEdges(node_testcase, merged);
+      assertEdges(node_testcase, result.node);
+    }
+  }
+  
+  @Test
+  public void testMergeNodeWithRC() {
+    // Consider the special case  x->y->RC(y)->z
+    // Can we sucessfully merge y and RC(y)
+    // Note: RC(y)-> z  implies  RC(z) -> y
+    // Note 2: There can't be other edges  a->RC(y)
+    // because then we couldn't merge y and RC(y) we would have to remove
+    // edge a->RC(y) before attempting the merge.
+    SimpleGraphBuilder graph = new SimpleGraphBuilder();
+    
+    // Construct the chain TGG->GGC->GCC->CCC"
+    final int K = 3;
+    graph.addKMersForString("TGGCCC", K);
+    
+    MergeResult result;
+    {
+      // Get the nodes for the merge.
+      EdgeTerminal src_terminal = graph.findEdgeTerminalForSequence("GGC");
+      EdgeTerminal dest_terminal = graph.findEdgeTerminalForSequence("GCC");
+      GraphNode src_node = graph.getNode(src_terminal.nodeId);
+      GraphNode dest_node = graph.getNode(dest_terminal.nodeId);
+      
+      StrandsForEdge strands = StrandsUtil.form(
+          src_terminal.strand, dest_terminal.strand);
+      result = NodeMerger.mergeNodes(
+          src_node, dest_node, strands, K - 1, 1, 1); 
+    }
+    
+    {
+      // Check the result
+      String merged_sequence = DNAUtil.canonicalToDir(
+          result.node.getCanonicalSequence(), result.strand).toString();      
+      assertEquals("GGCC", merged_sequence);
+    }
+    {
+      // Check the outgoing edges.
+      List<EdgeTerminal> expected_outgoing = new ArrayList<EdgeTerminal>();
+      List<EdgeTerminal> outgoing = 
+          result.node.getEdgeTerminals(result.strand, EdgeDirection.OUTGOING);
+      expected_outgoing.add(graph.findEdgeTerminalForSequence("CCC"));
+      ListUtil.listsAreEqual(expected_outgoing, outgoing);
+    }
+    {
+      // Check the incoming edges.
+      List<EdgeTerminal> expected_incoming = new ArrayList<EdgeTerminal>();
+      List<EdgeTerminal> incoming = 
+          result.node.getEdgeTerminals(result.strand, EdgeDirection.OUTGOING);
+      expected_incoming.add(graph.findEdgeTerminalForSequence("TGG"));
+      ListUtil.listsAreEqual(expected_incoming, incoming);
     }
   }
 }

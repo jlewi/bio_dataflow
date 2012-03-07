@@ -2,7 +2,6 @@ package contrail.graph;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -16,6 +15,8 @@ import contrail.sequences.DNAStrand;
 import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
 import contrail.sequences.DNAStrandUtil;
+import contrail.util.ListUtil;
+
 import org.junit.Before;
 import org.junit.Test;
 
@@ -40,7 +41,6 @@ public class TestGraphNode {
 		node_data.setNeighbors(new ArrayList<NeighborData>());
 
 		int num_dest_nodes = generator.nextInt(30) + 5;
-		//int num_dest_nodes = 2;
 		for (int index = 0; index < num_dest_nodes; index++) {
 			NeighborData dest_node = new NeighborData();
 			dest_node.setNodeId("dest_" + index);
@@ -54,6 +54,7 @@ public class TestGraphNode {
 			for (int edge_index = 0; edge_index < num_edges; edge_index++) {
 				EdgeData edge = new EdgeData();
 				edge.setStrands(StrandsForEdge.values()[edge_index]);
+				edge.setReadTags(new ArrayList<CharSequence>());
 				dest_node.getEdges().add(edge);
 			}			
 		}
@@ -186,19 +187,20 @@ public class TestGraphNode {
 				new HashMap<StrandsForEdge, List<String>> ();
 
 		for (int index = 0; index < num_edges; index++) {
-			NeighborData edge_dest = new NeighborData();
-			node_data.getNeighbors().add(edge_dest);
-			edge_dest.setNodeId("edge_" + index);
+			NeighborData neighbor = new NeighborData();
+			node_data.getNeighbors().add(neighbor);
+			neighbor.setNodeId("edge_" + index);
 
-			edge_dest.setEdges(new ArrayList<EdgeData>());
+			neighbor.setEdges(new ArrayList<EdgeData>());
 
 			int num_links = (int) Math.floor(Math.random() * 4) + 1;
 			StrandsForEdge[] link_dirs = permuteEdges();
 			for (int link_index = 0; link_index < num_links; link_index++) {
 				StrandsForEdge dir = link_dirs[link_index];
-				EdgeData dest_for_link = new EdgeData();
-				dest_for_link.setStrands(dir);
-				edge_dest.getEdges().add(dest_for_link);
+				EdgeData edge_data = new EdgeData();
+				edge_data.setReadTags(new ArrayList<CharSequence>());
+				edge_data.setStrands(dir);
+				neighbor.getEdges().add(edge_data);
 
 
 				// Add this node to true_nodes_for_link_dirs;
@@ -206,7 +208,7 @@ public class TestGraphNode {
 					true_nodes_for_link_dirs.put(dir, new ArrayList<String>());
 				}
 				true_nodes_for_link_dirs.get(dir).add(
-						edge_dest.getNodeId().toString());
+				    neighbor.getNodeId().toString());
 			}
 		}
 
@@ -217,7 +219,7 @@ public class TestGraphNode {
 		node.setData(node_data);
 		for (StrandsForEdge dir: StrandsForEdge.values()) {
 			if (!true_nodes_for_link_dirs.containsKey(dir)) {
-				assertEquals(null, node.getNeighborsForStrands(dir));
+				assertEquals(0, node.getNeighborsForStrands(dir).size());
 			} else {
 				List<CharSequence> immutable_dest_ids = 
 						node.getNeighborsForStrands(dir);
@@ -262,5 +264,113 @@ public class TestGraphNode {
 				DNAStrand.FORWARD, EdgeDirection.OUTGOING);
 		assertEquals(1, outgoing_edges.size());
 		assertEquals(terminal, outgoing_edges.get(0));
+	}
+	
+	@Test
+	public void testMoveOutgoingEdge() {
+	  // Test moving an outgoing edge. There are 4 cases we want
+	  // For the old neighbor: the old neighbor could either have 1 or more
+	  // edges. For the neighbor, the new neighbor might already be a neigbhor
+	  // for the node.
+	  
+	  {
+	    // Case 1: Old neighbor has one edge, so it should be removed
+	    // after edge is moved. New neighbor doesn't exist yet.
+	    GraphNode node = new GraphNode();
+	    
+	    List<CharSequence> old_tags = new ArrayList<CharSequence> ();
+	    old_tags.add("old_tag");
+	    EdgeTerminal old_terminal = new EdgeTerminal(
+	        "old_terminal", DNAStrandUtil.random(generator));
+	    EdgeTerminal new_terminal = new EdgeTerminal(
+          "new_terminal", DNAStrandUtil.random(generator));
+	    
+	    DNAStrand strand = DNAStrandUtil.random(generator);
+	    node.addOutgoingEdgeWithTags(strand, old_terminal, old_tags, 10);
+	    
+	    node.moveOutgoingEdge(strand, old_terminal, new_terminal);
+	    
+	    // Check the result.
+	    List<EdgeTerminal> out_edges =
+	        node.getEdgeTerminals(strand, EdgeDirection.OUTGOING);
+	    
+	    assertEquals(out_edges.size(), 1);
+	    assertEquals(out_edges.get(0), new_terminal);
+	    List<CharSequence> new_tags = node.getTagsForEdge(strand, new_terminal);
+	    ListUtil.listsAreEqual(old_tags, new_tags);
+	  }
+	  {
+	    // Case 2: Old neighbor has two edges, so it should not be removed
+	    // after edge is moved. New neighbor doesn't exist yet.
+	    GraphNode node = new GraphNode();
+
+	    List<CharSequence> old_tags = new ArrayList<CharSequence> ();
+	    old_tags.add("old_tag");
+	    EdgeTerminal old_terminal = new EdgeTerminal(
+	        "old_terminal", DNAStrandUtil.random(generator));
+	    EdgeTerminal new_terminal = new EdgeTerminal(
+	        "new_terminal", DNAStrandUtil.random(generator));
+
+	    EdgeTerminal other_terminal = old_terminal.flip();
+
+	    DNAStrand strand = DNAStrandUtil.random(generator);
+	    node.addOutgoingEdgeWithTags(strand, old_terminal, old_tags, 10);
+	    node.addOutgoingEdge(strand, other_terminal);
+
+	    node.moveOutgoingEdge(strand, old_terminal, new_terminal);
+
+	    // Check the result.
+	    List<EdgeTerminal> out_edges =
+	        node.getEdgeTerminals(strand, EdgeDirection.OUTGOING);
+
+	    assertEquals(out_edges.size(), 2);
+	    for (EdgeTerminal terminal: out_edges) {
+	      if (terminal.nodeId.equals(other_terminal.nodeId)) {
+	        assertEquals(other_terminal, terminal);
+	      } else {
+	        assertEquals(new_terminal, terminal);
+	        List<CharSequence> new_tags = node.getTagsForEdge(
+	            strand, new_terminal);
+	        ListUtil.listsAreEqual(old_tags, new_tags);
+	      }
+	    }            
+	  }
+	  {
+	    // Case 3: Old neighbor has one edge, so it should be removed
+      // after edge is moved. New neighbor already exists so edge
+	    // should be preserved.
+      GraphNode node = new GraphNode();
+      
+      List<CharSequence> old_tags = new ArrayList<CharSequence> ();
+      old_tags.add("old_tag");
+      EdgeTerminal old_terminal = new EdgeTerminal(
+          "old_terminal", DNAStrandUtil.random(generator));
+      EdgeTerminal new_terminal = new EdgeTerminal(
+          "new_terminal", DNAStrandUtil.random(generator));
+      
+      EdgeTerminal other_terminal = new_terminal.flip();
+      
+      DNAStrand strand = DNAStrandUtil.random(generator);
+      node.addOutgoingEdgeWithTags(strand, old_terminal, old_tags, 10);
+      node.addOutgoingEdge(strand, other_terminal);
+      
+      node.moveOutgoingEdge(strand, old_terminal, new_terminal);
+      
+      // Check the result.
+      List<EdgeTerminal> out_edges =
+          node.getEdgeTerminals(strand, EdgeDirection.OUTGOING);
+      
+      assertEquals(out_edges.size(), 2);
+      for (EdgeTerminal terminal: out_edges) {
+        if (terminal.equals(other_terminal)) {
+          assertEquals(0, node.getTagsForEdge(strand, terminal).size());
+        } else {
+          assertEquals(new_terminal, terminal);
+          List<CharSequence> new_tags = node.getTagsForEdge(
+              strand, new_terminal);
+          ListUtil.listsAreEqual(old_tags, new_tags);
+        }
+      }
+	  }
 	}
 }
