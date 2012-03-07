@@ -216,9 +216,16 @@ public class QuickMergeUtil {
         head_terminal = head.terminal;
 
         if (head.hit_cycle) {
-          // Nothing to be done in the case of a cycle.
+          // In the case of a perfect cycle (i.e. no branch points) we 
+          // can compress the sequence by picking any arbitrary point
+          // in the cycle as the start of the merge. 
           result.nodeids_visited = head.nodes_in_tail;
           result.hit_cycle = true;
+          result.start_terminal = new EdgeTerminal(
+              start_node.getNodeId(), DNAStrand.FORWARD);          
+          result.end_terminal = head_terminal;
+          // Since its a cycle, we can always include the final terminal.
+          result.include_final_terminal = true;
           return result;
         }
       } else {

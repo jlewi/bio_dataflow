@@ -505,8 +505,42 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
     }
       
   }
-//    @Test
-//    public void testBreakCycle() {
+
+@Test
+public void testBreakCycle() {
+  // Consider the special case where we have a cycle
+  final int K = 3;
+  SimpleGraphBuilder graph = new SimpleGraphBuilder();
+  String true_sequence_str = "ATCGATC";
+  graph.addKMersForString(true_sequence_str, K);
+
+  //Hashtable<String, GraphNode> nodes = graph.getAllNodes();
+  String[] true_merged = {"ATCGAT", "TCGATC", "CGATCG", "GATCGA"};
+  
+  for (int start = 0; start <= true_sequence_str.length() - K; ++start) {
+    // Get the KMer corresponding to the start
+    String start_kmer = true_sequence_str.substring(0, K);
+    
+    EdgeTerminal start_terminal = graph.findEdgeTerminalForSequence(start_kmer);    
+    GraphNode start_node = graph.getAllNodes().get(start_terminal.nodeId);
+    NodesToMerge nodes_to_merge = QuickMergeUtil.findNodesToMerge(
+        graph.getAllNodes(), start_node);
+    
+    MergeResult result = QuickMergeUtil.mergeLinearChain(
+        graph.getAllNodes(), nodes_to_merge, K - 1);
+
+    Sequence true_canonical = new Sequence(
+        true_merged[start], DNAAlphabetFactory.create());
+    DNAStrand true_strand = DNAUtil.canonicaldir(true_canonical);
+    true_canonical = DNAUtil.canonicalseq(true_canonical);
+    
+    // Check the merged sequence is correct.
+    assertEquals(true_canonical, result.merged_node.getCanonicalSequence());
+    
+    // Check the cycle is closed. There should be an edge to the start kmer
+    String start_kmer = true_canonical.
+    
+  }
 //      for (int trial = 0; trial < 10; trial++) {
 //        // Even though we have repeats the merge still work, because
 //        // the way we construct the chain, we have one node for each instance
@@ -565,5 +599,5 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
 //        assertEquals(expected_start, terminals.first);
 //        assertEquals(expected_end, terminals.second);
 //      }
-//  }
+  }
 }
