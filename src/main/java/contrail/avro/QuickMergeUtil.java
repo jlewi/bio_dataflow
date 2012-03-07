@@ -221,10 +221,22 @@ public class QuickMergeUtil {
           // in the cycle as the start of the merge. 
           result.nodeids_visited = head.nodes_in_tail;
           result.hit_cycle = true;
+          
+          // We will break the cycle at start node.
+          // So we merge from the start node to the incoming terminal to
+          // the start terminal.
           result.start_terminal = new EdgeTerminal(
-              start_node.getNodeId(), DNAStrand.FORWARD);          
-          result.end_terminal = head_terminal;
-          // Since its a cycle, we can always include the final terminal.
+              start_node.getNodeId(), DNAStrand.FORWARD);
+          List<EdgeTerminal> incoming_terminals = start_node.getEdgeTerminals(
+              DNAStrand.FORWARD, EdgeDirection.INCOMING);
+          if (incoming_terminals.size() != 1) {
+            throw new RuntimeException(
+                "Something went wrong with cycle detection; there should be " +
+                "a single incoming edge");
+          }
+          result.end_terminal = incoming_terminals.get(0);
+          // Since its a cycle, we don't include the final terminal
+          // because we need to break the cycle.
           result.include_final_terminal = true;
           return result;
         }
@@ -368,16 +380,37 @@ public class QuickMergeUtil {
     merged_node.setNodeId(merged_id);
     
     if (nodes_to_merge.include_final_terminal) {
-      // We need to update all the edges which have 
-      // outgoing edges to end_terminal.
-      EdgeTerminal old_terminal = end_terminal.flip();
+      if (!nodes_to_merge.hit_cycle) {
+        // We need to update all the edges which have 
+        // outgoing edges to end_terminal.
+        EdgeTerminal old_terminal = end_terminal.flip();
+        
+        // The new terminal will be the reverse complement of the merged_strand.
+        EdgeTerminal new_terminal = new EdgeTerminal(
+            merged_node.getNodeId(), DNAStrandUtil.flip(merged_strand));
+        
+        moveIncomingEdges(nodes, old_terminal, new_terminal);      
+        result.merged_nodeids.add(end_terminal.nodeId);
+      } else {
+        // We are merging a perfect cycle. 
+        // e.g ATC->TCG->CGC->GCA->CAT
+        // So the merged sequence is ATCGCAT
+        // and has incoming/outgoing edges to itself. So we need to move
+        // the incoming edge to ATC. E.g CAT->ATC needs to become
+        // ATCGCAT -> ATCGCAT
+        // CAT->ATC implies RC(ATC)->RC(CAT)
+        // So we need to move the 
       
-      // The new terminal will be the reverse complement of the merged_strand.
-      EdgeTerminal new_terminal = new EdgeTerminal(
-          merged_node.getNodeId(), DNAStrandUtil.flip(merged_strand));
-      
-      moveIncomingEdges(nodes, old_terminal, new_terminal);      
-      result.merged_nodeids.add(end_terminal.nodeId);
+        DNAStrand strand = DNAStrandUtil.flip(merged_strand);
+        EdgeTerminal old_terminal = end_terminal.flip();        
+        EdgeTerminal new_terminal = new EdgeTerminal(
+            merged_node.getNodeId(), strand);
+        //moveOutgoingEdges(nodes, old_terminal, new_terminal);    
+        //GraphNode source_node = nodes.get(source.nodeId);
+        merged_node.moveOutgoingEdge(
+            strand, old_terminal, new_terminal);
+        result.merged_nodeids.add(end_terminal.nodeId);
+      }
     }
                 
     result.merged_node = merged_node;

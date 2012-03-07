@@ -382,36 +382,36 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
     }
   }
   
-  @Test
-  public void testCycle() {
-    // Consider the special case where we have a cycle
-    // e.g: ATTCATT with K = 3 gives rise to
-    // ATT->TTC->TCA->ATT
-    // In this case no nodes should be merged and all should be marked
-    // as being seen.    
-    final int K = 3;
-    SimpleGraphBuilder graph = new SimpleGraphBuilder();
-    graph.addKMersForString("ATTCATT", K);
-    
-    // The KMers where we should start the search.
-    // We start at all KMers in the cycle to make sure te start doesn't matter.
-    String[] start_kmers = {"ATT", "TTC", "TCA", "CAT"};
-    for (String start: start_kmers) {
-      EdgeTerminal terminal = graph.findEdgeTerminalForSequence(start);
-      GraphNode start_node = graph.getNode(terminal.nodeId);
-      NodesToMerge nodes_to_merge = QuickMergeUtil.findNodesToMerge(
-          graph.getAllNodes(), start_node);
-      
-      assertTrue(nodes_to_merge.hit_cycle);
-      assertEquals(null, nodes_to_merge.start_terminal);
-      assertEquals(null, nodes_to_merge.end_terminal);
-      
-      List<String> seen_nodeids = new ArrayList<String>();
-      seen_nodeids.addAll(graph.getAllNodes().keySet());
-      assertEquals(
-          graph.getAllNodes().keySet(), nodes_to_merge.nodeids_visited);     
-    }  
-  }
+//  @Test
+//  public void testCycle() {
+//    // Consider the special case where we have a cycle
+//    // e.g: ATTCATT with K = 3 gives rise to
+//    // ATT->TTC->TCA->ATT
+//    // In this case no nodes should be merged and all should be marked
+//    // as being seen.    
+//    final int K = 3;
+//    SimpleGraphBuilder graph = new SimpleGraphBuilder();
+//    graph.addKMersForString("ATTCATT", K);
+//    
+//    // The KMers where we should start the search.
+//    // We start at all KMers in the cycle to make sure te start doesn't matter.
+//    String[] start_kmers = {"ATT", "TTC", "TCA", "CAT"};
+//    for (String start: start_kmers) {
+//      EdgeTerminal terminal = graph.findEdgeTerminalForSequence(start);
+//      GraphNode start_node = graph.getNode(terminal.nodeId);
+//      NodesToMerge nodes_to_merge = QuickMergeUtil.findNodesToMerge(
+//          graph.getAllNodes(), start_node);
+//      
+//      assertTrue(nodes_to_merge.hit_cycle);
+//      assertEquals(null, nodes_to_merge.start_terminal);
+//      assertEquals(null, nodes_to_merge.end_terminal);
+//      
+//      List<String> seen_nodeids = new ArrayList<String>();
+//      seen_nodeids.addAll(graph.getAllNodes().keySet());
+//      assertEquals(
+//          graph.getAllNodes().keySet(), nodes_to_merge.nodeids_visited);     
+//    }  
+//  }
   
   @Test
   public void testMergeRepeated() {
@@ -510,35 +510,93 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
 public void testBreakCycle() {
   // Consider the special case where we have a cycle
   final int K = 3;
-  SimpleGraphBuilder graph = new SimpleGraphBuilder();
-  String true_sequence_str = "ATCGATC";
-  graph.addKMersForString(true_sequence_str, K);
-
+  String true_sequence_str = "ATCGCATC";
   //Hashtable<String, GraphNode> nodes = graph.getAllNodes();
-  String[] true_merged = {"ATCGAT", "TCGATC", "CGATCG", "GATCGA"};
+  String[] true_merged = {"ATCGCAT", "TCGCATC", "CGCATCG", "GCATCGA"};
   
-  for (int start = 0; start <= true_sequence_str.length() - K; ++start) {
+  for (int start = 0; start <= true_sequence_str.length() - K - 1; ++start) {
+    SimpleGraphBuilder graph = new SimpleGraphBuilder(); 
+    graph.addKMersForString(true_sequence_str, K);
     // Get the KMer corresponding to the start
-    String start_kmer = true_sequence_str.substring(0, K);
+    String start_kmer = true_merged[start].substring(0, K);
     
     EdgeTerminal start_terminal = graph.findEdgeTerminalForSequence(start_kmer);    
     GraphNode start_node = graph.getAllNodes().get(start_terminal.nodeId);
     NodesToMerge nodes_to_merge = QuickMergeUtil.findNodesToMerge(
         graph.getAllNodes(), start_node);
-    
+
+    Sequence true_canonical;
+    {
+      Sequence true_sequence = new Sequence(
+          true_merged[start], DNAAlphabetFactory.create());
+      //DNAStrand true_strand = DNAUtil.canonicaldir(true_sequence);
+      true_canonical = DNAUtil.canonicalseq(true_sequence);
+    }
+    {
+      // Check nodes_to_merge is correct.
+      EdgeTerminal expected_start;
+      EdgeTerminal expected_end;
+      {
+        Sequence merged = new Sequence(
+            true_merged[start], DNAAlphabetFactory.create());
+        merged = DNAUtil.canonicalseq(merged);
+        String first_kmer = merged.subSequence(0, K).toString();
+        String last_kmer = merged.subSequence(
+            merged.size() - K, merged.size()).toString();
+        
+      expected_start = graph.findEdgeTerminalForSequence(first_kmer);
+      expected_end = graph.findEdgeTerminalForSequence(last_kmer);
+      }
+//      String first_kmer = true_merged[start].substring(0, K);
+//      String last_kmer = true_merged[start].substring(
+//          true_merged[start].length() - K, true_merged[start].length());
+//      
+//      EdgeTerminal expected_start = 
+//          graph.findEdgeTerminalForSequence(first_kmer);
+//      EdgeTerminal expected_end = 
+//          graph.findEdgeTerminalForSequence(last_kmer);
+//      
+//      // The code always starts on the forward strand.
+//      if (expected_start.strand == DNAStrand.REVERSE) {
+//        expected_start = expected_start.flip();
+//        expected_end = expected_end.flip();
+//      }
+      assertEquals(nodes_to_merge.start_terminal, expected_start);
+      assertEquals(nodes_to_merge.end_terminal, expected_end);
+      assertTrue(nodes_to_merge.include_final_terminal);
+      assertEquals(
+          graph.getAllNodes().keySet(), nodes_to_merge.nodeids_visited);
+    }
     MergeResult result = QuickMergeUtil.mergeLinearChain(
         graph.getAllNodes(), nodes_to_merge, K - 1);
-
-    Sequence true_canonical = new Sequence(
-        true_merged[start], DNAAlphabetFactory.create());
-    DNAStrand true_strand = DNAUtil.canonicaldir(true_canonical);
-    true_canonical = DNAUtil.canonicalseq(true_canonical);
     
     // Check the merged sequence is correct.
     assertEquals(true_canonical, result.merged_node.getCanonicalSequence());
     
     // Check the cycle is closed. There should be an edge to the start kmer
-    String start_kmer = true_canonical.
+    Sequence last_kmer = true_canonical.subSequence(0, K);
+    
+    {
+      // Since its a cycle, there should be an outgoing edge to itself.      
+      List<EdgeTerminal> expected_edges = new ArrayList<EdgeTerminal>();
+      expected_edges.add(
+          new EdgeTerminal(result.merged_node.getNodeId(), DNAStrand.FORWARD));
+      
+      List<EdgeTerminal> edges = result.merged_node.getEdgeTerminals(
+          DNAStrand.FORWARD, EdgeDirection.OUTGOING);
+      assertTrue(ListUtil.listsAreEqual(expected_edges, edges));      
+    }
+    
+    {
+      // Since its a cycle, there should be an incoming edge to itself.
+      List<EdgeTerminal> expected_edges = new ArrayList<EdgeTerminal>();
+      expected_edges.add(
+          new EdgeTerminal(result.merged_node.getNodeId(), DNAStrand.FORWARD));
+      
+      List<EdgeTerminal> edges = result.merged_node.getEdgeTerminals(
+          DNAStrand.FORWARD, EdgeDirection.INCOMING);
+      assertTrue(ListUtil.listsAreEqual(expected_edges, edges));
+    }
     
   }
 //      for (int trial = 0; trial < 10; trial++) {
