@@ -214,7 +214,10 @@ public class QuickMergeAvro extends Stage
 			}
 			
 			// Create a list of the nodes to process.
-			Set<String> nodes_to_process = nodes.keySet();
+			// We need to make a copy of nodes.keySet otherwise when we remove
+			// an entry from the set we remove it from the hashtable.
+			Set<String> nodes_to_process = new HashSet<String>();
+			nodes_to_process.addAll(nodes.keySet());
 			
 			// List of the nodes to output.
 			//Set<String> nodes_to_output = new HashSet<String>();
@@ -229,8 +232,8 @@ public class QuickMergeAvro extends Stage
 			  QuickMergeUtil.NodesToMerge nodes_to_merge = 
 			      QuickMergeUtil.findNodesToMerge(nodes, start_node);
 			  
-			  if (nodes_to_merge.start_terminal != null &&
-			      nodes_to_merge.end_terminal != null) {
+			  if (nodes_to_merge.start_terminal == null &&
+			      nodes_to_merge.end_terminal == null) {
 			
 			    //nodes_to_output.add(nodeid);
 			    // Node doesn't have a tail we can merge.
@@ -239,7 +242,7 @@ public class QuickMergeAvro extends Stage
 			  
 			  // Merge the nodes.
 			  QuickMergeUtil.MergeResult merge_result = 
-			      QuickMergeUtil.mergeLinearChain(nodes, nodes_to_merge, K);
+			      QuickMergeUtil.mergeLinearChain(nodes, nodes_to_merge, K - 1);
 			  
 			  num_compressed_chains += 1;
 			  num_nodes_in_compressed_chains += merge_result.merged_nodeids.size();
