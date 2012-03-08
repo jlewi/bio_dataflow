@@ -1,7 +1,5 @@
 package contrail.graph;
 
-import contrail.GraphNodeKMerTag;
-
 import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.TailData;
@@ -245,6 +243,9 @@ public class GraphNode {
 	 * Construct a new object with a new GraphNodeData to store the data.
 	 */
 	public GraphNode() {
+	  // TODO(jlewi): We should probably add a constructor which takes
+	  // GraphNodeData as an argument so that we don't waste time
+	  // initializing an empty object.
 		data = new GraphNodeData();
 		derived_data = new DerivedData(data);
 		// Initialize any member variables so that if we serialize it we don't 
@@ -252,6 +253,11 @@ public class GraphNode {
 		data.setR5Tags(new ArrayList<R5Tag>());
 		data.setNeighbors(new ArrayList<NeighborData>());
 		data.setNodeId("");
+		
+		GraphNodeKMerTag tag = new GraphNodeKMerTag();
+		tag.setReadTag("");
+		tag.setChunk(0);
+		data.setMertag(tag);		
 	}
 
 	/**

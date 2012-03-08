@@ -63,8 +63,9 @@
                ]       
     },
     {"name": "GraphNodeKMerTag",
+     "namespace": "contrail.graph",
      "type": "record",
-     "doc": "Represent a tag assigned to nodes in the graph.",
+     "doc": "Represent a tag assigned to nodes in the graph.",          
      "fields": [
             {"name": "read_tag", "type":"string",
              "doc": "Tag for the read we came from."
@@ -140,16 +141,16 @@
      "type": "record",
      "doc": "Represent a node in the DeBruijn Graph.",
      "fields": [ 
-     		     // TODO(jlewi): Remove this field. We set it to the smallest
-     		     // tag lexicographically of all tags and I think we just
-     		     // use it for quick merge; so we can compute it
-     		     // on the fly and not store it for all nodes.
-                 //{"name": "mertag", "type":"contrail.GraphNodeKMerTag",
-                 // "doc": "A tag for this node"
-                 //},
+     		     {"name": "mertag", "type":"contrail.graph.GraphNodeKMerTag",
+                  "doc": ["A tag for the node based on the read the node ",
+                          "the sequence came from and the chunk within the ",
+                          "this field is primarily used by QuickMerge as a ",
+                          "heuristic for guessing which nodes form chains."]
+                 },
                  {"name": "node_id", 
                   "type": "string",
-                  "doc": "An id for this node. This must be consistent with the id used in destination nodes."
+                  "doc": ["An id for this node. This must be consistent with ",
+                          "the id used in destination nodes."]
                  },
                  {"name": "coverage", "type": "float",
                   "doc": ["Coverage is a float because when merging nodes it ",
@@ -160,14 +161,19 @@
                  // because it won't always be length K.
                  {"name": "canonical_source_kmer", 
                   "type":"contrail.sequences.CompressedSequence", 
-                  "doc": "Sequence of bytes representing the compressed, canonical sequence corresponding to the source."
+                  "doc": ["Sequence of bytes representing the compressed ", 
+                          "canonical sequence corresponding to the source."]
                  },
                  {"name": "neighbors", 
-                  "type": {"type": "array", "items":"contrail.graph.NeighborData"},
+                  "type": {"type": "array", 
+                           "items":"contrail.graph.NeighborData"},
                   "doc": "An array of this node's neighbors."
                  },
                  {"name": "r5_tags", 
-                  "type": {"type": "array", "items": "R5Tag"}
+                  "type": {"type": "array", "items": "R5Tag",
+                           "doc": ["The list of R5Tags keeps track of how the ",
+                                   "reads align to this sequence."]
+                          }
                  }
                ]
     },    

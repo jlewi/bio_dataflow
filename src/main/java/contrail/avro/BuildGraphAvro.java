@@ -91,6 +91,7 @@ public class BuildGraphAvro extends Stage
     default_options.put("MAXTHREADREADS", new Long(250));
     default_options.put("RECORD_ALL_THREADS", new Long(0));
   }
+  
   /**
    * Get the options required by this stage.
    */

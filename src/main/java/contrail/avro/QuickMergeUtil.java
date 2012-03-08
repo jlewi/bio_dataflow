@@ -1,3 +1,4 @@
+// Author: Jeremy Lewi(jeremy@lewi.us)
 package contrail.avro;
 
 import java.util.HashSet;
@@ -19,7 +20,6 @@ import contrail.sequences.StrandsUtil;
 /**
  * Some utilities for the QuickMergeStage.
  * @author jlewi
- *
  */
 public class QuickMergeUtil {
 
