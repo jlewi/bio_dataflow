@@ -54,18 +54,41 @@ public class QuickMergeUtil {
   
   /* Return true if this node can be merged.
    * 
-   * Suppose we have the chain x-> node.
-   * We can only merge node into x if all nodes with 
-   * edges  y->node are in memory so that we can update the outgoing edges
+   * Suppose we have the chain x-> z.
+   * We can only merge z into x if all nodes with 
+   * edges  y->RC(z) are in memory so that we can update the outgoing edges
    * from y with the new id. 
    * @param nodes: Hashtable of the nodes in memory.
    * @param terminal: The terminal for the edge x->node
    */
-  protected static boolean nodeIsMergeable(
+//  protected static boolean nodeIsMergeable(
+//      Map<String, GraphNode> nodes, EdgeTerminal terminal) {
+//  
+//    // We want to find incoming edges
+//    // y->RC(strand)
+//    DNAStrand incoming_strand = DNAStrandUtil.flip(terminal.strand);
+//    GraphNode node = nodes.get(terminal.nodeId);
+//    List<EdgeTerminal> incoming_terminals = 
+//      node.getEdgeTerminals(incoming_strand, EdgeDirection.INCOMING);
+//    
+//    for (EdgeTerminal incoming_terminal: incoming_terminals) {
+//      if (!nodes.containsKey(incoming_terminal.nodeId)) {
+//        return false;
+//      }
+//    }
+//    return true;
+//  }
+    
+  /**
+   * Returns true if the incoming edges to terminal are in memory.
+   * 
+   * @param nodes: Hashtable of the nodes in memory.
+   * @param terminal: The terminal for the edge x->node.
+   * @return
+   */
+  protected static boolean checkIncomingEdgesAreInMemory(
       Map<String, GraphNode> nodes, EdgeTerminal terminal) {
-  
-    // We want to find incoming edges
-    // y->RC(strand)
+    // We want to find incoming edges.
     DNAStrand incoming_strand = DNAStrandUtil.flip(terminal.strand);
     GraphNode node = nodes.get(terminal.nodeId);
     List<EdgeTerminal> incoming_terminals = 
@@ -76,9 +99,8 @@ public class QuickMergeUtil {
         return false;
       }
     }
-    return true;
+    return true;  
   }
-    
   /**
    * Find a chain of nodes which can be merged
    * @param nodes_in_memory

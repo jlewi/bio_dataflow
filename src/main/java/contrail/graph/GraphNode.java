@@ -259,6 +259,14 @@ public class GraphNode {
 		tag.setChunk(0);
 		data.setMertag(tag);		
 	}
+	
+  /**
+   * Construct a new node with a reference to the passed in data.
+   */
+  public GraphNode(GraphNodeData graph_data) {
+    data = graph_data;
+    derived_data = new DerivedData(data);  
+  }
 
 	/**
 	 * Add information about a destination KMer which came from the start of a read.
@@ -588,10 +596,22 @@ public class GraphNode {
 	}
 
 	/**
-	 * This is mostly intended for displaying in a debugger.
+	 * This is mostly intended for displaying in a debugger. The representation
+	 * is likely to change
 	 */
 	public String toString() {
-		return data.toString();
+	    String represent = "Sequence:" + this.getCanonicalSequence().toString();
+	    represent += " F_EDGES: ";
+	    for (EdgeTerminal edge: 
+	      this.getEdgeTerminals(DNAStrand.FORWARD, EdgeDirection.OUTGOING)) {
+	      represent += edge.toString() + ",";
+	    }
+	    represent += " R_EDGES: ";
+	    for (EdgeTerminal edge: 
+        this.getEdgeTerminals(DNAStrand.REVERSE, EdgeDirection.OUTGOING)) {
+        represent += edge.toString() + ",";
+      }
+	    return represent;
 	}
 
 	/**
@@ -747,5 +767,5 @@ public class GraphNode {
       }    
     }
     return false;
-  }
+  } 
 }
