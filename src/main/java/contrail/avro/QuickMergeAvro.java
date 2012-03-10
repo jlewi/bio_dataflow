@@ -249,7 +249,13 @@ public class QuickMergeAvro extends Stage
 			  
 			  // Remove all the merged nodes from the list of ids to process.
 			  nodes_to_process.removeAll(merge_result.merged_nodeids);
-			  
+
+	      // We should remove the first terminal even if it wasn't merged
+        // because nothing can be done with it.
+        if (!nodes_to_merge.include_first_terminal) {
+          nodes_to_process.remove(nodes_to_merge.start_terminal.nodeId);
+        }
+        
 			  // We should remove the last terminal even if it wasn't merged
 			  // because nothing can be done with it.
 			  if (!nodes_to_merge.include_final_terminal) {
