@@ -156,18 +156,24 @@ public class TestQuickMergeAvro {
       forward_edges.add(new EdgeTerminal("AGC", DNAStrand.FORWARD));
       forward_edges.add(new EdgeTerminal("GCC", DNAStrand.FORWARD));
       expected_forward.put("CGC", forward_edges);
+      
+      expected_reverse.put("CGC", new ArrayList<EdgeTerminal>());
     }
     
     {
       List<EdgeTerminal> reverse_edges = new ArrayList<EdgeTerminal>();
       reverse_edges.add(new EdgeTerminal("CGC", DNAStrand.REVERSE));
       expected_reverse.put("AGC", reverse_edges);
+      
+      expected_forward.put("AGC", new ArrayList<EdgeTerminal>());
     }
     
     {
       List<EdgeTerminal> reverse_edges = new ArrayList<EdgeTerminal>();
       reverse_edges.add(new EdgeTerminal("CGC", DNAStrand.REVERSE));
       expected_reverse.put("GCC", reverse_edges);
+      
+      expected_forward.put("GCC", new ArrayList<EdgeTerminal>());
     }
     
     // Check the sequences.

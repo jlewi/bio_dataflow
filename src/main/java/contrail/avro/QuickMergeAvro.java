@@ -241,26 +241,14 @@ public class QuickMergeAvro extends Stage
 			  }
 			  
 			  // Merge the nodes.
-			  QuickMergeUtil.MergeResult merge_result = 
+			  QuickMergeUtil.ChainMergeResult merge_result = 
 			      QuickMergeUtil.mergeLinearChain(nodes, nodes_to_merge, K - 1);
 			  
 			  num_compressed_chains += 1;
 			  num_nodes_in_compressed_chains += merge_result.merged_nodeids.size();
 			  
 			  // Remove all the merged nodes from the list of ids to process.
-			  nodes_to_process.removeAll(merge_result.merged_nodeids);
-
-	      // We should remove the first terminal even if it wasn't merged
-        // because nothing can be done with it.
-        if (!nodes_to_merge.include_first_terminal) {
-          nodes_to_process.remove(nodes_to_merge.start_terminal.nodeId);
-        }
-        
-			  // We should remove the last terminal even if it wasn't merged
-			  // because nothing can be done with it.
-			  if (!nodes_to_merge.include_final_terminal) {
-			    nodes_to_process.remove(nodes_to_merge.end_terminal.nodeId);
-			  }
+			  nodes_to_process.removeAll(nodes_to_merge.nodeids_visited);
 			  
 			  // Remove the merged nodes from nodes because these should not
 			  // be outputted.

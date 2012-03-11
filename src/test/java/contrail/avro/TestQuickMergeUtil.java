@@ -426,6 +426,37 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
   }
   
   @Test
+  public void testMergeLinearChainCases() {
+    // Some special cases.
+    {
+      final int K = 3;
+      SimpleGraphBuilder graph = new SimpleGraphBuilder();
+      graph.addKMersForString("CGCA", K);
+      graph.addEdge("ACG", "CGC", K - 1);
+      graph.addEdge("TCG", "CGC", K - 1);
+      graph.addEdge("GCA", "CAC", K - 1);
+      graph.addEdge("GCA", "CAA", K - 1);
+      
+      // Consider a short chain, i.e no interior nodes.
+      QuickMergeUtil.NodesToMerge merge_info = 
+          QuickMergeUtil.findNodesToMerge(
+               graph.getAllNodes(), graph.getNode("CGC"));
+      QuickMergeUtil.ChainMergeResult result = QuickMergeUtil.mergeLinearChain(
+          graph.getAllNodes(), merge_info, K - 1);
+      
+      assertEquals(
+          "CGCA", 
+          result.merged_node.getCanonicalSequence().toString());
+      
+      HashSet<String> expected_visited = new HashSet<String>();
+      expected_visited.add("CGC");
+      expected_visited.add("GCA");
+      assertEquals(expected_visited, merge_info.nodeids_visited);
+      assertEquals(expected_visited, result.merged_nodeids);
+    }
+  }
+  
+  @Test
   public void testMergeRepeated() {
     // Consider the special case where we have a chain in which 
     // some sequence and its reverse complement appears.
