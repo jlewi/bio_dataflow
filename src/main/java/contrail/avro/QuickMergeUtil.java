@@ -40,10 +40,10 @@ public class QuickMergeUtil {
     /**
      * Whether the final terminal can be included in the merge.
      */
-    public Boolean include_final_terminal;
+   // public Boolean include_final_terminal;
     
     // Whether the first terminal can be included in the merge.
-    public Boolean include_first_terminal;
+    //public Boolean include_first_terminal;
     
     // If start_terminal and end_terminal are non null
     // this be a list of nodes [start, end] (inclusive).
@@ -92,10 +92,9 @@ public class QuickMergeUtil {
   protected static boolean checkIncomingEdgesAreInMemory(
       Map<String, GraphNode> nodes, EdgeTerminal terminal) {
     // We want to find incoming edges.
-    DNAStrand incoming_strand = DNAStrandUtil.flip(terminal.strand);
     GraphNode node = nodes.get(terminal.nodeId);
     List<EdgeTerminal> incoming_terminals = 
-      node.getEdgeTerminals(incoming_strand, EdgeDirection.INCOMING);
+      node.getEdgeTerminals(terminal.strand, EdgeDirection.INCOMING);
     
     for (EdgeTerminal incoming_terminal: incoming_terminals) {
       if (!nodes.containsKey(incoming_terminal.nodeId)) {
@@ -104,11 +103,20 @@ public class QuickMergeUtil {
     }
     return true;  
   }
+  
   /**
-   * Find a chain of nodes which can be merged
+   * Find a chain of nodes which can be merged.
+   * 
    * @param nodes_in_memory
    * @param start_node
-   * @return: Instance of NodesToMerge or null if no nodes can be merged.
+   * @return: Instance of NodesToMerge.
+   * 
+   * NodesToMerge.nodeids_visited is a list of all nodes visited, if any of
+   * these nodes can be merged then they will be included in the chain between
+   * start_terminal and end_terminal. Thus, we can eliminate these nodes
+   * from further consideration when looking for chains. 
+   * 
+   * NodesToMerge.include_first_terminal
    */
   public static NodesToMerge findNodesToMerge(
       Map<String, GraphNode> nodes_in_memory, GraphNode start_node) {
@@ -123,8 +131,8 @@ public class QuickMergeUtil {
     result.hit_cycle = false;
     result.nodeids_visited = new HashSet<String> ();
     result.nodeids_visited.add(start_node.getNodeId());
-    result.include_first_terminal = false;
-    result.include_final_terminal = false;
+    //result.include_first_terminal = false;
+    //result.include_final_terminal = false;
     
     {
       // Starting at node follow the incoming edges for the forward strand.
@@ -158,8 +166,8 @@ public class QuickMergeUtil {
           // Since its a cycle, we can include both the start
           // and end terminals. The cycle gets encoded just by adding edges
           // to itself to the node.
-          result.include_first_terminal = true;
-          result.include_final_terminal = true;
+          //result.include_first_terminal = true;
+          //result.include_final_terminal = true;
           return result;
         }
       } else {
@@ -177,20 +185,62 @@ public class QuickMergeUtil {
         nodes_in_memory, start_node,  head_terminal.strand, 
         EdgeDirection.OUTGOING);
     
-    if (full_tail != null) {
-      result.start_terminal = head_terminal;
-      result.end_terminal = full_tail.terminal;
-      result.nodeids_visited.addAll(full_tail.nodes_in_tail);
-      
-      // We can only include the first terminal if all its incoming
-      // edges are in memory.
-      result.include_first_terminal = checkIncomingEdgesAreInMemory(
-          nodes_in_memory, result.start_terminal);
-      result.include_final_terminal = checkIncomingEdgesAreInMemory(
-          nodes_in_memory, result.end_terminal.flip());
+    if (full_tail == null) {
+      // No chain to merge.
+      return result;
     }
     
+    result.nodeids_visited.addAll(full_tail.nodes_in_tail);
+    // We need to do some additional processing to determine
+    // the actual ends of the chains. 
+    // Suppose we have x1->x2,...,->xn
+    // We can include the ends x1, xn in this chain if the edges
+    // y->x1 and z-> RC(xn) are in memory so they can be moved.
+    boolean can_move_edges_to_start = 
+        checkIncomingEdgesAreInMemory(nodes_in_memory, head_terminal);
+     
+    boolean can_move_edges_to_end =
+        checkIncomingEdgesAreInMemory(
+            nodes_in_memory, full_tail.terminal.flip()); 
+            
+    // Consider the special case where there are no internal nodes
+    if (full_tail.dist == 0) {
+      // In this special case we can only do the merge if we can move the
+      // edges to the nodes.
+      // TODO(jlew): In certain special cases we can do the merge even
+      // if the edges y->x1 or z->RC(x2) aren't in memory.
+      // Suppose y isn't in memory but Id(x1) = Id(Merged(x1,x2)) and
+      // Strand(x1) = Strand(Merged(x1,x2)). Then the terminal for y->x1
+      // won't change so we don't have to move the edge y->x1 so the merge
+      // could still proceed.
+      if (!can_move_edges_to_start || !can_move_edges_to_end) {
+        return result;
+      }
+      
+      result.start_terminal = head_terminal;
+      result.end_terminal = full_tail.terminal;
+      return result;
+    }
     
+    if (can_move_edges_to_start) {
+      result.start_terminal = head_terminal;
+    } else {
+      // Not all edge y->x1 are in memory so we have to start the merge
+      // at x2.
+      GraphNode node = nodes_in_memory.get(head_terminal.nodeId);
+      TailData tail = node.getTail(
+          head_terminal.strand, EdgeDirection.OUTGOING);
+      result.start_terminal = tail.terminal;
+    }
+    
+    if (can_move_edges_to_end) {
+     result.end_terminal = full_tail.terminal;
+    } else {
+      GraphNode node = nodes_in_memory.get(full_tail.terminal.nodeId);
+      TailData tail = node.getTail(
+          full_tail.terminal.strand, EdgeDirection.INCOMING);
+      result.end_terminal = tail.terminal;
+    }
     return result;
   }
   
@@ -239,54 +289,54 @@ public class QuickMergeUtil {
    * @param overlap
    * @return
    */
-  protected static ChainMergeResult mergeChainNoInterior(
-      Map<String, GraphNode> nodes, NodesToMerge nodes_to_merge, int overlap) {
-    // This function should only be called from mergeLinearChain.
-    // Furthermore, we assume this function is only invoked 
-    // if its already been checked that we have no interior nodes.
-    ChainMergeResult result = new ChainMergeResult();
-    result.merged_nodeids = new HashSet<String>();
-    
-    if (nodes_to_merge.hit_cycle) {
-      GraphNode src_node = nodes.get(nodes_to_merge.start_terminal.nodeId);
-      GraphNode dest_node = nodes.get(nodes_to_merge.end_terminal.nodeId);
-      
-      StrandsForEdge strands = StrandsUtil.form(
-          nodes_to_merge.start_terminal.strand, 
-          nodes_to_merge.end_terminal.strand);
-      
-      NodeMerger.MergeResult merge_result = NodeMerger.mergeNodes(
-          src_node, dest_node, strands, overlap);
-      
-      GraphNode merged_node = merge_result.node;
-      
-      // We are merging a perfect cycle. 
-      // e.g ATC->TCG->CGC->GCA->CAT
-      // So the merged sequence is ATCGCAT
-      // and has incoming/outgoing edges to itself. So we need to move
-      // the incoming edge to ATC. E.g CAT->ATC needs to become
-      // ATCGCAT -> ATCGCAT
-      // CAT->ATC implies RC(ATC)->RC(CAT)
-      // So we need to move the    
-      EdgeTerminal end_terminal = nodes_to_merge.end_terminal;
-      DNAStrand strand = DNAStrandUtil.flip(merge_result.strand);
-      EdgeTerminal old_terminal = end_terminal.flip();        
-      EdgeTerminal new_terminal = new EdgeTerminal(
-          merged_node.getNodeId(), strand);
-      //moveOutgoingEdges(nodes, old_terminal, new_terminal);    
-      //GraphNode source_node = nodes.get(source.nodeId);
-      merged_node.moveOutgoingEdge(
-          strand, old_terminal, new_terminal);
-      
-      result.merged_node = merged_node;
-      result.merged_nodeids.add(src_node.getNodeId());
-      result.merged_nodeids.add(dest_node.getNodeId());
-      return result;
-    }
-    
-
-    return result;
-  }
+//  protected static ChainMergeResult mergeChainNoInterior(
+//      Map<String, GraphNode> nodes, NodesToMerge nodes_to_merge, int overlap) {
+//    // This function should only be called from mergeLinearChain.
+//    // Furthermore, we assume this function is only invoked 
+//    // if its already been checked that we have no interior nodes.
+//    ChainMergeResult result = new ChainMergeResult();
+//    result.merged_nodeids = new HashSet<String>();
+//    
+//    if (nodes_to_merge.hit_cycle) {
+//      GraphNode src_node = nodes.get(nodes_to_merge.start_terminal.nodeId);
+//      GraphNode dest_node = nodes.get(nodes_to_merge.end_terminal.nodeId);
+//      
+//      StrandsForEdge strands = StrandsUtil.form(
+//          nodes_to_merge.start_terminal.strand, 
+//          nodes_to_merge.end_terminal.strand);
+//      
+//      NodeMerger.MergeResult merge_result = NodeMerger.mergeNodes(
+//          src_node, dest_node, strands, overlap);
+//      
+//      GraphNode merged_node = merge_result.node;
+//      
+//      // We are merging a perfect cycle. 
+//      // e.g ATC->TCG->CGC->GCA->CAT
+//      // So the merged sequence is ATCGCAT
+//      // and has incoming/outgoing edges to itself. So we need to move
+//      // the incoming edge to ATC. E.g CAT->ATC needs to become
+//      // ATCGCAT -> ATCGCAT
+//      // CAT->ATC implies RC(ATC)->RC(CAT)
+//      // So we need to move the    
+//      EdgeTerminal end_terminal = nodes_to_merge.end_terminal;
+//      DNAStrand strand = DNAStrandUtil.flip(merge_result.strand);
+//      EdgeTerminal old_terminal = end_terminal.flip();        
+//      EdgeTerminal new_terminal = new EdgeTerminal(
+//          merged_node.getNodeId(), strand);
+//      //moveOutgoingEdges(nodes, old_terminal, new_terminal);    
+//      //GraphNode source_node = nodes.get(source.nodeId);
+//      merged_node.moveOutgoingEdge(
+//          strand, old_terminal, new_terminal);
+//      
+//      result.merged_node = merged_node;
+//      result.merged_nodeids.add(src_node.getNodeId());
+//      result.merged_nodeids.add(dest_node.getNodeId());
+//      return result;
+//    }
+//    
+//
+//    return result;
+//  }
   
   /**
    * Merge together a set of nodes forming a chain.
@@ -303,8 +353,9 @@ public class QuickMergeUtil {
           "Currently we only support merging along the outgoing edges");
     }
     
-    ChainMergeResult result;
-
+    
+    ChainMergeResult result = new ChainMergeResult();
+    result.merged_nodeids = new HashSet<String>();
 
     //*********************************************************************
     // ToDO(jlewi): Comment below is inaccurate clean it up.
@@ -346,190 +397,63 @@ public class QuickMergeUtil {
     // will no longer be valid. However, we know there can be no such
     // edges because An edge  x -> RC(h) implies h -> RC(x)
     // so if RC(x) isn't one of the nodes in memory then h has outdegree
-    // 2 so its not part of the chain.    
-    GraphNode merged_node;
-    String merged_id;
-    DNAStrand merged_strand;
+    // 2 so its not part of the chain.        
     
-    {
-      // Merge the interior nodes.
-      GraphNode start_node = 
-          nodes.get(nodes_to_merge.start_terminal.nodeId);
-      TailData start_tail = start_node.getTail(
-          nodes_to_merge.start_terminal.strand, EdgeDirection.OUTGOING);
-      
-      if (start_tail.terminal.equals(nodes_to_merge.end_terminal)) {
-        // There aren't any interior nodes.
-        return mergeChainNoInterior(nodes, nodes_to_merge, overlap);
-      }
-      
-      // Initialize here because we don't want to initialize if 
-      // we have the special case mergeChainNoInterior.
-      result = new ChainMergeResult();
-      result.merged_nodeids = new HashSet<String>();
-      
-      GraphNode end_node = 
-          nodes.get(nodes_to_merge.end_terminal.nodeId);
-      TailData end_tail = end_node.getTail(
-          nodes_to_merge.end_terminal.strand, EdgeDirection.INCOMING);
-      
-      EdgeTerminal internal_start = start_tail.terminal;
-      EdgeTerminal internal_end = end_tail.terminal;
-      // Merge the internal nodes.
-      merged_node = nodes.get(internal_start.nodeId);
-      merged_id = internal_start.nodeId;
-      merged_strand = internal_start.strand;
-      
-      LinearChainWalker walker = new LinearChainWalker(
-          nodes, internal_start, EdgeDirection.OUTGOING);
-      
-      result.merged_nodeids.add(internal_start.nodeId);
-      while (walker.hasNext()) {
-        // The last node in the chain requires special treatment
-        // because nodes with edges to that node may not be in memory.
-        EdgeTerminal merge_terminal = walker.next();
-        
-        GraphNode dest = nodes.get(merge_terminal.nodeId);
-        result.merged_nodeids.add(merge_terminal.nodeId);
-              
-        StrandsForEdge strands = 
-            StrandsUtil.form(merged_strand, merge_terminal.strand);
-        
-        // Coverage length is how many KMers overlapping by K-1 bases
-        // span the sequence.
-        int src_coverage_length = 
-            merged_node.getCanonicalSequence().size() - 
-            (int) ContrailConfig.K + 1;
-        int dest_coverage_length = 
-            dest.getCanonicalSequence().size() - 
-            (int) ContrailConfig.K + 1;
-        
-        NodeMerger.MergeResult merge_result = NodeMerger.mergeNodes(
-            merged_node, dest, strands, overlap,
-            src_coverage_length, dest_coverage_length);
-        
-        merged_node = merge_result.node;
-        merged_node.getData().setNodeId(merged_id);
-        
-        // Which strand corresponds to the merged strand.
-        merged_strand = merge_result.strand;
-        
-        if (merge_terminal.equals(internal_end)) {
-          // This is the last internal node so break out.
-          break;
-        }
-      }
-    }
-    
-    boolean merged_first = false;
-    boolean merged_last = false;
-    
-    // Whether we need to move the edges to the start and
-    // end nodes. We can't move the edges until we finalize merged
-    // id.
-    boolean move_edges_to_start = false;
-    boolean move_edges_to_rc_end = false;
-    
-    // Check if either the first or end terminals has all edges in
-    // memory and if so then they can be merged.
-    if (checkIncomingEdgesAreInMemory(nodes, nodes_to_merge.start_terminal)) {
-      // All edges are in memory so do the move.
-      merged_first = true;
-      
-      EdgeTerminal merge_terminal = nodes_to_merge.start_terminal;
-      GraphNode first_node = nodes.get(merge_terminal.nodeId);      
-      result.merged_nodeids.add(first_node.getNodeId());
-            
-      StrandsForEdge strands = 
-          StrandsUtil.form(merge_terminal.strand, merged_strand);
-      
-      // Coverage length is how many KMers overlapping by K-1 bases
-      // span the sequence.
-      int src_coverage_length = 
-          first_node.getCanonicalSequence().size() - 
-          (int) ContrailConfig.K + 1;
-      int dest_coverage_length = 
-          merged_node.getCanonicalSequence().size() - 
-          (int) ContrailConfig.K + 1;
-      
-      NodeMerger.MergeResult merge_result = NodeMerger.mergeNodes(
-          first_node, merged_node, strands, overlap,
-          src_coverage_length, dest_coverage_length);
-      
-      merged_node = merge_result.node;
-      
-      // Which strand corresponds to the merged strand.
-      merged_strand = merge_result.strand;
-      merged_first = true;
-      
-      merged_id = merge_terminal.nodeId;
-      // Mark the edges for moving.
-      move_edges_to_start = true;
-    }
+ 
 
-    if (checkIncomingEdgesAreInMemory(
-        nodes, nodes_to_merge.end_terminal.flip())) {
-      // All edges are in memory so do the move.
-      merged_last = true;
+    // Initialize the merged_node to the node we start at.
+    GraphNode merged_node = nodes.get(nodes_to_merge.start_terminal.nodeId);
+    String merged_id = nodes_to_merge.start_terminal.nodeId;
+    DNAStrand merged_strand = nodes_to_merge.start_terminal.strand;
+
+    
+
       
-      EdgeTerminal merge_terminal = nodes_to_merge.end_terminal;
-      GraphNode last_node = nodes.get(merge_terminal.nodeId);      
-      result.merged_nodeids.add(last_node.getNodeId());
+//      GraphNode end_node = 
+//          nodes.get(nodes_to_merge.end_terminal.nodeId);
+//      TailData end_tail = end_node.getTail(
+//          nodes_to_merge.end_terminal.strand, EdgeDirection.INCOMING);
+//      
+//      EdgeTerminal internal_start = start_tail.terminal;
+//      EdgeTerminal internal_end = end_tail.terminal;
+//      // Merge the internal nodes.
+//      merged_node = nodes.get(internal_start.nodeId);
+//      merged_id = internal_start.nodeId;
+//      merged_strand = internal_start.strand;
+      
+    LinearChainWalker walker = new LinearChainWalker(
+        nodes, nodes_to_merge.start_terminal, EdgeDirection.OUTGOING);
+    
+    result.merged_nodeids.add(nodes_to_merge.start_terminal.nodeId);
+    while (walker.hasNext()) {
+      EdgeTerminal merge_terminal = walker.next();
+      
+      GraphNode dest = nodes.get(merge_terminal.nodeId);
+      result.merged_nodeids.add(merge_terminal.nodeId);
             
       StrandsForEdge strands = 
           StrandsUtil.form(merged_strand, merge_terminal.strand);
-      
-      // Coverage length is how many KMers overlapping by K-1 bases
-      // span the sequence.
-      int src_coverage_length = 
-          merged_node.getCanonicalSequence().size() - 
-          (int) ContrailConfig.K + 1;
-      int dest_coverage_length = 
-          last_node.getCanonicalSequence().size() - 
-          (int) ContrailConfig.K + 1;
-      
+              
       NodeMerger.MergeResult merge_result = NodeMerger.mergeNodes(
-          merged_node, last_node, strands, overlap,
-          src_coverage_length, dest_coverage_length);
+          merged_node, dest, strands, overlap);
       
       merged_node = merge_result.node;
+      merged_node.getData().setNodeId(merged_id);
       
       // Which strand corresponds to the merged strand.
       merged_strand = merge_result.strand;
-      merged_last = true;
       
-      // Mark the edges for moving.
-      move_edges_to_rc_end = true;  
+      if (merge_terminal.equals(nodes_to_merge.end_terminal)) {
+        // This is the last internal node so break out.
+        break;
+      }
     }
-    
-    // If we can't include the first terminal then we need to advance
-    // the chain before starting the merge.
-//    if (nodes_to_merge.include_first_terminal) {
-//      merged_node = nodes.get(start_terminal.nodeId);
-//      merged_id = start_terminal.nodeId;
-//      merged_strand = start_terminal.strand;
-//    } else {
-//      GraphNode node = nodes.get(start_terminal.nodeId);
-//      TailData tail = 
-//          node.getTail(start_terminal.strand, EdgeDirection.OUTGOING);
-//      
-//      merged_node = nodes.get(tail.terminal.nodeId);
-//      merged_id = merged_node.getNodeId();
-//      merged_strand = tail.terminal.strand;  
-//    }
-//    
  
     // The node id should no longer change because we are about
     // to move other edges.
     merged_node.setNodeId(merged_id);
     
     if (nodes_to_merge.hit_cycle) {
-      // Sanity check, we should have included the first and last nodes.
-      if (!merged_first || !merged_last) {
-        throw new RuntimeException(
-            "We have a perfect cycle but the first and last nodes weren't " +
-            "merged");
-      }
       // We are merging a perfect cycle. 
       // e.g ATC->TCG->CGC->GCA->CAT
       // So the merged sequence is ATCGCAT
@@ -553,10 +477,11 @@ public class QuickMergeUtil {
       return result;
     }
     
-    if (move_edges_to_start) {
-      // We need to move incoming edges to the start terminal.
-      EdgeTerminal old_terminal = nodes_to_merge.start_terminal;
-      
+    // We need to move the edges
+    // y -> x1 and z->RC(xn)
+    {
+      // Move the edges y->x1
+      EdgeTerminal old_terminal = nodes_to_merge.start_terminal;      
       EdgeTerminal new_terminal = new EdgeTerminal(
           merged_node.getNodeId(), merged_strand);
       
@@ -565,7 +490,7 @@ public class QuickMergeUtil {
       }
     }
                 
-    if (move_edges_to_rc_end) {      
+    {
       // We need to move edges 
       // z->RC(xn)
       EdgeTerminal old_terminal = nodes_to_merge.end_terminal.flip();

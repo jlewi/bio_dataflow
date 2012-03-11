@@ -1,6 +1,8 @@
 package contrail.graph;
 
+import java.util.Collections;
 import java.util.Hashtable;
+import java.util.Map;
 
 import contrail.sequences.Alphabet;
 import contrail.sequences.DNAAlphabetFactory;
@@ -72,8 +74,13 @@ public class SimpleGraphBuilder {
     return nodes.get(nodeid);
   }
   
-  public Hashtable<String, GraphNode> getAllNodes() {
-    return nodes;
+  /**
+   * Returns an unmodifiable view into the set of nodes owned by
+   * this graph. Note you can still modify the individual nodes in the graph.
+   * @return
+   */
+  public Map<String, GraphNode> getAllNodes() {
+    return Collections.unmodifiableMap(nodes);    
   }
   /**
    * Add an edge.
