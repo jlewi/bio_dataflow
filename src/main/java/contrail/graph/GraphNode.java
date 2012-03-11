@@ -15,6 +15,7 @@ import contrail.sequences.StrandsUtil;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -268,6 +269,72 @@ public class GraphNode {
     derived_data = new DerivedData(data);  
   }
 
+  /**
+   * Make a copy of the object. 
+   */
+  public GraphNode clone() {    
+    // TODO(jlewi): The preferred way to make copies of avro records is 
+    // GraphNodeData data = GraphNodeData.newBuilder(value).build();
+    // Unfortunately, there are two issues with avro that prevent this code
+    // from working and necessitate this work around.
+    // 1. build is decorated with @override but doesn't override any method
+    //    and therefore causes a compile error.
+    // 2. When build copies a ByteBuffer it tries to read all of the bytes
+    //    in the buffer (i.e. capacity) instead of respecting limit.
+    //    this causes an underflow exception.
+    GraphNodeData copy = new GraphNodeData();
+    copy.setNodeId(data.getNodeId());
+    
+    GraphNodeKMerTag mertag_copy = new GraphNodeKMerTag();
+    mertag_copy.setChunk(data.getMertag().getChunk());
+    mertag_copy.setReadTag(data.getMertag().getReadTag().toString());    
+    copy.setMertag(mertag_copy);
+    
+    copy.setCoverage(data.getCoverage());
+    
+    // Make a copy of the sequence
+    CompressedSequence compressed_sequence = new CompressedSequence();
+    compressed_sequence.setDna(ByteBuffer.wrap(Arrays.copyOf(
+        data.getCanonicalSourceKmer().getDna().array(), 
+        data.getCanonicalSourceKmer().getDna().capacity()), 
+        0, data.getCanonicalSourceKmer().getDna().limit()));
+    compressed_sequence.setLength(data.getCanonicalSourceKmer().getLength());
+    
+    copy.setCanonicalSourceKmer(compressed_sequence);
+    
+    copy.setNeighbors(new ArrayList<NeighborData>());
+    
+    for (NeighborData neighbor: data.getNeighbors()) {
+      NeighborData neighbor_copy = new NeighborData();
+      copy.getNeighbors().add(neighbor_copy);
+    
+      neighbor_copy.setNodeId(neighbor.getNodeId());
+      neighbor_copy.setEdges(new ArrayList<EdgeData>());
+      for (EdgeData edge: neighbor.getEdges()) {
+        EdgeData edge_copy = new EdgeData();
+        neighbor_copy.getEdges().add(edge_copy);
+        edge_copy.setStrands(edge.getStrands());
+        edge_copy.setReadTags(new ArrayList<CharSequence>());
+        for (CharSequence tag: edge.getReadTags()) {
+          edge_copy.getReadTags().add(tag.toString());
+        }       
+      }      
+    }
+    
+    // R5 Tags
+    copy.setR5Tags(new ArrayList<R5Tag>());
+    for (R5Tag tag: data.getR5Tags()) {
+      R5Tag tag_copy = new R5Tag();
+      copy.getR5Tags().add(tag_copy);
+      
+      tag_copy.setTag(tag.getTag().toString());
+      tag_copy.setOffset(tag.getOffset());
+      tag_copy.setStrand(tag.getStrand());        
+    }
+    
+    copy.setNodeId(data.getNodeId());    
+    return new GraphNode(copy);
+  }
 	/**
 	 * Add information about a destination KMer which came from the start of a read.
 	 * 
