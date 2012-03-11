@@ -344,4 +344,33 @@ public class NodeMerger {
     result.strand = merge_info.merged_strand;
     return result;
   }
+  
+  /**
+   * Merge two nodes with a coverage length based on the overlap.
+   * @param src: The source node
+   * @param dest: The destination node
+   * @param strands: Which strands the edge from src->dest comes from.
+   * @param overlap: The number of bases that should overlap between
+   *   the two sequences.
+   * @return
+   * @throws RuntimeException if the nodes can't be merged.
+   * 
+   * The coverage lengths for the source and destination are automatically
+   * computed as the number of KMers overlapping by K-1 bases would span
+   * the source and destination sequences. K = overlap +1.
+   */
+  public static MergeResult mergeNodes(
+      GraphNode src, GraphNode dest, StrandsForEdge strands, int overlap) {
+    // Coverage length is how many KMers overlapping by K-1 bases
+    // span the sequence where K = overlap + 1
+    int K = overlap + 1;
+    int src_coverage_length = 
+        src.getCanonicalSequence().size() - K + 1;
+    int dest_coverage_length = 
+        dest.getCanonicalSequence().size() - K + 1;
+    
+      return mergeNodes(
+          src, dest, strands, overlap, src_coverage_length, 
+          dest_coverage_length);
+  }
 }

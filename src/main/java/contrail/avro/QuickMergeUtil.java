@@ -222,7 +222,7 @@ public class QuickMergeUtil {
   /**
    * Data structure for returning the results of merging a chain.
    */
-  public static class MergeResult {
+  public static class ChainMergeResult {
     // List of the nodeids that were merged
     public HashSet<String> merged_nodeids;
     
@@ -239,16 +239,55 @@ public class QuickMergeUtil {
    * @param overlap
    * @return
    */
-  protected static MergeResult mergeChainNoInterior(
+  protected static ChainMergeResult mergeChainNoInterior(
       Map<String, GraphNode> nodes, NodesToMerge nodes_to_merge, int overlap) {
     // This function should only be called from mergeLinearChain.
     // Furthermore, we assume this function is only invoked 
     // if its already been checked that we have no interior nodes.
-    MergeResult result = new MergeResult();
+    ChainMergeResult result = new ChainMergeResult();
     result.merged_nodeids = new HashSet<String>();
     
+    if (nodes_to_merge.hit_cycle) {
+      GraphNode src_node = nodes.get(nodes_to_merge.start_terminal.nodeId);
+      GraphNode dest_node = nodes.get(nodes_to_merge.end_terminal.nodeId);
+      
+      StrandsForEdge strands = StrandsUtil.form(
+          nodes_to_merge.start_terminal.strand, 
+          nodes_to_merge.end_terminal.strand);
+      
+      NodeMerger.MergeResult merge_result = NodeMerger.mergeNodes(
+          src_node, dest_node, strands, overlap);
+      
+      GraphNode merged_node = merge_result.node;
+      
+      // We are merging a perfect cycle. 
+      // e.g ATC->TCG->CGC->GCA->CAT
+      // So the merged sequence is ATCGCAT
+      // and has incoming/outgoing edges to itself. So we need to move
+      // the incoming edge to ATC. E.g CAT->ATC needs to become
+      // ATCGCAT -> ATCGCAT
+      // CAT->ATC implies RC(ATC)->RC(CAT)
+      // So we need to move the    
+      EdgeTerminal end_terminal = nodes_to_merge.end_terminal;
+      DNAStrand strand = DNAStrandUtil.flip(merge_result.strand);
+      EdgeTerminal old_terminal = end_terminal.flip();        
+      EdgeTerminal new_terminal = new EdgeTerminal(
+          merged_node.getNodeId(), strand);
+      //moveOutgoingEdges(nodes, old_terminal, new_terminal);    
+      //GraphNode source_node = nodes.get(source.nodeId);
+      merged_node.moveOutgoingEdge(
+          strand, old_terminal, new_terminal);
+      
+      result.merged_node = merged_node;
+      result.merged_nodeids.add(src_node.getNodeId());
+      result.merged_nodeids.add(dest_node.getNodeId());
+      return result;
+    }
+    
+
     return result;
   }
+  
   /**
    * Merge together a set of nodes forming a chain.
    * @param nodes
@@ -256,7 +295,7 @@ public class QuickMergeUtil {
    * @param overlap
    * @return
    */
-  public static MergeResult mergeLinearChain(
+  public static ChainMergeResult mergeLinearChain(
       Map<String, GraphNode> nodes, NodesToMerge nodes_to_merge, int overlap) {
     
     if (nodes_to_merge.direction != EdgeDirection.OUTGOING) {
@@ -264,8 +303,8 @@ public class QuickMergeUtil {
           "Currently we only support merging along the outgoing edges");
     }
     
-    MergeResult result = new MergeResult();
-    result.merged_nodeids = new HashSet<String> ();
+    ChainMergeResult result;
+
 
     //*********************************************************************
     // ToDO(jlewi): Comment below is inaccurate clean it up.
@@ -324,8 +363,10 @@ public class QuickMergeUtil {
         return mergeChainNoInterior(nodes, nodes_to_merge, overlap);
       }
       
-      result = new MergeResult();
-      merged_nodeids = new HashSet<String>();
+      // Initialize here because we don't want to initialize if 
+      // we have the special case mergeChainNoInterior.
+      result = new ChainMergeResult();
+      result.merged_nodeids = new HashSet<String>();
       
       GraphNode end_node = 
           nodes.get(nodes_to_merge.end_terminal.nodeId);
