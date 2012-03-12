@@ -290,8 +290,9 @@ public class GraphNode {
     //    in the buffer (i.e. capacity) instead of respecting limit.
     //    this causes an underflow exception.
     //
-    //
-    
+    // 3. The Builder API in avro has some inefficiencies.
+    // https://issues.apache.org/jira/browse/AVRO-985
+    // https://issues.apache.org/jira/browse/AVRO-989
     // To work around the issue of the bytebuffer we handle the
     // compressed sequence separately. So we set the field to null
     // during the copy and then reset it.
