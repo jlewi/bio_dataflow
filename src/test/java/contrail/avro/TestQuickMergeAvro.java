@@ -27,7 +27,6 @@ import contrail.sequences.Sequence;
 import contrail.util.ListUtil;
 
 public class TestQuickMergeAvro {
-
   @Test
   public void testMap() {
     int ntrials = 10;
@@ -194,7 +193,6 @@ public class TestQuickMergeAvro {
                   
       assertTrue(ListUtil.listsAreEqual(expected_forward_edges, forward_edges));
       assertTrue(ListUtil.listsAreEqual(expected_reverse_edges, reverse_edges));
-    }
-    
+    }    
   }
 }
