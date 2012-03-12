@@ -290,61 +290,64 @@ public class GraphNode {
     //    this causes an underflow exception.
     //
     // 
-    //GraphNodeData copy = (GraphNodeData) GenericData.get().deepCopy(data.getSchema(), data);
-    //GenericData.Record record = (GenericData.Record) GenericData.get().deepCopy(data.getSchema(), data);     
-    //GraphNodeData
-    //GraphNodeData copy = GraphNodeData.newBuilder(this.data).build();
+    GraphNodeData copy = GraphNodeData.newBuilder(this.data).build();
     
-    GraphNodeData copy = new GraphNodeData();
-    copy.setNodeId(data.getNodeId().toString());
-    
-    GraphNodeKMerTag mertag_copy = new GraphNodeKMerTag();
-    mertag_copy.setChunk(data.getMertag().getChunk());
-    mertag_copy.setReadTag(data.getMertag().getReadTag().toString());    
-    copy.setMertag(mertag_copy);
-    
-    copy.setCoverage(data.getCoverage());
-    
-    // Make a copy of the sequence
-    CompressedSequence compressed_sequence = new CompressedSequence();
-    compressed_sequence.setDna(ByteBuffer.wrap(Arrays.copyOf(
-        data.getCanonicalSourceKmer().getDna().array(), 
-        data.getCanonicalSourceKmer().getDna().capacity()), 
-        0, data.getCanonicalSourceKmer().getDna().limit()));
-    compressed_sequence.setLength(data.getCanonicalSourceKmer().getLength());
-    
-    copy.setCanonicalSourceKmer(compressed_sequence);
-    
-    copy.setNeighbors(new ArrayList<NeighborData>());
-    
-    for (NeighborData neighbor: data.getNeighbors()) {
-      NeighborData neighbor_copy = new NeighborData();
-      copy.getNeighbors().add(neighbor_copy);
-    
-      // We need to convert to a string so we get an immutable reference.
-      neighbor_copy.setNodeId(neighbor.getNodeId().toString());
-      neighbor_copy.setEdges(new ArrayList<EdgeData>());
-      for (EdgeData edge: neighbor.getEdges()) {
-        EdgeData edge_copy = new EdgeData();
-        neighbor_copy.getEdges().add(edge_copy);
-        edge_copy.setStrands(edge.getStrands());
-        edge_copy.setReadTags(new ArrayList<CharSequence>());
-        for (CharSequence tag: edge.getReadTags()) {
-          edge_copy.getReadTags().add(tag.toString());
-        }       
-      }      
-    }
-    
-    // R5 Tags
-    copy.setR5Tags(new ArrayList<R5Tag>());
-    for (R5Tag tag: data.getR5Tags()) {
-      R5Tag tag_copy = new R5Tag();
-      copy.getR5Tags().add(tag_copy);
-      
-      tag_copy.setTag(tag.getTag().toString());
-      tag_copy.setOffset(tag.getOffset());
-      tag_copy.setStrand(tag.getStrand());        
-    }
+    // TODO(jlewi): The implementation below will work if we have to 
+    // support versions of java earlier than 7. The copy code below is 
+    // brittle and maintaining our own copy code is highly error prone. So
+    // it would be better to use built in avro copy functionality. I'm
+    // leaving the commented code in until we resolve this issue.
+//    
+//    GraphNodeData copy = new GraphNodeData();
+//    copy.setNodeId(data.getNodeId().toString());
+//    
+//    GraphNodeKMerTag mertag_copy = new GraphNodeKMerTag();
+//    mertag_copy.setChunk(data.getMertag().getChunk());
+//    mertag_copy.setReadTag(data.getMertag().getReadTag().toString());    
+//    copy.setMertag(mertag_copy);
+//    
+//    copy.setCoverage(data.getCoverage());
+//    
+//    // Make a copy of the sequence
+//    CompressedSequence compressed_sequence = new CompressedSequence();
+//    compressed_sequence.setDna(ByteBuffer.wrap(Arrays.copyOf(
+//        data.getCanonicalSourceKmer().getDna().array(), 
+//        data.getCanonicalSourceKmer().getDna().capacity()), 
+//        0, data.getCanonicalSourceKmer().getDna().limit()));
+//    compressed_sequence.setLength(data.getCanonicalSourceKmer().getLength());
+//    
+//    copy.setCanonicalSourceKmer(compressed_sequence);
+//    
+//    copy.setNeighbors(new ArrayList<NeighborData>());
+//    
+//    for (NeighborData neighbor: data.getNeighbors()) {
+//      NeighborData neighbor_copy = new NeighborData();
+//      copy.getNeighbors().add(neighbor_copy);
+//    
+//      // We need to convert to a string so we get an immutable reference.
+//      neighbor_copy.setNodeId(neighbor.getNodeId().toString());
+//      neighbor_copy.setEdges(new ArrayList<EdgeData>());
+//      for (EdgeData edge: neighbor.getEdges()) {
+//        EdgeData edge_copy = new EdgeData();
+//        neighbor_copy.getEdges().add(edge_copy);
+//        edge_copy.setStrands(edge.getStrands());
+//        edge_copy.setReadTags(new ArrayList<CharSequence>());
+//        for (CharSequence tag: edge.getReadTags()) {
+//          edge_copy.getReadTags().add(tag.toString());
+//        }       
+//      }      
+//    }
+//    
+//    // R5 Tags
+//    copy.setR5Tags(new ArrayList<R5Tag>());
+//    for (R5Tag tag: data.getR5Tags()) {
+//      R5Tag tag_copy = new R5Tag();
+//      copy.getR5Tags().add(tag_copy);
+//      
+//      tag_copy.setTag(tag.getTag().toString());
+//      tag_copy.setOffset(tag.getOffset());
+//      tag_copy.setStrand(tag.getStrand());        
+//    }
     
     return new GraphNode(copy);
   }
