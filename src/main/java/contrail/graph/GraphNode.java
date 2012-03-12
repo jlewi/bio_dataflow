@@ -285,12 +285,31 @@ public class GraphNode {
     // This might be an issue fixed in later versions of java
     // see http://stackoverflow.com/questions/2335655/why-is-javac-failing-on-override-annotation
     // However, version 1.60
+    //
     // 2. When build copies a ByteBuffer it tries to read all of the bytes
     //    in the buffer (i.e. capacity) instead of respecting limit.
     //    this causes an underflow exception.
     //
-    // 
+    //
+    
+    // To work around the issue of the bytebuffer we handle the
+    // compressed sequence separately. So we set the field to null
+    // during the copy and then reset it.
+    CompressedSequence sequence = data.getCanonicalSourceKmer();
+    data.setCanonicalSourceKmer(null);
     GraphNodeData copy = GraphNodeData.newBuilder(this.data).build();
+    this.data.setCanonicalSourceKmer(sequence);
+    
+    
+    CompressedSequence sequence_copy = new CompressedSequence();
+    copy.setCanonicalSourceKmer(sequence_copy);
+    sequence_copy.setLength(sequence.getLength());
+    
+    ByteBuffer source_buffer = sequence.getDna();
+    byte[] buffer = Arrays.copyOf(
+        sequence.getDna().array(), sequence.getDna().array().length);
+    sequence_copy.setDna(ByteBuffer.wrap(
+        buffer, 0, source_buffer.limit()));
     
     // TODO(jlewi): The implementation below will work if we have to 
     // support versions of java earlier than 7. The copy code below is 

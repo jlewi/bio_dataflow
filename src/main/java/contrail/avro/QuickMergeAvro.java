@@ -14,7 +14,6 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericData;
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroMapper;
@@ -35,8 +34,7 @@ import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
-public class QuickMergeAvro extends Stage 
-{	
+public class QuickMergeAvro extends Stage {	
 	private static final Logger sLogger = Logger.getLogger(QuickMergeAvro.class);
 
 	/**
@@ -56,72 +54,41 @@ public class QuickMergeAvro extends Stage
   public static final Schema REDUCE_OUT_SCHEMA = 
       new GraphNodeData().getSchema();
   
-//  protected void initializeDefaultOptions() {
-//    super.initializeDefaultOptions();
-////    default_options.put("TRIM3", new Long(0));
-////    default_options.put("TRIM5", new Long(0));
-////    default_options.put("MAXR5", new Long(250));
-////    default_options.put("MAXTHREADREADS", new Long(250));
-////    default_options.put("RECORD_ALL_THREADS", new Long(0));
-//  }
-  
   /**
    * Get the options required by this stage.
    */
   protected List<Option> getCommandLineOptions() {
     List<Option> options = super.getCommandLineOptions();
-
-//    // Default values.
-//    // hard trim
-//    long TRIM3 = (Long)default_options.get("TRIM3");
-//    long TRIM5 = (Long)default_options.get("TRIM5");
-//    long MAXR5 = (Long)default_options.get("MAXR5");
-//    long MAXTHREADREADS = (Long)default_options.get("MAXTHREADREADS");
-//    long  RECORD_ALL_THREADS = (Long)default_options.get("RECORD_ALL_THREADS");
+    options.addAll(ContrailOptions.getInputOutputPathOptions());
+    
     // Add options specific to this stage.
     options.add(OptionBuilder.withArgName("k").hasArg().withDescription(
         "Graph nodes size [required]").create("k"));
-//    options.add(OptionBuilder.withArgName(
-//        "max reads").hasArg().withDescription(
-//            "max reads starts per node (default: " + MAXR5 +")").create(
-//                "maxr5"));
-//    options.add(OptionBuilder.withArgName("3' bp").hasArg().withDescription(
-//        "Chopped bases (default: " + TRIM3 +")").create("trim3"));
-//    options.add(OptionBuilder.withArgName("5' bp").hasArg().withDescription(
-//        "Chopped bases (default: " + TRIM5 + ")").create("trim5"));
-//    options.add(new Option(
-//        "record_all_threads",  "record threads even on non-branching nodes"));
-
-    options.addAll(ContrailOptions.getInputOutputPathOptions());
+ 
     return options;
   }
   
   
 	public static class QuickMergeMapper extends 
 	  AvroMapper<GraphNodeData, Pair<CharSequence, GraphNodeData>> {
-		private static GraphNode node = new GraphNode();
-
+		
 		private static Pair<CharSequence, GraphNodeData> out_pair = 
 		    new Pair<CharSequence, GraphNodeData>(MAP_OUT_SCHEMA);
 		/**
 		 * Mapper for QuickMerge.
 		 * 
-		 * Input is read an avro file containing the nodes for the graph. 
-		 * 
-		 * For each input, we output the GraphNodeData keyed by the mertag so as to group
-		 * nodes coming from the same read..
-		 * 
+		 * Input is an avro file containing the nodes for the graph. 		 
+		 * For each input, we output the GraphNodeData keyed by the mertag so as to 
+		 * group nodes coming from the same read.
 		 */
 		@Override
 		public void map(GraphNodeData graph_data,
-		    AvroCollector<Pair<CharSequence, GraphNodeData>> output, Reporter reporter)
-						throws IOException {
-		  		  
+		    AvroCollector<Pair<CharSequence, GraphNodeData>> output, 
+		    Reporter reporter) throws IOException {		  		  
 		  // The key is the read tag along with the chunk. 
 		  // We want to group KMers coming from the same read as they are likely
 		  // to form linear chains. We need to use the chunk as well because
-		  // the chunk segments tags based on repeat KMers.
-		  
+		  // the chunk segments tags based on repeat KMers.		  
 		  String mertag = graph_data.getMertag().getReadTag().toString() + "_" +
 		                  graph_data.getMertag().getChunk();
 		  
@@ -155,55 +122,30 @@ public class QuickMergeAvro extends Stage
   	@Override
     public void reduce(CharSequence  mertag, Iterable<GraphNodeData> iterable,
         AvroCollector<GraphNodeData> collector, Reporter reporter)
-            throws IOException
-						{			
-//			int saved    = 0;
-//			int chains   = 0;
-  	    
+            throws IOException {			
 	    // The number of compressed chains.
 	    int num_compressed_chains  = 0;
 	    // Total number of nodes used to form the compressed chains.
 	    int num_nodes_in_compressed_chains = 0;
+	    
 	    // Load the nodes into memory.
 	    Map<String, GraphNode> nodes = new HashMap<String, GraphNode>();
-	    
 	    Iterator<GraphNodeData> iter = iterable.iterator();
 	    
-	    GraphNodeData graphnode_data = new GraphNodeData();
-	    GenericData.Record record = new GenericData.Record(graphnode_data.getSchema());
-	    
-	   // GenericData.Record generic_data = new GenericData();
 			while(iter.hasNext()) {			  
 			  // We need to make a copy of GraphNodeData because iterable
-			  // will reuse the same instance for each instance.
+			  // will reuse the same instance when next is called.
 			  GraphNodeData value = iter.next();
 			  GraphNode node = new GraphNode(value);
 			  node = node.clone();
-			  // TODO(jlewi): Avro seems to have a bug in it whereby 
-			  // when making deep copies of byte buffer's it doesn't respect
-			  // the byte buffer's limit but tries to read all of the bytes.
-			  //value.getCanonicalSourceKmer().dna.limit(value.getCanonicalSourceKmer().dna.capacity());
-			  //GraphNodeData data = GraphNodeData.newBuilder(value).build();
-			  //GraphNodeData data = record.deepCopy();
-			  
-			 // GenericData.
-			  //node.setData(data);			 
 			  nodes.put(node.getNodeId().toString(), node);
-			  
-//			  for (String key: nodes.keySet()) {
-//			    System.out.println("Key:" + key + " nodeId:" + nodes.get(key).getNodeId());
-//			  }
 			}
 			
-			// Create a list of the nodes to process.
-			// We need to make a copy of nodes.keySet otherwise when we remove
-			// an entry from the set we remove it from the hashtable.
+			// Create a list of the nodes to process. We need to make a copy of 
+			// nodes.keySet otherwise when we remove an entry from the set we remove 
+			// it from the hashtable.
 			Set<String> nodes_to_process = new HashSet<String>();
 			nodes_to_process.addAll(nodes.keySet());
-			
-			// DON"T COMMIT THIS IS FOR DEBUGGING
-			boolean debug = true; // Remove this before commiting
-			HashSet<String> processed_nodes = new HashSet<String>();
 			
 			while (nodes_to_process.size() > 0) {
 			  String nodeid = nodes_to_process.iterator().next();
@@ -239,19 +181,13 @@ public class QuickMergeAvro extends Stage
 			  for (String merged_nodeid: merge_result.merged_nodeids){
 			     nodes.remove(merged_nodeid);  
 			  }
-			  
-			  // DON'T COMMIT FOR DEBUGGING
-			  if (debug) {
-			    if (!nodes_to_merge.nodeids_visited.containsAll(merge_result.merged_nodeids)){
-			      throw new RuntimeException("Nodes visited doesn't include all merged nodes");
-			    }
-			  }
+
 			  // Add the newly merged node to the list of nodes.
 			  nodes.put(merge_result.merged_node.getNodeId(), 
 			            merge_result.merged_node);
 			}
 
-  			// Output all the remaining nodes.
+			// Output all the remaining nodes.
 			for(String nodeid : nodes.keySet()) {				
 				collector.collect(nodes.get(nodeid).getData());				
 			}
@@ -266,10 +202,9 @@ public class QuickMergeAvro extends Stage
 
   protected void parseCommandLine(CommandLine line) {
     super.parseCommandLine(line);       
-
     if (line.hasOption("k")) {
       stage_options.put("K", Long.valueOf(line.getOptionValue("k"))); 
-    }    
+    } 
     if (line.hasOption("inputpath")) { 
       stage_options.put("inputpath", line.getOptionValue("inputpath")); 
     }
@@ -278,45 +213,11 @@ public class QuickMergeAvro extends Stage
     }
   }
 
-  public int run(String[] args) throws Exception 
-  {
+  public int run(String[] args) throws Exception {
     sLogger.info("Tool name: QuickMergeAvro");
     parseCommandLine(args);   
     return run();
   }
-
-//	public RunningJob run(String inputPath, String outputPath) throws Exception
-//	{ 
-//	  throw new NotImplementedException();
-//		sLogger.info("Tool name: QuickMerge");
-//		sLogger.info(" - input: "  + inputPath);
-//		sLogger.info(" - output: " + outputPath);
-//
-//		JobConf conf = new JobConf(Stats.class);
-//		conf.setJobName("QuickMerge " + inputPath + " " + ContrailConfig.K);
-//
-//		ContrailConfig.initializeConfiguration(conf);
-//
-//		FileInputFormat.addInputPath(conf, new Path(inputPath));
-//		FileOutputFormat.setOutputPath(conf, new Path(outputPath));
-//
-//		conf.setInputFormat(TextInputFormat.class);
-//		conf.setOutputFormat(TextOutputFormat.class);
-//
-//		conf.setMapOutputKeyClass(Text.class);
-//		conf.setMapOutputValueClass(Text.class);
-//
-//		conf.setOutputKeyClass(Text.class);
-//		conf.setOutputValueClass(Text.class);
-//
-//		conf.setMapperClass(QuickMergeMapper.class);
-//		conf.setReducerClass(QuickMergeReducer.class);
-//
-//		//delete the output directory if it exists already
-//		FileSystem.get(conf).delete(new Path(outputPath), true);
-//
-//		return JobClient.runJob(conf);
-//	}
 
 	@Override
 	protected int run() throws Exception {
@@ -362,44 +263,8 @@ public class QuickMergeAvro extends Stage
     System.out.println("Runtime: " + diff + " s");
     return 0;
 	}
-	
-//	public int run(String[] args) throws Exception 
-//	{
-//
-//		Option kmer = new Option("k","k",true,"k. The length of each kmer to use.");
-//		Option input = new Option("input","input",true,"The directory containing the input (i.e the output of BuildGraph.)");
-//		Option output = new Option("output","output",true,"The directory where the output should be written to.");
-//
-//		Options options = new Options();
-//		options.addOption(kmer);
-//		options.addOption(input);
-//		options.addOption(output);
-//
-//		CommandLineParser parser = new GnuParser();
-//
-//		CommandLine line = parser.parse( options, args );
-//
-//
-//		if (!line.hasOption("input") || !line.hasOption("output") || !line.hasOption("k")){
-//			System.out.println("ERROR: Missing required arguments");
-//			HelpFormatter formatter = new HelpFormatter();
-//			formatter.printHelp( "QuickMerge", options );
-//		}
-//
-//		String inputPath  = line.getOptionValue("input");
-//		String outputPath = line.getOptionValue("output");
-//		ContrailConfig.K = Integer.parseInt(line.getOptionValue("k"));
-//
-//		ContrailConfig.hadoopBasePath = "foo";
-//		ContrailConfig.hadoopReadPath = "foo";
-//
-//		run(inputPath, outputPath);
-//		//TODO: do we need to parse the other options?
-//		return 0;
-//	}
 
-	public static void main(String[] args) throws Exception 
-	{
+	public static void main(String[] args) throws Exception {
 		int res = ToolRunner.run(new Configuration(), new QuickMergeAvro(), args);
 		System.exit(res);
 	}
