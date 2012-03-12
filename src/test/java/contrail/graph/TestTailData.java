@@ -2,19 +2,15 @@ package contrail.graph;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import org.junit.Before;
 import org.junit.Test;
 
-import contrail.avro.QuickMergeUtil;
-import contrail.avro.QuickMergeUtil.NodesToMerge;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAStrandUtil;
 import contrail.sequences.StrandsForEdge;
