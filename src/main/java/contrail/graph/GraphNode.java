@@ -21,8 +21,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 
-import org.apache.avro.generic.GenericData;
-
 /**
  * Wrapper class for accessing modifying the GraphNodeData structure.
  * 
@@ -246,13 +244,10 @@ public class GraphNode {
 	 * Construct a new object with a new GraphNodeData to store the data.
 	 */
 	public GraphNode() {
-	  // TODO(jlewi): We should probably add a constructor which takes
-	  // GraphNodeData as an argument so that we don't waste time
-	  // initializing an empty object.
 		data = new GraphNodeData();
 		derived_data = new DerivedData(data);
-		// Initialize any member variables so that if we serialize it we don't 
-		// get null objects.
+		// Initialize any member variables so that if we serialize this instance of 
+		// GraphNodeData we don't have null members which causes exceptions.
 		data.setR5Tags(new ArrayList<R5Tag>());
 		data.setNeighbors(new ArrayList<NeighborData>());
 		data.setNodeId("");
@@ -277,25 +272,33 @@ public class GraphNode {
   public GraphNode clone() {    
     // TODO(jlewi): The preferred way to make copies of avro records is 
     // GraphNodeData data = GraphNodeData.newBuilder(value).build();
-    // Unfortunately, there are two issues with avro that prevent this code
-    // from working and necessitate this work around.
-    // 1. build is decorated with @override but doesn't override any method
-    //    and therefore causes a runtime error.
+    // Unfortunately, there are a couple issues with avro that prevent this code
+    // from working fully and necessitate some gymnastics.
+    // 1. build is decorated with @override but overrides a method defined in
+    //    an interface and not a class. This appears to be allowed in java 1.7
+    //    but causes the following runtime error in earlier versions:
     // The method build() of type GraphNodeData.Builder must override a superclass method
-    // This might be an issue fixed in later versions of java
     // see http://stackoverflow.com/questions/2335655/why-is-javac-failing-on-override-annotation
-    // However, version 1.60
     //
     // 2. When build copies a ByteBuffer it tries to read all of the bytes
     //    in the buffer (i.e. capacity) instead of respecting limit.
     //    this causes an underflow exception.
     //
-    // 3. The Builder API in avro has some inefficiencies.
-    // https://issues.apache.org/jira/browse/AVRO-985
-    // https://issues.apache.org/jira/browse/AVRO-989
-    // To work around the issue of the bytebuffer we handle the
-    // compressed sequence separately. So we set the field to null
-    // during the copy and then reset it.
+    //    To work around this issue with the bytebuffer we handle the
+    //    compressed sequence separately. So we set the field to null
+    //    during the copy and then reset it and manually copy it.
+    //
+    // 3. The Builder API in avro has some inefficiencies see:
+    //    https://issues.apache.org/jira/browse/AVRO-985
+    //    https://issues.apache.org/jira/browse/AVRO-989
+    //
+    //    We should see whether we are affected by these issues. In several 
+    //    stages, e.g QuickMerge, we will make copies of all nodes so 
+    //    making the copy efficient will be a big win.
+    //
+    // We can work around all these issues by implementing our own copy method.
+    // There is commented out code which is an implementation for our own
+    // custom copy in case we decide to go that route.
     CompressedSequence sequence = data.getCanonicalSourceKmer();
     data.setCanonicalSourceKmer(null);
     GraphNodeData copy = GraphNodeData.newBuilder(this.data).build();
@@ -313,7 +316,7 @@ public class GraphNode {
         buffer, 0, source_buffer.limit()));
     
     // TODO(jlewi): The implementation below will work if we have to 
-    // support versions of java earlier than 7. The copy code below is 
+    // support versions of java earlier than 7. However, the copy code below is 
     // brittle and maintaining our own copy code is highly error prone. So
     // it would be better to use built in avro copy functionality. I'm
     // leaving the commented code in until we resolve this issue.
@@ -699,8 +702,9 @@ public class GraphNode {
 	}
 
 	/**
-	 * This is mostly intended for displaying in a debugger. The representation
-	 * is likely to change
+	 * A partial string representation that is primarily intended for displaying 
+	 * in a debugger. This representation is likely to change and it should
+	 * not be relied upon for any processing.
 	 */
 	public String toString() {
 	    String represent = "Id:" + getNodeId() + " "; 

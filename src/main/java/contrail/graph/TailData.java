@@ -4,7 +4,6 @@ import contrail.sequences.DNAStrand;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * This class is used to represent a tail. We get a tail when 
@@ -32,7 +31,7 @@ public class TailData
 	
 	// Set of all the nodes in the tail; this is an inclusive
 	// list of all nodes from [head, end] where head is the terminal
-	// we start at end is the last terminal
+	// we start the walk at and end is the last terminal in the walk.
 	public HashSet<String> nodes_in_tail;
 	
 	// Whether or not the tail forms a cycle.

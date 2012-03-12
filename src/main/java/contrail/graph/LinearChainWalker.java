@@ -34,7 +34,9 @@ import contrail.sequences.DNAStrand;
  * start_node -> c1 -> c2 -> c3 -> c1-> c2 -> ...
  * The nodes returned will be,
  * c1, c2, c3
- * and hitCycle will return true.
+ * and hitCycle will return true. A cycle means we hit the same strand
+ * of a node that we already visited. If you hit the same node but a different
+ * strand then this is not considered to be a cycle. 
  */
 public class LinearChainWalker implements Iterator<EdgeTerminal> {
 		
@@ -114,7 +116,7 @@ public class LinearChainWalker implements Iterator<EdgeTerminal> {
 					current_terminal.strand, this.walk_direction);
 			if (tail != null) {
 				if (nodes_in_memory.containsKey(tail.terminal.nodeId)) {
-				  // Check if we've already seen this node. If we have then 
+				  // Check if we've already seen this terminal. If we have then 
 				  // we hit a cycle and we stop.
 				  if (seen_terminals.contains(tail.terminal)) {
 				    has_next = false;
@@ -151,7 +153,7 @@ public class LinearChainWalker implements Iterator<EdgeTerminal> {
 	
 	/**
 	 * Returns true if we hit a cycle; i.e we stopped walking because
-	 * we hit a node we already visited.
+	 * we hit a terminal we already visited.
 	 * @return
 	 */
 	public boolean hitCycle() {

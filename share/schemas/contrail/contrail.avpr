@@ -141,16 +141,20 @@
      "type": "record",
      "doc": "Represent a node in the DeBruijn Graph.",
      "fields": [ 
+     			 // TODO(jlewi): Should we continue to store this field
+     			 // after the QuickMerge stage or should we set it to null to
+     			 // save space?
      		     {"name": "mertag", "type":"contrail.graph.GraphNodeKMerTag",
-                  "doc": ["A tag for the node based on the read the node ",
-                          "the sequence came from and the chunk within the ",
-                          "this field is primarily used by QuickMerge as a ",
+                  "doc": ["A tag for the node based on the read the sequence ",
+                          "came from and the chunk within the read.",
+                          "This field is primarily used by QuickMerge as a ",
                           "heuristic for guessing which nodes form chains."]
                  },
                  {"name": "node_id", 
                   "type": "string",
                   "doc": ["An id for this node. This must be consistent with ",
-                          "the id used in destination nodes."]
+                          "the id used in neighbors to specify the terminal ",
+                          "for an edge."]
                  },
                  {"name": "coverage", "type": "float",
                   "doc": ["Coverage is a float because when merging nodes it ",

@@ -6,7 +6,6 @@ import java.util.Map;
 
 import contrail.sequences.Alphabet;
 import contrail.sequences.DNAAlphabetFactory;
-import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
 
@@ -18,7 +17,7 @@ import contrail.sequences.Sequence;
  * by any means.
  */
 public class SimpleGraphBuilder {
-  // TODO(jlewi): Add some testing.
+  // TODO(jlewi): Add some testing for this class.
   private Hashtable<String, GraphNode> nodes;
   private Alphabet alphabet;
   public SimpleGraphBuilder() {
@@ -161,21 +160,7 @@ public class SimpleGraphBuilder {
     
     addEdge(src_terminal, dest_terminal, overlap);
   }
-  
-  /**
-   * Adds an edge  from (src_id, src_strand) -> (dest_id, dest_strand)
-   * and (dest_id, RC(dest_strand)) -> (src_id, RC(src_strand)).
-   * @param src_id
-   * @param src_strand
-   * @param dest_id
-   * @param dest_strand
-   */
-//  public void addEdge(
-//      String src_id, DNAStrand src_strand, String dest_id, 
-//      DNAStrand dest_strand) {
-//    
-//  }
-//  
+   
   /**
    * Divide the string into kmers of length given by k and add the appropriate
    * edges.
