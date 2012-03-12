@@ -643,28 +643,28 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
     }
   }
   
-  @Test
-  public testMergeActualRepeat {
-    // This test case represents an actual example that came up with 
-    // the ba bacteria. The problem is that the chain includes both a node
-    // and its reverse complement.
-    SimpleGraphBuilder graph = new SimpleGraphBuilder();
-    final int K = 23;
-    int overlap = K - 1;
-    
-    String caatt_id = graph.addNode("CAATTTTTAGCGGGAATAGAACA");
-    String atatt_id = graph.addNode("ATATTCAATTTTTAGCGGGAATA");
-    String ctatt_id = graph.addNode("CTATTCCCGCTAAAAATTGAATA");
-    GraphNode caatt_node = graph.getNode(caatt_id);
-    GraphNode atatt_node = graph.getNode(atatt_id);
-    
-    caatt_node.addOutgoingEdge(
-        DNAStrand.FORWARD, new EdgeTerminal(atatt_id, DNAStrand.FORWARD));
-    caatt_node.addOutgoingEdge(
-        DNAStrand.REVERSE, new EdgeTerminal(ctatt_id, DNAStrand.FORWARD));
-    
-    
-    graph.addEdge("CAATTTTTAGCGGGAATAGAACA", "ATATTCAATTTTTAGCGGGAATA" , overlap);
-    
-  }
+//  @Test
+//  public testMergeActualRepeat {
+//    // This test case represents an actual example that came up with 
+//    // the ba bacteria. The problem is that the chain includes both a node
+//    // and its reverse complement.
+//    SimpleGraphBuilder graph = new SimpleGraphBuilder();
+//    final int K = 23;
+//    int overlap = K - 1;
+//    
+//    String caatt_id = graph.addNode("CAATTTTTAGCGGGAATAGAACA");
+//    String atatt_id = graph.addNode("ATATTCAATTTTTAGCGGGAATA");
+//    String ctatt_id = graph.addNode("CTATTCCCGCTAAAAATTGAATA");
+//    GraphNode caatt_node = graph.getNode(caatt_id);
+//    GraphNode atatt_node = graph.getNode(atatt_id);
+//    
+//    caatt_node.addOutgoingEdge(
+//        DNAStrand.FORWARD, new EdgeTerminal(atatt_id, DNAStrand.FORWARD));
+//    caatt_node.addOutgoingEdge(
+//        DNAStrand.REVERSE, new EdgeTerminal(ctatt_id, DNAStrand.FORWARD));
+//    
+//    
+//    graph.addEdge("CAATTTTTAGCGGGAATAGAACA", "ATATTCAATTTTTAGCGGGAATA" , overlap);
+//    
+//  }
 }

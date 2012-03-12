@@ -21,6 +21,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.avro.generic.GenericData;
+
 /**
  * Wrapper class for accessing modifying the GraphNodeData structure.
  * 
@@ -278,10 +280,21 @@ public class GraphNode {
     // Unfortunately, there are two issues with avro that prevent this code
     // from working and necessitate this work around.
     // 1. build is decorated with @override but doesn't override any method
-    //    and therefore causes a compile error.
+    //    and therefore causes a runtime error.
+    // The method build() of type GraphNodeData.Builder must override a superclass method
+    // This might be an issue fixed in later versions of java
+    // see http://stackoverflow.com/questions/2335655/why-is-javac-failing-on-override-annotation
+    // However, version 1.60
     // 2. When build copies a ByteBuffer it tries to read all of the bytes
     //    in the buffer (i.e. capacity) instead of respecting limit.
     //    this causes an underflow exception.
+    //
+    // 
+    //GraphNodeData copy = (GraphNodeData) GenericData.get().deepCopy(data.getSchema(), data);
+    //GenericData.Record record = (GenericData.Record) GenericData.get().deepCopy(data.getSchema(), data);     
+    //GraphNodeData
+    //GraphNodeData copy = GraphNodeData.newBuilder(this.data).build();
+    
     GraphNodeData copy = new GraphNodeData();
     copy.setNodeId(data.getNodeId().toString());
     
@@ -308,7 +321,8 @@ public class GraphNode {
       NeighborData neighbor_copy = new NeighborData();
       copy.getNeighbors().add(neighbor_copy);
     
-      neighbor_copy.setNodeId(neighbor.getNodeId());
+      // We need to convert to a string so we get an immutable reference.
+      neighbor_copy.setNodeId(neighbor.getNodeId().toString());
       neighbor_copy.setEdges(new ArrayList<EdgeData>());
       for (EdgeData edge: neighbor.getEdges()) {
         EdgeData edge_copy = new EdgeData();

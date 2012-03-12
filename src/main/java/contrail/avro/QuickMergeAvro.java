@@ -190,9 +190,9 @@ public class QuickMergeAvro extends Stage
 			  //node.setData(data);			 
 			  nodes.put(node.getNodeId().toString(), node);
 			  
-			  for (String key: nodes.keySet()) {
-			    System.out.println("Key:" + key + " nodeId:" + nodes.get(key).getNodeId());
-			  }
+//			  for (String key: nodes.keySet()) {
+//			    System.out.println("Key:" + key + " nodeId:" + nodes.get(key).getNodeId());
+//			  }
 			}
 			
 			// Create a list of the nodes to process.
