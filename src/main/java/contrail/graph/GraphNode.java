@@ -1,7 +1,5 @@
 package contrail.graph;
 
-import contrail.GraphNodeKMerTag;
-
 import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.TailData;
@@ -17,6 +15,7 @@ import contrail.sequences.StrandsUtil;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -247,11 +246,134 @@ public class GraphNode {
 	public GraphNode() {
 		data = new GraphNodeData();
 		derived_data = new DerivedData(data);
-		// Initialize any member variables so that if we serialzie it we don't 
-		// get null objects.
+		// Initialize any member variables so that if we serialize this instance of 
+		// GraphNodeData we don't have null members which causes exceptions.
 		data.setR5Tags(new ArrayList<R5Tag>());
+		data.setNeighbors(new ArrayList<NeighborData>());
+		data.setNodeId("");
+		
+		GraphNodeKMerTag tag = new GraphNodeKMerTag();
+		tag.setReadTag("");
+		tag.setChunk(0);
+		data.setMertag(tag);		
 	}
+	
+  /**
+   * Construct a new node with a reference to the passed in data.
+   */
+  public GraphNode(GraphNodeData graph_data) {
+    data = graph_data;
+    derived_data = new DerivedData(data);  
+  }
 
+  /**
+   * Make a copy of the object. 
+   */
+  public GraphNode clone() {    
+    // TODO(jlewi): The preferred way to make copies of avro records is 
+    // GraphNodeData data = GraphNodeData.newBuilder(value).build();
+    // Unfortunately, there are a couple issues with avro that prevent this code
+    // from working fully and necessitate some gymnastics.
+    // 1. build is decorated with @override but overrides a method defined in
+    //    an interface and not a class. This appears to be allowed in java 1.7
+    //    but causes the following runtime error in earlier versions:
+    // The method build() of type GraphNodeData.Builder must override a superclass method
+    // see http://stackoverflow.com/questions/2335655/why-is-javac-failing-on-override-annotation
+    //
+    // 2. When build copies a ByteBuffer it tries to read all of the bytes
+    //    in the buffer (i.e. capacity) instead of respecting limit.
+    //    this causes an underflow exception.
+    //
+    //    To work around this issue with the bytebuffer we handle the
+    //    compressed sequence separately. So we set the field to null
+    //    during the copy and then reset it and manually copy it.
+    //
+    // 3. The Builder API in avro has some inefficiencies see:
+    //    https://issues.apache.org/jira/browse/AVRO-985
+    //    https://issues.apache.org/jira/browse/AVRO-989
+    //
+    //    We should see whether we are affected by these issues. In several 
+    //    stages, e.g QuickMerge, we will make copies of all nodes so 
+    //    making the copy efficient will be a big win.
+    //
+    // We can work around all these issues by implementing our own copy method.
+    // There is commented out code which is an implementation for our own
+    // custom copy in case we decide to go that route.
+    CompressedSequence sequence = data.getCanonicalSourceKmer();
+    data.setCanonicalSourceKmer(null);
+    GraphNodeData copy = GraphNodeData.newBuilder(this.data).build();
+    this.data.setCanonicalSourceKmer(sequence);
+    
+    
+    CompressedSequence sequence_copy = new CompressedSequence();
+    copy.setCanonicalSourceKmer(sequence_copy);
+    sequence_copy.setLength(sequence.getLength());
+    
+    ByteBuffer source_buffer = sequence.getDna();
+    byte[] buffer = Arrays.copyOf(
+        sequence.getDna().array(), sequence.getDna().array().length);
+    sequence_copy.setDna(ByteBuffer.wrap(
+        buffer, 0, source_buffer.limit()));
+    
+    // TODO(jlewi): The implementation below will work if we have to 
+    // support versions of java earlier than 7. However, the copy code below is 
+    // brittle and maintaining our own copy code is highly error prone. So
+    // it would be better to use built in avro copy functionality. I'm
+    // leaving the commented code in until we resolve this issue.
+//    
+//    GraphNodeData copy = new GraphNodeData();
+//    copy.setNodeId(data.getNodeId().toString());
+//    
+//    GraphNodeKMerTag mertag_copy = new GraphNodeKMerTag();
+//    mertag_copy.setChunk(data.getMertag().getChunk());
+//    mertag_copy.setReadTag(data.getMertag().getReadTag().toString());    
+//    copy.setMertag(mertag_copy);
+//    
+//    copy.setCoverage(data.getCoverage());
+//    
+//    // Make a copy of the sequence
+//    CompressedSequence compressed_sequence = new CompressedSequence();
+//    compressed_sequence.setDna(ByteBuffer.wrap(Arrays.copyOf(
+//        data.getCanonicalSourceKmer().getDna().array(), 
+//        data.getCanonicalSourceKmer().getDna().capacity()), 
+//        0, data.getCanonicalSourceKmer().getDna().limit()));
+//    compressed_sequence.setLength(data.getCanonicalSourceKmer().getLength());
+//    
+//    copy.setCanonicalSourceKmer(compressed_sequence);
+//    
+//    copy.setNeighbors(new ArrayList<NeighborData>());
+//    
+//    for (NeighborData neighbor: data.getNeighbors()) {
+//      NeighborData neighbor_copy = new NeighborData();
+//      copy.getNeighbors().add(neighbor_copy);
+//    
+//      // We need to convert to a string so we get an immutable reference.
+//      neighbor_copy.setNodeId(neighbor.getNodeId().toString());
+//      neighbor_copy.setEdges(new ArrayList<EdgeData>());
+//      for (EdgeData edge: neighbor.getEdges()) {
+//        EdgeData edge_copy = new EdgeData();
+//        neighbor_copy.getEdges().add(edge_copy);
+//        edge_copy.setStrands(edge.getStrands());
+//        edge_copy.setReadTags(new ArrayList<CharSequence>());
+//        for (CharSequence tag: edge.getReadTags()) {
+//          edge_copy.getReadTags().add(tag.toString());
+//        }       
+//      }      
+//    }
+//    
+//    // R5 Tags
+//    copy.setR5Tags(new ArrayList<R5Tag>());
+//    for (R5Tag tag: data.getR5Tags()) {
+//      R5Tag tag_copy = new R5Tag();
+//      copy.getR5Tags().add(tag_copy);
+//      
+//      tag_copy.setTag(tag.getTag().toString());
+//      tag_copy.setOffset(tag.getOffset());
+//      tag_copy.setStrand(tag.getStrand());        
+//    }
+    
+    return new GraphNode(copy);
+  }
 	/**
 	 * Add information about a destination KMer which came from the start of a read.
 	 * 
@@ -519,6 +641,10 @@ public class GraphNode {
 		return data.getNodeId().toString(); 
 	}
 
+	public void setNodeId(String nodeid) {
+	  data.setNodeId(nodeid); 
+	}
+
 	/**
 	 * Return a list of the canonical compressed sequences for the specific 
 	 * link direction;
@@ -576,10 +702,24 @@ public class GraphNode {
 	}
 
 	/**
-	 * This is mostly intended for displaying in a debugger.
+	 * A partial string representation that is primarily intended for displaying 
+	 * in a debugger. This representation is likely to change and it should
+	 * not be relied upon for any processing.
 	 */
 	public String toString() {
-		return data.toString();
+	    String represent = "Id:" + getNodeId() + " "; 
+	    represent += "Sequence:" + this.getCanonicalSequence().toString();
+	    represent += " F_EDGES: ";
+	    for (EdgeTerminal edge: 
+	      this.getEdgeTerminals(DNAStrand.FORWARD, EdgeDirection.OUTGOING)) {
+	      represent += edge.toString() + ",";
+	    }
+	    represent += " R_EDGES: ";
+	    for (EdgeTerminal edge: 
+        this.getEdgeTerminals(DNAStrand.REVERSE, EdgeDirection.OUTGOING)) {
+        represent += edge.toString() + ",";
+      }
+	    return represent;
 	}
 
 	/**
@@ -622,4 +762,118 @@ public class GraphNode {
 	public float getCoverage() {
 	  return this.data.getCoverage();
 	}	
+	
+	/**
+	 * Move the outgoing edge. 
+	 * 
+	 * This function is used when the terminal for an outgoing edge gets merged
+	 * with other nodes. Thus, we need to update the nodeid and strand for this
+	 * terminal
+	 * @param strand: Which strand the edge is on.
+	 * @param old_terminal: The old terminal
+	 * @param new_terminal: The new terminal
+	 */
+	public void moveOutgoingEdge(
+	    DNAStrand strand, EdgeTerminal old_terminal, EdgeTerminal new_terminal) {
+	  NeighborData old_neighbor = findNeighbor(old_terminal.nodeId);
+	  
+	  if (old_neighbor == null) {
+	    throw new RuntimeException(
+	        "Could not find a neighbor with id:" + old_terminal.nodeId);
+	  }
+	  
+	  if (old_terminal.equals(new_terminal)) {
+	    // Note: It is possible that the nodeid is the same but the strand
+	    // is different.
+	    throw new RuntimeException("New node is the same as the old node");
+	  }
+	  
+	  NeighborData new_neighbor = findNeighbor(new_terminal.nodeId);
+	  if (new_neighbor == null) {
+	    new_neighbor = new NeighborData();
+	    new_neighbor.setNodeId(new_terminal.nodeId);
+	    new_neighbor.setEdges(new ArrayList<EdgeData>());
+	    data.getNeighbors().add(new_neighbor);
+	  }
+	  
+	  // Find the edge data.
+	  StrandsForEdge old_strands = StrandsUtil.form(strand, old_terminal.strand);
+	  EdgeData old_edgedata = findEdgeDataForStrands(old_neighbor, old_strands);
+	  if (old_edgedata == null) {
+	    throw new RuntimeException(
+	        "Could not find edge data for the edge being moved");
+	  }
+	  
+	  // Find the new edge data.
+	  StrandsForEdge new_strands = StrandsUtil.form(strand, new_terminal.strand);
+	  EdgeData new_edgedata = findEdgeDataForStrands(new_neighbor, new_strands);
+	  if (new_edgedata == null) {
+	    new_edgedata = new EdgeData();
+	    new_edgedata.setStrands(new_strands);
+	    new_edgedata.setReadTags(new ArrayList<CharSequence>());	   
+	    new_neighbor.getEdges().add(new_edgedata);
+	  }
+	  
+	  // Copy the data.
+	  new_edgedata.getReadTags().addAll(old_edgedata.getReadTags());
+	  
+	  // Remove this data from the old neighbor.
+	  removeEdgesForNeighbor(old_neighbor, old_strands);
+	  
+	  for (int index = 0; index < old_neighbor.getEdges().size(); index++) {
+	    if (old_neighbor.getEdges().get(index).getStrands() == old_strands) {
+	      old_neighbor.getEdges().remove(index);
+	      break;
+	    }
+	  }
+	  
+	  // Remove old_neighbor if there are no more edges to it.
+	  if (old_neighbor.getEdges().size() == 0) {
+	    removeNeighbor(old_neighbor.getNodeId().toString());
+	  }
+	  
+	  // Clear the derived data because it is invalid.
+	  derived_data.clear();
+	}
+	
+  /**
+   * Remove the edge for the given strands from the given neighbor.
+   * Neighbor should be a reference to data inside this.data.
+   * We don't check to verify this.
+   * 
+   * @return: True on success false otherwise.
+   */
+  protected boolean removeEdgesForNeighbor(
+      NeighborData neighbor, StrandsForEdge strands) {
+    for (int index = 0; index < neighbor.getEdges().size(); index++) {
+      if (neighbor.getEdges().get(index).getStrands() == strands) {
+        // We assume that each instance of strands appears at most once.
+        // so after removing it we can just return.
+        neighbor.getEdges().remove(index);
+        derived_data.clear();
+        return true;
+      }    
+    }
+    return false;
+  }
+
+  /**
+   * Remove the neighbor with the given id from this node.
+   * 
+   * @return: True on success false otherwise.
+   */
+  protected boolean removeNeighbor(
+      String neighborid) {
+    for (int index = 0; index < data.getNeighbors().size(); index++) {
+      if (data.getNeighbors().get(index).getNodeId().toString().equals(
+          neighborid)) {
+        // We assume that each instance of a neighbor appears at most once.
+        // so after removing it we can just return.
+        data.getNeighbors().remove(index);
+        derived_data.clear();
+        return true;
+      }    
+    }
+    return false;
+  } 
 }

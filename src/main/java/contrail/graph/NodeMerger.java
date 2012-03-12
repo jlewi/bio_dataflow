@@ -262,6 +262,17 @@ public class NodeMerger {
   }
 
   /**
+   * Container for the result of merging two nodes.
+   */
+  public static class MergeResult {
+    // The merged node.
+    public GraphNode node;
+    
+    // Which strand the merged sequence corresponds to.
+    public DNAStrand strand;    
+  }
+  
+  /**
    * Merge two nodes
    * @param src: The source node
    * @param dest: The destination node
@@ -276,7 +287,7 @@ public class NodeMerger {
    * @return
    * @throws RuntimeException if the nodes can't be merged.
    */
-  public static GraphNode mergeNodes(
+  public static MergeResult mergeNodes(
       GraphNode src, GraphNode dest, StrandsForEdge strands, int overlap,
       int src_coverage_length, int dest_coverage_length) {
     // To merge two nodes we need to
@@ -328,6 +339,38 @@ public class NodeMerger {
         src.getCoverage(), src_coverage_length, dest.getCoverage(), 
         dest_coverage_length));
     
-    return new_node;
+    MergeResult result = new MergeResult();
+    result.node = new_node;
+    result.strand = merge_info.merged_strand;
+    return result;
+  }
+  
+  /**
+   * Merge two nodes with a coverage length based on the overlap.
+   * @param src: The source node
+   * @param dest: The destination node
+   * @param strands: Which strands the edge from src->dest comes from.
+   * @param overlap: The number of bases that should overlap between
+   *   the two sequences.
+   * @return
+   * @throws RuntimeException if the nodes can't be merged.
+   * 
+   * The coverage lengths for the source and destination are automatically
+   * computed as the number of KMers overlapping by K-1 bases would span
+   * the source and destination sequences. K = overlap +1.
+   */
+  public static MergeResult mergeNodes(
+      GraphNode src, GraphNode dest, StrandsForEdge strands, int overlap) {
+    // Coverage length is how many KMers overlapping by K-1 bases
+    // span the sequence where K = overlap + 1
+    int K = overlap + 1;
+    int src_coverage_length = 
+        src.getCanonicalSequence().size() - K + 1;
+    int dest_coverage_length = 
+        dest.getCanonicalSequence().size() - K + 1;
+    
+      return mergeNodes(
+          src, dest, strands, overlap, src_coverage_length, 
+          dest_coverage_length);
   }
 }

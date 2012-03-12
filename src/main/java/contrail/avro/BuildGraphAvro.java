@@ -91,6 +91,7 @@ public class BuildGraphAvro extends Stage
     default_options.put("MAXTHREADREADS", new Long(250));
     default_options.put("RECORD_ALL_THREADS", new Long(0));
   }
+  
   /**
    * Get the options required by this stage.
    */
@@ -329,13 +330,17 @@ public class BuildGraphAvro extends Stage
         if (i+1 == end) { vstate = ReadState.END3; }
 
         // TODO(jlewi): It would probably be more efficient not to use a string
-        // representation of the Kmers in seen.				
+        // representation of the Kmers in seen. 
+        // If the strand and its reverse complement are the same then we want 
+        // seen to be true because we want to assign the edges from the two 
+        // strands to different chunk segments. 
         boolean seen = (seenmers.contains(ukmer.toString()) || 
             seenmers.contains(vkmer.toString()) || 
             ukmer.equals(vkmer));
         seenmers.add(ukmer.toString());
-        if (seen)
-        {
+        if (seen) {
+          // We use the chunk to segment the nodes based on repeat KMers.
+          // We use this segmentation at several stages. 
           chunk++;
         }
 
@@ -412,8 +417,6 @@ public class BuildGraphAvro extends Stage
       RECORD_ALL_THREADS = Integer.parseInt(job.get("RECORD_ALL_THREADS")) == 1;
     }
 
-    // TODO(jlewi): Reduce should probably just output GraphNodeData and the 
-    // source KMer should be stored in the node. 
     @Override
     public void reduce(ByteBuffer source_kmer_packed_bytes, Iterable<KMerEdge> iterable,
         AvroCollector<GraphNodeData> collector, Reporter reporter)
