@@ -283,7 +283,7 @@ public class GraphNode {
     //    in the buffer (i.e. capacity) instead of respecting limit.
     //    this causes an underflow exception.
     GraphNodeData copy = new GraphNodeData();
-    copy.setNodeId(data.getNodeId());
+    copy.setNodeId(data.getNodeId().toString());
     
     GraphNodeKMerTag mertag_copy = new GraphNodeKMerTag();
     mertag_copy.setChunk(data.getMertag().getChunk());
@@ -332,7 +332,6 @@ public class GraphNode {
       tag_copy.setStrand(tag.getStrand());        
     }
     
-    copy.setNodeId(data.getNodeId());    
     return new GraphNode(copy);
   }
 	/**
@@ -667,7 +666,8 @@ public class GraphNode {
 	 * is likely to change
 	 */
 	public String toString() {
-	    String represent = "Sequence:" + this.getCanonicalSequence().toString();
+	    String represent = "Id:" + getNodeId() + " "; 
+	    represent += "Sequence:" + this.getCanonicalSequence().toString();
 	    represent += " F_EDGES: ";
 	    for (EdgeTerminal edge: 
 	      this.getEdgeTerminals(DNAStrand.FORWARD, EdgeDirection.OUTGOING)) {

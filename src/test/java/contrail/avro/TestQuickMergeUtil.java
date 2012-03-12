@@ -437,22 +437,44 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
       graph.addEdge("GCA", "CAC", K - 1);
       graph.addEdge("GCA", "CAA", K - 1);
       
-      // Consider a short chain, i.e no interior nodes.
-      QuickMergeUtil.NodesToMerge merge_info = 
-          QuickMergeUtil.findNodesToMerge(
-               graph.getAllNodes(), graph.getNode("CGC"));
-      QuickMergeUtil.ChainMergeResult result = QuickMergeUtil.mergeLinearChain(
-          graph.getAllNodes(), merge_info, K - 1);
+      {
+        // Consider a short chain, i.e no interior nodes.
+        QuickMergeUtil.NodesToMerge merge_info = 
+            QuickMergeUtil.findNodesToMerge(
+                 graph.getAllNodes(), graph.getNode("CGC"));
+        
+        assertEquals(graph.findEdgeTerminalForSequence("CGC"),
+                     merge_info.start_terminal);
+        assertEquals(graph.findEdgeTerminalForSequence("GCA"),
+            merge_info.end_terminal);
+        
+        QuickMergeUtil.ChainMergeResult result = QuickMergeUtil.mergeLinearChain(
+            graph.getAllNodes(), merge_info, K - 1);
+        
+        assertEquals(
+            "CGCA", 
+            result.merged_node.getCanonicalSequence().toString());
+        
+        HashSet<String> expected_visited = new HashSet<String>();
+        expected_visited.add("CGC");
+        expected_visited.add("GCA");
+        assertEquals(expected_visited, merge_info.nodeids_visited);
+        assertEquals(expected_visited, result.merged_nodeids);
+      }
       
-      assertEquals(
-          "CGCA", 
-          result.merged_node.getCanonicalSequence().toString());
-      
-      HashSet<String> expected_visited = new HashSet<String>();
-      expected_visited.add("CGC");
-      expected_visited.add("GCA");
-      assertEquals(expected_visited, merge_info.nodeids_visited);
-      assertEquals(expected_visited, result.merged_nodeids);
+      {
+        // Repeat the test but remove one of the incoming edges from memory
+        Hashtable<String, GraphNode> nodes = new Hashtable<String, GraphNode>();
+        nodes.putAll(graph.getAllNodes());
+        nodes.remove(graph.findEdgeTerminalForSequence("ACG").nodeId);
+        QuickMergeUtil.NodesToMerge merge_info = 
+            QuickMergeUtil.findNodesToMerge(
+                 nodes, graph.getNode("CGC"));
+        
+        // We shouldn't be able to do a merge.
+        assertEquals(null, merge_info.start_terminal);
+        assertEquals(null, merge_info.end_terminal);
+      }
     }
   }
   
@@ -619,5 +641,30 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
           DNAStrand.FORWARD, EdgeDirection.INCOMING);
       assertTrue(ListUtil.listsAreEqual(expected_edges, edges));
     }
+  }
+  
+  @Test
+  public testMergeActualRepeat {
+    // This test case represents an actual example that came up with 
+    // the ba bacteria. The problem is that the chain includes both a node
+    // and its reverse complement.
+    SimpleGraphBuilder graph = new SimpleGraphBuilder();
+    final int K = 23;
+    int overlap = K - 1;
+    
+    String caatt_id = graph.addNode("CAATTTTTAGCGGGAATAGAACA");
+    String atatt_id = graph.addNode("ATATTCAATTTTTAGCGGGAATA");
+    String ctatt_id = graph.addNode("CTATTCCCGCTAAAAATTGAATA");
+    GraphNode caatt_node = graph.getNode(caatt_id);
+    GraphNode atatt_node = graph.getNode(atatt_id);
+    
+    caatt_node.addOutgoingEdge(
+        DNAStrand.FORWARD, new EdgeTerminal(atatt_id, DNAStrand.FORWARD));
+    caatt_node.addOutgoingEdge(
+        DNAStrand.REVERSE, new EdgeTerminal(ctatt_id, DNAStrand.FORWARD));
+    
+    
+    graph.addEdge("CAATTTTTAGCGGGAATAGAACA", "ATATTCAATTTTTAGCGGGAATA" , overlap);
+    
   }
 }

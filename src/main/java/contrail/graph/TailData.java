@@ -98,12 +98,7 @@ public class TailData
 			// GraphNode is in the map passed to LinearChainWalker, so
 		  // we don't have to check if the node is present.
 			EdgeTerminal terminal = walker.next();
-			
-
-			// curnode has a tail (has outgoing degree 1); the tail 
-			// is in nodes and we haven't seen it before				
-			tail.nodes_in_tail.add(terminal.nodeId);
-			
+						
 			// Suppose node A has out degree 1 and A->B. 
 			// B, however, might have indegree 2; i.e there exists edge
 			// C->B. In this case, we don't have  a tail. So
@@ -122,7 +117,10 @@ public class TailData
 					terminal.strand, direction.flip());						
 			if ((end_tail != null) && 
 				(end_tail.terminal.equals(previous_terminal))) {
-				dist++;										
+				dist++;
+	      // curnode has a tail (has outgoing degree 1); the tail 
+	      // is in nodes and we haven't seen it before        
+	      tail.nodes_in_tail.add(terminal.nodeId);
 			} else {
 				// Break out out of the loop because we don't have
 				// a chain.

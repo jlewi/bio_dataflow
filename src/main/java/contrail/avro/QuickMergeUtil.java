@@ -185,7 +185,7 @@ public class QuickMergeUtil {
         nodes_in_memory, start_node,  head_terminal.strand, 
         EdgeDirection.OUTGOING);
     
-    if (full_tail == null) {
+    if (full_tail == null || full_tail.dist == 0) {
       // No chain to merge.
       return result;
     }
@@ -204,7 +204,7 @@ public class QuickMergeUtil {
             nodes_in_memory, full_tail.terminal.flip()); 
             
     // Consider the special case where there are no internal nodes
-    if (full_tail.dist == 0) {
+    if (full_tail.dist == 1) {
       // In this special case we can only do the merge if we can move the
       // edges to the nodes.
       // TODO(jlew): In certain special cases we can do the merge even

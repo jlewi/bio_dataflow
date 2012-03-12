@@ -3,9 +3,7 @@ package contrail.avro;
 import static org.junit.Assert.*;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.List;
@@ -51,7 +49,6 @@ public class TestQuickMergeAvro {
   
       QuickMergeAvro.QuickMergeMapper mapper = 
           new QuickMergeAvro.QuickMergeMapper();      
-      //ContrailConfig.PREPROCESS_SUFFIX = 0;
       ContrailConfig.TEST_MODE = true;
       ContrailConfig.K = 3;
       
@@ -106,10 +103,7 @@ public class TestQuickMergeAvro {
 
     ReporterMock reporter_mock = new ReporterMock();
     Reporter reporter = (Reporter) reporter_mock;
-
-    QuickMergeAvro.QuickMergeReducer mapper = 
-        new QuickMergeAvro.QuickMergeReducer();      
-    //ContrailConfig.PREPROCESS_SUFFIX = 0;
+     
     ContrailConfig.TEST_MODE = true;
     ContrailConfig.K = 3;
     
@@ -176,36 +170,15 @@ public class TestQuickMergeAvro {
       expected_forward.put("GCC", new ArrayList<EdgeTerminal>());
     }
     
-    // Check the sequences.
-    HashSet<String> merged_ids = new HashSet<String>();  
-    Hashtable<String, String> merged_sequences = 
-        new Hashtable<String, String>();
-    for (Iterator<GraphNodeData> it = collector_mock.data.iterator();
-        it.hasNext();) {
-     GraphNodeData data = it.next();
-     GraphNode node = new GraphNode(data);
-     
-     merged_ids.add(node.getNodeId());
-     // Check the sequences.
-     assertEquals(
-         expected_sequences.get(node.getNodeId()), 
-         node.getCanonicalSequence().toString());
-     
-     merged_sequences.put(
-         node.getNodeId(), node.getCanonicalSequence().toString());
-    }
-    
-    assertEquals(expected_sequences.keySet(), merged_ids);
-    
     for (Iterator<GraphNodeData> it = collector_mock.data.iterator();
          it.hasNext();) {
       GraphNodeData data = it.next();
       GraphNode node = new GraphNode(data);
       
-//      // Check the sequences.
-//      assertEquals(
-//          expected_sequences.get(node.getNodeId()), 
-//          node.getCanonicalSequence().toString());
+      // Check the sequences.
+      assertEquals(
+          expected_sequences.get(node.getNodeId()), 
+          node.getCanonicalSequence().toString());
       
       // Check the edges.
       List<EdgeTerminal> forward_edges = node.getEdgeTerminals(

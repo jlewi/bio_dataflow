@@ -6,6 +6,7 @@ import java.util.Map;
 
 import contrail.sequences.Alphabet;
 import contrail.sequences.DNAAlphabetFactory;
+import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
 
@@ -50,21 +51,35 @@ public class SimpleGraphBuilder {
   }
   
   /**
+   * Finds the nodeid for the node representing this sequence. 
+   * Returns null if no node exists.
+   * @param sequence
+   */
+  public String findNodeIdForSequence(String str_seq) {
+    Sequence sequence = new Sequence(str_seq, alphabet);
+    Sequence canonical_src = DNAUtil.canonicalseq(sequence);
+    
+    String nodeid = canonical_src.toString();
+    
+    if (!(nodes.containsKey(nodeid))) {
+      return null;
+    }
+    return nodeid;
+  }
+  
+  /**
    * Finds the edge terminal for this sequence. Returns null if 
    * there's no node in the graph representing this terminal
    * @param sequence
    */
   public EdgeTerminal findEdgeTerminalForSequence(String str_seq) {
-    Sequence sequence = new Sequence(str_seq, alphabet);
-    Sequence canonical_src = DNAUtil.canonicalseq(sequence);
-    
-    String nodeid = canonical_src.toString();
-    GraphNode node = nodes.get(nodeid);
-    
-    if (node == null) {
+        
+    String nodeid = findNodeIdForSequence(str_seq);
+    if (nodeid == null) {
       return null;
     }
-    
+
+    Sequence sequence = new Sequence(str_seq, alphabet);
     EdgeTerminal terminal = new EdgeTerminal(
         nodeid, DNAUtil.canonicaldir(sequence));
     return terminal;    
@@ -82,6 +97,45 @@ public class SimpleGraphBuilder {
   public Map<String, GraphNode> getAllNodes() {
     return Collections.unmodifiableMap(nodes);    
   }
+  
+  /**
+   * Add an edge. Nodes for terminals must already exist.
+   * @param src: Terminal for the src sequence.
+   * @param dest: Terminal for the destination sequence.
+   * @param overlap: The amount of overlap.
+   */
+  public void addEdge(EdgeTerminal src, EdgeTerminal dest, int overlap) {       
+    GraphNode src_node = nodes.get(src.nodeId);
+    GraphNode dest_node = nodes.get(dest.nodeId);
+    
+    // Check the overlap
+    Sequence src_sequence = src_node.getCanonicalSequence();
+    src_sequence = DNAUtil.canonicalToDir(src_sequence, src.strand);
+    
+    Sequence dest_sequence = dest_node.getCanonicalSequence();
+    dest_sequence = DNAUtil.canonicalToDir(dest_sequence, dest.strand);
+    
+    Sequence src_overlap = src_sequence.subSequence(
+        src_sequence.size() - overlap, src_sequence.size());
+    
+    Sequence dest_overlap = dest_sequence.subSequence(
+        0, overlap);
+    
+    if (!src_overlap.equals(dest_overlap)) {
+        throw new RuntimeException("Sequences don't overlap by: " + overlap);
+    }
+    
+    // Add the outgoing edge to src.
+    {      
+      src_node.addOutgoingEdge(src.strand, dest);
+    }
+    
+    // Add the incoming edge to dest.
+    {
+      dest_node.addIncomingEdge(dest.strand, src);
+    }
+  }
+  
   /**
    * Add an edge.
    * @param src: String representing the source sequence.
@@ -105,19 +159,23 @@ public class SimpleGraphBuilder {
         dest_terminal = findEdgeTerminalForSequence(dest);
     }
     
-    // Add the outgoing edge to src.
-    {
-      GraphNode node = nodes.get(src_terminal.nodeId);
-      node.addOutgoingEdge(src_terminal.strand, dest_terminal);
-    }
-    
-    // Add the incoming edge to dest.
-    {
-      GraphNode node = nodes.get(dest_terminal.nodeId);
-      node.addIncomingEdge(dest_terminal.strand, src_terminal);
-    }
+    addEdge(src_terminal, dest_terminal, overlap);
   }
   
+  /**
+   * Adds an edge  from (src_id, src_strand) -> (dest_id, dest_strand)
+   * and (dest_id, RC(dest_strand)) -> (src_id, RC(src_strand)).
+   * @param src_id
+   * @param src_strand
+   * @param dest_id
+   * @param dest_strand
+   */
+//  public void addEdge(
+//      String src_id, DNAStrand src_strand, String dest_id, 
+//      DNAStrand dest_strand) {
+//    
+//  }
+//  
   /**
    * Divide the string into kmers of length given by k and add the appropriate
    * edges.

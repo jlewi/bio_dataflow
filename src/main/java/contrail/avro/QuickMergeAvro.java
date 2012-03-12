@@ -1,35 +1,11 @@
 // Author: Michael Schatz, Jeremy Lewi
 package contrail.avro;
 
-import contrail.sequences.CompressedSequence;
-import contrail.CompressedRead;
-import contrail.ContrailConfig;
-
-import contrail.Stats;
-import contrail.sequences.DNAAlphabetFactory;
-import contrail.sequences.DNAStrand;
-import contrail.sequences.DNAStrandUtil;
-import contrail.sequences.DNAUtil;
-import contrail.sequences.Sequence;
-import contrail.sequences.StrandsForEdge;
-import contrail.sequences.StrandsUtil;
-
-import contrail.avro.BuildGraphAvro.BuildGraphMapper;
-import contrail.avro.BuildGraphAvro.BuildGraphReducer;
-import contrail.graph.EdgeDirection;
-import contrail.graph.EdgeTerminal;
-import contrail.graph.GraphNode;
-import contrail.graph.GraphNodeData;
-import contrail.graph.LinearChainWalker;
-import contrail.graph.NodeMerger;
-import contrail.graph.R5Tag;
-import contrail.graph.TailData;
-
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -38,39 +14,24 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
 import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.GnuParser;
-import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.OptionBuilder;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.LongWritable;
-import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.MapReduceBase;
-import org.apache.hadoop.mapred.Mapper;
-import org.apache.hadoop.mapred.OutputCollector;
-import org.apache.hadoop.mapred.Reducer;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
-import org.apache.hadoop.mapred.TextInputFormat;
-import org.apache.hadoop.mapred.TextOutputFormat;
-import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -180,7 +141,7 @@ public class QuickMergeAvro extends Stage
 	 * get many edges from each read that can most likely be merged together. 
 	 */
 	public static class QuickMergeReducer extends 
-	    AvroReducer<String, GraphNodeData, GraphNodeData> {
+	    AvroReducer<CharSequence, GraphNodeData, GraphNodeData> {
 		private static int K = 0;
 		public static boolean VERBOSE = false;
 
@@ -192,7 +153,7 @@ public class QuickMergeAvro extends Stage
 		 * Reducer for QuickMerge.
 		 */ 
   	@Override
-    public void reduce(String  mertag, Iterable<GraphNodeData> iterable,
+    public void reduce(CharSequence  mertag, Iterable<GraphNodeData> iterable,
         AvroCollector<GraphNodeData> collector, Reporter reporter)
             throws IOException
 						{			
@@ -206,11 +167,32 @@ public class QuickMergeAvro extends Stage
 	    // Load the nodes into memory.
 	    Map<String, GraphNode> nodes = new HashMap<String, GraphNode>();
 	    
-	    Iterator<GraphNodeData> iter = iterable.iterator();  	    
-			while(iter.hasNext()) {
-			  GraphNode node = new GraphNode();
-			  node.setData(iter.next());
-			  nodes.put(node.getNodeId(), node);
+	    Iterator<GraphNodeData> iter = iterable.iterator();
+	    
+	    GraphNodeData graphnode_data = new GraphNodeData();
+	    GenericData.Record record = new GenericData.Record(graphnode_data.getSchema());
+	    
+	   // GenericData.Record generic_data = new GenericData();
+			while(iter.hasNext()) {			  
+			  // We need to make a copy of GraphNodeData because iterable
+			  // will reuse the same instance for each instance.
+			  GraphNodeData value = iter.next();
+			  GraphNode node = new GraphNode(value);
+			  node = node.clone();
+			  // TODO(jlewi): Avro seems to have a bug in it whereby 
+			  // when making deep copies of byte buffer's it doesn't respect
+			  // the byte buffer's limit but tries to read all of the bytes.
+			  //value.getCanonicalSourceKmer().dna.limit(value.getCanonicalSourceKmer().dna.capacity());
+			  //GraphNodeData data = GraphNodeData.newBuilder(value).build();
+			  //GraphNodeData data = record.deepCopy();
+			  
+			 // GenericData.
+			  //node.setData(data);			 
+			  nodes.put(node.getNodeId().toString(), node);
+			  
+			  for (String key: nodes.keySet()) {
+			    System.out.println("Key:" + key + " nodeId:" + nodes.get(key).getNodeId());
+			  }
 			}
 			
 			// Create a list of the nodes to process.
@@ -219,8 +201,9 @@ public class QuickMergeAvro extends Stage
 			Set<String> nodes_to_process = new HashSet<String>();
 			nodes_to_process.addAll(nodes.keySet());
 			
-			// List of the nodes to output.
-			//Set<String> nodes_to_output = new HashSet<String>();
+			// DON"T COMMIT THIS IS FOR DEBUGGING
+			boolean debug = true; // Remove this before commiting
+			HashSet<String> processed_nodes = new HashSet<String>();
 			
 			while (nodes_to_process.size() > 0) {
 			  String nodeid = nodes_to_process.iterator().next();
@@ -228,15 +211,19 @@ public class QuickMergeAvro extends Stage
 
 			  GraphNode start_node = nodes.get(nodeid);
 
+			  if (start_node == null) {
+			    throw new RuntimeException("Start node shouldn't be null");
+			  }
+			  
 			  // Find a chain if any to merge.
 			  QuickMergeUtil.NodesToMerge nodes_to_merge = 
 			      QuickMergeUtil.findNodesToMerge(nodes, start_node);
-			  
+
+        // Remove all the nodes visited from the list of ids to process.			  
+        nodes_to_process.removeAll(nodes_to_merge.nodeids_visited);
+        
 			  if (nodes_to_merge.start_terminal == null &&
 			      nodes_to_merge.end_terminal == null) {
-			
-			    //nodes_to_output.add(nodeid);
-			    // Node doesn't have a tail we can merge.
 			    continue;
 			  }
 			  
@@ -246,14 +233,18 @@ public class QuickMergeAvro extends Stage
 			  
 			  num_compressed_chains += 1;
 			  num_nodes_in_compressed_chains += merge_result.merged_nodeids.size();
-			  
-			  // Remove all the merged nodes from the list of ids to process.
-			  nodes_to_process.removeAll(nodes_to_merge.nodeids_visited);
-			  
+			  			  
 			  // Remove the merged nodes from nodes because these should not
 			  // be outputted.
 			  for (String merged_nodeid: merge_result.merged_nodeids){
 			     nodes.remove(merged_nodeid);  
+			  }
+			  
+			  // DON'T COMMIT FOR DEBUGGING
+			  if (debug) {
+			    if (!nodes_to_merge.nodeids_visited.containsAll(merge_result.merged_nodeids)){
+			      throw new RuntimeException("Nodes visited doesn't include all merged nodes");
+			    }
 			  }
 			  // Add the newly merged node to the list of nodes.
 			  nodes.put(merge_result.merged_node.getNodeId(), 
@@ -264,14 +255,12 @@ public class QuickMergeAvro extends Stage
 			for(String nodeid : nodes.keySet()) {				
 				collector.collect(nodes.get(nodeid).getData());				
 			}
-//
+
 			reporter.incrCounter(
 			    "Contrail", "num_compressed_chains",  num_compressed_chains);
-			//reporter.incrCounter("Contrail", "cchains",       cchains);
 			reporter.incrCounter(
 			    "Contrail", "num_nodes_in_compressed_chains", 
 			    num_nodes_in_compressed_chains);
-//			reporter.incrCounter("Contrail", "saved",         saved);
 		}
 	}
 
