@@ -21,6 +21,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.avro.specific.SpecificData;
+
 /**
  * Wrapper class for accessing modifying the GraphNodeData structure.
  * 
@@ -280,6 +282,7 @@ public class GraphNode {
     // The method build() of type GraphNodeData.Builder must override a superclass method
     // see http://stackoverflow.com/questions/2335655/why-is-javac-failing-on-override-annotation
     //
+    //    as a workaround we use SpecificData.deepCopy
     // 2. When build copies a ByteBuffer it tries to read all of the bytes
     //    in the buffer (i.e. capacity) instead of respecting limit.
     //    this causes an underflow exception.
@@ -298,13 +301,13 @@ public class GraphNode {
     //
     // We can work around all these issues by implementing our own copy method.
     // There is commented out code which is an implementation for our own
-    // custom copy in case we decide to go that route.
+    // custom copy in case we decide to go that route.    
     CompressedSequence sequence = data.getCanonicalSourceKmer();
     data.setCanonicalSourceKmer(null);
-    GraphNodeData copy = GraphNodeData.newBuilder(this.data).build();
-    this.data.setCanonicalSourceKmer(sequence);
-    
-    
+
+    GraphNodeData copy = (GraphNodeData)
+        SpecificData.get().deepCopy(data.getSchema(), data);
+        
     CompressedSequence sequence_copy = new CompressedSequence();
     copy.setCanonicalSourceKmer(sequence_copy);
     sequence_copy.setLength(sequence.getLength());
