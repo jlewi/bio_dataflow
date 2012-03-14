@@ -21,6 +21,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.avro.specific.SpecificData;
+
 /**
  * Wrapper class for accessing modifying the GraphNodeData structure.
  * 
@@ -280,6 +282,7 @@ public class GraphNode {
     // The method build() of type GraphNodeData.Builder must override a superclass method
     // see http://stackoverflow.com/questions/2335655/why-is-javac-failing-on-override-annotation
     //
+    //    as a workaround we use SpecificData.deepCopy
     // 2. When build copies a ByteBuffer it tries to read all of the bytes
     //    in the buffer (i.e. capacity) instead of respecting limit.
     //    this causes an underflow exception.
@@ -297,14 +300,12 @@ public class GraphNode {
     //    making the copy efficient will be a big win.
     //
     // We can work around all these issues by implementing our own copy method.
-    // There is commented out code which is an implementation for our own
-    // custom copy in case we decide to go that route.
     CompressedSequence sequence = data.getCanonicalSourceKmer();
     data.setCanonicalSourceKmer(null);
-    GraphNodeData copy = GraphNodeData.newBuilder(this.data).build();
-    this.data.setCanonicalSourceKmer(sequence);
-    
-    
+
+    GraphNodeData copy = (GraphNodeData)
+        SpecificData.get().deepCopy(data.getSchema(), data);
+        
     CompressedSequence sequence_copy = new CompressedSequence();
     copy.setCanonicalSourceKmer(sequence_copy);
     sequence_copy.setLength(sequence.getLength());
@@ -314,63 +315,6 @@ public class GraphNode {
         sequence.getDna().array(), sequence.getDna().array().length);
     sequence_copy.setDna(ByteBuffer.wrap(
         buffer, 0, source_buffer.limit()));
-    
-    // TODO(jlewi): The implementation below will work if we have to 
-    // support versions of java earlier than 7. However, the copy code below is 
-    // brittle and maintaining our own copy code is highly error prone. So
-    // it would be better to use built in avro copy functionality. I'm
-    // leaving the commented code in until we resolve this issue.
-//    
-//    GraphNodeData copy = new GraphNodeData();
-//    copy.setNodeId(data.getNodeId().toString());
-//    
-//    GraphNodeKMerTag mertag_copy = new GraphNodeKMerTag();
-//    mertag_copy.setChunk(data.getMertag().getChunk());
-//    mertag_copy.setReadTag(data.getMertag().getReadTag().toString());    
-//    copy.setMertag(mertag_copy);
-//    
-//    copy.setCoverage(data.getCoverage());
-//    
-//    // Make a copy of the sequence
-//    CompressedSequence compressed_sequence = new CompressedSequence();
-//    compressed_sequence.setDna(ByteBuffer.wrap(Arrays.copyOf(
-//        data.getCanonicalSourceKmer().getDna().array(), 
-//        data.getCanonicalSourceKmer().getDna().capacity()), 
-//        0, data.getCanonicalSourceKmer().getDna().limit()));
-//    compressed_sequence.setLength(data.getCanonicalSourceKmer().getLength());
-//    
-//    copy.setCanonicalSourceKmer(compressed_sequence);
-//    
-//    copy.setNeighbors(new ArrayList<NeighborData>());
-//    
-//    for (NeighborData neighbor: data.getNeighbors()) {
-//      NeighborData neighbor_copy = new NeighborData();
-//      copy.getNeighbors().add(neighbor_copy);
-//    
-//      // We need to convert to a string so we get an immutable reference.
-//      neighbor_copy.setNodeId(neighbor.getNodeId().toString());
-//      neighbor_copy.setEdges(new ArrayList<EdgeData>());
-//      for (EdgeData edge: neighbor.getEdges()) {
-//        EdgeData edge_copy = new EdgeData();
-//        neighbor_copy.getEdges().add(edge_copy);
-//        edge_copy.setStrands(edge.getStrands());
-//        edge_copy.setReadTags(new ArrayList<CharSequence>());
-//        for (CharSequence tag: edge.getReadTags()) {
-//          edge_copy.getReadTags().add(tag.toString());
-//        }       
-//      }      
-//    }
-//    
-//    // R5 Tags
-//    copy.setR5Tags(new ArrayList<R5Tag>());
-//    for (R5Tag tag: data.getR5Tags()) {
-//      R5Tag tag_copy = new R5Tag();
-//      copy.getR5Tags().add(tag_copy);
-//      
-//      tag_copy.setTag(tag.getTag().toString());
-//      tag_copy.setOffset(tag.getOffset());
-//      tag_copy.setStrand(tag.getStrand());        
-//    }
     
     return new GraphNode(copy);
   }
