@@ -322,7 +322,7 @@ public class GraphNode {
 	 * Add information about a destination KMer which came from the start of a read.
 	 * 
 	 * If the destination KMer came from the start of a read, then the edge
-	 * Source KMer -> Destination KMer allows us to connect two reads. 
+	 * Source KMer -> Destination KMer allows us to connect the two reads. 
 	 * 
 	 * @param tag - String identifying the read from where the destination KMer came
 	 *              from. 
@@ -344,7 +344,12 @@ public class GraphNode {
 		}
 	}
 
+	/**
+	 * Set the mertag based on the read tag for a KMer.
+	 * @param mertag
+	 */
 	public void setMertag(KMerReadTag mertag) {
+	  // TODO(jlewi): Do we really need this method?
 		GraphNodeKMerTag tag = new GraphNodeKMerTag(); 
 		tag.setReadTag(mertag.read_id);
 		tag.setChunk(mertag.chunk);
