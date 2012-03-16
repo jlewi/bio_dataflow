@@ -119,6 +119,14 @@ public class TestNodeConverter {
    
     return node_to_strands;    
   }
+  
+  protected List<String> charListToStringList(List<CharSequence> in_list) {
+    List<String> out_list = new ArrayList<String>();
+    for (CharSequence item: in_list) {
+      out_list.add(item.toString());
+    }
+    return out_list;
+  }
   /**
    * Ensure the node equals the graph_node.
    * @param graph_node
@@ -167,12 +175,34 @@ public class TestNodeConverter {
       } else {
         assertEquals(null, neighbor_ids);
       }
-      
-      // TODO compare the threads.
-      // node.getThreads();
-      // graph_node.getTagsForEdge(strand, terminal);
+            
     }
+        
+    // Compare the tags. 
+    Hashtable<String, Hashtable<StrandsForEdge, List<String>>>  tags = 
+        parseThreads(node.getThreads());
     
+    for (DNAStrand strand: DNAStrand.values()) {
+      for (EdgeTerminal terminal: graph_node.getEdgeTerminals(
+          strand, EdgeDirection.OUTGOING)) {
+        List<String> expected_tags = charListToStringList(
+            graph_node.getTagsForEdge(strand, terminal));
+        
+        StrandsForEdge strands = StrandsUtil.form(strand, terminal.strand);
+        
+        if (!tags.containsKey(terminal.nodeId)) {
+          assertEquals(0, expected_tags.size());
+        } else {
+          List<String> node_tags = tags.get(terminal.nodeId).get(strands);
+          if (expected_tags.size() == 0) {
+            assertEquals(null, node_tags);
+          } else {
+            assertTrue(ListUtil.listsAreEqual(expected_tags, node_tags));
+          }
+        }
+      }
+    }
+    // graph_node.getTagsForEdge(strand, terminal);
     // Compare the R%Tags.
   }
   @Test
