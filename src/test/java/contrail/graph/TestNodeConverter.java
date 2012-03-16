@@ -178,7 +178,7 @@ public class TestNodeConverter {
             
     }
         
-    // Compare the tags. 
+    // Compare the read tags associated with the edges. 
     Hashtable<String, Hashtable<StrandsForEdge, List<String>>>  tags = 
         parseThreads(node.getThreads());
     
@@ -202,8 +202,25 @@ public class TestNodeConverter {
         }
       }
     }
-    // graph_node.getTagsForEdge(strand, terminal);
-    // Compare the R%Tags.
+    
+    List<String> r5_tags = node.getreads();
+    List<String> expected_r5_tags = new ArrayList<String>();
+    {
+      List<R5Tag> object_tags = graph_node.getData().getR5Tags();
+      for(R5Tag tag: object_tags) {
+        String tag_str = tag.getTag().toString() + ":" + tag.getOffset();
+        
+        if (tag.getStrand() == DNAStrand.REVERSE) {
+          tag_str = "~" + tag_str;
+        }
+        expected_r5_tags.add(tag_str);
+      }
+    }         
+    if (expected_r5_tags.size() == 0) {
+      assertEquals(null, r5_tags);
+    } else {
+      assertTrue(ListUtil.listsAreEqual(expected_r5_tags, r5_tags));
+    }
   }
   @Test
   public void testGraphNodeToNode() {
