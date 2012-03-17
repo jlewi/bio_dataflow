@@ -222,6 +222,7 @@ public class TestNodeConverter {
       assertTrue(ListUtil.listsAreEqual(expected_r5_tags, r5_tags));
     }
   }
+  
   @Test
   public void testGraphNodeToNode() {
     // Test the conversion from the new avro format to the old
@@ -234,5 +235,4 @@ public class TestNodeConverter {
       checkEquals(graph_node, node);
     }
   }
-
 }
