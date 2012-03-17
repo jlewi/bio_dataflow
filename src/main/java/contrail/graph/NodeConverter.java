@@ -1,13 +1,11 @@
+// Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.graph;
-
-import java.util.List;
 
 import contrail.Node;
 import contrail.sequences.DNAStrand;
-import contrail.sequences.StrandsForEdge;
 
 /**
- * Routines for converting the new avro format to the old custom format 
+ * Routines for converting the new avro format to the old custom format. 
  */
 public class NodeConverter {
   /**
@@ -16,8 +14,7 @@ public class NodeConverter {
    * @return
    */
   public static Node graphNodeToNode(GraphNode graph_node) {
-    Node node = new Node();
-    
+    Node node = new Node();    
     node.setNodeId(graph_node.getNodeId());
     
     {
@@ -50,8 +47,7 @@ public class NodeConverter {
       node.addR5(
           tag.getTag().toString(), tag.getOffset(), isRC, 
           java.lang.Integer.MAX_VALUE);
-    }
-    
+    }    
     return node;
   }
 }
