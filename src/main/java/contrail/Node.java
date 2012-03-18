@@ -172,7 +172,7 @@ public class Node extends NodeBase {
 	 * Add an outgoing edge to this node. 
 	 * @param et - This is a two letter string e.g "rf", "fr" corresponding to the directions
 	 * 	for the K-Mers
-	 * @param v - A compressed string representing the K-Mer of the destination node
+	 * @param v - A string representing the id of the destination node.
 	 */
 	public void addEdge(String et, String v)
 	{
@@ -1025,7 +1025,7 @@ public class Node extends NodeBase {
 
 	/**
 	 * Set the field encoding the compressed version of the DNA sequence.
-	 * @param rawstr The compressed DNA sequence.
+	 * @param rawstr: The compressed DNA sequence.
 	 */
 	public void setstr_raw(String rawstr)
 	{
@@ -1034,6 +1034,10 @@ public class Node extends NodeBase {
 		l.add(rawstr);
 	}
 
+	/**
+	 * Set the DNA sequence associated with this node.
+	 * @param str: String representation of the canonical sequence.
+	 */
 	public void setstr(String str)
 	{
 		List<String> l = getOrAddField(STR);
