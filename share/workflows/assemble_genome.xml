@@ -1,0 +1,29 @@
+<workflow-app name='assemble-genome' xmlns="uri:oozie:workflow:0.1">
+    <start to='convert-fastq'/>
+    <action name='convert-fastq'>
+        <map-reduce>
+            <job-tracker>${jobTracker}</job-tracker>
+            <name-node>${nameNode}</name-node>
+            <configuration>
+                <property>
+                    <name>mapred.mapper.class</name>
+                    <value>contrail.FastqPreprocessorAvroCompressed</value>
+                </property>
+                <property>
+                    <name>mapred.input.dir</name>
+                    <value>${inputDir}</value>
+                </property>
+                <property>
+                    <name>mapred.output.dir</name>
+                    <value>${outputDir}</value>
+                </property>
+            </configuration>
+        </map-reduce>
+        <ok to='end'/>
+        <error to='killcleanup'/>
+    </action>
+    <kill name="kill">
+        <message>Map/Reduce failed, error message[${wf:errorMessage()}]</message>
+    </kill>
+    <end name='end'/>
+</workflow-app>
