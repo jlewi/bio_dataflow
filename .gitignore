@@ -9,3 +9,6 @@ nbactions.xml
 
 # Ignore build files
 target/*
+
+# Temporary files.
+.*~
