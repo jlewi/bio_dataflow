@@ -4,6 +4,7 @@ package contrail;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.Sequence;
 
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -259,6 +260,9 @@ public class FastqPreprocessorAvroCompressed extends Configured implements Tool
     double nseconds = (end_time - start_time) / 1000.0;
     System.out.println("Job took: " + nseconds + " seconds");
     
+    FileWriter writer = new FileWriter();
+    conf.writeXml(writer);
+    writer.close();
     return result;
   }
 

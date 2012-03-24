@@ -50,6 +50,7 @@ public abstract class Stage extends Configured implements Tool  {
     // Return options used by all stages.
     options.addAll(ContrailOptions.getHelpOptions());
     options.addAll(ContrailOptions.getHadoopOptions());
+    options.addAll(ContrailOptions.getStageOptions());
     return options;
   }
 
