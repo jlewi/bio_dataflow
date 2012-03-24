@@ -94,17 +94,6 @@ public class StrandsUtil {
 	 * @return
 	 */
 	public static StrandsForEdge parse(String strands) {
-		strands = strands.toLowerCase();
-		if (strands.equals("FF")) {
-			return StrandsForEdge.FF;
-		} else if (strands.equals("FR")) {
-			return StrandsForEdge.FR;
-		} else if (strands.equals("RF")) {
-			return StrandsForEdge.RF;
-		} else if (strands.equals("RR")) {
-			return StrandsForEdge.RR;
-		}
-		throw new RuntimeException(
-				"Not a valid value for StrandsForEdge:" + strands);
+		return StrandsForEdge.valueOf(strands.toUpperCase());
 	}
 }

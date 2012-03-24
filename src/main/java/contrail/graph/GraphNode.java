@@ -1,7 +1,5 @@
 package contrail.graph;
 
-import contrail.GraphNodeKMerTag;
-
 import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.TailData;
@@ -17,10 +15,13 @@ import contrail.sequences.StrandsUtil;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+
+import org.apache.avro.specific.SpecificData;
 
 /**
  * Wrapper class for accessing modifying the GraphNodeData structure.
@@ -247,18 +248,81 @@ public class GraphNode {
 	public GraphNode() {
 		data = new GraphNodeData();
 		derived_data = new DerivedData(data);
-		// Initialize any member variables so that if we serialize it we don't 
-		// get null objects.
+		// Initialize any member variables so that if we serialize this instance of 
+		// GraphNodeData we don't have null members which causes exceptions.
 		data.setR5Tags(new ArrayList<R5Tag>());
 		data.setNeighbors(new ArrayList<NeighborData>());
 		data.setNodeId("");
+		
+		GraphNodeKMerTag tag = new GraphNodeKMerTag();
+		tag.setReadTag("");
+		tag.setChunk(0);
+		data.setMertag(tag);		
 	}
+	
+  /**
+   * Construct a new node with a reference to the passed in data.
+   */
+  public GraphNode(GraphNodeData graph_data) {
+    data = graph_data;
+    derived_data = new DerivedData(data);  
+  }
 
+  /**
+   * Make a copy of the object. 
+   */
+  public GraphNode clone() {    
+    // TODO(jlewi): The preferred way to make copies of avro records is 
+    // GraphNodeData data = GraphNodeData.newBuilder(value).build();
+    // Unfortunately, there are a couple issues with avro that prevent this code
+    // from working fully and necessitate some gymnastics.
+    // 1. build is decorated with @override but overrides a method defined in
+    //    an interface and not a class. This appears to be allowed in java 1.7
+    //    but causes the following runtime error in earlier versions:
+    // The method build() of type GraphNodeData.Builder must override a superclass method
+    // see http://stackoverflow.com/questions/2335655/why-is-javac-failing-on-override-annotation
+    //
+    //    as a workaround we use SpecificData.deepCopy
+    // 2. When build copies a ByteBuffer it tries to read all of the bytes
+    //    in the buffer (i.e. capacity) instead of respecting limit.
+    //    this causes an underflow exception.
+    //
+    //    To work around this issue with the bytebuffer we handle the
+    //    compressed sequence separately. So we set the field to null
+    //    during the copy and then reset it and manually copy it.
+    //
+    // 3. The Builder API in avro has some inefficiencies see:
+    //    https://issues.apache.org/jira/browse/AVRO-985
+    //    https://issues.apache.org/jira/browse/AVRO-989
+    //
+    //    We should see whether we are affected by these issues. In several 
+    //    stages, e.g QuickMerge, we will make copies of all nodes so 
+    //    making the copy efficient will be a big win.
+    //
+    // We can work around all these issues by implementing our own copy method.
+    CompressedSequence sequence = data.getCanonicalSourceKmer();
+    data.setCanonicalSourceKmer(null);
+
+    GraphNodeData copy = (GraphNodeData)
+        SpecificData.get().deepCopy(data.getSchema(), data);
+        
+    CompressedSequence sequence_copy = new CompressedSequence();
+    copy.setCanonicalSourceKmer(sequence_copy);
+    sequence_copy.setLength(sequence.getLength());
+    
+    ByteBuffer source_buffer = sequence.getDna();
+    byte[] buffer = Arrays.copyOf(
+        sequence.getDna().array(), sequence.getDna().array().length);
+    sequence_copy.setDna(ByteBuffer.wrap(
+        buffer, 0, source_buffer.limit()));
+    
+    return new GraphNode(copy);
+  }
 	/**
 	 * Add information about a destination KMer which came from the start of a read.
 	 * 
 	 * If the destination KMer came from the start of a read, then the edge
-	 * Source KMer -> Destination KMer allows us to connect two reads. 
+	 * Source KMer->Destination KMer edge allows us to connect the two reads. 
 	 * 
 	 * @param tag - String identifying the read from where the destination KMer came
 	 *              from. 
@@ -280,7 +344,12 @@ public class GraphNode {
 		}
 	}
 
+	/**
+	 * Set the mertag based on the read tag for a KMer.
+	 * @param mertag
+	 */
 	public void setMertag(KMerReadTag mertag) {
+	  // TODO(jlewi): Do we really need this method?
 		GraphNodeKMerTag tag = new GraphNodeKMerTag(); 
 		tag.setReadTag(mertag.read_id);
 		tag.setChunk(mertag.chunk);
@@ -582,10 +651,24 @@ public class GraphNode {
 	}
 
 	/**
-	 * This is mostly intended for displaying in a debugger.
+	 * A partial string representation that is primarily intended for displaying 
+	 * in a debugger. This representation is likely to change and it should
+	 * not be relied upon for any processing.
 	 */
 	public String toString() {
-		return data.toString();
+	    String represent = "Id:" + getNodeId() + " "; 
+	    represent += "Sequence:" + this.getCanonicalSequence().toString();
+	    represent += " F_EDGES: ";
+	    for (EdgeTerminal edge: 
+	      this.getEdgeTerminals(DNAStrand.FORWARD, EdgeDirection.OUTGOING)) {
+	      represent += edge.toString() + ",";
+	    }
+	    represent += " R_EDGES: ";
+	    for (EdgeTerminal edge: 
+        this.getEdgeTerminals(DNAStrand.REVERSE, EdgeDirection.OUTGOING)) {
+        represent += edge.toString() + ",";
+      }
+	    return represent;
 	}
 
 	/**
@@ -741,5 +824,5 @@ public class GraphNode {
       }    
     }
     return false;
-  }
+  } 
 }

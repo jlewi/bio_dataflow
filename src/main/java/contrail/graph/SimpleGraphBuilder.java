@@ -1,6 +1,8 @@
 package contrail.graph;
 
+import java.util.Collections;
 import java.util.Hashtable;
+import java.util.Map;
 
 import contrail.sequences.Alphabet;
 import contrail.sequences.DNAAlphabetFactory;
@@ -15,7 +17,7 @@ import contrail.sequences.Sequence;
  * by any means.
  */
 public class SimpleGraphBuilder {
-  // TODO(jlewi): Add some testing.
+  // TODO(jlewi): Add some testing for this class.
   private Hashtable<String, GraphNode> nodes;
   private Alphabet alphabet;
   public SimpleGraphBuilder() {
@@ -48,21 +50,35 @@ public class SimpleGraphBuilder {
   }
   
   /**
+   * Finds the nodeid for the node representing this sequence. 
+   * Returns null if no node exists.
+   * @param sequence
+   */
+  public String findNodeIdForSequence(String str_seq) {
+    Sequence sequence = new Sequence(str_seq, alphabet);
+    Sequence canonical_src = DNAUtil.canonicalseq(sequence);
+    
+    String nodeid = canonical_src.toString();
+    
+    if (!(nodes.containsKey(nodeid))) {
+      return null;
+    }
+    return nodeid;
+  }
+  
+  /**
    * Finds the edge terminal for this sequence. Returns null if 
    * there's no node in the graph representing this terminal
    * @param sequence
    */
   public EdgeTerminal findEdgeTerminalForSequence(String str_seq) {
-    Sequence sequence = new Sequence(str_seq, alphabet);
-    Sequence canonical_src = DNAUtil.canonicalseq(sequence);
-    
-    String nodeid = canonical_src.toString();
-    GraphNode node = nodes.get(nodeid);
-    
-    if (node == null) {
+        
+    String nodeid = findNodeIdForSequence(str_seq);
+    if (nodeid == null) {
       return null;
     }
-    
+
+    Sequence sequence = new Sequence(str_seq, alphabet);
     EdgeTerminal terminal = new EdgeTerminal(
         nodeid, DNAUtil.canonicaldir(sequence));
     return terminal;    
@@ -72,9 +88,53 @@ public class SimpleGraphBuilder {
     return nodes.get(nodeid);
   }
   
-  public Hashtable<String, GraphNode> getAllNodes() {
-    return nodes;
+  /**
+   * Returns an unmodifiable view into the set of nodes owned by
+   * this graph. Note you can still modify the individual nodes in the graph.
+   * @return
+   */
+  public Map<String, GraphNode> getAllNodes() {
+    return Collections.unmodifiableMap(nodes);    
   }
+  
+  /**
+   * Add an edge. Nodes for terminals must already exist.
+   * @param src: Terminal for the src sequence.
+   * @param dest: Terminal for the destination sequence.
+   * @param overlap: The amount of overlap.
+   */
+  public void addEdge(EdgeTerminal src, EdgeTerminal dest, int overlap) {       
+    GraphNode src_node = nodes.get(src.nodeId);
+    GraphNode dest_node = nodes.get(dest.nodeId);
+    
+    // Check the overlap
+    Sequence src_sequence = src_node.getCanonicalSequence();
+    src_sequence = DNAUtil.canonicalToDir(src_sequence, src.strand);
+    
+    Sequence dest_sequence = dest_node.getCanonicalSequence();
+    dest_sequence = DNAUtil.canonicalToDir(dest_sequence, dest.strand);
+    
+    Sequence src_overlap = src_sequence.subSequence(
+        src_sequence.size() - overlap, src_sequence.size());
+    
+    Sequence dest_overlap = dest_sequence.subSequence(
+        0, overlap);
+    
+    if (!src_overlap.equals(dest_overlap)) {
+        throw new RuntimeException("Sequences don't overlap by: " + overlap);
+    }
+    
+    // Add the outgoing edge to src.
+    {      
+      src_node.addOutgoingEdge(src.strand, dest);
+    }
+    
+    // Add the incoming edge to dest.
+    {
+      dest_node.addIncomingEdge(dest.strand, src);
+    }
+  }
+  
   /**
    * Add an edge.
    * @param src: String representing the source sequence.
@@ -98,19 +158,9 @@ public class SimpleGraphBuilder {
         dest_terminal = findEdgeTerminalForSequence(dest);
     }
     
-    // Add the outgoing edge to src.
-    {
-      GraphNode node = nodes.get(src_terminal.nodeId);
-      node.addOutgoingEdge(src_terminal.strand, dest_terminal);
-    }
-    
-    // Add the incoming edge to dest.
-    {
-      GraphNode node = nodes.get(dest_terminal.nodeId);
-      node.addIncomingEdge(dest_terminal.strand, src_terminal);
-    }
+    addEdge(src_terminal, dest_terminal, overlap);
   }
-  
+   
   /**
    * Divide the string into kmers of length given by k and add the appropriate
    * edges.

@@ -71,9 +71,6 @@ public class TestGraphNode {
 	private List<EdgeTerminal> getAllEdgeTerminalsForStrand(
 			GraphNode node, DNAStrand strand) {
 		List<EdgeTerminal> all_terminals = new ArrayList<EdgeTerminal>();
-
-		GraphNodeData node_data = node.getData();
-		
 		StrandsForEdge[] strands_array = 
 		  {StrandsUtil.form(strand, DNAStrand.FORWARD), 
 		   StrandsUtil.form(strand, DNAStrand.REVERSE)};
@@ -271,8 +268,7 @@ public class TestGraphNode {
 	  // Test moving an outgoing edge. There are 4 cases we want
 	  // For the old neighbor: the old neighbor could either have 1 or more
 	  // edges. For the neighbor, the new neighbor might already be a neigbhor
-	  // for the node.
-	  
+	  // for the node.	  
 	  {
 	    // Case 1: Old neighbor has one edge, so it should be removed
 	    // after edge is moved. New neighbor doesn't exist yet.
