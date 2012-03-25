@@ -1,7 +1,7 @@
 package contrail.sequences;
 
-import contrail.ByteUtil;
 import contrail.sequences.Alphabet;
+import contrail.util.ByteUtil;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;

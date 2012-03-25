@@ -1,6 +1,6 @@
-package contrail;
+package contrail.util;
 
-import contrail.ByteUtil;
+import contrail.util.ByteUtil;
 
 /**
  * Helper class for replacing all occurrences of one or more values in a byte array.
