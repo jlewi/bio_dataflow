@@ -17,6 +17,7 @@ import org.apache.avro.mapred.AvroWrapper;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
@@ -260,10 +261,13 @@ public class FastqPreprocessorAvroCompressed extends Stage {
 
     if (stage_options.containsKey("writeconfig")) {
       // Just write the job configuration to an xml file.
-      FileWriter writer = new FileWriter(
-          (String)stage_options.get("writeconfig"));
+      Path jobpath = new Path((String) stage_options.get("writeconfig")); 
+      // Overwrite the file if it exists.
+      FSDataOutputStream writer = jobpath.getFileSystem(conf).create(
+          jobpath, true);
       conf.writeXml(writer);
       writer.close();
+      sLogger.info("Wrote job config to:" + jobpath.toString());
       return 0;
     } else {
 
