@@ -1,6 +1,6 @@
 package contrail.sequences;
 
-import contrail.ByteUtil;
+import contrail.util.ByteUtil;
 
 /**
  * Factory to create the DNAAlphabet. We use a factory because we only want

@@ -4,7 +4,7 @@ import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
 
-import contrail.ByteUtil;
+import contrail.util.ByteUtil;
 
 public class TestDNAAlphabet {
 

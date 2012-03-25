@@ -7,7 +7,7 @@ import java.util.Arrays;
 
 import org.junit.Test;
 
-import contrail.ByteUtil;
+import contrail.util.ByteUtil;
 
 public class TestSequence {
 

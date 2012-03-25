@@ -72,10 +72,12 @@ public class ContrailOptions {
     hadoop_options.add(OptionBuilder.withArgName("numNodes").hasArg().withDescription("Max nodes in memory (default: " + HADOOP_LOCALNODES + ")").create("nodes"));
     hadoop_options.add(OptionBuilder.withArgName("childOpts").hasArg().withDescription("Child Java Options (default: " + HADOOP_JAVAOPTS + ")").create("javaopts"));
     hadoop_options.add(OptionBuilder.withArgName("millisecs").hasArg().withDescription("Hadoop task timeout (default: " + HADOOP_TIMEOUT + ")").create("timeout"));
+    
     return hadoop_options;
   }
   
   private static List<Option> path_options;
+  
   /**
    * Get options defining input and output path.  
    */
@@ -96,5 +98,26 @@ public class ContrailOptions {
     path_options.add(input);
     path_options.add(output);
     return path_options;
+  }
+  
+  private static List<Option> stage_options;
+  
+  /**
+   * A list of options that apply to all stages.
+   */
+  public static List<Option> getStageOptions() {
+    // We define the options for input and output paths globally
+    // because we want to be consistent when specifying the options
+    // for running stages independently.
+    if (stage_options != null) {
+      return stage_options;
+    }
+    stage_options = new ArrayList<Option>();
+    
+    Option writeconfig = new Option("writeconfig", "writeconfig", true,
+        "The XMLfile to write the job configuration to. The job won't be run.");
+
+    stage_options.add(writeconfig);
+    return stage_options;
   }
 }

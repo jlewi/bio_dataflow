@@ -1,16 +1,22 @@
-package contrail;
+package contrail.avro;
 
- import contrail.sequences.Alphabet;
+import contrail.CompressedRead;
+import contrail.sequences.Alphabet;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.Sequence;
+import contrail.util.ByteReplaceAll;
+import contrail.util.ByteUtil;
 
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.List;
 
 import org.apache.avro.mapred.AvroJob; 
 import org.apache.avro.mapred.AvroWrapper;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.Option;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
@@ -26,7 +32,6 @@ import org.apache.hadoop.mapred.OutputCollector;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.mapred.TextInputFormat;
-import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 import org.apache.hadoop.mapred.lib.NLineInputFormat;
@@ -34,17 +39,16 @@ import org.apache.hadoop.mapred.lib.NLineInputFormat;
 
 /**
  * Map reduce job to encode FastQ files in sequence files using AVRO.
- * DNA sequences are encoded as bytes arrays. The DNA sequence is packed into an array
- * of bytes using 3 bits per letter.  
+ * DNA sequences are encoded as bytes arrays. The DNA sequence is packed into
+ * an array of bytes using 2 bits per letter.  
  * 
- * We encode the data as byte arrays and try to avoid convertng it to a String because
- * toString() is expensive.
+ * We encode the data as byte arrays and try to avoid converting it to a String
+ * because toString() is expensive.
  *
  */
-public class FastqPreprocessorAvroCompressed extends Configured implements Tool 
-{	
-  private static final Logger sLogger = Logger.getLogger(FastqPreprocessorAvroCompressed.class);
-
+public class FastqPreprocessorAvroCompressed extends Stage {	
+  private static final Logger sLogger = 
+      Logger.getLogger(FastqPreprocessorAvroCompressed.class);
 
   /**
    * Mapper.
@@ -72,7 +76,8 @@ public class FastqPreprocessorAvroCompressed extends Configured implements Tool
     private int START_CAPACITY = 200;
 
     private CompressedRead read = new CompressedRead();
-    private AvroWrapper<CompressedRead> out_wrapper = new AvroWrapper<CompressedRead>(read);
+    private AvroWrapper<CompressedRead> out_wrapper = 
+        new AvroWrapper<CompressedRead>(read);
 
     private ByteReplaceAll replacer = null; 
 
@@ -217,12 +222,11 @@ public class FastqPreprocessorAvroCompressed extends Configured implements Tool
     }
   }
 
-
-  // Run Tool
-  ///////////////////////////////////////////////////////////////////////////		
-  public RunningJob run(String inputPath, String outputPath) throws Exception
-  { 
+  @Override
+  public int run() throws Exception { 
     sLogger.info("Tool name: FastqPreprocessorAvroCompressed");
+    String inputPath = (String) stage_options.get("inputpath");
+    String outputPath = (String) stage_options.get("outputpath");    
     sLogger.info(" - input: "  + inputPath);
     sLogger.info(" - output: " + outputPath);
 
@@ -230,7 +234,12 @@ public class FastqPreprocessorAvroCompressed extends Configured implements Tool
     JobConf conf = new JobConf(FastqPreprocessorAvroCompressed.class);
     conf.setJobName("FastqPreprocessorAvroCompressed " + inputPath);
 
-    ContrailConfig.initializeConfiguration(conf);
+    // TODO(jlewi): Is there any processing in initializeConfiguration that
+    // is needed.
+    // ContrailConfig.initializeConfiguration(conf);
+
+    // Stage specific configuration options.
+    conf.setLong("PREPROCESS_SUFFIX", 1);
 
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
@@ -249,41 +258,53 @@ public class FastqPreprocessorAvroCompressed extends Configured implements Tool
     // TODO(jlewi): use setoutput codec to set the compression codec. 
     AvroJob.setOutputSchema(conf,new CompressedRead().getSchema());
 
-    //delete the output directory if it exists already
-    FileSystem.get(conf).delete(new Path(outputPath), true);
+    if (stage_options.containsKey("writeconfig")) {
+      // Just write the job configuration to an xml file.
+      FileWriter writer = new FileWriter(
+          (String)stage_options.get("writeconfig"));
+      conf.writeXml(writer);
+      writer.close();
+      return 0;
+    } else {
 
-    
-    long start_time = System.currentTimeMillis();    
-    RunningJob result = JobClient.runJob(conf);
-    long end_time = System.currentTimeMillis();    
-    double nseconds = (end_time - start_time) / 1000.0;
-    System.out.println("Job took: " + nseconds + " seconds");
-    
-    return result;
+      //delete the output directory if it exists already
+      FileSystem.get(conf).delete(new Path(outputPath), true);
+      
+      long start_time = System.currentTimeMillis();    
+      RunningJob result = JobClient.runJob(conf);
+      long end_time = System.currentTimeMillis();    
+      double nseconds = (end_time - start_time) / 1000.0;
+      System.out.println("Job took: " + nseconds + " seconds");
+      return 0;
+    }
   }
 
-
-  // Parse Arguments and run
-  ///////////////////////////////////////////////////////////////////////////	
-  public int run(String[] args) throws Exception 
-  {	
-    String inputPath  = args[0];
-    String outputPath = args[1];
-
-    ContrailConfig.PREPROCESS_SUFFIX = 1;
-    ContrailConfig.TEST_MODE = true;
-    
-    run(inputPath, outputPath);
-    return 0;
+  /**
+   * Get the options required by this stage.
+   */
+  protected List<Option> getCommandLineOptions() {
+    List<Option> options = super.getCommandLineOptions();
+    options.addAll(ContrailOptions.getInputOutputPathOptions());
+ 
+    return options;
+  }
+  
+  protected void parseCommandLine(CommandLine line) {
+    super.parseCommandLine(line);       
+    if (line.hasOption("inputpath")) { 
+      stage_options.put("inputpath", line.getOptionValue("inputpath")); 
+    }
+    if (line.hasOption("outputpath")) { 
+      stage_options.put("outputpath", line.getOptionValue("outputpath")); 
+    }
+    if (line.hasOption("writeconfig")) {
+      stage_options.put("writeconfig", line.getOptionValue("writeconfig"));
+    }
   }
 
-
-  // Main
-  ///////////////////////////////////////////////////////////////////////////	
-
-  public static void main(String[] args) throws Exception 
-  {
-    int res = ToolRunner.run(new Configuration(), new FastqPreprocessorAvroCompressed(), args);
+  public static void main(String[] args) throws Exception {
+    int res = ToolRunner.run(
+        new Configuration(), new FastqPreprocessorAvroCompressed(), args);
     System.exit(res);
   }
 }

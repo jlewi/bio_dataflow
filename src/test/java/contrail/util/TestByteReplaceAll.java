@@ -1,4 +1,4 @@
-package contrail;
+package contrail.util;
 
 import java.lang.Math;
 import java.util.Random;

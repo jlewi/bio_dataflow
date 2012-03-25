@@ -15,6 +15,7 @@ import org.apache.commons.cli.ParseException;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.util.Tool;
+import org.apache.log4j.Logger;
 
 import contrail.Contrail;
 
@@ -23,7 +24,8 @@ import contrail.Contrail;
  *
  */
 public abstract class Stage extends Configured implements Tool  {
-
+  private static final Logger sLogger = 
+      Logger.getLogger(Stage.class);
   public Stage() {
     initialize();
   }
@@ -50,6 +52,7 @@ public abstract class Stage extends Configured implements Tool  {
     // Return options used by all stages.
     options.addAll(ContrailOptions.getHelpOptions());
     options.addAll(ContrailOptions.getHadoopOptions());
+    options.addAll(ContrailOptions.getStageOptions());
     return options;
   }
 
@@ -293,9 +296,9 @@ public abstract class Stage extends Configured implements Tool  {
     // Run the stage.
     return run();
   }
-  
-  public int run(String[] args) throws Exception 
-  {
+    
+  public int run(String[] args) throws Exception {
+    sLogger.info("Tool name: " + this.getClass().getName());
     parseCommandLine(args);   
     return run();
   }

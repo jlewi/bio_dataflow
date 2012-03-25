@@ -1,4 +1,4 @@
-package contrail;
+package contrail.util;
 
 /**
  * Some simple utility functions for working with byte arrays.
