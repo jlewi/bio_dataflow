@@ -4,11 +4,8 @@
         <map-reduce>
             <job-tracker>${jobTracker}</job-tracker>
             <name-node>${nameNode}</name-node>
+	    <job-xml>fastqjob.xml</job-xml>
             <configuration>
-                <property>
-                    <name>mapred.mapper.class</name>
-                    <value>contrail.FastqPreprocessorAvroCompressed.FastqPreprocessorMapper</value>
-                </property>
                 <property>
                     <name>mapred.input.dir</name>
                     <value>${inputDir}</value>
