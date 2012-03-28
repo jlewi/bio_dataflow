@@ -18,6 +18,7 @@ import contrail.sequences.StrandsUtil;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -30,6 +31,7 @@ import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
 import org.apache.avro.Schema;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.OptionBuilder;
@@ -118,7 +120,6 @@ public class BuildGraphAvro extends Stage
         "Chopped bases (default: " + TRIM5 + ")").create("trim5"));
     options.add(new Option(
         "record_all_threads",  "record threads even on non-branching nodes"));
-
     options.addAll(ContrailOptions.getInputOutputPathOptions());
     return options;
   }
@@ -489,10 +490,10 @@ public class BuildGraphAvro extends Stage
 
   protected void parseCommandLine(CommandLine line) {
     super.parseCommandLine(line);       
-
+     
     if (line.hasOption("k")) {
       stage_options.put("K", Long.valueOf(line.getOptionValue("k"))); 
-    }    
+    }
     if (line.hasOption("maxr5")) { 
       stage_options.put("MAXR5", Long.valueOf(line.getOptionValue("maxr5"))); 
     }
@@ -519,6 +520,23 @@ public class BuildGraphAvro extends Stage
 
   @Override
   protected int run() throws Exception {  
+    // Check for missing arguments.
+    String[] required_args = {"inputpath", "outputpath", "K"};
+    ArrayList<String> missing = new ArrayList<String>();
+    for (String arg_name: required_args) {     
+      if (!stage_options.containsKey(arg_name)) {
+        missing.add(arg_name);
+      }
+    }
+    
+    if (missing.size() > 0) {
+      sLogger.error(("Missing required arguments: " +
+                     StringUtils.join(missing, ","))); 
+      printHelp();
+      // Should we exit or throw an exception?
+      System.exit(0);
+    }
+    
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
     long K = (Long)stage_options.get("K");

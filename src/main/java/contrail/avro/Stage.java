@@ -9,6 +9,7 @@ import java.util.Map;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.GnuParser;
+import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
@@ -286,6 +287,18 @@ public abstract class Stage extends Configured implements Tool  {
      default_options = new HashMap<String, Object>();   
   }
   
+  /**
+   * Print the help message.
+   */
+  protected void printHelp() {
+    HelpFormatter formatter = new HelpFormatter();
+    Options options = new Options();
+    for (Option option: getCommandLineOptions()) {
+      options.addOption(option);
+    }
+    formatter.printHelp(
+        "hadoop jar CONTRAILJAR MAINCLASS [options]", options);
+  }
   /**
    * Run the stage.
    */
