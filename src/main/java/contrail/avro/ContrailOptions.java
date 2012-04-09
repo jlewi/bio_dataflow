@@ -106,9 +106,6 @@ public class ContrailOptions {
    * A list of options that apply to all stages.
    */
   public static List<Option> getStageOptions() {
-    // We define the options for input and output paths globally
-    // because we want to be consistent when specifying the options
-    // for running stages independently.
     if (stage_options != null) {
       return stage_options;
     }
@@ -118,6 +115,12 @@ public class ContrailOptions {
         "The XMLfile to write the job configuration to. The job won't be run.");
 
     stage_options.add(writeconfig);
+    
+    Option foroozie = new Option("foroozie", "foroozie", false,
+        "If writeconfig is also specified, then the job configuration is " +
+        "post-processed to make it suitable for use with oozie.");
+
+    stage_options.add(foroozie);
     return stage_options;
   }
 }
