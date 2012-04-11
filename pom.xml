@@ -78,6 +78,17 @@
   </repositories>
   <build>
     <plugins>
+      <!--Added this plugin to deal with compile issues when using java 1.7
+          See http://goo.gl/E12JG -->
+      <plugin> 
+	<groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+	<version>2.3.2</version>
+	<configuration>
+	  <source>1.6</source>
+	  <target>1.6</target>
+	</configuration>
+      </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>

@@ -378,14 +378,14 @@ public abstract class Stage extends Configured implements Tool  {
     // be specified for oozie.
     // TODO(jlewi): This won't work if the file is on HDFS.
     if (stage_options.containsKey("foroozie")) {
+      File xml_file = new File(jobpath.toUri());
       try {
         // Oozie requires certain properties to be specified in the workflow
         // and not in the individual job configuration stages.
         HashSet<String> exclude = new HashSet<String>();
         exclude.add("fs.default.name");
         exclude.add("mapred.job.tracker");
-        
-        File xml_file = new File(jobpath.toString());
+               
         DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
         DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
         Document doc = dBuilder.parse(xml_file);
@@ -407,7 +407,7 @@ public abstract class Stage extends Configured implements Tool  {
         transformer.transform(source, result);
       } catch (Exception exception) {
         sLogger.error("Exception occured while parsing:" + 
-            jobpath.toString());
+		      xml_file.toString());
         sLogger.error("Exception:" + exception.toString());
       }
     }

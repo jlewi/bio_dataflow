@@ -2,17 +2,16 @@
 """
 Setup an HDFS directory for oozie.
 
-We do the following to setup the oozie application directory.
+We do the following to setup the oozie application directory in HDFS.
 1. Delete the directory if it already exists.
 2. Create the directory by unpacking the contrail job jar so that
 its contents are
 app_dir/contrail/...
-app_dir/contrail/...
-3. We copy the workflow XML file to app_dir.
+app_dir/lib/...
+3. We copy the workflow XML file to app_dir/workflow.xml.
 4. We generate job configuration files for the pipeline stages and
-then post process them to be suitable for use with oozie.
-5. We copy the job configuration files to app_dir
-6. We copy the properties XML file to the app_dir.
+which are suitable for use with oozie.
+5. We copy the job configuration files to app_dir/stage_configs
 """
 
 __author__ = "jeremy@lewi.us (Jeremy Lewi)"
@@ -21,6 +20,7 @@ import logging
 
 import gflags
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -28,9 +28,11 @@ import tempfile
 FLAGS = gflags.FLAGS
 
 gflags.DEFINE_string(
-  "path", None, "The workflow application path.")
+  "path", None, "The workflow application path; the directory on HDFS to store the workflow files")
 gflags.MarkFlagAsRequired("path")
 
+gflags.DEFINE_string(
+  "workflow", "./share/workflows/workflow.xml", "The workflow XML.")
 
 def main(argv):
   try:
@@ -53,9 +55,11 @@ def main(argv):
     code = subprocess.call(["hadoop", "fs", "-rmr", FLAGS.path])
     if code:
       logging.error("Could not delete directory :{0}".format(FLAGS.path))
+
       return -1
   # Get the contrail jar.
   repo_dir = os.path.dirname(os.path.dirname(__file__))
+  repo_dir = os.path.abspath(repo_dir)
   jarpath = os.path.join(repo_dir, "target", "contrail-1.0-SNAPSHOT-job.jar")
   if not os.path.exists(jarpath):
     logging.error("File doesn't exist: {0}.\nPossible causes are:"
@@ -66,9 +70,16 @@ def main(argv):
 
   # Create a temporary directory to extract the files to.
   tempdir = tempfile.mkdtemp()
+
+  # Copy the workflow.
+  workflow_src = os.path.abspath(FLAGS.workflow)
+  workflow_dest = os.path.join(tempdir, "workflow.xml")
+  shutil.copyfile(workflow_src, workflow_dest)
+
   start_dir = os.getcwd()
   try:
     os.chdir(tempdir)
+    logging.info("Execute: jar -xvf %s", jarpath)
     subprocess.check_call(["jar", "-xvf", jarpath])
 
     # Create job configuration XML files for each stage.
@@ -85,13 +96,16 @@ def main(argv):
     for stage in stages:
       stage_name = stage.rsplit(".", 1)[-1]
       stage_file = "%s.xml" % os.path.join(tempdir, "stage_configs", stage_name)
+      # We need to include the URI file for the output file because we don't
+      # know what the default hadoop filesystem is.
       args = ["hadoop", "jar", jarpath, stage, "--foroozie",
-              "--writeconfig=%s" % stage_file,
+              "--writeconfig=file:///%s" % stage_file,
               "--inputpath=/tmp/proxy", "--outputpath=/tmp/out"]
       options = {}
       if stage_name in stage_options:
         options = stage_options[stage_name]
       args.extend(["--{0}={1}".format(key, value) for key, value in options.items()])
+      logging.info("Execute %s", " ".join(args))
       subprocess.check_call(args)
 
       # Check if a ".crc" file was created and if it was delete it because it
