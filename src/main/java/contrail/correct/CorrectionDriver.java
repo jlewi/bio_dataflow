@@ -7,9 +7,9 @@ import java.io.InputStreamReader;
 
 public class CorrectionDriver {
 
-	public static void main(String[] args){
+	public static void main(String[] args) throws Exception {
 		
-	    try {
+
 	    	
 	    	Configurator corConf = new Configurator();
 	    	
@@ -41,19 +41,22 @@ public class CorrectionDriver {
 	    	// @deepak - to do - set the global K value from error correction. 
 	    	//ContrailConfig.K = K;
 	    	
-	    	if(convertFlashInputToAvro)
-	    	{
+	    	if(convertFlashInputToAvro) {
 	    		System.out.println("Converting Files into Avro");
 	    		FastQtoAvro fqta = new FastQtoAvro();
 	    		
-	    		fqta.run(corConf.Flash_Mate_1_Avro, corConf.Flash_Mate_1_Avro);
-	    		fqta.run(corConf.Flash_Mate_2, corConf.Flash_Mate_2_Avro);
+	    		//fqta.run(corConf.Flash_Mate_1_Avro, corConf.Flash_Mate_1_Avro);
+	    		//fqta.run(corConf.Flash_Mate_2, corConf.Flash_Mate_2_Avro);
 	    		
-	    		fqta.run(corConf.Quake_Mate_1, corConf.Quake_Mate_1_Avro);
-	    		fqta.run(corConf.Quake_Mate_2, corConf.Quake_Mate_2_Avro);
+	    		//fqta.run(corConf.Quake_Mate_1, corConf.Quake_Mate_1_Avro);
+	    		//fqta.run(corConf.Quake_Mate_2, corConf.Quake_Mate_2_Avro);
 
 	    		fqta.run("singles_input", corConf.Singles);
 	    	}
+	    	
+	   
+	}
+}
 	    	
 	    	
 	    	

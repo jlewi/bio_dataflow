@@ -83,7 +83,7 @@ public class Configurator {
 		
 
 		
-	public Configurator(){
+	public Configurator() throws Exception {
 		
 		//Present working directory
 				//String pwd = System.getProperty("user.dir");
@@ -192,10 +192,7 @@ public class Configurator {
 					manifestMap.put(new String(fname2.trim()), temp);
 					
 					n++;
-					
-					
-					
-				
+						
 			}while(line != null);
 		}
 		catch(Exception e){}
