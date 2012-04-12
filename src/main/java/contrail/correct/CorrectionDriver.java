@@ -28,9 +28,9 @@ public class CorrectionDriver {
 	    	boolean correctForSingles = true;
 	    	boolean runFlash = true;
 	    	boolean run_paired_quake = true;
-	    	boolean runJoinFlash ;
-	    	boolean deleteFlashLog ;
-	    	runJoinFlash = deleteFlashLog = true;
+	    	boolean runJoinFlash = false;
+	    	boolean deleteFlashLog = true ;
+	    	//runJoinFlash = deleteFlashLog = true;
 	    	boolean runJoinQuake ;
 	    	boolean deleteQuakeLog ;
 	    	runJoinQuake = deleteQuakeLog = true;
@@ -41,50 +41,38 @@ public class CorrectionDriver {
 	    	// @deepak - to do - set the global K value from error correction. 
 	    	//ContrailConfig.K = K;
 	    	
+	    	/*
 	    	if(convertFlashInputToAvro) {
 	    		System.out.println("Converting Files into Avro");
 	    		FastQtoAvro fqta = new FastQtoAvro();
 	    		
-	    		//fqta.run(corConf.Flash_Mate_1_Avro, corConf.Flash_Mate_1_Avro);
-	    		//fqta.run(corConf.Flash_Mate_2, corConf.Flash_Mate_2_Avro);
+	    		fqta.run(corConf.Flash_Mate_1, corConf.Flash_Mate_1_Avro);
+	    		fqta.run(corConf.Flash_Mate_2, corConf.Flash_Mate_2_Avro);
 	    		
-	    		//fqta.run(corConf.Quake_Mate_1, corConf.Quake_Mate_1_Avro);
-	    		//fqta.run(corConf.Quake_Mate_2, corConf.Quake_Mate_2_Avro);
+	    		fqta.run(corConf.Quake_Mate_1, corConf.Quake_Mate_1_Avro);
+	    		fqta.run(corConf.Quake_Mate_2, corConf.Quake_Mate_2_Avro);
 
-	    		fqta.run("singles_input", corConf.Singles);
-	    	}
-	    	
-	   
-	}
-}
-	    	
-	    	
-	    	
-	    	/*if(sortFiles)
-	    	{
-	    		SortAvroFile obj = new SortAvroFile();
-	    		obj.run(ContrailConfig.Flash_Mate_1_Avro, "ContrailPlus/Flash_Avro_1_Sorted");
-	    		obj.run(ContrailConfig.Flash_Mate_2_Avro, "ContrailPlus/Flash_Avro_2_Sorted");
-	    	}
-	    	*/
-	    	/*if(simulateJoin)
-	    	{
-	    		JoinSimulator js = new JoinSimulator();
-	    		js.run(ContrailConfig.Singles, ContrailConfig.Flash_Join_Out);
+	    		fqta.run(corConf.Singles, corConf.Singles_Avro);
 	    	}
 	    	*/
 	    	
-	    	/*
 	    	if(runJoinFlash)
 	    	{
 	    		 System.out.println("Joining For Flash");
-	    		 joinGenerator.generateJoin(ContrailConfig.Flash_Join_Out, "flash");
+	    		 
+	    		 joinGenerator.generateJoin(corConf.Flash_Join_Out, "flash");
 	    	}
-	    	 if(deleteFlashLog)
-	         {
+	    	
+	    	
+	    	/*
+	    	if(deleteFlashLog)
+	        {
 	    		 System.out.println("Deleting Flash Log");
-	             String logPath = ContrailConfig.Flash_Join_Out+"/_logs";
-	             String command = ContrailConfig.Hadoop_Home+"/bin/hadoop dfs -rmr " + logPath;    
+	             String logPath = corConf.Flash_Join_Out+"/_*";
+	             String command = corConf.Hadoop_Home+"/bin/hadoop dfs -rm " + logPath;    
+	             
+	             //System.out.println(command);
+	             
 	             try {
 	                
 	                 Process p = Runtime.getRuntime().exec(command);
@@ -101,15 +89,18 @@ public class CorrectionDriver {
 	             }
 	             
 	         }
-	        
-	    	 
+	         
+	         */
+	   
+
 	    	 
 	    	if(runFlash)
 	    	{
 	   		 System.out.println("Running Flash");
 
-	    		String command = ContrailConfig.Hadoop_Home+"/bin/hadoop dfs -rmr "+ContrailConfig.Flash_Final_Out;
-	      		 System.out.println(command);
+	    		String command = corConf.Hadoop_Home+"/bin/hadoop dfs -rmr "+ corConf.Flash_Final_Out;
+	      		
+	    		System.out.println(command);
 
 	        	try {
 	                 
@@ -125,7 +116,7 @@ public class CorrectionDriver {
 	                 e.printStackTrace();
 	             }
 	             
-	             String command2 = ContrailConfig.Hadoop_Home+"/bin/hadoop dfs -mkdir "+ContrailConfig.Flash_Final_Out;
+	             String command2 = corConf.Hadoop_Home+"/bin/hadoop dfs -mkdir "+ corConf.Flash_Final_Out;
 	       		 System.out.println(command2);
 
 
@@ -144,13 +135,18 @@ public class CorrectionDriver {
 	                 // TODO Auto-generated catch block
 	                 e.printStackTrace();
 	             }
-	             System.out.println("Flash Paired Files createtion");
+	         
+	             System.out.println("Flash Paired Files creation");
 	             // This is the key method here ExportToPairedFiles() - It triggers a MapReduce Job to first write flash input data on each node, 
 	         	 //and then runs flash across the cluster.
-	             createPairedReadsForFlash.run(ContrailConfig.Flash_Join_Out, ContrailConfig.junkPath);
+	             createPairedReadsForFlash.run(corConf.Flash_Join_Out, corConf.junkPath);
 	    	}
 	    	
-	    	
+	}
+} 	 
+
+
+/*	    	
 	    	if(kmercount)
 	    	{
 	    		System.out.println("Counting Kmers");

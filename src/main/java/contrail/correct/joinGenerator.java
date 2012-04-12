@@ -13,7 +13,7 @@ import org.apache.hadoop.mapred.JobConf;
 public class joinGenerator {
 /* Invokes the pig script*/
 
-	/*
+	
 	public static void generateJoin(String joinedFilePath, String cmd) throws Exception 
 	{
 		//delete mergedpath if it exists for the pig script 
@@ -26,15 +26,13 @@ public class joinGenerator {
 	    if (FileSystem.get(job).exists(out_path)) {
 	      FileSystem.get(job).delete(out_path, true);  
 	    }
-	
+		*/
 		
 		
 		Configurator corConf = new Configurator();
 		
 		String delCommand = corConf.Hadoop_Home + "/bin/hadoop dfs -rmr "+joinedFilePath; 
-		
-		
-		
+	
 		try {
 			//System.out.print();
 			Process p = Runtime.getRuntime().exec(delCommand);
@@ -50,21 +48,24 @@ public class joinGenerator {
 			e.printStackTrace();
 		}
 		
+		
+		
 		String pig_file_path = null;
 		String command = null;
 		
 		if ( cmd.equals("flash"))
 		{
-			pig_file_path = ContrailConfig.Script_Home+"/flashjoin.pig";
+			pig_file_path = corConf.Script_Home+"/flashjoin.pig";
 			command = "pig " + pig_file_path;
 		}
 		
 		else
 		{
-			pig_file_path = ContrailConfig.Script_Home+"/quakejoin.pig";
+			pig_file_path = corConf.Script_Home+"/quakejoin.pig";
 			command = "pig "+ pig_file_path;
 			
 		}
+		
 		System.out.println(command);
 		try {
 			
@@ -82,7 +83,7 @@ public class joinGenerator {
 		}
 		
 	}
-*/
+
 }
 
 

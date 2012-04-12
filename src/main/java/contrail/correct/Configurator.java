@@ -52,7 +52,10 @@ public class Configurator {
 		public static String Quake_Node_In_Data = null;
 		public static String Quake_Node_Out_Data = null;
 		public static String Manifest = null;
+		
+		
 		public static String Singles = null;
+		public static String Singles_Avro = null;
 		
 		public static String Quake_Mate_1 = null;
 		public static String Quake_Mate_2 = null;
@@ -104,16 +107,29 @@ public class Configurator {
 				Quake_Mate_2 = config.getString("hdfs_in_data.quake_mate_2");
 				Flash_Mate_1_Flat = config.getString("hdfs_out_data.flash_mate_1_flat");
 				Flash_Mate_2_Flat = config.getString("hdfs_out_data.flash_mate_2_flat");
+				
+				
 				Quake_Mate_1_Flat = config.getString("hdfs_out_data.quake_mate_1_flat");
 				Quake_Mate_2_Flat = config.getString("hdfs_out_data.quake_mate_2_flat");
 				Singles = config.getString("hdfs_in_data.singles");
+				
+				Singles_Avro = config.getString("hdfs_out_data.singles_avro");
+				Flash_Mate_1_Avro = config.getString("hdfs_out_data.flash_mate_1_avro");
+				Flash_Mate_2_Avro = config.getString("hdfs_out_data.flash_mate_2_avro");
+				
+				
+				Quake_Mate_1_Avro = config.getString("hdfs_out_data.quake_mate_1_avro");
+				Quake_Mate_2_Avro = config.getString("hdfs_out_data.quake_mate_2_avro");
+		
+				
 				Quake_Singles_Out = config.getString("hdfs_out_data.quake_singles_out");
 				Quake_Final_Out = config.getString("hdfs_out_data.quake_final_out");
+				
 				
 				Flash_Node_In = config.getString("local_data.flash_input");
 				
 				Flash_Node_Out = config.getString("local_data.flash_output");
-				Script_Home = config.getString("setup.script_home");
+				Script_Home = config.getString("setup.pig_script");
 				 
 				Flash_Join_Out = config.getString("hdfs_out_data.flash_join_out");
 				Flash_Final_Out = config.getString("hdfs_out_data.flash_final_out");
