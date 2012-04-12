@@ -8,9 +8,9 @@
 	<setup>
 		<hadoop_home>/usr/lib/hadoop-0.20</hadoop_home>
 		<pig_home>/usr/local/pig-0.9.2/</pig_home>
-		<flash_home>/home/avijit/workspace/AvroTest/flash</flash_home>
+		<flash_home>/home/deepak/523/flash</flash_home>
 		<quake_home>/home/avijit/workspace/AvroTest/quake</quake_home>
-		<pig_script>/home/avijit/workspace/AvroTest/script</pig_script>
+		<pig_script>/home/deepak/523/contrail-bio/share/pigscripts</pig_script>
 		<project_home>/home/hduser/workspace/contrailPlus</project_home>
 	</setup>
 
@@ -18,15 +18,16 @@
 	
 	<!--@deepak: To do - Move the manifest to resources, and remove hard path.  -->
 	<local_data>
-		<flash_input>/home/avijit/workspace/AvroTest/FlashInputData</flash_input>
-		<flash_output>/home/avijit/workspace/AvroTest/FlashOutputData</flash_output>
+		<flash_input>/home/deepak/523/contrail-bio/target/FlashInputData</flash_input>
+		<flash_output>/home/deepak/FlashOutputData</flash_output>
 		<quake_data>/home/avijit/workspace/AvroTest/QuakeData</quake_data>
 		<manifest>/home/deepak/523/contrail-bio/src/main/resources/manifest</manifest>
 	</local_data>
 	
 	<!-- HDFS Input Data -->
 	<hdfs_in_data>
-		<singles>singles</singles>	
+	
+		<singles>singles</singles>				
 		<!-- Input Paths for Flattening FastQ Files-->
 		<flash_mate_1>flash_mate_1</flash_mate_1>
 		<flash_mate_2>flash_mate_2</flash_mate_2>
@@ -38,6 +39,7 @@
 
 	<!-- Names of Output directories on HDFS for each Run Stage -->
 	<hdfs_out_data>
+		<singles_avro>ContrailPlus/Singles_Avro</singles_avro>
 		<flash_mate_1_avro>ContrailPlus/Flash_Mate_1_Avro</flash_mate_1_avro>
 		<flash_mate_2_avro>ContrailPlus/Flash_Mate_2_Avro</flash_mate_2_avro>
 		<flash_join_out>ContrailPlus/Flash_Join_Out</flash_join_out>	
