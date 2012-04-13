@@ -1,13 +1,13 @@
 <workflow-app name='assemble-genome' xmlns="uri:oozie:workflow:0.1">
     <start to='FastqPreprocessor'/>
-    <action name='FastqPreprocessor'>
-        <prepare>
-	  <!-- Delete the output path otherwise hadoop won't proceed.-->
-	  <delete path="${outputDir}/FastqPreProcessorAvro">
-	</prepare>
+    <action name='FastqPreprocessor'>	  
         <map-reduce>
             <job-tracker>${jobTracker}</job-tracker>
             <name-node>${nameNode}</name-node>
+            <prepare>
+	      <!-- Delete the output path otherwise hadoop won't proceed.-->
+	      <delete path="${outputDir}/FastqPreProcessorAvro"/>
+	    </prepare>
 	    <job-xml>${stageConfigDir}/FastqPreprocessorAvroCompressed.xml</job-xml>
             <configuration>
                 <property>
