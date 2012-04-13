@@ -385,6 +385,7 @@ public abstract class Stage extends Configured implements Tool  {
         HashSet<String> exclude = new HashSet<String>();
         exclude.add("fs.default.name");
         exclude.add("mapred.job.tracker");
+        exclude.add("mapred.jar");
                
         DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
         DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
