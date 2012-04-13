@@ -20,6 +20,29 @@
                 </property>
             </configuration>
         </map-reduce>
+        <ok to='BuildGraph'/>
+        <error to='end'/>
+    </action>
+    <action name='BuildGraph'>	  
+        <map-reduce>
+            <job-tracker>${jobTracker}</job-tracker>
+            <name-node>${nameNode}</name-node>
+            <prepare>
+	      <!-- Delete the output path otherwise hadoop won't proceed.-->
+	      <delete path="${outputDir}/BuildGraph"/>
+	    </prepare>
+	    <job-xml>${stageConfigDir}/BuildGraphAvro.xml</job-xml>
+            <configuration>
+                <property>
+                    <name>mapred.input.dir</name>
+                    <value>${inputDir}</value>
+                </property>
+                <property>
+                    <name>mapred.output.dir</name>
+                    <value>${outputDir}/BuildGraph</value>
+                </property>
+            </configuration>
+        </map-reduce>
         <ok to='end'/>
         <error to='end'/>
     </action>
