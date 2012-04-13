@@ -1,6 +1,6 @@
 <workflow-app name='assemble-genome' xmlns="uri:oozie:workflow:0.1">
-    <start to='convertfastq'/>
-    <action name='convertfastq'>
+    <start to='FastqPreprocessor'/>
+    <action name='FastqPreprocessor'>
         <map-reduce>
             <job-tracker>${jobTracker}</job-tracker>
             <name-node>${nameNode}</name-node>
@@ -12,7 +12,7 @@
                 </property>
                 <property>
                     <name>mapred.output.dir</name>
-                    <value>${outputDir}</value>
+                    <value>${outputDir}/FastqPreProcessorAvro</value>
                 </property>
             </configuration>
         </map-reduce>
