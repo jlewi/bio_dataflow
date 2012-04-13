@@ -28,6 +28,7 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -61,6 +62,29 @@ public abstract class Stage extends Configured implements Tool  {
   protected HashMap<String, Object > stage_options = 
       new HashMap<String, Object>();
 
+  /**
+   * Check if the indicated options have been supplied to the stage
+   * and if not exit the process printing the help message.
+   * 
+   * @param required: List of required options.
+   */
+  protected void checkHasOptionsOrDie(String[] required) {
+    ArrayList<String> missing = new ArrayList<String>();
+    for (String arg_name: required) {     
+      if (!stage_options.containsKey(arg_name)) {
+        missing.add(arg_name);
+      }
+    }
+    
+    if (missing.size() > 0) {
+      sLogger.error(("Missing required arguments: " +
+                     StringUtils.join(missing, ","))); 
+      printHelp();
+      // Should we exit or throw an exception?
+      System.exit(0);
+    }
+  }
+  
   /**
    * Return a list of command line options used by this stage.
    * 

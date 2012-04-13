@@ -109,8 +109,8 @@ public class BuildGraphAvro extends Stage
     long MAXTHREADREADS = (Long)default_options.get("MAXTHREADREADS");
     long  RECORD_ALL_THREADS = (Long)default_options.get("RECORD_ALL_THREADS");
     // Add options specific to this stage.
-    options.add(OptionBuilder.withArgName("k").hasArg().withDescription(
-        "Graph nodes size [required]").create("k"));
+    options.add(OptionBuilder.withArgName("K").hasArg().withDescription(
+        "Graph nodes size [required]").create("K"));
     options.add(OptionBuilder.withArgName(
         "max reads").hasArg().withDescription(
             "max reads starts per node (default: " + MAXR5 +")").create(
@@ -492,8 +492,8 @@ public class BuildGraphAvro extends Stage
   protected void parseCommandLine(CommandLine line) {
     super.parseCommandLine(line);       
      
-    if (line.hasOption("k")) {
-      stage_options.put("K", Long.valueOf(line.getOptionValue("k"))); 
+    if (line.hasOption("K")) {
+      stage_options.put("K", Long.valueOf(line.getOptionValue("K"))); 
     }
     if (line.hasOption("maxr5")) { 
       stage_options.put("MAXR5", Long.valueOf(line.getOptionValue("maxr5"))); 
@@ -523,20 +523,7 @@ public class BuildGraphAvro extends Stage
   protected int run() throws Exception {  
     // Check for missing arguments.
     String[] required_args = {"inputpath", "outputpath", "K"};
-    ArrayList<String> missing = new ArrayList<String>();
-    for (String arg_name: required_args) {     
-      if (!stage_options.containsKey(arg_name)) {
-        missing.add(arg_name);
-      }
-    }
-    
-    if (missing.size() > 0) {
-      sLogger.error(("Missing required arguments: " +
-                     StringUtils.join(missing, ","))); 
-      printHelp();
-      // Should we exit or throw an exception?
-      System.exit(0);
-    }
+    checkHasOptionsOrDie(required_args);
     
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");

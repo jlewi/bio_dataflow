@@ -62,8 +62,8 @@ public class QuickMergeAvro extends Stage {
     options.addAll(ContrailOptions.getInputOutputPathOptions());
     
     // Add options specific to this stage.
-    options.add(OptionBuilder.withArgName("k").hasArg().withDescription(
-        "Graph nodes size [required]").create("k"));
+    options.add(OptionBuilder.withArgName("K").hasArg().withDescription(
+        "KMer size [required]").create("K"));
  
     return options;
   }
@@ -202,8 +202,8 @@ public class QuickMergeAvro extends Stage {
 
   protected void parseCommandLine(CommandLine line) {
     super.parseCommandLine(line);       
-    if (line.hasOption("k")) {
-      stage_options.put("K", Long.valueOf(line.getOptionValue("k"))); 
+    if (line.hasOption("K")) {
+      stage_options.put("K", Long.valueOf(line.getOptionValue("K"))); 
     } 
     if (line.hasOption("inputpath")) { 
       stage_options.put("inputpath", line.getOptionValue("inputpath")); 
@@ -221,6 +221,9 @@ public class QuickMergeAvro extends Stage {
 
 	@Override
 	protected int run() throws Exception {
+	  String[] required_args = {"inputpath", "outputpath", "K"};
+    checkHasOptionsOrDie(required_args);
+    
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
     long K = (Long)stage_options.get("K");
