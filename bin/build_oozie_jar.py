@@ -8,10 +8,11 @@ We do the following to setup the oozie application directory in HDFS.
 its contents are
 app_dir/contrail/...
 app_dir/lib/...
-3. We copy the workflow XML file to app_dir/workflow.xml.
-4. We generate job configuration files for the pipeline stages and
+3. move app_dir/contrail/... to app_dir/lib/
+4. We copy the workflow XML file to app_dir/workflow.xml.
+5. We generate job configuration files for the pipeline stages and
 which are suitable for use with oozie.
-5. We copy the job configuration files to app_dir/stage_configs
+6. We copy the job configuration files to app_dir/stage_configs
 """
 
 __author__ = "jeremy@lewi.us (Jeremy Lewi)"
@@ -69,7 +70,8 @@ def main(argv):
     return -1
 
   # Create a temporary directory to extract the files to.
-  tempdir = tempfile.mkdtemp()
+  tempdir = tempfile.mkdtemp(prefix="tmpOozie")
+  logging.info("Use temp directory: %s", tempdir)
 
   # Copy the workflow.
   workflow_src = os.path.abspath(FLAGS.workflow)
@@ -81,6 +83,11 @@ def main(argv):
     os.chdir(tempdir)
     logging.info("Execute: jar -xvf %s", jarpath)
     subprocess.check_call(["jar", "-xvf", jarpath])
+
+    # Move  tempdir/contrail to tempdir/lib/contrail
+    src_path = os.path.join(tempdir, "contrail")
+    dest_path = os.path.join(tempdir, "lib", "contrail")
+    shutil.move(src_path, dest_path)
 
     # Create job configuration XML files for each stage.
     stages = ["contrail.avro.FastqPreprocessorAvroCompressed",
@@ -122,8 +129,10 @@ def main(argv):
     subprocess.check_call(args)
 
   finally:
+    logging.info("Used temp directory: %s", tempdir)
     os.chdir(start_dir)
     return
+
   return
 
   # Copy the workflow.
