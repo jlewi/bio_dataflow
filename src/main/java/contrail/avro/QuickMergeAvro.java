@@ -247,23 +247,27 @@ public class QuickMergeAvro extends Stage {
     AvroJob.setMapperClass(conf, QuickMergeMapper.class);
     AvroJob.setReducerClass(conf, QuickMergeReducer.class);
 
-    // Delete the output directory if it exists already
-    Path out_path = new Path(outputPath);
-    if (FileSystem.get(conf).exists(out_path)) {
-      // TODO(jlewi): We should only delete an existing directory
-      // if explicitly told to do so.
-      sLogger.info("Deleting output path: " + out_path.toString() + " " + 
-          "because it already exists.");       
-      FileSystem.get(conf).delete(out_path, true);  
+    if (stage_options.containsKey("writeconfig")) {
+      writeJobConfig(conf);
+    } else {
+      // Delete the output directory if it exists already
+      Path out_path = new Path(outputPath);
+      if (FileSystem.get(conf).exists(out_path)) {
+        // TODO(jlewi): We should only delete an existing directory
+        // if explicitly told to do so.
+        sLogger.info("Deleting output path: " + out_path.toString() + " " + 
+            "because it already exists.");       
+        FileSystem.get(conf).delete(out_path, true);  
+      }
+  
+      long starttime = System.currentTimeMillis();    
+      JobClient.runJob(conf);
+      long endtime = System.currentTimeMillis();
+  
+      float diff = (float) (((float) (endtime - starttime)) / 1000.0);
+  
+      System.out.println("Runtime: " + diff + " s");
     }
-
-    long starttime = System.currentTimeMillis();    
-    JobClient.runJob(conf);
-    long endtime = System.currentTimeMillis();
-
-    float diff = (float) (((float) (endtime - starttime)) / 1000.0);
-
-    System.out.println("Runtime: " + diff + " s");
     return 0;
 	}
 
