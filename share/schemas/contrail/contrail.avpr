@@ -107,6 +107,11 @@
         }          
      ]
     },
+    {"type": "enum",
+     "name": "EdgeDirection",
+     "namespace": "contrail.graph",
+     "symbols": ["INCOMING", "OUTGOING"]     
+    },
     {"name": "EdgeData",
      "namespace": "contrail.graph",
      "type": "record",

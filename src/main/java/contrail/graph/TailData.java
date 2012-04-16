@@ -113,7 +113,7 @@ public class TailData
 			// LinearChainWalker is already doing it.
 			GraphNode node = nodes.get(terminal.nodeId);
 			TailData end_tail = node.getTail(
-					terminal.strand, direction.flip());						
+					terminal.strand, EdgeDirectionUtil.flip(direction));						
 			if ((end_tail != null) && 
 				(end_tail.terminal.equals(previous_terminal))) {
 				dist++;
