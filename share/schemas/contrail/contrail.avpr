@@ -180,21 +180,26 @@
                           }
                  }
                ]
-    },    
-    {"name": "RemoveTipMessage",
+    },        
+    {"name": "contrail.avro.CompressibleMessage", 
      "type": "record",
-     "doc": "Message used in the remove tip stage.",
-     "fields": [
-                 // TODO(jlewi): We probably shouldn't store canonical_dest_kmer.
-                 // Rather, we should identify the nodes using the node_id.
-                 {"name": "canonical_dest_kmer", 
-                  "type": ["null", "contrail.sequences.CompressedSequence"],
-                  "doc": ["The canonical sequence for the destination KMer to ",
-                          "remove the edge from."]
-                 },
-                 {"name": "edge_strands", 
-                  "type": ["null", "contrail.sequences.StrandsForEdge"],
-                  "doc": "The enumeration for the edge strands we want to delete."
+     "doc": ["Record for the messages outputted by the mapper in the ", 
+             "Compressible stage."],
+     "fields": [{"name":"from_node_id", 
+                 "type": "string",
+                 "doc":  "Id of the node the message is from."},
+                {"name": "from_direction",
+                 "type": "contrail.graph.EdgeDirection",
+                 "doc": "The strand the message is from."}]     
+    },
+    {"name": "contrail.avro.CompressibleMapOutput",
+     "type": "record",
+     "doc": ["Record used for the output of mapper stage in the compressible ",
+             "phase."],
+     "fields": [ {"name": "message", 
+                  "type": ["null", "contrail.avro.CompressibleMessage"],
+                  "doc": ["A message informing this node about which ",
+                          "neighbors are part of linear chains."]
                  },
                  {"name": "node", "type": ["null", "contrail.graph.GraphNodeData"],
                   "doc": "The node the messages are sent to."
