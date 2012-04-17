@@ -190,7 +190,7 @@
      "type": "record",
      "doc": ["Record for the messages outputted by the mapper in the ", 
              "Compressible stage."],
-     "fields": [{"name":"from_node_id", 
+     "fields": [{"name": "from_node_id", 
                  "type": "string",
                  "doc":  "Id of the node the message is from."},
                 {"name": "from_direction",
@@ -210,6 +210,20 @@
                   "doc": "The node the messages are sent to."
                  }                 
                ]
+    },
+    {"name": "contrail.avro.CompressibleNodeData", 
+     "type": "record",
+     "doc": ["Record for the data outputted by the CompressibleStage. ", 
+             "Each record contains a graph node and information about which ",
+             "directions if any we can compress this node."],
+     "fields": [{"name":"compressible_directions", 
+                 "type": {"type": "array", 
+                          "items": "contrail.graph.EdgeDirection"},
+                 "doc":  ["A list of directions with respect to the forward ",
+                          "along which this node can be compressed."]},
+                {"name": "node",
+                 "type": "contrail.graph.GraphNodeData",
+                 "doc": "The node data."}]     
     }
 	] // end types
 }
