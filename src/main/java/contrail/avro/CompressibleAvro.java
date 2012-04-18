@@ -2,12 +2,9 @@ package contrail.avro;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 import org.apache.avro.Schema;
 import org.apache.avro.mapred.AvroCollector;
@@ -17,11 +14,9 @@ import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
 import org.apache.avro.specific.SpecificData;
 import org.apache.commons.cli.Option;
-import org.apache.commons.cli.OptionBuilder;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobClient;
@@ -30,15 +25,10 @@ import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
-import contrail.Node;
-import contrail.TailInfo;
-import contrail.avro.QuickMergeAvro.QuickMergeMapper;
-import contrail.avro.QuickMergeAvro.QuickMergeReducer;
 import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeDirectionUtil;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
-import contrail.graph.KMerEdge;
 import contrail.graph.TailData;
 import contrail.sequences.DNAStrand;
 
@@ -85,15 +75,15 @@ public class CompressibleAvro extends Stage {
     AvroMapper<GraphNodeData, Pair<CharSequence, CompressibleMapOutput>> {
     
     // Node used to process the graphnode data.
-    private static GraphNode node = new GraphNode();
+    private GraphNode node = new GraphNode();
     
     // Output pair to use for the mapper.
-    private static Pair<CharSequence, CompressibleMapOutput> out_pair = new 
+    private Pair<CharSequence, CompressibleMapOutput> out_pair = new 
         Pair<CharSequence, CompressibleMapOutput>(MAP_OUT_SCHEMA);
     
     // Message to use; we use a static instance to avoid the cost
     // of recreating one everytime we need one.
-    private static CompressibleMessage message = new CompressibleMessage();
+    private CompressibleMessage message = new CompressibleMessage();
     
     public void configure(JobConf job) {
       out_pair.value(new CompressibleMapOutput());
@@ -145,8 +135,9 @@ public class CompressibleAvro extends Stage {
           clearCompressibleMapOutput(map_output);
           out_pair.key(tail.terminal.nodeId);
           
-          message.setFromNodeId(node.getNodeId());
-          
+          // TODO(jlewi): We don't store the strand of the destination
+          // node. Is this ok? 
+          message.setFromNodeId(node.getNodeId());          
           message.setFromDirection(direction);
           map_output.setMessage(message);
           output.collect(out_pair);
@@ -201,6 +192,8 @@ public class CompressibleAvro extends Stage {
       boolean has_node = false;
       incoming_nodes.clear();
       outgoing_nodes.clear();
+      clearAnnotatedNode(annotated_node);
+      
       Iterator<CompressibleMapOutput> iter = iterable.iterator();
       
       while (iter.hasNext()) {
