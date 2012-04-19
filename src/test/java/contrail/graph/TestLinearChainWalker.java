@@ -179,7 +179,7 @@ public class TestLinearChainWalker {
 		for (int trial = 0; trial < num_trials; trial++) {
 			// Which node and strand to start on.
 			int start_pos = generator.nextInt(chain_length);
-			EdgeDirection walk_direction = EdgeDirection.random(generator);
+			EdgeDirection walk_direction = EdgeDirectionUtil.random(generator);
 			runTrial(chain, nodes_map, start_pos, walk_direction);
 		}
 	}

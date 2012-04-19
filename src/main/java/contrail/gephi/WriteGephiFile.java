@@ -9,6 +9,7 @@ import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
 import contrail.graph.SimpleGraphBuilder;
 import contrail.sequences.DNAStrand;
+import contrail.sequences.StrandsUtil;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -24,8 +25,14 @@ import org.w3c.dom.Element;
 /**
  * Write a gephi XML file to represent a graph.
  * 
+ * Doc about gexf format:
+ * http://gexf.net/1.2draft/gexf-12draft-primer.pdf
+ * 
  * WARNING: Gephi appears to have problems reading files in "/tmp" so
  * write the file somewhere else.
+ * 
+ * TODO(jlewi): It would be good if we could label each node so that
+ * we could see 
  */
 public class WriteGephiFile {  
   private static final Logger sLogger = 
@@ -41,7 +48,7 @@ public class WriteGephiFile {
    */
   private static Element createElementForEdge(      
       Document doc, int edge_id, HashMap<String, Integer> node_id_map,
-      GraphNode node, EdgeTerminal terminal) {
+      GraphNode node, DNAStrand strand, EdgeTerminal terminal) {
     Element xml_edge = doc.createElement("edge");
     Integer this_node_id = node_id_map.get(node.getNodeId());
     
@@ -51,6 +58,11 @@ public class WriteGephiFile {
     xml_edge.setAttribute("source", this_node_id.toString());        
     Integer target_id = node_id_map.get(terminal.nodeId);
     xml_edge.setAttribute("target", target_id.toString());
+    
+    xml_edge.setAttribute("type", "directed");
+    xml_edge.setAttribute(
+        "label", 
+        StrandsUtil.form(strand,  terminal.strand).toString());
     return xml_edge; 
   }
   
@@ -74,8 +86,7 @@ public class WriteGephiFile {
     gexf_root.appendChild(root);
     root.setAttribute("mode", "static");
     root.setAttribute("defaultedgetype", "directed");
-    
-    
+       
     Element xml_nodes = doc.createElement("nodes");
     Element xml_edges = doc.createElement("edges");
     
@@ -103,23 +114,15 @@ public class WriteGephiFile {
       xml_node.setAttribute("id", this_node_id.toString());
       xml_node.setAttribute("label", node.getNodeId());
       xml_nodes.appendChild(xml_node);
-            
-      List<EdgeTerminal> forward_edges =
-          node.getEdgeTerminals(DNAStrand.FORWARD, EdgeDirection.OUTGOING);
-            
-      for (EdgeTerminal terminal: forward_edges){
-        Element xml_edge = createElementForEdge(      
-            doc, ++edge_id, node_id_map, node, terminal);
-        xml_edges.appendChild(xml_edge);
-      }
-      
-      List<EdgeTerminal> reverse_edges =
-          node.getEdgeTerminals(DNAStrand.REVERSE, EdgeDirection.OUTGOING);
-            
-      for (EdgeTerminal terminal: reverse_edges){
-        Element xml_edge = createElementForEdge(      
-            doc, ++edge_id, node_id_map, node, terminal);
-        xml_edges.appendChild(xml_edge);
+                             
+      for (DNAStrand strand: DNAStrand.values()) {
+        List<EdgeTerminal> edges =
+            node.getEdgeTerminals(strand, EdgeDirection.OUTGOING);
+        for (EdgeTerminal terminal: edges){
+          Element xml_edge = createElementForEdge(      
+              doc, ++edge_id, node_id_map, node, strand, terminal);
+          xml_edges.appendChild(xml_edge);
+        }
       }
       
       // write the content into xml file
@@ -141,6 +144,8 @@ public class WriteGephiFile {
     
     List<GraphNode> nodes = new ArrayList<GraphNode>();
     nodes.addAll(builder.getAllNodes().values());
-    writeGraph(nodes, "/home/jlewi/tmp/graph.gexf");
+    String xml_file = "/home/jlewi/tmp/graph.gexf";
+    writeGraph(nodes, xml_file);
+    sLogger.info("Wrote: " + xml_file);
   }
 }
