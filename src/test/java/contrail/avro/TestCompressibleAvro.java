@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.List;
 
@@ -16,7 +15,6 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 import org.junit.Test;
 
-import contrail.ContrailConfig;
 import contrail.ReporterMock;
 import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
@@ -26,7 +24,6 @@ import contrail.graph.SimpleGraphBuilder;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
-import contrail.util.ListUtil;
 
 public class TestCompressibleAvro {
 

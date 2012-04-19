@@ -1,7 +1,6 @@
 package contrail.avro;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -12,7 +11,6 @@ import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
-import org.apache.avro.specific.SpecificData;
 import org.apache.commons.cli.Option;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -26,7 +24,6 @@ import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 import contrail.graph.EdgeDirection;
-import contrail.graph.EdgeDirectionUtil;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
@@ -37,7 +34,7 @@ import contrail.sequences.StrandsUtil;
 
 /**
  * This mapreduce stage marks nodes which can be compressed. A node
- * can be compressed if its part of a linear chain; i.e there is a single
+ * can be compressed if it is part of a linear chain; i.e there is a single
  * path through that node. 
  */
 public class CompressibleAvro extends Stage {
@@ -85,7 +82,7 @@ public class CompressibleAvro extends Stage {
         Pair<CharSequence, CompressibleMapOutput>(MAP_OUT_SCHEMA);
     
     // Message to use; we use a static instance to avoid the cost
-    // of recreating one everytime we need one.
+    // of recreating one every time we need one.
     private CompressibleMessage message = new CompressibleMessage();
     
     public void configure(JobConf job) {
@@ -138,8 +135,6 @@ public class CompressibleAvro extends Stage {
           clearCompressibleMapOutput(map_output);
           out_pair.key(tail.terminal.nodeId);
           
-          // TODO(jlewi): We don't store the strand of the destination
-          // node. Is this ok? 
           message.setFromNodeId(node.getNodeId());
           StrandsForEdge strands = StrandsUtil.form(
               strand, tail.terminal.strand);
