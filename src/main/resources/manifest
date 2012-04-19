@@ -1,0 +1,4 @@
+#read1 read2 dist do_flash do_quake
+pair1.fq pair2.fq 180 1 1
+mate1.fq mate2.fq 500 0 0
+unpaired.fq - - 0 
