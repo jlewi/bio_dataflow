@@ -185,6 +185,51 @@
                           }
                  }
                ]
+    },        
+    {"name": "contrail.avro.CompressibleMessage", 
+     "type": "record",
+     "doc": ["Record for the messages outputted by the mapper in the ", 
+             "Compressible stage."],
+     "fields": [{"name": "from_node_id", 
+                 "type": "string",
+                 "doc":  "Id of the node the message is from."},
+                {"name": "strands",
+                 "type": "contrail.sequences.StrandsForEdge",
+                 "doc": ["The strands for the edge. The edge is always an ",
+                         "outgoing edge from from_node_id"]}]     
+    },
+    {"name": "contrail.avro.CompressibleMapOutput",
+     "type": "record",
+     "doc": ["Record used for the output of mapper stage in the compressible ",
+             "phase."],
+     "fields": [ {"name": "message", 
+                  "type": ["null", "contrail.avro.CompressibleMessage"],
+                  "doc": ["A message informing this node about which ",
+                          "neighbors are part of linear chains."]
+                 },
+                 {"name": "node", "type": ["null", "contrail.graph.GraphNodeData"],
+                  "doc": "The node the messages are sent to."
+                 }                 
+               ]
+    },
+    {"name": "contrail.avro.CompressibleStrands",
+     "type": "enum",
+     "symbols": ["NONE", "FORWARD", "REVERSE", "BOTH"]
+    },
+    // Using an enum to store which strands are compressible should
+    // be slightly more space efficient then a list of strands.    
+    {"name": "contrail.avro.CompressibleNodeData", 
+     "type": "record",
+     "doc": ["Record for the data outputted by the CompressibleStage. ", 
+             "Each record contains a graph node and information about which ",
+             "directions if any we can compress this node."],
+     "fields": [{"name":"compressible_strands", 
+                 "type": "contrail.avro.CompressibleStrands",
+                 "doc":  ["Which strands of the node are compressible with ",
+                          "respect to outgoing edges."]},
+                {"name": "node",
+                 "type": "contrail.graph.GraphNodeData",
+                 "doc": "The node data."}]     
     }
 	] // end types
 }
