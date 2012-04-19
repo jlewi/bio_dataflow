@@ -1,6 +1,7 @@
 package contrail.graph;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
@@ -11,7 +12,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
+import contrail.sequences.AlphabetUtil;
+import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
+import contrail.sequences.Sequence;
 import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
 import contrail.sequences.DNAStrandUtil;
@@ -40,6 +44,12 @@ public class TestGraphNode {
 		node_data.setNodeId("node");
 		node_data.setNeighbors(new ArrayList<NeighborData>());
 
+		String random_sequence = 
+		    AlphabetUtil.randomString(generator, 10, DNAAlphabetFactory.create());
+		Sequence sequence = new Sequence(
+		    random_sequence, DNAAlphabetFactory.create());
+		node.setCanonicalSequence(sequence);
+		
 		int num_dest_nodes = generator.nextInt(30) + 5;
 		for (int index = 0; index < num_dest_nodes; index++) {
 			NeighborData dest_node = new NeighborData();
@@ -368,5 +378,18 @@ public class TestGraphNode {
         }
       }
 	  }
+	}
+	
+	@Test
+	public void testClone() {
+	  GraphNode node = createNode();
+	  GraphNode copy = node.clone();
+	  
+	  assertEquals(node.getData(), copy.getData());
+	  
+	  // Double check the sequence because we manipulate the sequence field
+	  // during the clone because of the bug in avro.
+	  assertNotNull(node.getData().getCanonicalSourceKmer());
+	  assertNotNull(copy.getData().getCanonicalSourceKmer());
 	}
 }
