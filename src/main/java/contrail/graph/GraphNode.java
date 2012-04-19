@@ -315,7 +315,9 @@ public class GraphNode {
         sequence.getDna().array(), sequence.getDna().array().length);
     sequence_copy.setDna(ByteBuffer.wrap(
         buffer, 0, source_buffer.limit()));
-    
+
+    // Reset the sequence.
+    data.setCanonicalSourceKmer(sequence);
     return new GraphNode(copy);
   }
 	/**
