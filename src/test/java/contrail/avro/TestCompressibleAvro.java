@@ -24,6 +24,8 @@ import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.graph.SimpleGraphBuilder;
 import contrail.sequences.DNAStrand;
+import contrail.sequences.StrandsForEdge;
+import contrail.sequences.StrandsUtil;
 import contrail.util.ListUtil;
 
 public class TestCompressibleAvro {
@@ -87,21 +89,18 @@ public class TestCompressibleAvro {
     HashMap<String, CompressibleMessage> expected_messages = 
         new HashMap<String, CompressibleMessage>();
     
-    { 
-      CompressibleMessage message = new CompressibleMessage();
-      message.setFromDirection(EdgeDirection.OUTGOING);
-      message.setFromNodeId("CGA");
-      expected_messages.put("ATC", message);
-    }
+    GraphNode node = graph.getNode(graph.findNodeIdForSequence("TCG"));
     
-    { 
-      CompressibleMessage message = new CompressibleMessage();
-      message.setFromDirection(EdgeDirection.INCOMING);
-      message.setFromNodeId("CGA");
-      expected_messages.put("CGC", message);
+    for (DNAStrand strand: DNAStrand.values()) {
+      for (EdgeTerminal terminal : 
+           node.getEdgeTerminals(strand, EdgeDirection.OUTGOING)){
+        CompressibleMessage message = new CompressibleMessage();        
+        message.setFromNodeId(node.getNodeId());
+        StrandsForEdge strands = StrandsUtil.form(strand, terminal.strand);
+        message.setStrands(strands);
+        expected_messages.put(terminal.nodeId, message); 
+      }      
     }
-    
-    GraphNode node = graph.getNode("CGA");
     
     MapTestCaseData case_data = new MapTestCaseData();
     case_data.node = node.getData();
@@ -122,15 +121,21 @@ public class TestCompressibleAvro {
     // Construct the list of expected messages. This is a hashtable
     // where the key is the id of the destination node.
     HashMap<String, CompressibleMessage> expected_messages = 
-        new HashMap<String, CompressibleMessage>();    
+        new HashMap<String, CompressibleMessage>();
+    
+   GraphNode node = graph.getNode(graph.findNodeIdForSequence("ATC"));
+    
+     // We only send a single message.
     { 
-      CompressibleMessage message = new CompressibleMessage();
-      message.setFromDirection(EdgeDirection.INCOMING);
-      message.setFromNodeId("ATC");
-            
+      CompressibleMessage message = new CompressibleMessage();      
+      message.setFromNodeId(node.getNodeId());
+
+      // Edge is CAT ->ATC  
+      // Since we only send outgoing edges the message is 
+      // GAT -> ATG : FR      
+      message.setStrands(StrandsForEdge.RF);      
       expected_messages.put(graph.findNodeIdForSequence("CAT"), message);
     }
-    GraphNode node = graph.getNode("ATC");
     
     MapTestCaseData case_data = new MapTestCaseData();
     case_data.node = node.getData();
@@ -215,17 +220,19 @@ public class TestCompressibleAvro {
     
     {
       CompressibleMapOutput output = new CompressibleMapOutput();
-      output.setNode(node.getData());
+      // Clone the data so that the message has its own data.
+      output.setNode(node.clone().getData());
       map_outputs.add(output);
-    }
+    }    
     { 
       CompressibleMapOutput output = new CompressibleMapOutput();           
       CompressibleMessage message = new CompressibleMessage();
       
-      // We always deal with the forward strand.
-      message.setFromDirection(EdgeDirection.OUTGOING);
+      // We always deal with outgoing edges.
+      // TCG->CGC implies GCG -> CGA : RF  
       message.setFromNodeId(graph.findNodeIdForSequence("CGC"));
-            
+      message.setStrands(StrandsForEdge.RF);
+                  
       output.setMessage(message);
       map_outputs.add(output);
     }    
@@ -233,22 +240,20 @@ public class TestCompressibleAvro {
       CompressibleMapOutput output = new CompressibleMapOutput();           
       CompressibleMessage message = new CompressibleMessage();
       
-      // We always deal with the forward strand.
-      message.setFromDirection(EdgeDirection.INCOMING);
+      // We always deal with the forward strand.      
       message.setFromNodeId(graph.findNodeIdForSequence("ATC"));
+      message.setStrands(StrandsForEdge.FR);
       output.setMessage(message);
       map_outputs.add(output);      
     }
-    
-    
+        
     ReduceTestCaseData case_data = new ReduceTestCaseData();
     case_data.map_outputs = map_outputs;
     
     CompressibleNodeData annotated_node = new CompressibleNodeData();
-    annotated_node.setNode(node.getData());
-    annotated_node.setCompressibleDirections(new ArrayList<EdgeDirection>());
-    annotated_node.getCompressibleDirections().add(EdgeDirection.INCOMING);
-    annotated_node.getCompressibleDirections().add(EdgeDirection.OUTGOING);
+    
+    annotated_node.setNode(node.clone().getData());
+    annotated_node.setCompressibleStrands(CompressibleStrands.BOTH);
     case_data.expected_annotated_node = annotated_node;
     return case_data;
   }
