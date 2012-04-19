@@ -162,14 +162,14 @@ public class CompressibleAvro extends Stage {
     // We store the nodes sending messages in two sets, one corresponding
     // to messages from incoming edges, and one from outgoing edges.
     // Direction is relative to the forward strand.
-    private static HashSet<String> incoming_nodes = new 
+    private HashSet<String> incoming_nodes = new 
         HashSet<String>();
-    private static HashSet<String> outgoing_nodes = new 
+    private HashSet<String> outgoing_nodes = new 
         HashSet<String>();
     
     // The output from the reducer is a node annotated with information
     // about whether its attached to compressible nodes or not.
-    private static CompressibleNodeData annotated_node = 
+    private CompressibleNodeData annotated_node = 
         new CompressibleNodeData();
     
     // Clear the data in the node. 
@@ -248,7 +248,10 @@ public class CompressibleAvro extends Stage {
         } else {
           message_nodes = outgoing_nodes;
         }
-        // We always deal with the forward strand.
+        // The message is always from the forward strand.
+        HOWEVER the message could be to either the forward or reverse
+        strand of this node.
+        
         // We need to flip the direction of the edge because if the edge
         // is an incoming for the source node then its an outgoing edge for
         // this node.
