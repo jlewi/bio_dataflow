@@ -7,7 +7,6 @@ import contrail.sequences.Sequence;
 import contrail.util.ByteReplaceAll;
 import contrail.util.ByteUtil;
 
-import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -17,7 +16,6 @@ import org.apache.avro.mapred.AvroWrapper;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
@@ -59,8 +57,6 @@ public class FastqPreprocessorAvroCompressed extends Stage {
   {
     private int idx = 0;
 
-    private String name = null;
-
     private String filename = null;
 
     private int mate_id = 0x0;
@@ -71,10 +67,6 @@ public class FastqPreprocessorAvroCompressed extends Stage {
     private Alphabet alphabet;
 
     private String counter = "pair_unknown";
-
-
-    // initial size for the buffer used to encode the dna sequence
-    private int START_CAPACITY = 200;
 
     private CompressedRead read = new CompressedRead();
     private AvroWrapper<CompressedRead> out_wrapper = 
@@ -185,7 +177,7 @@ public class FastqPreprocessorAvroCompressed extends Stage {
         // Replace any funny characters.
         replacer.replaceAll(data);
 
-        name = new String(data, ByteReplaceAll.encoding);				
+        read.setId(new String(data, ByteReplaceAll.encoding));       
       }
       else if (idx == 1) {			  
         byte[] raw_bytes = line.getBytes();
@@ -204,8 +196,7 @@ public class FastqPreprocessorAvroCompressed extends Stage {
       else if (idx == 2) { 
       }
       else if (idx == 3)
-      {						  
-        read.setId(name);				 			
+      {						  				 			
         output.collect(out_wrapper, NullWritable.get());
 
         reporter.incrCounter("Contrail", "preprocessed_reads", 1);
