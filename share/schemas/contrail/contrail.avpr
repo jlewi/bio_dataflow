@@ -230,6 +230,20 @@
                 {"name": "node",
                  "type": "contrail.graph.GraphNodeData",
                  "doc": "The node data."}]     
+    },
+    //    
+    {"name": "contrail.avro.CompressibleNodeData", 
+     "type": "record",
+     "doc": ["Record for the data outputted by the CompressibleStage. ", 
+             "Each record contains a graph node and information about which ",
+             "directions if any we can compress this node."],
+     "fields": [{"name":"compressible_strands", 
+                 "type": "contrail.avro.CompressibleStrands",
+                 "doc":  ["Which strands of the node are compressible with ",
+                          "respect to outgoing edges."]},
+                {"name": "node",
+                 "type": "contrail.graph.GraphNodeData",
+                 "doc": "The node data."}]     
     }
 	] // end types
 }
