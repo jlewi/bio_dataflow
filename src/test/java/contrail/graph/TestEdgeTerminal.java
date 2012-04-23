@@ -9,9 +9,9 @@ import java.util.Random;
 import org.junit.Before;
 import org.junit.Test;
 
-import contrail.ByteUtil;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAStrandUtil;
+import contrail.util.ByteUtil;
 
 public class TestEdgeTerminal {
 

@@ -1,20 +1,41 @@
 package contrail.avro;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.GnuParser;
+import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.util.Tool;
+import org.apache.log4j.Logger;
 
 import contrail.Contrail;
 
@@ -23,7 +44,8 @@ import contrail.Contrail;
  *
  */
 public abstract class Stage extends Configured implements Tool  {
-
+  private static final Logger sLogger = 
+      Logger.getLogger(Stage.class);
   public Stage() {
     initialize();
   }
@@ -41,6 +63,29 @@ public abstract class Stage extends Configured implements Tool  {
       new HashMap<String, Object>();
 
   /**
+   * Check if the indicated options have been supplied to the stage
+   * and if not exit the process printing the help message.
+   * 
+   * @param required: List of required options.
+   */
+  protected void checkHasOptionsOrDie(String[] required) {
+    ArrayList<String> missing = new ArrayList<String>();
+    for (String arg_name: required) {     
+      if (!stage_options.containsKey(arg_name)) {
+        missing.add(arg_name);
+      }
+    }
+    
+    if (missing.size() > 0) {
+      sLogger.error(("Missing required arguments: " +
+                     StringUtils.join(missing, ","))); 
+      printHelp();
+      // Should we exit or throw an exception?
+      System.exit(0);
+    }
+  }
+  
+  /**
    * Return a list of command line options used by this stage.
    * 
    */
@@ -50,6 +95,7 @@ public abstract class Stage extends Configured implements Tool  {
     // Return options used by all stages.
     options.addAll(ContrailOptions.getHelpOptions());
     options.addAll(ContrailOptions.getHadoopOptions());
+    options.addAll(ContrailOptions.getStageOptions());
     return options;
   }
 
@@ -77,12 +123,12 @@ public abstract class Stage extends Configured implements Tool  {
       // oops, something went wrong
       System.err.println( "Parsing failed.  Reason: " + exp.getMessage() );
       System.exit(1);
-    }
+    }    
   }
 
   protected void parseCommandLine(CommandLine line) {
-    if (line.hasOption("help") || line.hasOption("h") || line.hasOption("expert"))
-    {
+    if (line.hasOption("help") || line.hasOption("h")) {
+      printHelp();
       // TODO(jlewi): We need to refactor the code below. The help strings
       // for the individual options should come from the options themselves.
       //    We should use the HelpFormatter  class to print out the help information.
@@ -175,10 +221,17 @@ public abstract class Stage extends Configured implements Tool  {
       //            "  -restart_scaff_stage <stage>   : Restart at this stage: edges, bundles, frontier, update, finalize, clean\n" + 
       //            "  -restart_scaff_frontier <hops> : Restart after this many hops\n"
       //            );
-
       System.exit(0);
     } // has help
 
+    if (line.hasOption("foroozie")) {
+      stage_options.put("foroozie", line.getOptionValue("foroozie"));
+    }
+    
+    if (line.hasOption("writeconfig")) {
+      stage_options.put("writeconfig", line.getOptionValue("writeconfig"));
+    }
+    
   } 
 
   // TODO(jlewi): Refactor code below to parse out common options. 
@@ -257,11 +310,19 @@ public abstract class Stage extends Configured implements Tool  {
         stage_options.put(key, defaults.get(key));
       }
     }
+    
+    // List of options which shouldn't be added to the configuration
+    HashSet<String> exclude = new HashSet<String>();
+    exclude.add("writeconfig");    
+    exclude.add("foroozie");
     // Loop over all the stage options and add them to the configuration
     // so that they get passed to the mapper and reducer.
     for (Iterator<String> key_it = stage_options.keySet().iterator();
         key_it.hasNext();) {
       String key = key_it.next();
+      if (exclude.contains(key)) {
+        continue;
+      }
       Object value = stage_options.get(key);
       if (value instanceof  String) {
         conf.set(key, (String)value);
@@ -284,6 +345,18 @@ public abstract class Stage extends Configured implements Tool  {
   }
   
   /**
+   * Print the help message.
+   */
+  protected void printHelp() {
+    HelpFormatter formatter = new HelpFormatter();
+    Options options = new Options();
+    for (Option option: getCommandLineOptions()) {
+      options.addOption(option);
+    }
+    formatter.printHelp(
+        "hadoop jar CONTRAILJAR MAINCLASS [options]", options);
+  }
+  /**
    * Run the stage.
    */
   protected int run(Map<String, Object> options) throws Exception  {
@@ -293,9 +366,9 @@ public abstract class Stage extends Configured implements Tool  {
     // Run the stage.
     return run();
   }
-  
-  public int run(String[] args) throws Exception 
-  {
+    
+  public int run(String[] args) throws Exception {
+    sLogger.info("Tool name: " + this.getClass().getName());
     parseCommandLine(args);   
     return run();
   }
@@ -303,5 +376,68 @@ public abstract class Stage extends Configured implements Tool  {
    * Run the stage.
    */
   abstract protected int run() throws Exception;
+  
+  /**
+   * Write the job configuration to an XML file specified in the stage option.
+   */
+  protected void writeJobConfig(JobConf conf) {
+    Path jobpath = new Path((String) stage_options.get("writeconfig"));
+    
+    // Do some postprocessing of the job configuration before we write it.    
+    // Overwrite the file if it exists.
+    try {
+      // We need to use the original configuration because that will have
+      // the filesystem.
+      FSDataOutputStream writer = jobpath.getFileSystem(conf).create(
+          jobpath, true);
+      conf.writeXml(writer);
+      writer.close();
+    } catch (IOException exception) {
+      sLogger.error("Exception occured while writing job configuration to:" + 
+                    jobpath.toString());
+      sLogger.error("Exception:" + exception.toString());
+    }
+    
+    // Post process the configuration to remove properties which shouldn't
+    // be specified for oozie.
+    // TODO(jlewi): This won't work if the file is on HDFS.
+    if (stage_options.containsKey("foroozie")) {
+      File xml_file = new File(jobpath.toUri());
+      try {
+        // Oozie requires certain properties to be specified in the workflow
+        // and not in the individual job configuration stages.
+        HashSet<String> exclude = new HashSet<String>();
+        exclude.add("fs.default.name");
+        exclude.add("mapred.job.tracker");
+        exclude.add("mapred.jar");
+               
+        DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
+        Document doc = dBuilder.parse(xml_file);
+        NodeList name_nodes = doc.getElementsByTagName("name");
+        for (int index = 0; index < name_nodes.getLength(); ++index) {
+          Node node = name_nodes.item(index);
+          String property_name = node.getTextContent();
+          if (exclude.contains(property_name)) {
+            Node parent = node.getParentNode();
+            Node grand_parent = parent.getParentNode();
+            grand_parent.removeChild(parent);
+          }
+        }
+        // write the content into xml file
+        TransformerFactory transformerFactory = TransformerFactory.newInstance();
+        Transformer transformer = transformerFactory.newTransformer();
+        DOMSource source = new DOMSource(doc);
+        StreamResult result = new StreamResult(xml_file);
+        transformer.transform(source, result);
+      } catch (Exception exception) {
+        sLogger.error("Exception occured while parsing:" + 
+		      xml_file.toString());
+        sLogger.error("Exception:" + exception.toString());
+      }
+    }
+    
+    sLogger.info("Wrote job config to:" + jobpath.toString());
+  }
 }
 

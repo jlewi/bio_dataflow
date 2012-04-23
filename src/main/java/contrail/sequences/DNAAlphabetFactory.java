@@ -1,11 +1,14 @@
 package contrail.sequences;
 
-import contrail.ByteUtil;
+import contrail.util.ByteUtil;
 
 /**
  * Factory to create the DNAAlphabet. We use a factory because we only want
- * one instance of the alphabet but we need to initialize it the first time its called. 
+ * one instance of the alphabet but we need to initialize it the first time its 
+ * called. 
  * 
+ * The resulting Alphabet represents the 4 DNA bases {"A", "C", "G", "T"}
+ * using 2 bits per base; i.e. each base is assigned a number [0, 3].
  */
 public class DNAAlphabetFactory {
 

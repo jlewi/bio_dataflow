@@ -1,8 +1,13 @@
-package contrail;
+package contrail.avro;
 
+import contrail.CompressedRead;
+import contrail.ContrailConfig;
+import contrail.OutputCollectorMock;
+import contrail.ReporterMock;
 import contrail.sequences.Alphabet;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.Sequence;
+import contrail.util.ByteUtil;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
