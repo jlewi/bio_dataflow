@@ -154,6 +154,11 @@ public class CompressibleAvro extends Stage {
     }
   }
   
+  /**
+   * The reducer checks if a node is compressible and if it is marks it
+   * with information which strands of the node are compressible before
+   * outputting the node. 
+   */
   public static class CompressibleReducer extends 
       AvroReducer<CharSequence, CompressibleMapOutput, CompressibleNodeData> {    
     private static GraphNode node = new GraphNode(); 
@@ -237,13 +242,15 @@ public class CompressibleAvro extends Stage {
 
       annotated_node.setNode(node.getData());
       
-      // Now check if this node is compressible.
-      // Suppose we have edge X->Y. We can compress this edge
-      // if X has a single outgoing edge to Y and Y has a single
-      // incoming edge from X. We look at the tail for X to see 
-      // if it has a single outgoing edge. The messages stored in
-      // f_terminals, r_terminals tells us if the node Y has a single
-      // incoming edge from X.
+      /*
+       * Now check if this node is compressible.
+       * Suppose we have edge X->Y. We can compress this edge
+       * if X has a single outgoing edge to Y and Y has a single
+       * incoming edge from X. We look at the tail for X to see 
+       * if it has a single outgoing edge. The messages stored in
+       * f_terminals and r_terminals tells us if the node Y has a single
+       * incoming edge from X.
+       */
       boolean f_compressible = false;
       boolean r_compressible = false;
       for (DNAStrand strand: DNAStrand.values()) {
