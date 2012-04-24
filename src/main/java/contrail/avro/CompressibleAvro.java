@@ -156,8 +156,8 @@ public class CompressibleAvro extends Stage {
   
   /**
    * The reducer checks if a node is compressible and if it is marks it
-   * with information which strands of the node are compressible before
-   * outputting the node. 
+   * with the strands of the node that are compressible before outputting the 
+   * node. 
    */
   public static class CompressibleReducer extends 
       AvroReducer<CharSequence, CompressibleMapOutput, CompressibleNodeData> {    
