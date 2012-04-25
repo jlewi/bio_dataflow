@@ -246,5 +246,5 @@
                  "type": "contrail.graph.GraphNodeData",
                  "doc": "The node."}]     
     }
-	] // end types
+  ] // end types
 }
