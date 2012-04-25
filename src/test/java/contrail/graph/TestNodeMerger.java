@@ -259,7 +259,7 @@ public class TestNodeMerger extends NodeMerger {
     
     int num_edges = generator.nextInt(15);
     for (int edge_index = 0; edge_index < num_edges; edge_index++) {
-      EdgeDirection direction = EdgeDirection.random(generator);      
+      EdgeDirection direction = EdgeDirectionUtil.random(generator);      
       List<CharSequence> tags = new ArrayList<CharSequence>();
       int num_tags = generator.nextInt(10);
       for (int tag_index = 0; tag_index < num_tags; tag_index++) {

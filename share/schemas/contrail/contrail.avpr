@@ -107,6 +107,11 @@
         }          
      ]
     },
+    {"type": "enum",
+     "name": "EdgeDirection",
+     "namespace": "contrail.graph",
+     "symbols": ["INCOMING", "OUTGOING"]     
+    },
     {"name": "EdgeData",
      "namespace": "contrail.graph",
      "type": "record",
@@ -179,26 +184,6 @@
                                    "reads align to this sequence."]
                           }
                  }
-               ]
-    },    
-    {"name": "RemoveTipMessage",
-     "type": "record",
-     "doc": "Message used in the remove tip stage.",
-     "fields": [
-                 // TODO(jlewi): We probably shouldn't store canonical_dest_kmer.
-                 // Rather, we should identify the nodes using the node_id.
-                 {"name": "canonical_dest_kmer", 
-                  "type": ["null", "contrail.sequences.CompressedSequence"],
-                  "doc": ["The canonical sequence for the destination KMer to ",
-                          "remove the edge from."]
-                 },
-                 {"name": "edge_strands", 
-                  "type": ["null", "contrail.sequences.StrandsForEdge"],
-                  "doc": "The enumeration for the edge strands we want to delete."
-                 },
-                 {"name": "node", "type": ["null", "contrail.graph.GraphNodeData"],
-                  "doc": "The node the messages are sent to."
-                 }                 
                ]
     }
 	] // end types
