@@ -567,7 +567,7 @@ public class BuildGraphAvro extends Stage
   
       float diff = (float) (((float) (endtime - starttime)) / 1000.0);
   
-      System.out.println("Runtime: " + diff + " s");
+      sLogger.info("Runtime: " + diff + " s");
     }
     return 0;
   }
