@@ -11,6 +11,7 @@ import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
+import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -226,7 +227,7 @@ public class CompressibleAvro extends Stage {
               msg.getFromNodeId().toString(), 
               StrandsUtil.dest(strands));
           
-          DNAStrand this_strand = StrandsUtil.src(msg.getStrands());
+          DNAStrand this_strand = StrandsUtil.src(strands);
           if (this_strand == DNAStrand.FORWARD) {
             f_terminals.add(terminal);
           } else {
@@ -285,7 +286,7 @@ public class CompressibleAvro extends Stage {
         // Sanity check since we have a tail in this direction we should
         // have at most a single message.
         if (terminals.size() > 1) {
-          // TODO(jlewi): We use an exception for now because we should
+          // We use an exception for now because we should
           // treat this as an unrecoverable error.
           throw new RuntimeException(
               "Node: " + node.getNodeId() + "has a tail for strand: " + 
@@ -314,8 +315,19 @@ public class CompressibleAvro extends Stage {
     }
   }
 
+  @Override
+  protected void parseCommandLine(CommandLine line) {
+    super.parseCommandLine(line);         
+    if (line.hasOption("inputpath")) { 
+      stage_options.put("inputpath", line.getOptionValue("inputpath")); 
+    }
+    if (line.hasOption("outputpath")) { 
+      stage_options.put("outputpath", line.getOptionValue("outputpath")); 
+    }
+  }
+  
   public int run(String[] args) throws Exception {
-    sLogger.info("Tool name: QuickMergeAvro");
+    sLogger.info("Tool name: CompressibleMergeAvro");
     parseCommandLine(args);   
     return run();
   }
