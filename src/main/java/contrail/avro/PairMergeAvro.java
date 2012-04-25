@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Random;
 
 import org.apache.avro.mapred.AvroCollector;
+import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
@@ -53,13 +54,18 @@ import contrail.sequences.StrandsUtil;
  * Suppose the coin toss for A is Up and Down for B.  
  * 
  */
-public class PairMarkAvro extends Stage {	
-	private static final Logger sLogger = Logger.getLogger(PairMarkAvro.class);
+public class PairMergeAvro extends Stage {	
+	private static final Logger sLogger = Logger.getLogger(PairMergeAvro.class);
 	
 	private static class CompressibleNode {
 	  private CompressibleNodeData data;
 	  private GraphNode node;
 	  
+	  public CompressibleNode() {
+	    // data gets set with setData.
+	    data = null;
+	    node = new GraphNode();
+	  }
 	  public void setData(CompressibleNodeData new_data) {
 	    data = new_data;
 	    node.setData(new_data.getNode());
@@ -90,57 +96,33 @@ public class PairMarkAvro extends Stage {
 	  }
 	}
 	
-	private static class PairMarkMapper extends 
+	protected static class PairMergeMapper extends 
 	  AvroMapper<CompressibleNodeData, Pair<CharSequence, MergeNodeData>> {
-		private static long randseed = 0;
-		private Random rfactory = new Random();
 		
+	
+	  private CompressibleNode node;
+    private MergeNodeData output;
+    private CoinFlipper flipper;
 		public void configure(JobConf job) {
-			randseed = Long.parseLong(job.get("randseed"));
+		  node = new CompressibleNode();
+		  output = new MergeNodeData();
+			flipper = new CoinFlipper(Long.parseLong(job.get("randseed")));
+			out_pair = new Pair<CharSequence, MergeNodeData>("", output);
 		}
-		
-		private enum CoinFlip {
-		  Up, Down;
-		}
-		
-		// Flip a coin for the given node. The seed for the random 
-		// generator is a combination of a global seed and the nodeid.
-		// Thus, all nodes compute the same value for the flip for a given node.
-		//
-		// TODO(jlewi): We shouldn't use Heads and Tails because we already
-		// use tails to refer to tails in the chain. We don't want to use
-		// Male/Female because the abbreviation "F" gets confused with the
-		// forward strand.
-		// We could use Up and Down. 
-		
-		// TODO(jlewi): We should consider making the coin flipper a separat
-		// class so we can use dependency inject it so during testing
-		// we can control the flip values for the different nodes.
-		public CoinFlip flip(String nodeid) {
-			rfactory.setSeed(nodeid.hashCode() ^ randseed);
-			
-			double rand = rfactory.nextDouble();			
-			CoinFlip side = (rand >= .5) ? CoinFlip.Up : CoinFlip.Down;			
-			return side;
-		}
-		
-		
+						
 		public TailData getBuddy(CompressibleNode node, DNAStrand strand) {
 			if (node.canCompress(strand)) {
 				return node.getNode().getTail(strand, EdgeDirection.OUTGOING);
 			}			
 			return null;
 		}
-		
-		private CompressibleNode node;
-		private MergeNodeData output;
-		
+				
 		// Output pair
 		private Pair<CharSequence, MergeNodeData> out_pair;
 		
 		private void clearOutput () {
 		  output.setNode(null);
-		  output.setStrandsToMerge(null);
+		  output.setStrandToMerge(CompressibleStrands.NONE);
 		}
 		
 		// Container class for storing information about which edge in this node
@@ -167,9 +149,9 @@ public class PairMarkAvro extends Stage {
       // We can only merge in a single direction at a time.
       if (fbuddy != null) {
         
-        CoinFlip f_flip = flip(fbuddy.terminal.nodeId);
+        CoinFlipper.CoinFlip f_flip = flipper.flip(fbuddy.terminal.nodeId);
 
-        if (f_flip == CoinFlip.Down) {
+        if (f_flip == CoinFlipper.CoinFlip.Down) {
           // We can compress the forward strand.              
           return new EdgeToCompress(fbuddy.terminal, DNAStrand.FORWARD);
         }
@@ -178,9 +160,9 @@ public class PairMarkAvro extends Stage {
       // If we can't compress the forward strand, see if
       // we can compress the reverse strand.
       if (rbuddy != null) {      
-        CoinFlip r_flip = flip(rbuddy.terminal.nodeId);
+        CoinFlipper.CoinFlip r_flip = flipper.flip(rbuddy.terminal.nodeId);
 
-        if (r_flip == CoinFlip.Down) { 
+        if (r_flip == CoinFlipper.CoinFlip.Down) { 
           return new EdgeToCompress(rbuddy.terminal, DNAStrand.REVERSE);
         }
       }
@@ -208,10 +190,11 @@ public class PairMarkAvro extends Stage {
         
         //boolean fmale = isMale(fbuddy.id);
         //boolean rmale = isMale(rbuddy.id);
-        CoinFlip f_flip = flip(fbuddy.terminal.nodeId);
-        CoinFlip r_flip = flip(rbuddy.terminal.nodeId);
+        CoinFlipper.CoinFlip f_flip = flipper.flip(fbuddy.terminal.nodeId);
+        CoinFlipper.CoinFlip r_flip = flipper.flip(rbuddy.terminal.nodeId);
 
-        if ( f_flip == CoinFlip.Down &&  r_flip == CoinFlip.Down &&
+        if ( f_flip == CoinFlipper.CoinFlip.Down &&  
+             r_flip == CoinFlipper.CoinFlip.Down &&
             (node.getNode().getNodeId().compareTo(
                 fbuddy.terminal.nodeId) < 0) && 
             (node.getNode().getNodeId().compareTo(
@@ -226,8 +209,8 @@ public class PairMarkAvro extends Stage {
         // We only have a tail for the forward strand but not the reverse
         // strand.
         //boolean fmale = isMale(fbuddy.id);
-        CoinFlip f_flip = flip(fbuddy.terminal.nodeId);
-        if (f_flip == CoinFlip.Down && (
+        CoinFlipper.CoinFlip f_flip = flipper.flip(fbuddy.terminal.nodeId);
+        if (f_flip == CoinFlipper.CoinFlip.Down && (
             node.getNode().getNodeId().compareTo(
                 fbuddy.terminal.nodeId) < 0)) {
 
@@ -239,12 +222,11 @@ public class PairMarkAvro extends Stage {
       if (fbuddy == null) {
         //boolean rmale = isMale(rbuddy.id);
 
-        CoinFlip r_flip = flip(rbuddy.terminal.nodeId);
+        CoinFlipper.CoinFlip r_flip = flipper.flip(rbuddy.terminal.nodeId);
         
-        if (r_flip == CoinFlip.Down && (
+        if (r_flip == CoinFlipper.CoinFlip.Down && (
             node.getNode().getNodeId().compareTo(
                 rbuddy.terminal.nodeId) < 0)) {
-          // Its FF=>X* and I'm the local minimum
           return true;
         }
         return false;
@@ -254,148 +236,161 @@ public class PairMarkAvro extends Stage {
 		
 		public void map(CompressibleNodeData node_data, 
 		    AvroCollector<Pair<CharSequence, MergeNodeData>> collector, 
-        Reporter reporter) throws IOException {					
+		    Reporter reporter) throws IOException {					
 		  node.setData(node_data);
-		  
-		  // Check if either the forward or reverse strand can be merged.
-			TailData fbuddy = getBuddy(node, DNAStrand.FORWARD);
-			TailData rbuddy = getBuddy(node, DNAStrand.REVERSE);
-												      
-      if (fbuddy == null && rbuddy == null) {
-        // Node can't be compressed so output the node and we are done.      
-        clearOutput();
-        output.setNode(node.getNode().getData());
-        out_pair.key(node_data.getNode().getNodeId());
-        out_pair.value(output);
-        collector.collect(out_pair);
-        reporter.incrCounter("Contrail", "nodes", 1);
-        return;
-      }
-           
-			reporter.incrCounter("Contrail", "compressible", 1);
 
-			CoinFlip coin = flip(node.getNode().getNodeId());
-				
-			// If this node is randomly assigned Down, see if it can be converted 
-			// to up.
-			if (coin == CoinFlip.Down) {
-			  if (convertDownToUp(node, fbuddy, rbuddy)) {
-			    coin = CoinFlip.Up;
-			  }
-			}
-				
-			if (coin == CoinFlip.Down) {
-			  // Just output this node since this is a Down node
-			  // any node to be merged with this node will be sent to this node.
-			  clearOutput();
-        output.setNode(node.getNode().getData());
-        out_pair.key(node_data.getNode().getNodeId());
-        out_pair.value(output);
-        collector.collect(out_pair);
-        reporter.incrCounter("Contrail", "nodes", 1);
-			  return;
-			}
-				
+		  // Check if either the forward or reverse strand can be merged.
+		  TailData fbuddy = getBuddy(node, DNAStrand.FORWARD);
+		  TailData rbuddy = getBuddy(node, DNAStrand.REVERSE);
+
+		  if (fbuddy == null && rbuddy == null) {
+		    // Node can't be compressed so output the node and we are done.      
+		    clearOutput();
+		    output.setNode(node.getNode().getData());
+		    out_pair.key(node_data.getNode().getNodeId());
+		    out_pair.value(output);
+		    collector.collect(out_pair);
+		    reporter.incrCounter("Contrail", "nodes", 1);
+		    return;
+		  }
+
+		  reporter.incrCounter("Contrail", "compressible", 1);
+
+		  CoinFlipper.CoinFlip coin = flipper.flip(node.getNode().getNodeId());
+
+		  // If this node is randomly assigned Down, see if it can be converted 
+		  // to up.
+		  if (coin == CoinFlipper.CoinFlip.Down) {
+		    if (convertDownToUp(node, fbuddy, rbuddy)) {
+		      coin = CoinFlipper.CoinFlip.Up;
+		    }
+		  }
+
+		  if (coin == CoinFlipper.CoinFlip.Down) {
+		    // Just output this node since this is a Down node
+		    // any node to be merged with this node will be sent to this node.
+		    clearOutput();
+		    output.setNode(node.getNode().getData());
+		    out_pair.key(node_data.getNode().getNodeId());
+		    out_pair.value(output);
+		    collector.collect(out_pair);
+		    reporter.incrCounter("Contrail", "nodes", 1);
+		    return;
+		  }
+
 		  // Check if this node can be sent to one of its neighbors to be merged.
 		  EdgeToCompress edge_to_compress = 
 		      processUpNode(node, fbuddy, rbuddy);
-				  
+
 
 		  if (edge_to_compress == null) {
 		    // This node doesn't get sent to another node be merged.
 		    clearOutput();
-        output.setNode(node.getNode().getData());
-        out_pair.key(node_data.getNode().getNodeId());
-        out_pair.value(output);
-        collector.collect(out_pair);
-        reporter.incrCounter("Contrail", "nodes", 1);
-        return;
+		    output.setNode(node.getNode().getData());
+		    out_pair.key(node_data.getNode().getNodeId());
+		    out_pair.value(output);
+		    collector.collect(out_pair);
+		    reporter.incrCounter("Contrail", "nodes", 1);
+		    return;
 		  }
 
- 
-			  // The key for the output is the id for the node this node gets merged
-			  // into
-		    clearOutput();
-		    
-		    output.setNode(node.getNode().getData());
-		    output.setStrandToMerge(edge_to_compress.strand);
-			  out_pair.key(edge_to_compress.other_terminal.nodeId);                
-        out_pair.value(output);
-            }
+
+		  // The key for the output is the id for the node this node gets merged
+		  // into
+		  clearOutput();
+
+		  output.setNode(node.getNode().getData());
+		  if (edge_to_compress.strand == DNAStrand.FORWARD) {
+		    output.setStrandToMerge(CompressibleStrands.FORWARD);
+		  } else {
+		    output.setStrandToMerge(CompressibleStrands.REVERSE);
+		  }
+		  out_pair.key(edge_to_compress.other_terminal.nodeId);                
+		  out_pair.value(output);
+		  collector.collect(out_pair);		  
+		}
+		
+		/**
+		 * Sets the coin flipper. This is primarily intended for use by the
+		 * unittest.		
+		 */
+		public void setFlipper(CoinFlipper flipper) {
+		  this.flipper = flipper;
+		}
 	}
 	
-	private static class PairMarkReducer extends MapReduceBase 
-	implements Reducer<Text, Text, Text, Text> 
-	{
-		private static long randseed = 0;
-		
-		public void configure(JobConf job) {
-			randseed = Long.parseLong(job.get("randseed"));
-		}
-		
-		private class Update
-		{
-			public String oid;
-			public String odir;
-			public String nid;
-			public String ndir;
-		}
-		
-		public void reduce(Text nodeid, Iterator<Text> iter,
-				OutputCollector<Text, Text> output, Reporter reporter)
-				throws IOException 
-		{
-			Node node = new Node(nodeid.toString());
-			List<Update> updates = new ArrayList<Update>();
-			
-			int sawnode = 0;
-			
-			while(iter.hasNext())
-			{
-				String msg = iter.next().toString();
-				
-				//System.err.println(key.toString() + "\t" + msg);
-				
-				String [] vals = msg.split("\t");
-				
-				if (vals[0].equals(Node.NODEMSG))
-				{
-					node.parseNodeMsg(vals, 0);
-					sawnode++;
-				}
-				else if (vals[0].equals(Node.UPDATEMSG))
-				{
-					Update up = new Update();
-					
-					up.oid  = vals[1];
-					up.odir = vals[2];
-					up.nid  = vals[3];
-					up.ndir = vals[4];
-					
-					updates.add(up);
-				}
-				else
-				{
-					throw new IOException("Unknown msgtype: " + msg);
-				}
-			}
-			
-			if (sawnode != 1)
-			{
-				throw new IOException("ERROR: Didn't see exactly 1 nodemsg (" + sawnode + ") for " + nodeid.toString());
-			}
-			
-			if (updates.size() > 0)
-			{
-				for(Update up : updates)
-				{
-					node.replacelink(up.oid, up.odir, up.nid, up.ndir);
-				}
-			}
-			
-			output.collect(nodeid, new Text(node.toNodeMsg()));
-		}
-	}
+//	private static class PairMarkReducer extends MapReduceBase 
+//	implements Reducer<Text, Text, Text, Text> 
+//	{
+//		private static long randseed = 0;
+//		
+//		public void configure(JobConf job) {
+//			randseed = Long.parseLong(job.get("randseed"));
+//		}
+//		
+//		private class Update
+//		{
+//			public String oid;
+//			public String odir;
+//			public String nid;
+//			public String ndir;
+//		}
+//		
+//		public void reduce(Text nodeid, Iterator<Text> iter,
+//				OutputCollector<Text, Text> output, Reporter reporter)
+//				throws IOException 
+//		{
+//			Node node = new Node(nodeid.toString());
+//			List<Update> updates = new ArrayList<Update>();
+//			
+//			int sawnode = 0;
+//			
+//			while(iter.hasNext())
+//			{
+//				String msg = iter.next().toString();
+//				
+//				//System.err.println(key.toString() + "\t" + msg);
+//				
+//				String [] vals = msg.split("\t");
+//				
+//				if (vals[0].equals(Node.NODEMSG))
+//				{
+//					node.parseNodeMsg(vals, 0);
+//					sawnode++;
+//				}
+//				else if (vals[0].equals(Node.UPDATEMSG))
+//				{
+//					Update up = new Update();
+//					
+//					up.oid  = vals[1];
+//					up.odir = vals[2];
+//					up.nid  = vals[3];
+//					up.ndir = vals[4];
+//					
+//					updates.add(up);
+//				}
+//				else
+//				{
+//					throw new IOException("Unknown msgtype: " + msg);
+//				}
+//			}
+//			
+//			if (sawnode != 1)
+//			{
+//				throw new IOException("ERROR: Didn't see exactly 1 nodemsg (" + sawnode + ") for " + nodeid.toString());
+//			}
+//			
+//			if (updates.size() > 0)
+//			{
+//				for(Update up : updates)
+//				{
+//					node.replacelink(up.oid, up.odir, up.nid, up.ndir);
+//				}
+//			}
+//			
+//			output.collect(nodeid, new Text(node.toNodeMsg()));
+//		}
+//	}
 
 	
 	public RunningJob run(String inputPath, String outputPath, long randseed) throws Exception
@@ -405,10 +400,10 @@ public class PairMarkAvro extends Stage {
 		sLogger.info(" - output: " + outputPath);
 		sLogger.info(" - randseed: " + randseed);
 		
-		JobConf conf = new JobConf(Stats.class);
+		JobConf conf = new JobConf();
 		conf.setJobName("PairMark " + inputPath);
 		
-		ContrailConfig.initializeConfiguration(conf);
+		//ContrailConfig.initializeConfiguration(conf);
 		conf.setLong("randseed", randseed);
 			
 		FileInputFormat.addInputPath(conf, new Path(inputPath));
@@ -423,8 +418,8 @@ public class PairMarkAvro extends Stage {
 		conf.setOutputKeyClass(Text.class);
 		conf.setOutputValueClass(Text.class);
 
-		conf.setMapperClass(PairMarkMapper.class);
-		conf.setReducerClass(PairMarkReducer.class);
+//		conf.setMapperClass(PairMarkMapper.class);
+//		conf.setReducerClass(PairMarkReducer.class);
 
 		//delete the output directory if it exists already
 		FileSystem.get(conf).delete(new Path(outputPath), true);
@@ -433,20 +428,20 @@ public class PairMarkAvro extends Stage {
 	}
 	
 	
-	public int run(String[] args) throws Exception 
-	{
-		String inputPath  = "/Users/mschatz/try/compressible/";
-		String outputPath = "/users/mschatz/try/mark1/";
-		long randseed = 123456789;
-		
-		run(inputPath, outputPath, randseed);
-		
-		return 0;
-	}
+//	public int run(String[] args) throws Exception 
+//	{
+//		String inputPath  = "/Users/mschatz/try/compressible/";
+//		String outputPath = "/users/mschatz/try/mark1/";
+//		long randseed = 123456789;
+//		
+//		run(inputPath, outputPath, randseed);
+//		
+//		return 0;
+//	}
 
 	public static void main(String[] args) throws Exception 
 	{
-		int res = ToolRunner.run(new Configuration(), new PairMark(), args);
+		int res = ToolRunner.run(new Configuration(), new PairMergeAvro(), args);
 		System.exit(res);
 	}
 
