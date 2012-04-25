@@ -348,7 +348,7 @@ public class TestCompressibleAvro {
     
     String[] args = 
       {"--inputpath=" + temp.toURI().toString(), 
-        "--outputpath=" + output_path.toURI().toString()};
+       "--outputpath=" + output_path.toURI().toString()};
     
     try {
       compressible.run(args);
