@@ -237,12 +237,12 @@
              "Each record contains a graph node and in some cases information ",
              "about how that node should be merged with another node in the ",
              "reducer."],
-     "fields": [{"name":"strands_to_merge", 
-                 "type": "contrail.avro.CompressibleStrands",
-                 "doc":  ["Which strands of the edge to merge along."]},
+     "fields": [{"name":"strand_to_merge", 
+                 "type": [null, "contrail.sequences.DNAStrand"],
+                 "doc":  ["Which strand of the node to merge."]},
                 {"name": "node",
                  "type": "contrail.graph.GraphNodeData",
-                 "doc": "The node data."}]     
+                 "doc": "The node."}]     
     }
 	] // end types
 }

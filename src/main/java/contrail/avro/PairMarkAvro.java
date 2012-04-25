@@ -91,7 +91,7 @@ public class PairMarkAvro extends Stage {
 	}
 	
 	private static class PairMarkMapper extends 
-	  AvroMapper<CompressibleNodeData, Pair<CharSequence, PairMarkOutput>> {
+	  AvroMapper<CompressibleNodeData, Pair<CharSequence, MergeNodeData>> {
 		private static long randseed = 0;
 		private Random rfactory = new Random();
 		
@@ -133,14 +133,14 @@ public class PairMarkAvro extends Stage {
 		}
 		
 		private CompressibleNode node;
-		private PairMarkOutput pair_mark_output;
+		private MergeNodeData output;
 		
 		// Output pair
-		private Pair<CharSequence, PairMarkOutput> out_pair;
+		private Pair<CharSequence, MergeNodeData> out_pair;
 		
-		private void clearPairMarkOutput (output) {
-		  output.setMessage(null);
+		private void clearOutput () {
 		  output.setNode(null);
+		  output.setStrandsToMerge(null);
 		}
 		
 		// Container class for storing information about which edge in this node
@@ -148,7 +148,7 @@ public class PairMarkAvro extends Stage {
 		private static class EdgeToCompress {
 		  public EdgeToCompress(EdgeTerminal terminal, DNAStrand dna_strand) {
 		    other_terminal = terminal;
-		    strand = dna_trand;
+		    strand = dna_strand;
 		  }
 		  // This is the terminal for the edge we are going to compress.
 		  public EdgeTerminal other_terminal;
@@ -180,9 +180,7 @@ public class PairMarkAvro extends Stage {
       if (rbuddy != null) {      
         CoinFlip r_flip = flip(rbuddy.terminal.nodeId);
 
-        if (r_flip == CoinFlip.Down) {
-          compress_terminal = rbuddy.terminal;
-          compress_strand  = DNAStrand.REVERSE; 
+        if (r_flip == CoinFlip.Down) { 
           return new EdgeToCompress(rbuddy.terminal, DNAStrand.REVERSE);
         }
       }
@@ -255,10 +253,8 @@ public class PairMarkAvro extends Stage {
 		}
 		
 		public void map(CompressibleNodeData node_data, 
-		    AvroCollector<Pair<CharSequence, PairMarkOutput>> output, 
-        Reporter reporter) throws IOException {
-			
-		
+		    AvroCollector<Pair<CharSequence, MergeNodeData>> collector, 
+        Reporter reporter) throws IOException {					
 		  node.setData(node_data);
 		  
 		  // Check if either the forward or reverse strand can be merged.
@@ -266,134 +262,66 @@ public class PairMarkAvro extends Stage {
 			TailData rbuddy = getBuddy(node, DNAStrand.REVERSE);
 												      
       if (fbuddy == null && rbuddy == null) {
-        // Node can't be compressed so output the node and we are done.
-        //return;
-      
-        //  Output the node
-        clearPairMarkOutput(pair_mark_output);
+        // Node can't be compressed so output the node and we are done.      
+        clearOutput();
         output.setNode(node.getNode().getData());
         out_pair.key(node_data.getNode().getNodeId());
-        out_pair.value(pair_mark_output);
-        output.collect(out_pair);
+        out_pair.value(output);
+        collector.collect(out_pair);
         reporter.incrCounter("Contrail", "nodes", 1);
         return;
       }
-      
-      
-				reporter.incrCounter("Contrail", "compressible", 1);
+           
+			reporter.incrCounter("Contrail", "compressible", 1);
 
-
-				CoinFlip coin = flip(node.getNode().getNodeId());
+			CoinFlip coin = flip(node.getNode().getNodeId());
 				
-				// If this node is randomly assigned Down, see if it can be converted 
-				// to up.
-				if (coin == CoinFlip.Down) {
-				  if (convertDownToUp(node, fbuddy, rbuddy)) {
-				    coin = CoinFlip.Up;
-				  }
-				}
+			// If this node is randomly assigned Down, see if it can be converted 
+			// to up.
+			if (coin == CoinFlip.Down) {
+			  if (convertDownToUp(node, fbuddy, rbuddy)) {
+			    coin = CoinFlip.Up;
+			  }
+			}
 				
-				if (coin == CoinFlip.Down) {
-				  // Just output this node since this is a Down node
-				  // any node to be merged with this node will be sent to this node.
-				  clearPairMarkOutput(pair_mark_output);
-	        output.setNode(node.getNode().getData());
-	        out_pair.key(node_data.getNode().getNodeId());
-	        out_pair.value(pair_mark_output);
-	        output.collect(out_pair);
-	        reporter.incrCounter("Contrail", "nodes", 1);
-				  return;
-				}
+			if (coin == CoinFlip.Down) {
+			  // Just output this node since this is a Down node
+			  // any node to be merged with this node will be sent to this node.
+			  clearOutput();
+        output.setNode(node.getNode().getData());
+        out_pair.key(node_data.getNode().getNodeId());
+        out_pair.value(output);
+        collector.collect(out_pair);
+        reporter.incrCounter("Contrail", "nodes", 1);
+			  return;
+			}
 				
-			  // This node gets sent to one of its neighbors assigned Down
-			  // so that they can be merged.
-			  EdgeToCompress edge_to_compress = 
-			      processUpNode(node, fbuddy, rbuddy);
+		  // Check if this node can be sent to one of its neighbors to be merged.
+		  EdgeToCompress edge_to_compress = 
+		      processUpNode(node, fbuddy, rbuddy);
 				  
 
-			  if (edge_to_compress == null) {
-			    // This node doesn't get sent to another node be merged.
-			    clearPairMarkOutput(pair_mark_output);
-          output.setNode(node.getNode().getData());
-          out_pair.key(node_data.getNode().getNodeId());
-          out_pair.value(pair_mark_output);
-          output.collect(out_pair);
-          reporter.incrCounter("Contrail", "nodes", 1);
-          return;
-			  }
-
-
-			  // Output the node. This node gets sent to the node with which it
-			  // will be merged.
-			  
-        clearPairMarkOutput(pair_mark_output);
+		  if (edge_to_compress == null) {
+		    // This node doesn't get sent to another node be merged.
+		    clearOutput();
         output.setNode(node.getNode().getData());
-        
-        // The key for this output is the node with which we will be merged.
-        out_pair.key(edge_to_compress.other_terminal.nodeId);
-        
-        // We need to set the strands for the edge that will be merged
-        StrandsForEdge merge_strands = StrandsUtil.form(
-            edge_to_compress.strand, edge_to_compress.terminal.strand);
-        
-        throw NotImplementedException("Need to set the strands to be merged.");
-        out_pair.value(pair_mark_output);
-        output.collect(out_pair);
+        out_pair.key(node_data.getNode().getNodeId());
+        out_pair.value(output);
+        collector.collect(out_pair);
         reporter.incrCounter("Contrail", "nodes", 1);
         return;
+		  }
 
-
-				
-				// compress_terminal is non_null in the following cases
-				// 1. Node is Up and it has tails which are Down.
-				// 2. Node is Down and 
-				//    a) its tails are also Down and this node has id < then
-				//       the ids of its tail
-				
-				 // TODO(jlewi) Updating the incoming edges no longer happens
-     		// here but in PairMergeAvro after the nodes have been merged.
-//				if (compress_terminal != null) {
-//					//print STDERR "compress $nodeid $compress $compressdir $compressbdir\n";
-//					reporter.incrCounter("Contrail","mergestomake", 1);
-//
-//					// Save that I'm supposed to merge
-//					// This means that this node will no longer exist. i.e. it
-//					// gets merged into the down node.
-//					node.setMerge(compressdir);
-//
-//					// Now tell my ~CD neighbors about my new nodeid
-//					String toupdate = Node.flip_dir(compressdir);
-//
-//					for(String adj : Node.dirs)
-//					{		         
-//	          // Compressdir is the strand thats being compressed
-//	          // So by flipping it we are getting edges that would be incoming
-//	          // edges to that strand. 
-//						String key = toupdate + adj;
-//
-//            // So origadj would be the StrandsForEdge corresponding 
-//            // to incoming edges to the strand that is being merged along.
-//						String origadj = Node.flip_dir(adj) + compressdir;
-//						String newadj  = Node.flip_dir(adj) + compressbdir;
-//
-//						List<String> edges = node.getEdges(key);
-//
-//						if (edges != null)
-//						{
-//							for (String p : edges)
-//							{
-//								reporter.incrCounter("Contrail", "remoteupdate", 1);
-//								
-//								// So we send messages to any node which has
-//								// an incoming edge to the strand at this node that's being merged.
-//								
-//								output.collect(new Text(p), 
-//										       new Text(Node.UPDATEMSG + "\t" + nodeid + "\t" + origadj + "\t" + compress + "\t" + newadj));
-//							}
-//						}
-//					}
-//				}				
-    }
+ 
+			  // The key for the output is the id for the node this node gets merged
+			  // into
+		    clearOutput();
+		    
+		    output.setNode(node.getNode().getData());
+		    output.setStrandToMerge(edge_to_compress.strand);
+			  out_pair.key(edge_to_compress.other_terminal.nodeId);                
+        out_pair.value(output);
+            }
 	}
 	
 	private static class PairMarkReducer extends MapReduceBase 
