@@ -238,7 +238,9 @@
              "about how that node should be merged with another node in the ",
              "reducer."],
      "fields": [{"name":"strand_to_merge", 
-                 "type": [null, "contrail.sequences.DNAStrand"],
+     			 // We can't use a union of null and an enum because of 
+     			 // jira AVRO-997.
+                 "type": "contrail.avro.CompressibleStrands",
                  "doc":  ["Which strand of the node to merge."]},
                 {"name": "node",
                  "type": "contrail.graph.GraphNodeData",
