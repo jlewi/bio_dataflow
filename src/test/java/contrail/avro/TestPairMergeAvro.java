@@ -52,7 +52,7 @@ public class TestPairMergeAvro extends PairMergeAvro {
     public HashMap<String, Pair<CharSequence, MergeNodeData>> expected_output;
     
     // The flipper to use in the test.
-    public CoinFlipperFixed flipper;
+    public CoinFlipper flipper;
   }
   
   private MapperTestCase simpleMapperTest() {
@@ -82,8 +82,10 @@ public class TestPairMergeAvro extends PairMergeAvro {
     GraphNode up_node = builder.getNode(builder.findNodeIdForSequence("ACT"));
     GraphNode down_node = builder.getNode(builder.findNodeIdForSequence("CTG"));
     
-    test_case.flipper.tosses.put(up_node.getNodeId(), CoinFlipper.CoinFlip.Up);
-    test_case.flipper.tosses.put(
+    CoinFlipperFixed flipper = new CoinFlipperFixed();
+    test_case.flipper = flipper;
+    flipper.tosses.put(up_node.getNodeId(), CoinFlipper.CoinFlip.Up);
+    flipper.tosses.put(
         down_node.getNodeId(), CoinFlipper.CoinFlip.Down);
     
     MergeNodeData up_output = new MergeNodeData();
@@ -103,6 +105,33 @@ public class TestPairMergeAvro extends PairMergeAvro {
     return test_case;
   }
 
+  private MapperTestCase mapperNoMergeTest() {
+    // Construct the test case where the nodes can't be compressed.
+    SimpleGraphBuilder builder = new SimpleGraphBuilder();
+    builder.addKMersForString("ACTG", 3);
+    builder.addEdge("ACT","CTC", 2);
+    
+    MapperTestCase test_case = new MapperTestCase();
+    for (GraphNode node: builder.getAllNodes().values()) {
+      CompressibleNodeData data = new CompressibleNodeData();
+      data.setNode(node.getData());
+      
+      // Nodes aren't compressible.
+      data.setCompressibleStrands(CompressibleStrands.NONE);
+
+      MergeNodeData output = new MergeNodeData();
+      output.setNode(node.clone().getData());
+      output.setStrandToMerge(CompressibleStrands.NONE);
+      // Up node is sent to the down node.
+      test_case.expected_output.put(node.getNodeId(),
+          new Pair<CharSequence, MergeNodeData>(node.getNodeId(), output));
+    }
+
+    // Use the random coin flipper.
+    test_case.flipper = new CoinFlipper(12);
+    return test_case;
+  }
+  
   // Check the output of the mapper matches the expected result.
   private void assertMapperOutput(
       CompressibleNodeData input, 
@@ -115,6 +144,7 @@ public class TestPairMergeAvro extends PairMergeAvro {
   @Test
   public void testMapper() {
     ArrayList<MapperTestCase> test_cases = new ArrayList<MapperTestCase>();    
+    test_cases.add(mapperNoMergeTest());
     test_cases.add(simpleMapperTest());
     
     PairMergeMapper mapper = new PairMergeMapper();      
