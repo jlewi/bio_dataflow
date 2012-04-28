@@ -254,8 +254,8 @@ public class TestPairMergeAvro extends PairMergeAvro {
   @Test
   public void testMapper() {
     ArrayList<MapperTestCase> test_cases = new ArrayList<MapperTestCase>();
-    //test_cases.add(mapperNoMergeTest());
-    //test_cases.add(simpleMapperTest());
+    test_cases.add(mapperNoMergeTest());
+    test_cases.add(simpleMapperTest());
     test_cases.add(mapperConvertDownToUpTest());
 
     PairMergeMapper mapper = new PairMergeMapper();
