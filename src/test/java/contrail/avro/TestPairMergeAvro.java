@@ -21,7 +21,10 @@ import contrail.graph.SimpleGraphBuilder;
 import contrail.graph.TailData;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
+import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
+import contrail.sequences.StrandsForEdge;
+import contrail.util.ListUtil;
 
 // Extend PairMergeAvro so we can access mapper and reducer.
 public class TestPairMergeAvro extends PairMergeAvro {
@@ -309,8 +312,19 @@ public class TestPairMergeAvro extends PairMergeAvro {
     assertEquals(1, collector_mock.data.size());
     PairMergeOutput output = collector_mock.data.get(0);
 
-    assertEquals(test_case.expected_output, output);
+    // TODO(jlewi): The following lines are for debugging only and
+    // should be deleted.
+    GraphNode expected_node = new GraphNode(test_case.expected_output.getNode());
+    GraphNode output_node = new GraphNode(output.getNode());
+    // Check the nodes are equal.
+    assertEquals(test_case.expected_output.getNode(), output.getNode());
+
+    // Check the lists are equal without regard to order.
+    ListUtil.listsAreEqual(
+        test_case.expected_output.getUpdateMessages(),
+        output.getUpdateMessages());
   }
+
 
   private ReducerTestCase reducerNoMergeTest() {
     // Construct a simple reduce test case in which no nodes are merged.
@@ -337,10 +351,107 @@ public class TestPairMergeAvro extends PairMergeAvro {
     return test_case;
   }
 
+  private ReducerTestCase reducerSimpleMergeTest() {
+    // Construct a simple reduce test case in which two nodes are merged.
+    // TODO(jlewi): We should really randomize this so we cover more cases.
+    ReducerTestCase test_case = new ReducerTestCase();
+    test_case.K = 3;
+
+    SimpleGraphBuilder builder = new SimpleGraphBuilder();
+    // We will merge node ACT and CTT
+    builder.addKMersForString("ACTT", test_case.K);
+
+    // Add some incoming/outgoing edges so that we have edges that need to
+    // be updated.
+    builder.addEdge("CAC", "ACT", test_case.K - 1);
+    builder.addEdge("GAC", "ACT", test_case.K - 1);
+    builder.addEdge("CTT", "TTA", test_case.K - 1);
+
+
+    test_case.input = new ArrayList<MergeNodeData>();
+    {
+      GraphNode node = builder.getNode(builder.findNodeIdForSequence("ACT"));
+      MergeNodeData merge_data = new MergeNodeData();
+      merge_data.setStrandToMerge(CompressibleStrands.FORWARD);
+      merge_data.setNode(node.clone().getData());
+      test_case.input.add(merge_data);
+    }
+    {
+      GraphNode node = builder.getNode(builder.findNodeIdForSequence("CTT"));
+      MergeNodeData merge_data = new MergeNodeData();
+      merge_data.setStrandToMerge(CompressibleStrands.NONE);
+      merge_data.setNode(node.clone().getData());
+      test_case.input.add(merge_data);
+    }
+
+    // Construct the expected output.
+    // The sequence ACTT is the reverse strand.
+    GraphNode merged_node = new GraphNode();
+    Sequence merged_sequence =
+        new Sequence("ACTT", DNAAlphabetFactory.create());
+    merged_node.setCanonicalSequence(DNAUtil.canonicalseq(merged_sequence));
+    merged_node.addIncomingEdge(
+        DNAStrand.REVERSE, new EdgeTerminal("CAC", DNAStrand.FORWARD));
+    merged_node.addIncomingEdge(
+        DNAStrand.REVERSE, new EdgeTerminal("GAC", DNAStrand.FORWARD));
+
+    merged_node.addOutgoingEdge(
+        DNAStrand.REVERSE, new EdgeTerminal("TAA", DNAStrand.REVERSE));
+    merged_node.setNodeId(builder.findNodeIdForSequence("CTT"));
+
+    test_case.reducer_key = merged_node.getNodeId();
+
+    test_case.expected_output = new PairMergeOutput();
+    test_case.expected_output.setNode(merged_node.clone().getData());
+    test_case.expected_output.setUpdateMessages(
+        new ArrayList<EdgeUpdateAfterMerge>());
+
+
+
+    // Add the messages
+    {
+     EdgeUpdateAfterMerge update = new EdgeUpdateAfterMerge();
+     update.setNodeToUpdate(builder.findNodeIdForSequence("GAC"));
+     update.setOldTerminalId(builder.findNodeIdForSequence("ACT"));
+     update.setNewTerminalId(merged_node.getNodeId());
+     update.setOldStrands(StrandsForEdge.FF);
+     update.setNewStrands(StrandsForEdge.FR);
+
+     test_case.expected_output.getUpdateMessages().add(update);
+    }
+
+    {
+      EdgeUpdateAfterMerge update = new EdgeUpdateAfterMerge();
+      update.setNodeToUpdate(builder.findNodeIdForSequence("CAC"));
+      update.setOldTerminalId(builder.findNodeIdForSequence("ACT"));
+      update.setNewTerminalId(merged_node.getNodeId());
+      update.setOldStrands(StrandsForEdge.FF);
+      update.setNewStrands(StrandsForEdge.FR);
+
+      test_case.expected_output.getUpdateMessages().add(update);
+     }
+
+    {
+      EdgeUpdateAfterMerge update = new EdgeUpdateAfterMerge();
+      update.setNodeToUpdate(builder.findNodeIdForSequence("TTA"));
+      update.setOldTerminalId(builder.findNodeIdForSequence("CTT"));
+      update.setNewTerminalId(merged_node.getNodeId());
+
+      // The old edge is RC(CTT->TTA) TAA->AAG (FF)
+      // The merged sequence is AAGT = RC(ACTT)
+      update.setOldStrands(StrandsForEdge.FF);
+      update.setNewStrands(StrandsForEdge.FF);
+
+      test_case.expected_output.getUpdateMessages().add(update);
+     }
+
+    return test_case;
+  }
   @Test
   public void testReducer() {
     ArrayList<ReducerTestCase> test_cases = new ArrayList<ReducerTestCase>();
     test_cases.add(reducerNoMergeTest());
+    test_cases.add(reducerSimpleMergeTest());
 
     PairMergeReducer reducer = new PairMergeReducer();
 
