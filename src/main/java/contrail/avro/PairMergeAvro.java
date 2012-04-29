@@ -1,8 +1,13 @@
 package contrail.avro;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroMapper;
+import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -22,8 +27,12 @@ import org.apache.log4j.Logger;
 import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
+import contrail.graph.NodeMerger;
 import contrail.graph.TailData;
 import contrail.sequences.DNAStrand;
+import contrail.sequences.DNAStrandUtil;
+import contrail.sequences.StrandsForEdge;
+import contrail.sequences.StrandsUtil;
 
 
 /**
@@ -80,6 +89,22 @@ public class PairMergeAvro extends Stage {
         return true;
       }
       return false;
+    }
+  }
+
+  protected static DNAStrand compressibleStrandsToDNAStrand(
+      CompressibleStrands strands) {
+    switch (strands) {
+      case BOTH:
+        return null;
+      case NONE:
+        return null;
+      case FORWARD:
+        return DNAStrand.FORWARD;
+      case REVERSE:
+        return DNAStrand.REVERSE;
+      default:
+        return null;
     }
   }
 
@@ -304,78 +329,235 @@ public class PairMergeAvro extends Stage {
     }
   }
 
-  //	private static class PairMarkReducer extends MapReduceBase
-  //	implements Reducer<Text, Text, Text, Text>
-  //	{
-  //		private static long randseed = 0;
-  //
-  //		public void configure(JobConf job) {
-  //			randseed = Long.parseLong(job.get("randseed"));
-  //		}
-  //
-  //		private class Update
-  //		{
-  //			public String oid;
-  //			public String odir;
-  //			public String nid;
-  //			public String ndir;
-  //		}
-  //
-  //		public void reduce(Text nodeid, Iterator<Text> iter,
-  //				OutputCollector<Text, Text> output, Reporter reporter)
-  //				throws IOException
-  //		{
-  //			Node node = new Node(nodeid.toString());
-  //			List<Update> updates = new ArrayList<Update>();
-  //
-  //			int sawnode = 0;
-  //
-  //			while(iter.hasNext())
-  //			{
-  //				String msg = iter.next().toString();
-  //
-  //				//System.err.println(key.toString() + "\t" + msg);
-  //
-  //				String [] vals = msg.split("\t");
-  //
-  //				if (vals[0].equals(Node.NODEMSG))
-  //				{
-  //					node.parseNodeMsg(vals, 0);
-  //					sawnode++;
-  //				}
-  //				else if (vals[0].equals(Node.UPDATEMSG))
-  //				{
-  //					Update up = new Update();
-  //
-  //					up.oid  = vals[1];
-  //					up.odir = vals[2];
-  //					up.nid  = vals[3];
-  //					up.ndir = vals[4];
-  //
-  //					updates.add(up);
-  //				}
-  //				else
-  //				{
-  //					throw new IOException("Unknown msgtype: " + msg);
-  //				}
-  //			}
-  //
-  //			if (sawnode != 1)
-  //			{
-  //				throw new IOException("ERROR: Didn't see exactly 1 nodemsg (" + sawnode + ") for " + nodeid.toString());
-  //			}
-  //
-  //			if (updates.size() > 0)
-  //			{
-  //				for(Update up : updates)
-  //				{
-  //					node.replacelink(up.oid, up.odir, up.nid, up.ndir);
-  //				}
-  //			}
-  //
-  //			output.collect(nodeid, new Text(node.toNodeMsg()));
-  //		}
-  //	}
+  protected static class PairMergeReducer extends
+    AvroReducer <CharSequence, MergeNodeData, PairMergeOutput> {
+
+    private PairMergeOutput output;
+    private int K;
+
+    public void configure(JobConf job) {
+      K = Integer.parseInt(job.get("K"));
+      output = new PairMergeOutput();
+      output.setUpdateMessages(new ArrayList<EdgeUpdateAfterMerge>());
+      output.setNode(null);
+    }
+
+    /**
+     * Find the strand that connects strand this_strand of node
+     * to node other_node.
+     *
+     * @returns The strand on the other node or null if no edge exists.
+     */
+    public DNAStrand findTargetStrand(
+        GraphNode node, DNAStrand this_strand, String other_node) {
+      for (EdgeTerminal terminal:
+           node.getEdgeTerminals(this_strand, EdgeDirection.OUTGOING)) {
+        if (terminal.nodeId.equals(other_node)) {
+          return terminal.strand;
+        }
+      }
+      return null;
+    }
+
+    protected List<EdgeUpdateAfterMerge> updateMessagesForEdge(
+        GraphNode node, DNAStrand strand, String old_id, String new_nodeid,
+        DNAStrand new_strand) {
+      // Now we need to form messages to update the incoming and outgoing
+      // edges. We need to check if the message is to one of the nodes
+      // that we've already sent a message to.
+
+      List<EdgeUpdateAfterMerge> edge_updates =
+          new ArrayList<EdgeUpdateAfterMerge> ();
+      // For the source node, we need to update the incoming edges
+      // to the strand that was merged.
+      // and send them a message with the new id and strand for that edge.
+      List<EdgeTerminal> incoming_terminals =
+          node.getEdgeTerminals(strand, EdgeDirection.INCOMING);
+
+      for (EdgeTerminal terminal: incoming_terminals) {
+        EdgeUpdateAfterMerge update = new EdgeUpdateAfterMerge();
+        update.setOldStrands(StrandsUtil.form(terminal.strand, strand));
+        update.setNewStrands(StrandsUtil.form(terminal.strand, new_strand));
+
+        update.setOldTerminalId(old_id);
+        update.setNewTerminalId(new_nodeid);
+
+        update.setNodeToUpdate(node.getNodeId());
+
+        edge_updates.add(update);
+      }
+      return edge_updates;
+    }
+
+
+    /**
+     * Merge the nodes together. The result of the merge is stored in the
+     * member variable output.
+     *
+     * @param chain: An array of nodes to merge together. The nodes
+     *   should be ordered corresponding to their position in the chain.
+     * @param start_strand: Which strand of the first node in chain to start
+     *   on; i.e this strand must have an outgoing edge to the next node
+     *   in the chian.
+     * @param new_id: The new id to assign to the merged nodes.
+     */
+    protected void mergeChain(
+        ArrayList<GraphNode> chain, DNAStrand start_strand, String new_id) {
+      // The nodes in chain should form a chain, such that
+      // starting with start_strand we can walk to the last node in chain.
+      ArrayList<DNAStrand> strands = new ArrayList<DNAStrand>();
+      strands.add(start_strand);
+
+      // Check the chain and find out which strand of each node belongs in
+      // the chain.
+      for (int pos = 0; pos < chain.size() -1; pos++) {
+        GraphNode node = chain.get(pos);
+        TailData tail =
+            node.getTail(strands.get(pos), EdgeDirection.OUTGOING);
+        if (tail == null) {
+          throw new RuntimeException(
+              "Nodes don't form a chain. This shouldn't happen and could be " +
+              "a bug in the code.");
+        }
+        if (!tail.terminal.nodeId.equals(chain.get(pos + 1).getNodeId())) {
+          throw new RuntimeException(
+              "Nodes don't form a chain. This shouldn't happen and could be " +
+              "a bug in the code.");
+        }
+        strands.add(pos + 1, tail.terminal.strand);
+      }
+
+
+      // Merge the nodes sequentially.
+      GraphNode merged_node = chain.get(0);
+      DNAStrand merged_strand = strands.get(0);
+      for (int pos = 0; pos < chain.size() -1; pos++) {
+        StrandsForEdge strands_for_merge = StrandsUtil.form(
+            merged_strand, strands.get(pos + 1));
+        NodeMerger.MergeResult result = NodeMerger.mergeNodes(
+            merged_node, chain.get(pos + 1), strands_for_merge, K - 1);
+
+        merged_node = result.node;
+        merged_strand = result.strand;
+      }
+
+      merged_node.setNodeId(new_id);
+
+      // Now we need to update the incoming edges to the ends of the chain.
+      List<EdgeUpdateAfterMerge> head_messages = updateMessagesForEdge(
+          chain.get(0), strands.get(0), chain.get(0).getNodeId(),
+          merged_node.getNodeId(), merged_strand);
+
+      // For the tail node, since updateMessagesForEdge gets the incoming
+      // edges, we need to look at the reverse complement for the merged
+      // strand
+      int tail_pos = chain.size() - 1;
+      List<EdgeUpdateAfterMerge> tail_messages = updateMessagesForEdge(
+          chain.get(tail_pos), DNAStrandUtil.flip(strands.get(tail_pos)),
+          chain.get(0).getNodeId(), merged_node.getNodeId(),
+          DNAStrandUtil.flip(merged_strand));
+
+      // Clear the list of messages in the output array.
+      output.getUpdateMessages().clear();
+      output.getUpdateMessages().addAll(head_messages);
+      output.getUpdateMessages().addAll(tail_messages);
+      output.setNode(merged_node.getData());
+    }
+
+    public void reduce(CharSequence nodeid, Iterable<MergeNodeData> iterable,
+        AvroCollector<PairMergeOutput> collector, Reporter reporter)
+            throws IOException
+            {
+      //Node node = new Node(nodeid.toString());
+      //List<Update> updates = new ArrayList<Update>();
+
+      Iterator<MergeNodeData> iter = iterable.iterator();
+
+      GraphNode down_node = null;
+
+      // The nodes to merge.
+      ArrayList<MergeNodeData> nodes_to_merge =
+          new ArrayList<MergeNodeData>();
+      while(iter.hasNext()) {
+        MergeNodeData merge_info = iter.next();
+
+        if (merge_info.getStrandToMerge() == CompressibleStrands.NONE) {
+          // This the down node that the up nodes get merged into.
+          // There should be only one.
+          if (down_node != null) {
+            throw new RuntimeException(
+                "There is more than 1 message for node: " + nodeid + " " +
+                "that has no strands to merge. This should not happen");
+          }
+          down_node = new GraphNode();
+          down_node.setData(merge_info.getNode());
+
+          // Make a copy of the data.
+          down_node = down_node.clone();
+          continue;
+        }
+
+        if (merge_info.getStrandToMerge() == CompressibleStrands.BOTH) {
+          throw new RuntimeException(
+              "There message for node: " + nodeid + " " +
+                  "one of the nodes is compressible along both strands. This " +
+              "should not happen");
+        }
+
+        // We need to make a copy of the because iterable
+        // will reuse the same instance when next is called.
+        // Because of https://issues.apache.org/jira/browse/AVRO-1045 we
+        // can't use the Avro methods for copying the data.
+        GraphNode node = new GraphNode(merge_info.getNode()).clone();
+        MergeNodeData data_copy = new MergeNodeData();
+        data_copy.setNode(node.getData());
+        data_copy.setStrandToMerge(merge_info.getStrandToMerge());
+        nodes_to_merge.add(data_copy);
+     }
+
+      // Sanity check. There should be at most two nodes in nodes_to_merge.
+      if (nodes_to_merge.size() > 2) {
+        throw new RuntimeException(
+            "There are more than two nodes to merge with node: " + nodeid);
+      }
+
+      if (down_node == null) {
+        throw new RuntimeException(
+            "There is no node to output for nodeid: " + nodeid);
+      }
+
+      if (nodes_to_merge.size() == 0) {
+        //Output the node
+        // Clear the list of messages in the output array.
+        output.getUpdateMessages().clear();
+        output.setNode(down_node.getData());
+        collector.collect(output);
+        return;
+      }
+      // We want to order the nodes in a chain.
+      // e.g node1->node2  (if one node to merge).
+      // or node1->node2->node3 (if two nodes to merge with node2).
+      // This ordering makes it easy to detect which nodes we need
+      // to update so they can move their edges to the new merged node.
+      // Only the nodes at the end of the chain need to be considered to
+      // identify nodes we need to send messages to.
+      ArrayList<GraphNode> chain = new ArrayList<GraphNode>();
+      chain.add(new GraphNode(nodes_to_merge.get(0).getNode()));
+      chain.add(down_node);
+
+      if (nodes_to_merge.size() == 2) {
+        chain.add(new GraphNode(nodes_to_merge.get(1).getNode()));
+      }
+
+      // Which strand to start the merge on.
+      DNAStrand start_strand = compressibleStrandsToDNAStrand(
+          nodes_to_merge.get(0).getStrandToMerge());
+
+      mergeChain(chain, start_strand, down_node.getNodeId());
+
+      collector.collect(output);
+    }
+  }
 
 
   public RunningJob run(String inputPath, String outputPath, long randseed) throws Exception
