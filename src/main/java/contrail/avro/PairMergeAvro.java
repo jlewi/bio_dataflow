@@ -6,21 +6,21 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.apache.avro.mapred.AvroCollector;
+import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.OptionBuilder;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
-import org.apache.hadoop.mapred.TextInputFormat;
-import org.apache.hadoop.mapred.TextOutputFormat;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -389,7 +389,6 @@ public class PairMergeAvro extends Stage {
       return edge_updates;
     }
 
-
     /**
      * Merge the nodes together. The result of the merge is stored in the
      * member variable output.
@@ -559,52 +558,103 @@ public class PairMergeAvro extends Stage {
     }
   }
 
+  /**
+   * Get the options required by this stage.
+   */
+  protected List<Option> getCommandLineOptions() {
+    List<Option> options = super.getCommandLineOptions();
+    options.addAll(ContrailOptions.getInputOutputPathOptions());
 
-  public RunningJob run(String inputPath, String outputPath, long randseed) throws Exception
-  {
+    // Add options specific to this stage.
+    options.add(OptionBuilder.withArgName("K").hasArg().withDescription(
+        "KMer size [required]").create("K"));
+
+    // Add options specific to this stage.
+    options.add(OptionBuilder.withArgName("randseed").hasArg().withDescription(
+        "seed for the random number generator [required]").create("randseed"));
+    return options;
+  }
+
+  @Override
+  protected void parseCommandLine(CommandLine line) {
+    super.parseCommandLine(line);
+    if (line.hasOption("inputpath")) {
+      stage_options.put("inputpath", line.getOptionValue("inputpath"));
+    }
+    if (line.hasOption("outputpath")) {
+      stage_options.put("outputpath", line.getOptionValue("outputpath"));
+    }
+    if (line.hasOption("K")) {
+      stage_options.put("K", Long.valueOf(line.getOptionValue("K")));
+    }
+    if (line.hasOption("randseed")) {
+      stage_options.put(
+          "randseed", Long.valueOf(line.getOptionValue("randseed")));
+    }
+  }
+
+  public int run(String[] args) throws Exception {
     sLogger.info("Tool name: PairMergeAvro");
+    parseCommandLine(args);
+    return run();
+  }
+
+  @Override
+  protected int run() throws Exception {
+    String[] required_args = {"inputpath", "outputpath", "K", "randseed"};
+    checkHasOptionsOrDie(required_args);
+
+    String inputPath = (String) stage_options.get("inputpath");
+    String outputPath = (String) stage_options.get("outputpath");
+    long K = (Long)stage_options.get("K");
+    long randseed = (Long)stage_options.get("randseed");
+
     sLogger.info(" - input: "  + inputPath);
     sLogger.info(" - output: " + outputPath);
+    sLogger.info(" - K: " + K);
     sLogger.info(" - randseed: " + randseed);
+    JobConf conf = new JobConf(PairMergeAvro.class);
+    conf.setJobName("PairMergeAvro " + inputPath + " " + K);
 
-    JobConf conf = new JobConf();
-    conf.setJobName("PairMark " + inputPath);
-
-    //ContrailConfig.initializeConfiguration(conf);
-    conf.setLong("randseed", randseed);
+    initializeJobConfiguration(conf);
 
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
-    conf.setInputFormat(TextInputFormat.class);
-    conf.setOutputFormat(TextOutputFormat.class);
+    CompressibleNodeData compressible_node = new CompressibleNodeData();
+    Pair<CharSequence, MergeNodeData> map_output =
+        new Pair<CharSequence, MergeNodeData>("", new MergeNodeData());
+    PairMergeOutput reducer_output = new PairMergeOutput();
+    AvroJob.setInputSchema(conf, compressible_node.getSchema());
+    AvroJob.setMapOutputSchema(conf, map_output.getSchema());
+    AvroJob.setOutputSchema(conf, reducer_output.getSchema());
 
-    conf.setMapOutputKeyClass(Text.class);
-    conf.setMapOutputValueClass(Text.class);
+    AvroJob.setMapperClass(conf, PairMergeMapper.class);
+    AvroJob.setReducerClass(conf, PairMergeReducer.class);
 
-    conf.setOutputKeyClass(Text.class);
-    conf.setOutputValueClass(Text.class);
+    if (stage_options.containsKey("writeconfig")) {
+      writeJobConfig(conf);
+    } else {
+      // Delete the output directory if it exists already
+      Path out_path = new Path(outputPath);
+      if (FileSystem.get(conf).exists(out_path)) {
+        // TODO(jlewi): We should only delete an existing directory
+        // if explicitly told to do so.
+        sLogger.info("Deleting output path: " + out_path.toString() + " " +
+            "because it already exists.");
+        FileSystem.get(conf).delete(out_path, true);
+      }
 
-    //		conf.setMapperClass(PairMarkMapper.class);
-    //		conf.setReducerClass(PairMarkReducer.class);
+      long starttime = System.currentTimeMillis();
+      JobClient.runJob(conf);
+      long endtime = System.currentTimeMillis();
 
-    //delete the output directory if it exists already
-    FileSystem.get(conf).delete(new Path(outputPath), true);
+      float diff = (float) ((endtime - starttime) / 1000.0);
 
-    return JobClient.runJob(conf);
+      System.out.println("Runtime: " + diff + " s");
+    }
+    return 0;
   }
-
-
-  //	public int run(String[] args) throws Exception
-  //	{
-  //		String inputPath  = "/Users/mschatz/try/compressible/";
-  //		String outputPath = "/users/mschatz/try/mark1/";
-  //		long randseed = 123456789;
-  //
-  //		run(inputPath, outputPath, randseed);
-  //
-  //		return 0;
-  //	}
 
   public static void main(String[] args) throws Exception
   {
@@ -612,10 +662,4 @@ public class PairMergeAvro extends Stage {
     System.exit(res);
   }
 
-
-  @Override
-  protected int run() throws Exception {
-    // TODO Auto-generated method stub
-    return 0;
-  }
 }
