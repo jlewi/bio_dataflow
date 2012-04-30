@@ -244,7 +244,12 @@
                  "doc":  ["Which strand of the node to merge."]},
                 {"name": "node",
                  "type": "contrail.graph.GraphNodeData",
-                 "doc": "The node."}]     
+                 "doc": "The node."},
+                {"name": "compressible_strands",
+                 "type": "contrail.avro.CompressibleStrands",
+                 "doc":  ["Which strands of the node are compressible with ",
+                 "respect to outgoing edges."]}
+               ]     
     },
     {"name": "contrail.avro.EdgeUpdateAfterMerge", 
      "type": "record",
@@ -280,7 +285,11 @@
                           "items":"contrail.avro.EdgeUpdateAfterMerge"},
                  "doc": ["An array of messages to send to update edges ",
                          "after the merge."]
-                }
+                },
+                {"name": "compressible_strands",
+                 "type": "contrail.avro.CompressibleStrands",
+                 "doc":  ["Which strands of the node are compressible with ",
+                          "respect to outgoing edges."]}
                ]     
     }        
   ] // end types

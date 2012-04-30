@@ -273,6 +273,7 @@ public class PairMergeAvro extends Stage {
         // Node can't be compressed so output the node and we are done.
         clearOutput();
         output.setNode(node.getNode().getData());
+        output.setCompressibleStrands(node.data.getCompressibleStrands());
         out_pair.key(node_data.getNode().getNodeId());
         out_pair.value(output);
         collector.collect(out_pair);
@@ -295,6 +296,7 @@ public class PairMergeAvro extends Stage {
         // any node to be merged with this node will be sent to this node.
         clearOutput();
         output.setNode(node.getNode().getData());
+        output.setCompressibleStrands(node.data.getCompressibleStrands());
         out_pair.key(node_data.getNode().getNodeId());
         out_pair.value(output);
         collector.collect(out_pair);
@@ -310,6 +312,7 @@ public class PairMergeAvro extends Stage {
         // This node doesn't get sent to another node be merged.
         clearOutput();
         output.setNode(node.getNode().getData());
+        output.setCompressibleStrands(node.data.getCompressibleStrands());
         out_pair.key(node_data.getNode().getNodeId());
         out_pair.value(output);
         collector.collect(out_pair);
@@ -325,7 +328,7 @@ public class PairMergeAvro extends Stage {
       } else {
         output.setStrandToMerge(CompressibleStrands.REVERSE);
       }
-
+      output.setCompressibleStrands(node.data.getCompressibleStrands());
       // The key for the output is the id for the node this node gets merged
       // into
       out_pair.key(edge_to_compress.other_terminal.nodeId);
@@ -420,12 +423,12 @@ public class PairMergeAvro extends Stage {
      *   should be ordered corresponding to their position in the chain.
      * @param start_strand: Which strand of the first node in chain to start
      *   on; i.e this strand must have an outgoing edge to the next node
-     *   in the chian.
+     *   in the chain.
      * @param new_id: The new id to assign to the merged nodes.
      */
     protected void mergeChain(
         ArrayList<GraphNode> chain, DNAStrand start_strand, String new_id) {
-      // The nodes in chain should form a chain, such that
+      // The nodes in chain should form a linear chain, such that
       // starting with start_strand we can walk to the last node in chain.
       ArrayList<DNAStrand> strands = new ArrayList<DNAStrand>();
       strands.add(start_strand);
@@ -449,11 +452,10 @@ public class PairMergeAvro extends Stage {
         strands.add(pos + 1, tail.terminal.strand);
       }
 
-
       // Merge the nodes sequentially.
       GraphNode merged_node = chain.get(0);
       DNAStrand merged_strand = strands.get(0);
-      for (int pos = 0; pos < chain.size() -1; pos++) {
+      for (int pos = 0; pos < chain.size() - 1; pos++) {
         StrandsForEdge strands_for_merge = StrandsUtil.form(
             merged_strand, strands.get(pos + 1));
         NodeMerger.MergeResult result = NodeMerger.mergeNodes(
@@ -478,7 +480,7 @@ public class PairMergeAvro extends Stage {
           chain.get(tail_pos), DNAStrandUtil.flip(strands.get(tail_pos)),
           merged_node.getNodeId(), DNAStrandUtil.flip(merged_strand));
 
-      // Clear the list of messages in the output array.
+      // Clear and set the list of messages in the output array.
       output.getUpdateMessages().clear();
       output.getUpdateMessages().addAll(head_messages);
       output.getUpdateMessages().addAll(tail_messages);
@@ -487,11 +489,7 @@ public class PairMergeAvro extends Stage {
 
     public void reduce(CharSequence nodeid, Iterable<MergeNodeData> iterable,
         AvroCollector<PairMergeOutput> collector, Reporter reporter)
-            throws IOException
-            {
-      //Node node = new Node(nodeid.toString());
-      //List<Update> updates = new ArrayList<Update>();
-
+            throws IOException {
       Iterator<MergeNodeData> iter = iterable.iterator();
 
       GraphNode down_node = null;
@@ -503,8 +501,8 @@ public class PairMergeAvro extends Stage {
         MergeNodeData merge_info = iter.next();
 
         if (merge_info.getStrandToMerge() == CompressibleStrands.NONE) {
-          // This the down node that the up nodes get merged into.
-          // There should be only one.
+          // This is the down node that the up nodes get merged into when
+          // a merge happens. There should be at most one such node.
           if (down_node != null) {
             throw new RuntimeException(
                 "There is more than 1 message for node: " + nodeid + " " +
@@ -520,8 +518,8 @@ public class PairMergeAvro extends Stage {
 
         if (merge_info.getStrandToMerge() == CompressibleStrands.BOTH) {
           throw new RuntimeException(
-              "There message for node: " + nodeid + " " +
-                  "one of the nodes is compressible along both strands. This " +
+              "The node: " + merge_info.getNode().getNodeId() + " " +
+              "is marked as being compressible along both strands. This " +
               "should not happen");
         }
 
@@ -552,6 +550,7 @@ public class PairMergeAvro extends Stage {
         // Clear the list of messages in the output array.
         output.getUpdateMessages().clear();
         output.setNode(down_node.getData());
+        output.setCompressibleStrands(merge_info)
         collector.collect(output);
         return;
       }
