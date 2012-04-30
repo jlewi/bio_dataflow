@@ -231,26 +231,6 @@
                  "type": "contrail.graph.GraphNodeData",
                  "doc": "The node data."}]
     },
-    {"name": "contrail.avro.MergeNodeData", 
-     "type": "record",
-     "doc": ["Record for the data outputted by the PairMarkAvro stage. ", 
-             "Each record contains a graph node and in some cases information ",
-             "about how that node should be merged with another node in the ",
-             "reducer."],
-     "fields": [{"name":"strand_to_merge", 
-             	   // We can't use a union of null and an enum because of 
-             	   // jira AVRO-997.
-                 "type": "contrail.avro.CompressibleStrands",
-                 "doc":  ["Which strand of the node to merge."]},
-                {"name": "node",
-                 "type": "contrail.graph.GraphNodeData",
-                 "doc": "The node."},
-                {"name": "compressible_strands",
-                 "type": "contrail.avro.CompressibleStrands",
-                 "doc":  ["Which strands of the node are compressible with ",
-                 "respect to outgoing edges."]}
-               ]     
-    },
     {"name": "contrail.avro.EdgeUpdateAfterMerge", 
      "type": "record",
      "doc": ["This message describes how an edge in a node needs to be ", 
@@ -277,19 +257,15 @@
      "doc": ["Contains the result of merging several nodes together. ",
              "The result includes messages which need to be sent to other ",
              "nodes to let them know the graph has changed."],
-     "fields": [{"name": "node",
-                 "type": "contrail.graph.GraphNodeData",
+     "fields": [{"name": "compressible_node",
+                 "type": "contrail.avro.CompressibleNodeData",
                  "doc": "A node in the graph."},
                 {"name": "update_messages",
                  "type": {"type":"array", 
                           "items":"contrail.avro.EdgeUpdateAfterMerge"},
                  "doc": ["An array of messages to send to update edges ",
                          "after the merge."]
-                },
-                {"name": "compressible_strands",
-                 "type": "contrail.avro.CompressibleStrands",
-                 "doc":  ["Which strands of the node are compressible with ",
-                          "respect to outgoing edges."]}
+                }
                ]     
     }        
   ] // end types

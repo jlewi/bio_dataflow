@@ -84,6 +84,14 @@ public class TestPairMergeAvro extends PairMergeAvro {
     return true;
   }
 
+  // We can't use avro methods to copy GraphNode.
+  private CompressibleNodeData copyCompressibleNode(CompressibleNodeData node) {
+    CompressibleNodeData copy = new CompressibleNodeData();
+    copy.setCompressibleStrands(node.getCompressibleStrands());
+    copy.setNode((new GraphNode(node.getNode())).clone().getData());
+    return copy;
+  }
+
   // Determine which strands for the given node are compressible.
   private CompressibleStrands isCompressible(
       Map<String, GraphNode> nodes, String nodeid) {
@@ -112,11 +120,12 @@ public class TestPairMergeAvro extends PairMergeAvro {
     public MapperTestCase() {
       input = new ArrayList<CompressibleNodeData>();
       expected_output =
-          new HashMap<String, Pair<CharSequence, MergeNodeData>>();
+          new HashMap<String, Pair<CharSequence, CompressibleNodeData>>();
       flipper = new CoinFlipperFixed();
     }
     public List<CompressibleNodeData> input;
-    public HashMap<String, Pair<CharSequence, MergeNodeData>> expected_output;
+    public HashMap<String, Pair<CharSequence, CompressibleNodeData>>
+      expected_output;
 
     // The flipper to use in the test.
     public CoinFlipper flipper;
@@ -155,20 +164,13 @@ public class TestPairMergeAvro extends PairMergeAvro {
     flipper.tosses.put(
         down_node.getNodeId(), CoinFlipper.CoinFlip.Down);
 
-    MergeNodeData up_output = new MergeNodeData();
-    up_output.setNode(up_node.clone().getData());
-    up_output.setStrandToMerge(CompressibleStrands.FORWARD);
-
-    // Up node is sent to the down node.
-    test_case.expected_output.put(up_node.getNodeId(),
-        new Pair<CharSequence, MergeNodeData>(down_node.getNodeId(), up_output));
-
-    MergeNodeData down_output = new MergeNodeData();
-    down_output.setNode(up_node.clone().getData());
-    down_output.setStrandToMerge(CompressibleStrands.NONE);
-
-    test_case.expected_output.put(down_node.getNodeId(),
-        new Pair<CharSequence, MergeNodeData>(down_node.getNodeId(), down_output));
+    for (CompressibleNodeData input_node: test_case.input) {
+      // The output is just the node but the output gets sent to the down
+      // node.
+      test_case.expected_output.put(input_node.getNode().getNodeId().toString(),
+          new Pair<CharSequence, CompressibleNodeData>(
+              down_node.getNodeId(), copyCompressibleNode(input_node)));
+    }
     return test_case;
   }
 
@@ -187,12 +189,13 @@ public class TestPairMergeAvro extends PairMergeAvro {
       data.setCompressibleStrands(CompressibleStrands.NONE);
       test_case.input.add(data);
 
-      MergeNodeData output = new MergeNodeData();
+      CompressibleNodeData output = new CompressibleNodeData();
       output.setNode(node.clone().getData());
-      output.setStrandToMerge(CompressibleStrands.NONE);
+      output.setCompressibleStrands(CompressibleStrands.NONE);
       // Up node is sent to the down node.
       test_case.expected_output.put(node.getNodeId(),
-          new Pair<CharSequence, MergeNodeData>(node.getNodeId(), output));
+          new Pair<CharSequence, CompressibleNodeData>(
+              node.getNodeId(), copyCompressibleNode(output)));
     }
 
     // Use the random coin flipper.
@@ -228,22 +231,24 @@ public class TestPairMergeAvro extends PairMergeAvro {
           isCompressible(builder.getAllNodes(), node.getNodeId()));
       test_case.input.add(data);
 
-      MergeNodeData output = new MergeNodeData();
+      CompressibleNodeData output = new CompressibleNodeData();
       output.setNode(node.clone().getData());
 
       // The output key for the reducer.
       String target_nodeid = "";
       if (node.getNodeId().equals("node_0")) {
         target_nodeid = "node_1";
-        // Prefer merging along the forward strand.
-        output.setStrandToMerge(CompressibleStrands.FORWARD);
-      } else {
+        output.setCompressibleStrands(CompressibleStrands.BOTH);
+      } else if (node.getNodeId().equals("node_1")) {
         target_nodeid = node.getNodeId();
-        output.setStrandToMerge(CompressibleStrands.NONE);
+        output.setCompressibleStrands(CompressibleStrands.FORWARD);
+      } else if (node.getNodeId().equals("node_2")) {
+        target_nodeid = node.getNodeId();
+        output.setCompressibleStrands(CompressibleStrands.FORWARD);
       }
       // Up node is sent to the down node.
       test_case.expected_output.put(node.getNodeId(),
-          new Pair<CharSequence, MergeNodeData>(target_nodeid, output));
+          new Pair<CharSequence, CompressibleNodeData>(target_nodeid, output));
 
       // All nodes assigned down.
       flipper.tosses.put(
@@ -255,8 +260,9 @@ public class TestPairMergeAvro extends PairMergeAvro {
   // Check the output of the mapper matches the expected result.
   private void assertMapperOutput(
       CompressibleNodeData input,
-      Pair<CharSequence, MergeNodeData> expected_output,
-      AvroCollectorMock<Pair<CharSequence, MergeNodeData>> collector_mock) {
+      Pair<CharSequence, CompressibleNodeData> expected_output,
+      AvroCollectorMock<Pair<CharSequence, CompressibleNodeData>>
+          collector_mock) {
     assertEquals(1, collector_mock.data.size());
     assertEquals(expected_output, collector_mock.data.get(0));
   }
@@ -282,8 +288,9 @@ public class TestPairMergeAvro extends PairMergeAvro {
       for (CompressibleNodeData input_data: test_case.input) {
         // We need a new collector for each invocation because the
         // collector stores the outputs of the mapper.
-        AvroCollectorMock<Pair<CharSequence, MergeNodeData>> collector_mock =
-          new AvroCollectorMock<Pair<CharSequence, MergeNodeData>>();
+        AvroCollectorMock<Pair<CharSequence, CompressibleNodeData>>
+          collector_mock =
+          new AvroCollectorMock<Pair<CharSequence, CompressibleNodeData>>();
 
         mapper.setFlipper(test_case.flipper);
         try {
@@ -305,7 +312,7 @@ public class TestPairMergeAvro extends PairMergeAvro {
   private class ReducerTestCase {
     public int K;
     public String reducer_key;
-    public List<MergeNodeData> input;
+    public List<CompressibleNodeData> input;
     public PairMergeOutput expected_output;
   }
 
@@ -317,12 +324,10 @@ public class TestPairMergeAvro extends PairMergeAvro {
     assertEquals(1, collector_mock.data.size());
     PairMergeOutput output = collector_mock.data.get(0);
 
-    // TODO(jlewi): The following lines are for debugging only and
-    // should be deleted.
-    GraphNode expected_node = new GraphNode(test_case.expected_output.getNode());
-    GraphNode output_node = new GraphNode(output.getNode());
     // Check the nodes are equal.
-    assertEquals(test_case.expected_output.getNode(), output.getNode());
+    assertEquals(
+        test_case.expected_output.getCompressibleNode(),
+        output.getCompressibleNode());
 
     // Check the lists are equal without regard to order.
     assertTrue(ListUtil.listsAreEqual(
@@ -336,20 +341,21 @@ public class TestPairMergeAvro extends PairMergeAvro {
     ReducerTestCase test_case = new ReducerTestCase();
     test_case.K = 3;
 
-    test_case.input = new ArrayList<MergeNodeData>();
+    test_case.input = new ArrayList<CompressibleNodeData>();
     GraphNode node = new GraphNode();
     node.setNodeId("somenode");
     Sequence sequence = new Sequence("ACGCT", DNAAlphabetFactory.create());
     node.setCanonicalSequence(sequence);
     test_case.reducer_key = node.getNodeId();
 
-    MergeNodeData merge_data = new MergeNodeData();
+    CompressibleNodeData merge_data = new CompressibleNodeData();
     merge_data.setNode(node.clone().getData());
-    merge_data.setStrandToMerge(CompressibleStrands.NONE);
+    merge_data.setCompressibleStrands(CompressibleStrands.NONE);
     test_case.input.add(merge_data);
 
     test_case.expected_output = new PairMergeOutput();
-    test_case.expected_output.setNode(node.clone().getData());
+    test_case.expected_output.setCompressibleNode(
+        copyCompressibleNode(merge_data));
     test_case.expected_output.setUpdateMessages(
         new ArrayList<EdgeUpdateAfterMerge>());
 
@@ -373,18 +379,18 @@ public class TestPairMergeAvro extends PairMergeAvro {
     builder.addEdge("CTT", "TTA", test_case.K - 1);
 
 
-    test_case.input = new ArrayList<MergeNodeData>();
+    test_case.input = new ArrayList<CompressibleNodeData>();
     {
       GraphNode node = builder.getNode(builder.findNodeIdForSequence("ACT"));
-      MergeNodeData merge_data = new MergeNodeData();
-      merge_data.setStrandToMerge(CompressibleStrands.FORWARD);
+      CompressibleNodeData merge_data = new CompressibleNodeData();
+      merge_data.setCompressibleStrands(CompressibleStrands.FORWARD);
       merge_data.setNode(node.clone().getData());
       test_case.input.add(merge_data);
     }
     {
       GraphNode node = builder.getNode(builder.findNodeIdForSequence("CTT"));
-      MergeNodeData merge_data = new MergeNodeData();
-      merge_data.setStrandToMerge(CompressibleStrands.NONE);
+      CompressibleNodeData merge_data = new CompressibleNodeData();
+      merge_data.setCompressibleStrands(CompressibleStrands.BOTH);
       merge_data.setNode(node.clone().getData());
       test_case.input.add(merge_data);
     }
@@ -406,8 +412,11 @@ public class TestPairMergeAvro extends PairMergeAvro {
 
     test_case.reducer_key = merged_node.getNodeId();
 
+    CompressibleNodeData node_data = new CompressibleNodeData();
+    node_data.setNode(merged_node.clone().getData());
+    node_data.setCompressibleStrands(CompressibleStrands.REVERSE);
     test_case.expected_output = new PairMergeOutput();
-    test_case.expected_output.setNode(merged_node.clone().getData());
+    test_case.expected_output.setCompressibleNode(node_data);
     test_case.expected_output.setUpdateMessages(
         new ArrayList<EdgeUpdateAfterMerge>());
 
@@ -470,25 +479,25 @@ public class TestPairMergeAvro extends PairMergeAvro {
     builder.addEdge("TCT", "CTT", test_case.K - 1);
 
 
-    test_case.input = new ArrayList<MergeNodeData>();
+    test_case.input = new ArrayList<CompressibleNodeData>();
     {
       GraphNode node = builder.getNode(builder.findNodeIdForSequence("AAT"));
-      MergeNodeData merge_data = new MergeNodeData();
-      merge_data.setStrandToMerge(CompressibleStrands.FORWARD);
+      CompressibleNodeData merge_data = new CompressibleNodeData();
+      merge_data.setCompressibleStrands(CompressibleStrands.BOTH);
       merge_data.setNode(node.clone().getData());
       test_case.input.add(merge_data);
     }
     {
       GraphNode node = builder.getNode(builder.findNodeIdForSequence("ATC"));
-      MergeNodeData merge_data = new MergeNodeData();
-      merge_data.setStrandToMerge(CompressibleStrands.NONE);
+      CompressibleNodeData merge_data = new CompressibleNodeData();
+      merge_data.setCompressibleStrands(CompressibleStrands.BOTH);
       merge_data.setNode(node.clone().getData());
       test_case.input.add(merge_data);
     }
     {
       GraphNode node = builder.getNode(builder.findNodeIdForSequence("TCT"));
-      MergeNodeData merge_data = new MergeNodeData();
-      merge_data.setStrandToMerge(CompressibleStrands.FORWARD);
+      CompressibleNodeData merge_data = new CompressibleNodeData();
+      merge_data.setCompressibleStrands(CompressibleStrands.BOTH);
       merge_data.setNode(node.clone().getData());
       test_case.input.add(merge_data);
     }
@@ -505,8 +514,11 @@ public class TestPairMergeAvro extends PairMergeAvro {
 
     test_case.reducer_key = merged_node.getNodeId();
 
+    CompressibleNodeData node_output = new CompressibleNodeData();
+    node_output.setCompressibleStrands(CompressibleStrands.BOTH);
+    node_output.setNode(merged_node.clone().getData());
     test_case.expected_output = new PairMergeOutput();
-    test_case.expected_output.setNode(merged_node.clone().getData());
+    test_case.expected_output.setCompressibleNode(node_output);
     test_case.expected_output.setUpdateMessages(
         new ArrayList<EdgeUpdateAfterMerge>());
 
