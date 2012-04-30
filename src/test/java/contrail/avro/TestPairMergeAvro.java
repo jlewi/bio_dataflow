@@ -325,9 +325,9 @@ public class TestPairMergeAvro extends PairMergeAvro {
     assertEquals(test_case.expected_output.getNode(), output.getNode());
 
     // Check the lists are equal without regard to order.
-    ListUtil.listsAreEqual(
+    assertTrue(ListUtil.listsAreEqual(
         test_case.expected_output.getUpdateMessages(),
-        output.getUpdateMessages());
+        output.getUpdateMessages()));
   }
 
 
@@ -512,9 +512,11 @@ public class TestPairMergeAvro extends PairMergeAvro {
 
     // Add the messages
     {
+     // Old Edge: TAA ->AAT
+     // New Edge: TAA ->AATCT
      EdgeUpdateAfterMerge update = new EdgeUpdateAfterMerge();
      update.setNodeToUpdate(builder.findNodeIdForSequence("TAA"));
-     update.setOldTerminalId(builder.findNodeIdForSequence("AGA"));
+     update.setOldTerminalId(builder.findNodeIdForSequence("AAT"));
      update.setNewTerminalId(merged_node.getNodeId());
      update.setOldStrands(StrandsForEdge.FF);
      update.setNewStrands(StrandsForEdge.FF);
@@ -523,9 +525,11 @@ public class TestPairMergeAvro extends PairMergeAvro {
     }
 
     {
+      // Old Edge: AAG -> AGA
+      // New Edge: AAG -> AGATT
       EdgeUpdateAfterMerge update = new EdgeUpdateAfterMerge();
       update.setNodeToUpdate(builder.findNodeIdForSequence("AAG"));
-      update.setOldTerminalId(builder.findNodeIdForSequence(""));
+      update.setOldTerminalId(builder.findNodeIdForSequence("AGA"));
       update.setNewTerminalId(merged_node.getNodeId());
       update.setOldStrands(StrandsForEdge.FF);
       update.setNewStrands(StrandsForEdge.FR);

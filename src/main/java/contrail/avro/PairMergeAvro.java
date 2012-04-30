@@ -1,3 +1,4 @@
+// Author: Michael Schatz, Jeremy Lewi
 package contrail.avro;
 
 import java.io.IOException;
@@ -36,23 +37,41 @@ import contrail.sequences.StrandsUtil;
 
 
 /**
- * For each node we randomly flip a coin and assign the node a value of Up
- * or Down. The random seed is based on a global seed value and the node id.
+ * The first map-reduce stage for a probabilistic algorithm for merging linear
+ * chains.
+ *
+ * Suppose we have a linear chain of nodes A->B->C->D...-E. All of these
+ * nodes can be merged into one node through a series of local merges,
+ * e.g A + B = AB, C+D= DC, .. AB+DC = ABDC, etc... When performing these
+ * merges in parallel we need to make sure that a node doesn't get merged
+ * twice. For example, if B is merged into A, we shouldn't simulatenously
+ * merge B into C.
+ *
+ * To solve this problem, we randomly flip a coin for each node and assign
+ * the node a value of Up or Down. If an up node is next to a down node,
+ * that up node can be sent to the down node to be merged with the down
+ * node.
+ *
+ * The random seed is based on a global seed value and the node id.
  * Thus, each node can compute the result of the coin toss for any other node.
  *
- * Consider Two nodes A->B. Suppose A has a single outgoing edge to B and
- * B has a single incoming edge from A. In this case, nodes A and B can be
- * merged. However, these two nodes will be merged during the merge phase
- * (PairMerge) only if we mark them to be merge.
+ * The mapper performs the toin coss for node. If a compressible node assigned
+ * up is next to a down node, then that up node gets sent to the same reducer
+ * as the down node. The reducer then merges the two nodes together.
  *
- * We mark A and B to be merged in the following cases.
- *
- * Suppose the coin toss for A is Up and Down for B.
- *
+ * While performing the merge of two nodes, the reducer keeps track of
+ * edges that would need to be updated. For example, suppose we have
+ * A->B->C->D and we merge B with C. Then the edge A->B needs to be updated
+ * so that it uses the new merged node. The reducer keeps track of these
+ * updates and outputs them. A subsequent map reduce job sends these messages
+ * to the respective nodes so they can update their edges.
  */
 public class PairMergeAvro extends Stage {
   private static final Logger sLogger = Logger.getLogger(PairMergeAvro.class);
 
+  /**
+   * A wrapper class for the CompressibleNodeData schema.
+   */
   private static class CompressibleNode {
     private CompressibleNodeData data;
     private GraphNode node;
@@ -92,6 +111,12 @@ public class PairMergeAvro extends Stage {
     }
   }
 
+  /**
+   * Convert the enumeration CompressibleStrands to the equivalent DNAStrand
+   * enumeration if possible.
+   * @param strands
+   * @return
+   */
   protected static DNAStrand compressibleStrandsToDNAStrand(
       CompressibleStrands strands) {
     switch (strands) {
@@ -127,7 +152,7 @@ public class PairMergeAvro extends Stage {
       return null;
     }
 
-    // Output pair
+    // The output for the mapper.
     private Pair<CharSequence, MergeNodeData> out_pair;
 
     private void clearOutput () {
@@ -158,7 +183,6 @@ public class PairMergeAvro extends Stage {
       // Prefer Merging forward if we can.
       // We can only merge in a single direction at a time.
       if (fbuddy != null) {
-
         CoinFlipper.CoinFlip f_flip = flipper.flip(fbuddy.terminal.nodeId);
 
         if (f_flip == CoinFlipper.CoinFlip.Down) {
@@ -178,7 +202,6 @@ public class PairMergeAvro extends Stage {
       }
 
       // Can't do a merge.
-      // Should we ever be able to reach this point?
       return null;
     }
 
@@ -191,25 +214,24 @@ public class PairMergeAvro extends Stage {
     // in a row. Then normally none of the nodes would get merged.
     // However, we can potentially convert the down node to an Up Node
     // and do a merge.
+    // To ensure two adjacent nodes aren't both forced to up, we only convert
+    // the node if it has the smallest node id among its two neighbors.
     private boolean convertDownToUp(
         CompressibleNode node, TailData fbuddy, TailData rbuddy) {
-
-      // This node is a tail.
+      // This node was assigned down.
       if ((rbuddy != null) && (fbuddy != null)) {
         // We have tails for both strands of this node.
-
-        //boolean fmale = isMale(fbuddy.id);
-        //boolean rmale = isMale(rbuddy.id);
         CoinFlipper.CoinFlip f_flip = flipper.flip(fbuddy.terminal.nodeId);
         CoinFlipper.CoinFlip r_flip = flipper.flip(rbuddy.terminal.nodeId);
 
-        if ( f_flip == CoinFlipper.CoinFlip.Down &&
+        if (f_flip == CoinFlipper.CoinFlip.Down &&
             r_flip == CoinFlipper.CoinFlip.Down &&
             (node.getNode().getNodeId().compareTo(
                 fbuddy.terminal.nodeId) < 0) &&
                 (node.getNode().getNodeId().compareTo(
                     rbuddy.terminal.nodeId) < 0)) {
-
+          // Both neighbors are down nodes and this node has the smallest
+          // id among the trio, therefore we force this node to be up.
           return true;
         }
         return false;
@@ -218,22 +240,17 @@ public class PairMergeAvro extends Stage {
       if (rbuddy == null) {
         // We only have a tail for the forward strand but not the reverse
         // strand.
-        //boolean fmale = isMale(fbuddy.id);
         CoinFlipper.CoinFlip f_flip = flipper.flip(fbuddy.terminal.nodeId);
         if (f_flip == CoinFlipper.CoinFlip.Down && (
             node.getNode().getNodeId().compareTo(
                 fbuddy.terminal.nodeId) < 0)) {
-
           return true;
         }
         return false;
       }
 
       if (fbuddy == null) {
-        //boolean rmale = isMale(rbuddy.id);
-
         CoinFlipper.CoinFlip r_flip = flipper.flip(rbuddy.terminal.nodeId);
-
         if (r_flip == CoinFlipper.CoinFlip.Down && (
             node.getNode().getNodeId().compareTo(
                 rbuddy.terminal.nodeId) < 0)) {
@@ -248,7 +265,6 @@ public class PairMergeAvro extends Stage {
         AvroCollector<Pair<CharSequence, MergeNodeData>> collector,
         Reporter reporter) throws IOException {
       node.setData(node_data);
-
       // Check if either the forward or reverse strand can be merged.
       TailData fbuddy = getBuddy(node, DNAStrand.FORWARD);
       TailData rbuddy = getBuddy(node, DNAStrand.REVERSE);
@@ -263,11 +279,9 @@ public class PairMergeAvro extends Stage {
         reporter.incrCounter("Contrail", "nodes", 1);
         return;
       }
-
       reporter.incrCounter("Contrail", "compressible", 1);
 
       CoinFlipper.CoinFlip coin = flipper.flip(node.getNode().getNodeId());
-
       // If this node is randomly assigned Down, see if it can be converted
       // to up.
       if (coin == CoinFlipper.CoinFlip.Down) {
@@ -292,7 +306,6 @@ public class PairMergeAvro extends Stage {
       EdgeToCompress edge_to_compress =
           processUpNode(node, fbuddy, rbuddy);
 
-
       if (edge_to_compress == null) {
         // This node doesn't get sent to another node be merged.
         clearOutput();
@@ -304,9 +317,6 @@ public class PairMergeAvro extends Stage {
         return;
       }
 
-
-      // The key for the output is the id for the node this node gets merged
-      // into
       clearOutput();
 
       output.setNode(node.getNode().getData());
@@ -315,9 +325,13 @@ public class PairMergeAvro extends Stage {
       } else {
         output.setStrandToMerge(CompressibleStrands.REVERSE);
       }
+
+      // The key for the output is the id for the node this node gets merged
+      // into
       out_pair.key(edge_to_compress.other_terminal.nodeId);
       out_pair.value(output);
       collector.collect(out_pair);
+      reporter.incrCounter("Contrail", "nodes_to_merge", 1);
     }
 
     /**
@@ -332,7 +346,10 @@ public class PairMergeAvro extends Stage {
   protected static class PairMergeReducer extends
     AvroReducer <CharSequence, MergeNodeData, PairMergeOutput> {
 
+    // The output for the reducer.
     private PairMergeOutput output;
+
+    // The length of the KMers.
     private int K;
 
     public void configure(JobConf job) {
@@ -359,18 +376,24 @@ public class PairMergeAvro extends Stage {
       return null;
     }
 
+    /**
+     * This function returns a list of the messages to update edges for the
+     * nodes which have been merged.
+     * @param node: The node that has been merged. This is the node
+     *   we get a list of edges that need to be updated.
+     * @param strand: The strand of node that has been merged.
+     * @param new_nodeid: The id for the new node that represents node.
+     * @param new_strand: The strand of the merged node corresponding to
+     *   strand of node.
+     * @return: A list of the update messages.
+     */
     protected List<EdgeUpdateAfterMerge> updateMessagesForEdge(
-        GraphNode node, DNAStrand strand, String old_id, String new_nodeid,
+        GraphNode node, DNAStrand strand, String new_nodeid,
         DNAStrand new_strand) {
-      // Now we need to form messages to update the incoming and outgoing
-      // edges. We need to check if the message is to one of the nodes
-      // that we've already sent a message to.
-
       List<EdgeUpdateAfterMerge> edge_updates =
           new ArrayList<EdgeUpdateAfterMerge> ();
       // For the source node, we need to update the incoming edges
       // to the strand that was merged.
-      // and send them a message with the new id and strand for that edge.
       List<EdgeTerminal> incoming_terminals =
           node.getEdgeTerminals(strand, EdgeDirection.INCOMING);
 
@@ -379,10 +402,10 @@ public class PairMergeAvro extends Stage {
         update.setOldStrands(StrandsUtil.form(terminal.strand, strand));
         update.setNewStrands(StrandsUtil.form(terminal.strand, new_strand));
 
-        update.setOldTerminalId(old_id);
+        update.setOldTerminalId(node.getNodeId());
         update.setNewTerminalId(new_nodeid);
 
-        update.setNodeToUpdate(node.getNodeId());
+        update.setNodeToUpdate(terminal.nodeId);
 
         edge_updates.add(update);
       }
@@ -444,7 +467,7 @@ public class PairMergeAvro extends Stage {
 
       // Now we need to update the incoming edges to the ends of the chain.
       List<EdgeUpdateAfterMerge> head_messages = updateMessagesForEdge(
-          chain.get(0), strands.get(0), chain.get(0).getNodeId(),
+          chain.get(0), strands.get(0),
           merged_node.getNodeId(), merged_strand);
 
       // For the tail node, since updateMessagesForEdge gets the incoming
@@ -453,8 +476,7 @@ public class PairMergeAvro extends Stage {
       int tail_pos = chain.size() - 1;
       List<EdgeUpdateAfterMerge> tail_messages = updateMessagesForEdge(
           chain.get(tail_pos), DNAStrandUtil.flip(strands.get(tail_pos)),
-          chain.get(0).getNodeId(), merged_node.getNodeId(),
-          DNAStrandUtil.flip(merged_strand));
+          merged_node.getNodeId(), DNAStrandUtil.flip(merged_strand));
 
       // Clear the list of messages in the output array.
       output.getUpdateMessages().clear();
