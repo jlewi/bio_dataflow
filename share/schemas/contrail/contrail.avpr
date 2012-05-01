@@ -231,10 +231,10 @@
                  "type": "contrail.graph.GraphNodeData",
                  "doc": "The node data."}]
     },
-    {"name": "contrail.avro.EdgeUpdateAfterMerge", 
+    {"name": "contrail.avro.EdgeUpdateAfterMerge",
      "type": "record",
-     "doc": ["This message describes how an edge in a node needs to be ", 
-             "updated, after merging other nodes."],             
+     "doc": ["This message describes how an edge in a node needs to be ",
+             "updated, after merging other nodes."],
      "fields": [{"name": "node_to_update",
                  "type": "string",
                  "doc": "The id for the node to update."},
@@ -249,10 +249,10 @@
                  "doc": "The old strands for the edge."},
                 {"name": "new_strands",
                  "type": "contrail.sequences.StrandsForEdge",
-                 "doc": "The new strands for the edge."} 
-               ]     
+                 "doc": "The new strands for the edge."}
+               ]
     },
-    {"name": "contrail.avro.PairMergeOutput", 
+    {"name": "contrail.avro.PairMergeOutput",
      "type": "record",
      "doc": ["Contains the result of merging several nodes together. ",
              "The result includes messages which need to be sent to other ",
@@ -261,12 +261,12 @@
                  "type": "contrail.avro.CompressibleNodeData",
                  "doc": "A node in the graph."},
                 {"name": "update_messages",
-                 "type": {"type":"array", 
+                 "type": {"type":"array",
                           "items":"contrail.avro.EdgeUpdateAfterMerge"},
                  "doc": ["An array of messages to send to update edges ",
                          "after the merge."]
                 }
-               ]     
-    }        
+               ]
+    }
   ] // end types
 }
