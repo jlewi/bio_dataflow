@@ -170,8 +170,6 @@ public class PairMark extends Configured implements Tool
 
 					for(String adj : Node.dirs)
 					{
-					  // So key is 
-					  // rc(compress_strand) + adj
 						String key = toupdate + adj;
 
 						String origadj = Node.flip_dir(adj) + compressdir;
