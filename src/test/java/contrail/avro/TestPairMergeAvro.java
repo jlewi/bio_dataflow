@@ -31,9 +31,8 @@ import contrail.sequences.Sequence;
 import contrail.sequences.StrandsForEdge;
 import contrail.util.ListUtil;
 
-// Extend PairMergeAvro so we can access mapper and reducer.
+// Extend PairMergeAvro so we can access the mapper and reducer.
 public class TestPairMergeAvro extends PairMergeAvro {
-
   // A CoinFlipper which is not random but uses a hash table to map
   // strings to coin flips. This makes it easy to control the tosses assigned
   // to the nodes.
@@ -53,6 +52,7 @@ public class TestPairMergeAvro extends PairMergeAvro {
   }
 
   // Return true if the strand of the specified node is compressible.
+  // This is used to setup some of the test cases.
   private boolean isCompressibleStrand(
       Map<String, GraphNode> nodes, String nodeid, DNAStrand strand) {
     GraphNode node = nodes.get(nodeid);
@@ -84,14 +84,6 @@ public class TestPairMergeAvro extends PairMergeAvro {
     return true;
   }
 
-  // We can't use avro methods to copy GraphNode.
-  private CompressibleNodeData copyCompressibleNode(CompressibleNodeData node) {
-    CompressibleNodeData copy = new CompressibleNodeData();
-    copy.setCompressibleStrands(node.getCompressibleStrands());
-    copy.setNode((new GraphNode(node.getNode())).clone().getData());
-    return copy;
-  }
-
   // Determine which strands for the given node are compressible.
   private CompressibleStrands isCompressible(
       Map<String, GraphNode> nodes, String nodeid) {
@@ -115,7 +107,16 @@ public class TestPairMergeAvro extends PairMergeAvro {
     return CompressibleStrands.NONE;
   }
 
-  // This class contains the data for testing the mapper.
+  // We can't use avro methods to copy GraphNode.
+  // See https://issues.apache.org/jira/browse/AVRO-1045.
+  private CompressibleNodeData copyCompressibleNode(CompressibleNodeData node) {
+    CompressibleNodeData copy = new CompressibleNodeData();
+    copy.setCompressibleStrands(node.getCompressibleStrands());
+    copy.setNode((new GraphNode(node.getNode())).clone().getData());
+    return copy;
+  }
+
+  // This class serves as a container for the data for testing the mapper.
   private static class MapperTestCase {
     public MapperTestCase() {
       input = new ArrayList<CompressibleNodeData>();
@@ -123,7 +124,9 @@ public class TestPairMergeAvro extends PairMergeAvro {
           new HashMap<String, Pair<CharSequence, CompressibleNodeData>>();
       flipper = new CoinFlipperFixed();
     }
+    // The input to the mapper.
     public List<CompressibleNodeData> input;
+    // The expected output of the mapper.
     public HashMap<String, Pair<CharSequence, CompressibleNodeData>>
       expected_output;
 
@@ -217,7 +220,6 @@ public class TestPairMergeAvro extends PairMergeAvro {
     builder.addEdge("ACT", "CTG", 2);
     builder.addEdge("CTG", "TGA", 2);
 
-
     MapperTestCase test_case = new MapperTestCase();
 
     CoinFlipperFixed flipper = new CoinFlipperFixed();
@@ -309,10 +311,13 @@ public class TestPairMergeAvro extends PairMergeAvro {
     }
   }
 
+  // A container class used for organizing the data for the reducer tests.
   private class ReducerTestCase {
     public int K;
     public String reducer_key;
+    // The input to the reducer.
     public List<CompressibleNodeData> input;
+    // The expected output from the reducer.
     public PairMergeOutput expected_output;
   }
 
@@ -334,7 +339,6 @@ public class TestPairMergeAvro extends PairMergeAvro {
         test_case.expected_output.getUpdateMessages(),
         output.getUpdateMessages()));
   }
-
 
   private ReducerTestCase reducerNoMergeTest() {
     // Construct a simple reduce test case in which no nodes are merged.
@@ -378,7 +382,6 @@ public class TestPairMergeAvro extends PairMergeAvro {
     builder.addEdge("GAC", "ACT", test_case.K - 1);
     builder.addEdge("CTT", "TTA", test_case.K - 1);
 
-
     test_case.input = new ArrayList<CompressibleNodeData>();
     {
       GraphNode node = builder.getNode(builder.findNodeIdForSequence("ACT"));
@@ -420,8 +423,6 @@ public class TestPairMergeAvro extends PairMergeAvro {
     test_case.expected_output.setUpdateMessages(
         new ArrayList<EdgeUpdateAfterMerge>());
 
-
-
     // Add the messages
     {
      EdgeUpdateAfterMerge update = new EdgeUpdateAfterMerge();
@@ -443,7 +444,7 @@ public class TestPairMergeAvro extends PairMergeAvro {
       update.setNewStrands(StrandsForEdge.FR);
 
       test_case.expected_output.getUpdateMessages().add(update);
-     }
+    }
 
     {
       EdgeUpdateAfterMerge update = new EdgeUpdateAfterMerge();
@@ -477,7 +478,6 @@ public class TestPairMergeAvro extends PairMergeAvro {
     // be updated.
     builder.addEdge("TAA", "AAT", test_case.K - 1);
     builder.addEdge("TCT", "CTT", test_case.K - 1);
-
 
     test_case.input = new ArrayList<CompressibleNodeData>();
     {
@@ -614,8 +614,6 @@ public class TestPairMergeAvro extends PairMergeAvro {
     }
 
     File avro_file = new File(temp, "compressible.avro");
-
-
 
     // Write the data to the file.
     Schema schema = (new CompressibleNodeData()).getSchema();

@@ -56,9 +56,9 @@ import contrail.sequences.StrandsUtil;
  * The random seed is based on a global seed value and the node id.
  * Thus, each node can compute the result of the coin toss for any other node.
  *
- * The mapper performs the toin coss for node. If a compressible node assigned
- * up is next to a down node, then that up node gets sent to the same reducer
- * as the down node. The reducer then merges the two nodes together.
+ * The mapper performs the toin coss for the node. If a compressible node
+ * assigned up is next to a down node, then that up node gets sent to the same
+ * reducer as the down node. The reducer then merges the two nodes together.
  *
  * While performing the merge of two nodes, the reducer keeps track of
  * edges that would need to be updated. For example, suppose we have
@@ -392,7 +392,8 @@ public class PairMergeAvro extends Stage {
 
     /**
      * Determines whether the merged node resulting from chain is further
-     * @param chain: The chain of nodes merged together
+     * compressible.
+     * @param chain: The chain of nodes which are merged together.
      * @param merged_strand: Which strand corresponds to merging chain
      *   together.
      * @return: Which strands if any of the merged node are compressible.
@@ -422,7 +423,7 @@ public class PairMergeAvro extends Stage {
           CompressibleStrands.BOTH) {
         // Get the strand of the last node that wasn't compressed.
         // The last node would have been compressed along the incoming
-        // edge to the strand, so we can still compress it along the outgoing
+        // edge, so we can still compress it along the outgoing
         // edge.
         DNAStrand strand = chain.get(tail).compressible_strand;
         // We need to flip the strand if merged_strand is different
@@ -461,9 +462,6 @@ public class PairMergeAvro extends Stage {
      *
      * @param chain: An array of nodes to merge together. The nodes
      *   should be ordered corresponding to their position in the chain.
-     * @param start_strand: Which strand of the first node in chain to start
-     *   on; i.e this strand must have an outgoing edge to the next node
-     *   in the chain.
      * @param new_id: The new id to assign to the merged nodes.
      */
     protected void mergeChain(
@@ -532,8 +530,12 @@ public class PairMergeAvro extends Stage {
       output.setCompressibleNode(compressible_node);
     }
 
-    // Utility class for storing nodes in a chain along with the strand in
-    // the chain.
+    /**
+     * Utility class for storing nodes to be compressed in an array.
+     * Each node is stored as ChainLink. The node field stores the actual
+     * node. The field compressible_strand stores which strand of the node
+     * should be compressed.
+     */
     private class ChainLink {
       CompressibleNodeData node;
       DNAStrand compressible_strand;
@@ -603,13 +605,13 @@ public class PairMergeAvro extends Stage {
         link.node = nodes_map.get(tail.terminal.nodeId);
         link.compressible_strand = tail.terminal.strand;
         chain.add(link);
-        // Advance to th next node in the chain.
+        // Advance to the next node in the chain.
         graph_node.setData(link.node.getNode());
         tail = graph_node.getTail(
             link.compressible_strand, EdgeDirection.OUTGOING);
       }
 
-      // Sanity check. Check all nodss are in the chain.
+      // Sanity check. Check the size of the chain is correct.
       if (chain.size() != nodes.size()) {
         throw new RuntimeException(
             "The chain constructed doesn't have all the nodes. This is most " +
@@ -653,22 +655,18 @@ public class PairMergeAvro extends Stage {
       }
 
       if (nodes_to_merge.size() == 1) {
-        //Output the node
+        // Output the node
         // Clear the list of messages in the output array.
         output.getUpdateMessages().clear();
         output.setCompressibleNode(nodes_to_merge.get(0));
         collector.collect(output);
         return;
       }
-      // We want to order the nodes in a chain.
-      // e.g node1->node2  (if one node to merge).
-      // or node1->node2->node3 (if two nodes to merge with node2).
-      // This ordering makes it easy to detect which nodes we need
-      // to update so we can move their edges to the new merged node.
+      // Sort the nodes into a chain so that we just need to merge
+      // each node with its neighbor.
       // Only the nodes at the end of the chain need to be considered to
-      // identify nodes we need to send messages to.
+      // identify nodes whose edges need to be updated because of the merge.
       ArrayList<ChainLink> chain = sortNodes(nodes_to_merge);
-
       mergeChain(chain, nodeid.toString());
 
       collector.collect(output);
@@ -774,10 +772,8 @@ public class PairMergeAvro extends Stage {
     return 0;
   }
 
-  public static void main(String[] args) throws Exception
-  {
+  public static void main(String[] args) throws Exception {
     int res = ToolRunner.run(new Configuration(), new PairMergeAvro(), args);
     System.exit(res);
   }
-
 }
