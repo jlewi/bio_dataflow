@@ -8,8 +8,8 @@ import org.apache.commons.cli.OptionBuilder;
 
 /**
  * A class for containing command line option definitions for options shared
- * by multiple stages. 
- * 
+ * by multiple stages.
+ *
  * This class is currently a bit experimental.
  */
 public class ContrailOptions {
@@ -24,14 +24,14 @@ public class ContrailOptions {
       return help_options;
     }
     help_options = new ArrayList<Option>();
-    
+
     help_options.add(new Option("help", "print this message"));
     help_options.add(new Option("h", "print this message"));
-    
+
     return help_options;
   }
-  
-  
+
+
   private static List<Option> hadoop_options;
   /**
    * Get options related to hadoop.
@@ -41,7 +41,7 @@ public class ContrailOptions {
       return hadoop_options;
     }
     hadoop_options = new ArrayList<Option>();
-    
+
     // Default values.
     // hadoop options
     int    HADOOP_MAPPERS    = 50;
@@ -50,7 +50,7 @@ public class ContrailOptions {
     long   HADOOP_TIMEOUT    = 3600000;
     String HADOOP_JAVAOPTS   = "-Xmx1000m";
     String localBasePath = "work";
-    
+
     // work directories
     hadoop_options.add(
         OptionBuilder.withArgName("hadoopBasePath").hasArg().withDescription(
@@ -58,12 +58,12 @@ public class ContrailOptions {
     hadoop_options.add(OptionBuilder.withArgName(
         "hadoopReadPath").hasArg().withDescription(
             "Hadoop read directory [required]").create("reads"));
-    
+
     hadoop_options.add(OptionBuilder.withArgName(
         "workdir").hasArg().withDescription(
             "Local work directory (default: " + localBasePath + ")").create(
                 "work"));
-  
+
     // hadoop options
     hadoop_options.add(OptionBuilder.withArgName(
         "numSlots").hasArg().withDescription(
@@ -72,14 +72,14 @@ public class ContrailOptions {
     hadoop_options.add(OptionBuilder.withArgName("numNodes").hasArg().withDescription("Max nodes in memory (default: " + HADOOP_LOCALNODES + ")").create("nodes"));
     hadoop_options.add(OptionBuilder.withArgName("childOpts").hasArg().withDescription("Child Java Options (default: " + HADOOP_JAVAOPTS + ")").create("javaopts"));
     hadoop_options.add(OptionBuilder.withArgName("millisecs").hasArg().withDescription("Hadoop task timeout (default: " + HADOOP_TIMEOUT + ")").create("timeout"));
-    
+
     return hadoop_options;
   }
-  
+
   private static List<Option> path_options;
-  
+
   /**
-   * Get options defining input and output path.  
+   * Get options defining input and output path.
    */
   public static List<Option> getInputOutputPathOptions() {
     // We define the options for input and output paths globally
@@ -89,7 +89,7 @@ public class ContrailOptions {
       return path_options;
     }
     path_options = new ArrayList<Option>();
-    
+
     Option input = new Option("inputpath", "inputpath", true,
         "The directory containing the input (i.e the output of BuildGraph.)");
     Option output = new Option("outputpath", "outputpath", true,
@@ -99,9 +99,9 @@ public class ContrailOptions {
     path_options.add(output);
     return path_options;
   }
-  
+
   private static List<Option> stage_options;
-  
+
   /**
    * A list of options that apply to all stages.
    */
@@ -110,12 +110,12 @@ public class ContrailOptions {
       return stage_options;
     }
     stage_options = new ArrayList<Option>();
-    
+
     Option writeconfig = new Option("writeconfig", "writeconfig", true,
         "The XMLfile to write the job configuration to. The job won't be run.");
 
     stage_options.add(writeconfig);
-    
+
     Option foroozie = new Option("foroozie", "foroozie", false,
         "If writeconfig is also specified, then the job configuration is " +
         "post-processed to make it suitable for use with oozie.");

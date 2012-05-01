@@ -4,9 +4,9 @@ import contrail.util.ByteUtil;
 
 /**
  * Factory to create the DNAAlphabet. We use a factory because we only want
- * one instance of the alphabet but we need to initialize it the first time its 
- * called. 
- * 
+ * one instance of the alphabet but we need to initialize it the first time its
+ * called.
+ *
  * The resulting Alphabet represents the 4 DNA bases {"A", "C", "G", "T"}
  * using 2 bits per base; i.e. each base is assigned a number [0, 3].
  */
@@ -45,7 +45,7 @@ public class DNAAlphabetFactory {
 
 		private int eos_int;
 		/**
-		 * Create a bit mask that we can use to get the bits 
+		 * Create a bit mask that we can use to get the bits
 		 * in a int encoding the values we are interested in.
 		 */
 		private int letter_mask;
@@ -74,8 +74,8 @@ public class DNAAlphabetFactory {
 
 			int bit = 0x1;
 			for (int pos = 0; pos < bitsPerLetter(); pos++) {
-				letter_mask = (letter_mask | bit);      
-				bit = (bit << 1); 
+				letter_mask = (letter_mask | bit);
+				bit = (bit << 1);
 			}
 
 			// Initialize the utf8_map.
@@ -124,7 +124,7 @@ public class DNAAlphabetFactory {
 		/**
 		 * Convert a letter into the specified int.
 		 * We do no error checking. You will get an exception if the letter isn't in the alphabet.
-		 * Case matters. 
+		 * Case matters.
 		 */
 		public int letterToInt(char letter){
 			return letters_to_num.get(letter);
@@ -159,12 +159,12 @@ public class DNAAlphabetFactory {
 
 		/**
 		 * Convert a byte encoding a UTF-8 character, into the appropriate value.
-		 *  
+		 *
 		 */
 		public int utf8ToInt(byte bval) {
 			return utf8_map[ByteUtil.byteToUint(bval)];
 		}
-		
+
 		/**
 		 * Convert an array of bytes encoding a UTF-8 character, into an array
 		 *  of ints of the appropriate value.
@@ -172,7 +172,7 @@ public class DNAAlphabetFactory {
     public int[] utf8ToInt(byte[] bval) {
       return utf8ToInt(bval, bval.length);
     }
-    
+
     /**
      * @param bval: The byte buffer.
      * @param length: How many bytes in in bval to convert.
@@ -181,11 +181,11 @@ public class DNAAlphabetFactory {
       int[] nums = new int[length];
       ByteUtil.byteToUint(bval, nums, length);
       for (int i = 0; i < length; i++) {
-        nums[i] = utf8_map[nums[i]]; 
-      }      
+        nums[i] = utf8_map[nums[i]];
+      }
       return nums;
     }
-    
+
 	  public boolean hasEOS() {
 	    return false;
 	  }
@@ -196,7 +196,7 @@ public class DNAAlphabetFactory {
 	 */
 	public static Alphabet create() {
 		if (alphabet == null){
-			alphabet = new DNAAlphabetFactory.DNAAlphabet();            
+			alphabet = new DNAAlphabetFactory.DNAAlphabet();
 		}
 		return alphabet;
 	}
