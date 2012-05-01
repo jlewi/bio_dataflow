@@ -4,19 +4,19 @@ import java.io.IOException;
 
 /**
  * A set of routines for manipulating DNA sequences.
- * 
+ *
  * @author jlewi
  *
  */
 public class DNAUtil {
 
   /**
-   * Compute the reverse complement of the DNA sequence. 
-   * 
+   * Compute the reverse complement of the DNA sequence.
+   *
    * TODO(jlewi): Add a unittest.
    * TODO(jlewi): We could probably speed this up by precomputing the integer
    *     values for the complement so that we don't have to convert the characters
-   *     to from the integer values. 
+   *     to from the integer values.
    * @param seq
    * @return
    */
@@ -36,16 +36,16 @@ public class DNAUtil {
     complement.setSize(seq.size());
     return complement;
   }
-  
+
   /**
-   * Compare a string to its reverse complement. 
-   * 
+   * Compare a string to its reverse complement.
+   *
    * @param seq - The sequence.
    * @return - 'f' if the DNA sequence precedes is reverse complement
-   *  lexicographically (based on the integer values of the sequence). 'r' otherwise. 
+   *  lexicographically (based on the integer values of the sequence). 'r' otherwise.
    */
   public static DNAStrand canonicaldir(Sequence seq)
-  {    
+  {
     Sequence complement = reverseComplement(seq);
     if (seq.compareTo(complement) <= 0)
     {
@@ -53,14 +53,14 @@ public class DNAUtil {
     }
     return DNAStrand.REVERSE;
   }
-    
+
   /**
    * Returns the canonical version of a DNA sequence.
-   * 
+   *
    * The canonical version of a sequence is the result
    * of comparing a DNA sequence to its reverse complement
    * and returning the one which comes first when ordered lexicographically.
-   *  
+   *
    * @param seq
    * @return - The canonical version of the DNA sequence.
    */
@@ -74,7 +74,7 @@ public class DNAUtil {
 
     return rc;
   }
-  
+
   /**
    * Convert the canonical representation of a sequence to the direction
    * given by the argument. The sequence is only copied if the direction
@@ -86,7 +86,7 @@ public class DNAUtil {
     }
     return reverseComplement(seq);
   }
-  
+
   /**
    * Merge two overlapping sequences. The inputs are modified.
    * @param src: This sequence is potentially modified by the merge.
@@ -98,15 +98,15 @@ public class DNAUtil {
       Sequence src, Sequence dest, int overlap) {
     // TODO(jlewi): Add a unittest.
     // TODO(jlewi): Might be more efficient not to check the overlap.
-    
-    Sequence src_overlap = new Sequence(src); 
+
+    Sequence src_overlap = new Sequence(src);
     src = src.subSequence(src.size() - overlap, src.size());
     Sequence dest_overlap = new Sequence(dest);
     dest = dest.subSequence(0, overlap);
-    
+
     if (!src_overlap.equals(dest_overlap)) {
       throw new RuntimeException(
-          "Source (" + src_overlap.toString() + ") != dest (" + 
+          "Source (" + src_overlap.toString() + ") != dest (" +
           dest_overlap.toString() + ")");
     }
 
@@ -114,5 +114,5 @@ public class DNAUtil {
     src.add(dest);
     return src;
   }
-  
+
 }

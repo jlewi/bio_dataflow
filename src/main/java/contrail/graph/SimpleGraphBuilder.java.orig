@@ -57,6 +57,10 @@ public class SimpleGraphBuilder {
     Sequence sequence = new Sequence(str_seq, alphabet);
     Sequence canonical_src = DNAUtil.canonicalseq(sequence);
 
+<<<<<<< HEAD
+=======
+    String nodeid = canonical_src.toString();
+>>>>>>> forge_master
     GraphNode node = new GraphNode();
     node.setCanonicalSequence(canonical_src);
     node.setNodeId(nodeid);
@@ -73,10 +77,17 @@ public class SimpleGraphBuilder {
     Sequence sequence = new Sequence(str_seq, alphabet);
     Sequence canonical_src = DNAUtil.canonicalseq(sequence);
 
+<<<<<<< HEAD
     for (GraphNode node: nodes.values()) {
       if (node.getCanonicalSequence().equals(canonical_src)) {
         return node.getNodeId();
       }
+=======
+    String nodeid = canonical_src.toString();
+
+    if (!(nodes.containsKey(nodeid))) {
+      return null;
+>>>>>>> forge_master
     }
     return null;
   }
@@ -160,8 +171,11 @@ public class SimpleGraphBuilder {
     if (!src.substring(src.length() - overlap).equals(
         dest.substring(0, overlap))) {
         throw new RuntimeException("Sequences don't overlap by: " + overlap);
-
+<<<<<<< HEAD
     }
+=======
+     }
+>>>>>>> forge_master
 
     EdgeTerminal src_terminal = findEdgeTerminalForSequence(src);
     if (src_terminal == null) {

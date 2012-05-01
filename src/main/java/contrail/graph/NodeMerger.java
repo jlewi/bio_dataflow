@@ -16,7 +16,7 @@ public class NodeMerger {
 
 
   /**
-   * Copy edges from old_node to new node. 
+   * Copy edges from old_node to new node.
    * @param new_node: The node to copy to.
    * @param old_node: The node to copy from.
    * @param strand: Which strand of the node we are considering.
@@ -26,16 +26,16 @@ public class NodeMerger {
       GraphNode new_node, DNAStrand new_strand, GraphNode old_node,
       DNAStrand old_strand,
       EdgeDirection direction) {
-    
-    List<EdgeTerminal> terminals = 
+
+    List<EdgeTerminal> terminals =
       old_node.getEdgeTerminals(old_strand, direction);
-      
-    
+
+
     for (Iterator<EdgeTerminal> it = terminals.iterator();
          it.hasNext();) {
       EdgeTerminal terminal = it.next();
-      
-      // TODO(jlewi): We need to get the tags. 
+
+      // TODO(jlewi): We need to get the tags.
       List<CharSequence> tags = old_node.getTagsForEdge(old_strand, terminal);
 
       if (direction == EdgeDirection.INCOMING) {
@@ -47,15 +47,15 @@ public class NodeMerger {
       }
     }
   }
-  
+
   /**
-   * Make a copy of the R5Tags. 
+   * Make a copy of the R5Tags.
    * @param tags
    * @return
    */
-  protected static List<R5Tag> copyR5Tags(List<R5Tag> tags) {       
+  protected static List<R5Tag> copyR5Tags(List<R5Tag> tags) {
     List<R5Tag> new_list = new ArrayList<R5Tag>();
-    for (R5Tag tag: tags) {      
+    for (R5Tag tag: tags) {
       R5Tag copy = new R5Tag();
       copy.setTag(tag.getTag());
       copy.setStrand(tag.getStrand());
@@ -64,19 +64,19 @@ public class NodeMerger {
     }
     return new_list;
   }
-  
+
   /**
-   * Reverse a list of R5 tags in place. 
+   * Reverse a list of R5 tags in place.
    * @param tags
    * @return
    */
-  protected static void reverseReads(List<R5Tag> tags, int length) {       
-    for (R5Tag tag: tags) {      
+  protected static void reverseReads(List<R5Tag> tags, int length) {
+    for (R5Tag tag: tags) {
       tag.setStrand(DNAStrandUtil.flip(tag.getStrand()));
       tag.setOffset(length - tag.getOffset() -1);
     }
   }
-  
+
   /**
    * Datastructure for returning information about the merging of
    * two sequences.
@@ -84,39 +84,39 @@ public class NodeMerger {
   protected static class MergeInfo {
     // The canonical representation of the merged sequences.
     public Sequence canonical_merged;
-    
-    // merged_strand is the strand the merged sequence came from. 
-    public DNAStrand merged_strand;   
-    
+
+    // merged_strand is the strand the merged sequence came from.
+    public DNAStrand merged_strand;
+
     public int src_size;
     public int dest_size;
-   
+
     // Whether we need to reverse the read tags.
     public boolean src_reverse;
     public int src_shift;
     public boolean dest_reverse;
-    public int dest_shift;    
+    public int dest_shift;
   }
-  
+
   /**
    * Warning: This function potentially modifies the inputs so
-   * make copies. 
+   * make copies.
    */
   protected static MergeInfo mergeSequences(
-      Sequence canonical_src, Sequence canonical_dest, 
+      Sequence canonical_src, Sequence canonical_dest,
       StrandsForEdge strands, int overlap) {
     MergeInfo info = new MergeInfo();
-    
+
     // Save the original sizes.
     info.src_size = canonical_src.size();
     info.dest_size = canonical_dest.size();
-    
+
     Sequence src_sequence = DNAUtil.canonicalToDir(
         canonical_src, StrandsUtil.src(strands));
-    
+
     Sequence dest_sequence = DNAUtil.canonicalToDir(
-        canonical_dest, StrandsUtil.dest(strands)); 
-        
+        canonical_dest, StrandsUtil.dest(strands));
+
     // Check the overlap.
     // TODO(jlewi): We could probably make this comparison more efficient.
     // Copying the data to form new sequences is probably inefficient.
@@ -129,28 +129,28 @@ public class NodeMerger {
           "Can't merge nodes. Sequences don't overlap by: " + overlap + " " +
           "bases.");
     }
-    
+
     // Combine the sequences.
     {
       Sequence merged = src_sequence;
-      // Set src_sequence to null because it is no longer valid, 
+      // Set src_sequence to null because it is no longer valid,
       // because we will modify it.
       src_sequence = null;
       Sequence dest_nonoverlap = dest_sequence.subSequence(
           overlap, dest_sequence.size());
       merged.add(dest_nonoverlap);
-      
+
       info.merged_strand = DNAUtil.canonicaldir(merged);
-      info.canonical_merged = DNAUtil.canonicalseq(merged);   
+      info.canonical_merged = DNAUtil.canonicalseq(merged);
     }
-            
-    // Determine whether we need to reverse the reads. 
+
+    // Determine whether we need to reverse the reads.
     // We need to reverse the reads if the direction of the merged
     // sequence and the original src_sequence don't match
     // Let A = The strand from the source node.
     // Let B = The strand from the destination node.
     if (info.merged_strand == DNAStrand.FORWARD) {
-      // So AB < RC(AB) 
+      // So AB < RC(AB)
       // The fragment from the source node appears first.
       if (StrandsUtil.src(strands) == DNAStrand.FORWARD) {
         // A < RC(A)
@@ -162,21 +162,21 @@ public class NodeMerger {
         info.src_reverse = true;
       }
       info.src_shift = 0;
-      
+
       if (StrandsUtil.dest(strands) == DNAStrand.FORWARD) {
-        // We don't need to reverse this strand. 
+        // We don't need to reverse this strand.
         info.dest_reverse = false;
       } else {
         info.dest_reverse = true;
       }
       // We need to shift it by the length of the unique part of the src.
       info.dest_shift = info.src_size - overlap;
-      
+
     } else {
       // AB > RC(AB).
       // So the canonical representation is: RC(B)RC(A)
       // The strand from the destination node appears at the start
-      // of the canonical representation of the merged sequence.      
+      // of the canonical representation of the merged sequence.
       if (StrandsUtil.src(strands) == DNAStrand.FORWARD) {
         // The reverse complement of the src strand appears
         // at the end of the merged sequence.
@@ -185,61 +185,61 @@ public class NodeMerger {
         info.src_reverse = false;
       }
       info.src_shift = info.dest_size - overlap;
-      
+
       if (StrandsUtil.dest(strands) == DNAStrand.FORWARD) {
-        // We don't need to reverse this strand. 
+        // We don't need to reverse this strand.
         info.dest_reverse = true;
       } else {
         info.dest_reverse = false;
       }
       // We don't shift it because the destination sequence appears first.
       info.dest_shift = 0;
-    }    
+    }
     return info;
   }
-  
+
   /**
-   * Construct a list of the R5 tags aligned with the merged sequence. 
+   * Construct a list of the R5 tags aligned with the merged sequence.
    * @param info
    * @param src_r5tags
    * @param dest_r5tags
    * @return
    */
   protected static List<R5Tag> alignTags(
-      MergeInfo info, List<R5Tag> src_r5tags, List<R5Tag> dest_r5tags) {   
+      MergeInfo info, List<R5Tag> src_r5tags, List<R5Tag> dest_r5tags) {
     // Update the read alignment tags (R5Fields).
     // Make a copy of src tags.
     List<R5Tag> src_tags = copyR5Tags(src_r5tags);
     List<R5Tag> dest_tags = copyR5Tags(dest_r5tags);
-    
+
     // Reverse the reads if necessary.
     if (info.src_reverse) {
       reverseReads(src_tags, info.src_size);
     }
-    
+
     if (info.dest_reverse) {
       reverseReads(dest_tags, info.dest_size);
     }
-    
+
     if (info.src_shift > 0) {
       for (R5Tag tag : src_tags) {
         tag.setOffset(tag.getOffset() + info.src_shift);
       }
     }
-    
+
     if (info.dest_shift > 0) {
       for (R5Tag tag : dest_tags) {
         tag.setOffset(tag.getOffset() + info.dest_shift);
       }
     }
-    
+
     src_tags.addAll(dest_tags);
     return src_tags;
   }
-  
+
   /**
    * Compute the coverage for the result of merging two nodes.
-   * 
+   *
    * The resulting coverage is a weighted average of the source and destination
    * coverages. The weights are typically the length measured in # of Kmers
    * spanning the sequence; as opposed to base pairs. Consequently, the length
@@ -252,10 +252,10 @@ public class NodeMerger {
    * @return
    */
   protected static float computeCoverage(
-      float src_coverage, int src_coverage_length, float dest_coverage, 
+      float src_coverage, int src_coverage_length, float dest_coverage,
       int dest_coverage_length) {
-    
-    float coverage = (src_coverage * src_coverage_length) + 
+
+    float coverage = (src_coverage * src_coverage_length) +
         (dest_coverage * dest_coverage_length);
     coverage = coverage / (float) (src_coverage_length + dest_coverage_length);
     return coverage;
@@ -267,11 +267,11 @@ public class NodeMerger {
   public static class MergeResult {
     // The merged node.
     public GraphNode node;
-    
+
     // Which strand the merged sequence corresponds to.
-    public DNAStrand strand;    
+    public DNAStrand strand;
   }
-  
+
   /**
    * Merge two nodes
    * @param src: The source node
@@ -281,7 +281,7 @@ public class NodeMerger {
    *   the two sequences.
    * @param src_coverage_length: The length to associate with the source
    *   for the purpose of computing the coverage. This is typically the number
-   *   of KMers in the source i.e it is len(src) - K + 1. 
+   *   of KMers in the source i.e it is len(src) - K + 1.
    * @param dest_coverage_length: The length to associate with the destination
    *   for the purpose of computing the coverage.
    * @return
@@ -296,15 +296,15 @@ public class NodeMerger {
     // 3. Remove outgoing edges from src.
     // 4. Remove Incoming edges to dest
     // 5. Add Incoming edges to src
-    // 6. Add outgoing edges from dest    
+    // 6. Add outgoing edges from dest
     Sequence src_sequence = src.getCanonicalSequence();
     Sequence dest_sequence = dest.getCanonicalSequence();
     MergeInfo merge_info = mergeSequences(
         src_sequence, dest_sequence, strands, overlap);
-    
+
     GraphNode new_node = new GraphNode();
     new_node.setCanonicalSequence(merge_info.canonical_merged);
-    
+
     // Preserve the edges we need to preserve the incoming/outgoing
     // edges corresponding to the strands but we also need to consider
     // the reverse complement of the strand.
@@ -312,12 +312,12 @@ public class NodeMerger {
     copyEdgesForStrand(
         new_node, merge_info.merged_strand, src, StrandsUtil.src(strands),
         EdgeDirection.INCOMING);
-    
+
     // add the outgoing edges.
     copyEdgesForStrand(
         new_node, merge_info.merged_strand, dest, StrandsUtil.dest(strands),
         EdgeDirection.OUTGOING);
-    
+
     // Now add the incoming and outgoing edges for the reverse complement.
     DNAStrand rc_strand = DNAStrandUtil.flip(merge_info.merged_strand);
     StrandsForEdge rc_edge_strands = StrandsUtil.complement(strands);
@@ -328,23 +328,23 @@ public class NodeMerger {
     // add the outgoing edges.
     copyEdgesForStrand(
         new_node, rc_strand, src, StrandsUtil.dest(rc_edge_strands),
-        EdgeDirection.OUTGOING);    
-    
+        EdgeDirection.OUTGOING);
+
     // Align the tags.
     new_node.getData().setR5Tags(alignTags(
             merge_info, src.getData().getR5Tags(), dest.getData().getR5Tags()));
-    
+
     // Compute the coverage.
     new_node.getData().setCoverage(computeCoverage(
-        src.getCoverage(), src_coverage_length, dest.getCoverage(), 
+        src.getCoverage(), src_coverage_length, dest.getCoverage(),
         dest_coverage_length));
-    
+
     MergeResult result = new MergeResult();
     result.node = new_node;
     result.strand = merge_info.merged_strand;
     return result;
   }
-  
+
   /**
    * Merge two nodes with a coverage length based on the overlap.
    * @param src: The source node
@@ -354,7 +354,7 @@ public class NodeMerger {
    *   the two sequences.
    * @return
    * @throws RuntimeException if the nodes can't be merged.
-   * 
+   *
    * The coverage lengths for the source and destination are automatically
    * computed as the number of KMers overlapping by K-1 bases would span
    * the source and destination sequences. K = overlap +1.
@@ -364,13 +364,13 @@ public class NodeMerger {
     // Coverage length is how many KMers overlapping by K-1 bases
     // span the sequence where K = overlap + 1
     int K = overlap + 1;
-    int src_coverage_length = 
+    int src_coverage_length =
         src.getCanonicalSequence().size() - K + 1;
-    int dest_coverage_length = 
+    int dest_coverage_length =
         dest.getCanonicalSequence().size() - K + 1;
-    
+
       return mergeNodes(
-          src, dest, strands, overlap, src_coverage_length, 
+          src, dest, strands, overlap, src_coverage_length,
           dest_coverage_length);
   }
 }

@@ -39,55 +39,55 @@ import org.apache.log4j.Logger;
 
 import contrail.Contrail;
 
-/** 
- * An abstract base class for each stage of processing. 
+/**
+ * An abstract base class for each stage of processing.
  *
  */
 public abstract class Stage extends Configured implements Tool  {
-  private static final Logger sLogger = 
+  private static final Logger sLogger =
       Logger.getLogger(Stage.class);
   public Stage() {
     initialize();
   }
-  
+
   protected void initialize(){
     initializeDefaultOptions();
   }
   /**
    * A set of key value pairs of options used to configure the stage.
    * These could come from either command line options or previous stages.
-   * The data gets passed to the mapper and reducer via the Hadoop 
-   * Job Configuration.  
+   * The data gets passed to the mapper and reducer via the Hadoop
+   * Job Configuration.
    */
-  protected HashMap<String, Object > stage_options = 
+  protected HashMap<String, Object > stage_options =
       new HashMap<String, Object>();
 
   /**
    * Check if the indicated options have been supplied to the stage
    * and if not exit the process printing the help message.
-   * 
+   *
    * @param required: List of required options.
    */
   protected void checkHasOptionsOrDie(String[] required) {
     ArrayList<String> missing = new ArrayList<String>();
-    for (String arg_name: required) {     
+    for (String arg_name: required) {
       if (!stage_options.containsKey(arg_name)) {
         missing.add(arg_name);
       }
     }
-    
+
     if (missing.size() > 0) {
       sLogger.error(("Missing required arguments: " +
-                     StringUtils.join(missing, ","))); 
+                     StringUtils.join(missing, ",")));
       printHelp();
       // Should we exit or throw an exception?
       System.exit(0);
     }
   }
-  
+
   /**
    * Return a list of command line options used by this stage.
-   * 
+   *
    */
   protected List<Option> getCommandLineOptions() {
     List<Option> options = new ArrayList<Option>();
@@ -101,7 +101,7 @@ public abstract class Stage extends Configured implements Tool  {
 
   /**
    * Process the command line options.
-   * 
+   *
    * TODO(jlewi): How should we inform the user of missing arguments?
    */
   protected void parseCommandLine(String[] args) {
@@ -113,17 +113,17 @@ public abstract class Stage extends Configured implements Tool  {
     }
     CommandLineParser parser = new GnuParser();
     CommandLine line;
-    try 
+    try
     {
       line = parser.parse(options, args );
       parseCommandLine(line);
     }
-    catch( ParseException exp ) 
+    catch( ParseException exp )
     {
       // oops, something went wrong
       System.err.println( "Parsing failed.  Reason: " + exp.getMessage() );
       System.exit(1);
-    }    
+    }
   }
 
   protected void parseCommandLine(CommandLine line) {
@@ -179,7 +179,7 @@ public abstract class Stage extends Configured implements Tool  {
       //          "General Options\n" +
       //          "===============\n" +
       //          "  -asm <asmdir>       : Hadoop Base directory for assembly [required]\n" +
-      //          "  -reads <readsdir>   : Directory with reads [required]\n" + 
+      //          "  -reads <readsdir>   : Directory with reads [required]\n" +
       //          "  -work <workdir>     : Local directory for output files [" + localBasePath + "]\n" +
       //          "  -slots <slots>      : Hadoop Slots to use [" + HADOOP_MAPPERS + "]\n" +
       //          "  -expert             : Show expert options\n");
@@ -218,7 +218,7 @@ public abstract class Stage extends Configured implements Tool  {
       //            "  -restart_tip <stage>           : Restart tips after this completed tips\n" +
       //            "  -restart_tip_remain <cnt>      : Restart tips with these remaining\n" +
       //            "  -restart_scaff_phase <phase>   : Restart at this phase\n" +
-      //            "  -restart_scaff_stage <stage>   : Restart at this stage: edges, bundles, frontier, update, finalize, clean\n" + 
+      //            "  -restart_scaff_stage <stage>   : Restart at this stage: edges, bundles, frontier, update, finalize, clean\n" +
       //            "  -restart_scaff_frontier <hops> : Restart after this many hops\n"
       //            );
       System.exit(0);
@@ -227,68 +227,68 @@ public abstract class Stage extends Configured implements Tool  {
     if (line.hasOption("foroozie")) {
       stage_options.put("foroozie", line.getOptionValue("foroozie"));
     }
-    
+
     if (line.hasOption("writeconfig")) {
       stage_options.put("writeconfig", line.getOptionValue("writeconfig"));
     }
-    
-  } 
 
-  // TODO(jlewi): Refactor code below to parse out common options. 
+  }
+
+  // TODO(jlewi): Refactor code below to parse out common options.
   //        if (line.hasOption("validate")) { validateonly = true; }
   //        if (line.hasOption("go"))       { forcego = true; }
-  //        
+  //
   //        if (line.hasOption("asm"))   { hadoopBasePath = line.getOptionValue("asm");  }
   //        if (line.hasOption("reads")) { hadoopReadPath = line.getOptionValue("reads"); }
   //        if (line.hasOption("work"))  { localBasePath  = line.getOptionValue("work"); }
-  //        
+  //
   //        if (line.hasOption("slots"))    { HADOOP_MAPPERS  = Integer.parseInt(line.getOptionValue("slots")); HADOOP_REDUCERS = HADOOP_MAPPERS; }
   //        if (line.hasOption("nodes"))    { HADOOP_LOCALNODES      = Integer.parseInt(line.getOptionValue("nodes")); }
   //        if (line.hasOption("javaopts")) { HADOOP_JAVAOPTS = line.getOptionValue("javaopts"); }
   //        if (line.hasOption("timeout"))  { HADOOP_TIMEOUT  = Long.parseLong(line.getOptionValue("timeout")); }
-  //        
+  //
   //        if (line.hasOption("start")) { STARTSTAGE = line.getOptionValue("start"); }
   //        if (line.hasOption("stop"))  { STOPSTAGE  = line.getOptionValue("stop");  }
-  //        
+  //
   //        if (line.hasOption("restart_initial"))    { RESTART_USED = true; RESTART_INITIAL    = 1; }
   //        if (line.hasOption("restart_tip"))        { RESTART_USED = true; RESTART_TIP        = Integer.parseInt(line.getOptionValue("restart_tip")); }
   //        if (line.hasOption("restart_tip_remain")) { RESTART_USED = true; RESTART_TIP_REMAIN = Integer.parseInt(line.getOptionValue("restart_tip_remain")); }
   //
   //        if (line.hasOption("restart_compress"))        { RESTART_USED = true; RESTART_COMPRESS        = Integer.parseInt(line.getOptionValue("restart_compress")); }
   //        if (line.hasOption("restart_compress_remain")) { RESTART_USED = true; RESTART_COMPRESS_REMAIN = Integer.parseInt(line.getOptionValue("restart_compress_remain")); }
-  //        
+  //
   //        if (line.hasOption("restart_scaff_phase"))    { RESTART_USED = true; RESTART_SCAFF_PHASE    = Integer.parseInt(line.getOptionValue("restart_scaff_phase")); }
   //        if (line.hasOption("restart_scaff_stage"))    { RESTART_USED = true; RESTART_SCAFF_STAGE    = line.getOptionValue("restart_scaff_stage"); }
   //        if (line.hasOption("restart_scaff_frontier")) { RESTART_USED = true; RESTART_SCAFF_FRONTIER = Integer.parseInt(line.getOptionValue("restart_scaff_frontier")); }
-  //        
+  //
   //        if (line.hasOption("filesuffix"))    { PREPROCESS_SUFFIX = 1; }
-  //        
+  //
   //        if (line.hasOption("k"))     { K     = Long.parseLong(line.getOptionValue("k")); }
   //        if (line.hasOption("maxr5")) { MAXR5 = Long.parseLong(line.getOptionValue("maxr5")); }
   //        if (line.hasOption("trim3")) { TRIM3 = Long.parseLong(line.getOptionValue("trim3")); }
   //        if (line.hasOption("trim5")) { TRIM5 = Long.parseLong(line.getOptionValue("trim5")); }
-  //        
+  //
   //        if (line.hasOption("tiplen"))       { TIPLENGTH      = Long.parseLong(line.getOptionValue("tiplen")); }
   //        if (line.hasOption("bubblelen"))    { MAXBUBBLELEN   = Long.parseLong(line.getOptionValue("bubblelen")); }
   //        if (line.hasOption("bubbleerate"))  { BUBBLEEDITRATE = Long.parseLong(line.getOptionValue("bubbleerate")); }
-  //        
+  //
   //        if (line.hasOption("lowcov"))       { LOW_COV_THRESH    = Float.parseFloat(line.getOptionValue("lowcov")); }
   //        if (line.hasOption("lowcovlen"))    { MAX_LOW_COV_LEN   = Long.parseLong(line.getOptionValue("lowcovlen")); }
   //
   //        if (line.hasOption("threads"))             { MIN_THREAD_WEIGHT = Long.parseLong(line.getOptionValue("threads")); }
   //        if (line.hasOption("maxthreads"))          { MAXTHREADREADS    = Long.parseLong(line.getOptionValue("maxthreads")); }
   //        if (line.hasOption("record_all_threads"))  { RECORD_ALL_THREADS = 1; }
-  //        
+  //
   //        if (line.hasOption("insertlen"))    { INSERT_LEN     = Long.parseLong(line.getOptionValue("insertlen")); }
   //        if (line.hasOption("wiggle"))       { MIN_WIGGLE     = Long.parseLong(line.getOptionValue("wiggle")); }
   //        if (line.hasOption("minuniquelen")) { MIN_CTG_LEN    = Long.parseLong(line.getOptionValue("minuniquelen")); }
   //        if (line.hasOption("minuniquecov")) { MIN_UNIQUE_COV = Float.parseFloat(line.getOptionValue("minuniquecov")); }
   //        if (line.hasOption("maxuniquecov")) { MAX_UNIQUE_COV = Float.parseFloat(line.getOptionValue("maxuniquecov")); }
   //        if (line.hasOption("maxfrontier"))  { MAX_FRONTIER = Long.parseLong(line.getOptionValue("maxfrontier")); }
-  //    
+  //
   //        if (line.hasOption("genome"))       { N50_TARGET = Long.parseLong(line.getOptionValue("genome")); }
   //        if (line.hasOption("run_stats"))    { RUN_STATS = line.getOptionValue("run_stats"); }
-  //        
+  //
   //        if (line.hasOption("convert_fa"))    { CONVERT_FA    = line.getOptionValue("convert_fa"); }
   //        if (line.hasOption("print_fa"))      { PRINT_FA      = line.getOptionValue("print_fa"); }
   //        if (line.hasOption("fasta_min_len")) { FASTA_MIN_LEN = Long.parseLong(line.getOptionValue("fasta_min_len")); }
@@ -297,7 +297,7 @@ public abstract class Stage extends Configured implements Tool  {
   /**
    * Initialize the hadoop job configuration with information needed for this
    * stage.
-   * 
+   *
    * @param conf: The job configuration.
    */
   protected void initializeJobConfiguration(JobConf conf) {
@@ -310,10 +310,10 @@ public abstract class Stage extends Configured implements Tool  {
         stage_options.put(key, defaults.get(key));
       }
     }
-    
+
     // List of options which shouldn't be added to the configuration
     HashSet<String> exclude = new HashSet<String>();
-    exclude.add("writeconfig");    
+    exclude.add("writeconfig");
     exclude.add("foroozie");
     // Loop over all the stage options and add them to the configuration
     // so that they get passed to the mapper and reducer.
@@ -329,21 +329,21 @@ public abstract class Stage extends Configured implements Tool  {
       } else if (value instanceof Long){
         conf.setLong(key, (Long)(value));
       } else {
-        throw new RuntimeException("option: " + key + " doesn't have an " + 
+        throw new RuntimeException("option: " + key + " doesn't have an " +
             "acceptable type");
       }
     }
   }
-  
+
   protected HashMap<String, Object> default_options;
-  
+
   /**
    * Initialize the mapping containing default values for the options.
    */
-  protected void initializeDefaultOptions() {    
-     default_options = new HashMap<String, Object>();   
+  protected void initializeDefaultOptions() {
+     default_options = new HashMap<String, Object>();
   }
-  
+
   /**
    * Print the help message.
    */
@@ -362,28 +362,28 @@ public abstract class Stage extends Configured implements Tool  {
   protected int run(Map<String, Object> options) throws Exception  {
     // Copy the options from the input.
     stage_options.putAll(options);
-    
+
     // Run the stage.
     return run();
   }
-    
+
   public int run(String[] args) throws Exception {
     sLogger.info("Tool name: " + this.getClass().getName());
-    parseCommandLine(args);   
+    parseCommandLine(args);
     return run();
   }
   /**
    * Run the stage.
    */
   abstract protected int run() throws Exception;
-  
+
   /**
    * Write the job configuration to an XML file specified in the stage option.
    */
   protected void writeJobConfig(JobConf conf) {
     Path jobpath = new Path((String) stage_options.get("writeconfig"));
-    
-    // Do some postprocessing of the job configuration before we write it.    
+
+    // Do some postprocessing of the job configuration before we write it.
     // Overwrite the file if it exists.
     try {
       // We need to use the original configuration because that will have
@@ -393,11 +393,11 @@ public abstract class Stage extends Configured implements Tool  {
       conf.writeXml(writer);
       writer.close();
     } catch (IOException exception) {
-      sLogger.error("Exception occured while writing job configuration to:" + 
+      sLogger.error("Exception occured while writing job configuration to:" +
                     jobpath.toString());
       sLogger.error("Exception:" + exception.toString());
     }
-    
+
     // Post process the configuration to remove properties which shouldn't
     // be specified for oozie.
     // TODO(jlewi): This won't work if the file is on HDFS.
@@ -410,7 +410,7 @@ public abstract class Stage extends Configured implements Tool  {
         exclude.add("fs.default.name");
         exclude.add("mapred.job.tracker");
         exclude.add("mapred.jar");
-               
+
         DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
         DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
         Document doc = dBuilder.parse(xml_file);
@@ -431,12 +431,12 @@ public abstract class Stage extends Configured implements Tool  {
         StreamResult result = new StreamResult(xml_file);
         transformer.transform(source, result);
       } catch (Exception exception) {
-        sLogger.error("Exception occured while parsing:" + 
+        sLogger.error("Exception occured while parsing:" +
 		      xml_file.toString());
         sLogger.error("Exception:" + exception.toString());
       }
     }
-    
+
     sLogger.info("Wrote job config to:" + jobpath.toString());
   }
 }
