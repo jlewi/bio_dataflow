@@ -109,10 +109,10 @@ public class SimpleGraphBuilder {
 
     // Check the overlap
     Sequence src_sequence = src_node.getSequence();
-    src_sequence = DNAUtil.canonicalToDir(src_sequence, src.strand);
+    src_sequence = DNAUtil.sequenceToDir(src_sequence, src.strand);
 
     Sequence dest_sequence = dest_node.getSequence();
-    dest_sequence = DNAUtil.canonicalToDir(dest_sequence, dest.strand);
+    dest_sequence = DNAUtil.sequenceToDir(dest_sequence, dest.strand);
 
     Sequence src_overlap = src_sequence.subSequence(
         src_sequence.size() - overlap, src_sequence.size());

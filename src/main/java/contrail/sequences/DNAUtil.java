@@ -1,7 +1,5 @@
 package contrail.sequences;
 
-import java.io.IOException;
-
 /**
  * A set of routines for manipulating DNA sequences.
  *
@@ -76,11 +74,13 @@ public class DNAUtil {
   }
 
   /**
-   * Convert the canonical representation of a sequence to the direction
-   * given by the argument. The sequence is only copied if the direction
-   * is "r"
+   * Convert the sequence to the relative direction given by DNAStrand.
+   * The sequence is only copied if the strand is reverse.
+   * @param seq: The sequence.
+   * @return: If strand is FORWARD the sequence is returned otherwise
+   *   its reverse complement is returned.
    */
-  public static Sequence canonicalToDir(Sequence seq, DNAStrand strand) {
+  public static Sequence sequenceToDir(Sequence seq, DNAStrand strand) {
     if (strand == DNAStrand.FORWARD) {
       return seq;
     }

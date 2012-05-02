@@ -380,7 +380,7 @@ public class TestBuildGraphAvro {
       // The destination direction depends on the source direction
       // and the K-1 overlap
       Sequence dest_kmer = 
-          DNAUtil.canonicalToDir(src_canonical, src_strand);
+          DNAUtil.sequenceToDir(src_canonical, src_strand);
       dest_kmer = dest_kmer.subSequence(1,  dest_kmer.size());
       dest_kmer.add(seq_last_base);
 
@@ -451,7 +451,7 @@ public class TestBuildGraphAvro {
         // The destination direction depends on the source direction
         // and the K-1 overlap
         Sequence dest_kmer = 
-            DNAUtil.canonicalToDir(src_canonical, src_strand);
+            DNAUtil.sequenceToDir(src_canonical, src_strand);
         dest_kmer = dest_kmer.subSequence(1,  dest_kmer.size());
         dest_kmer.add(last_base);
   

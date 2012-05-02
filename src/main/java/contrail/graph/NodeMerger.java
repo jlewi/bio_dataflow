@@ -111,10 +111,10 @@ public class NodeMerger {
     info.src_size = canonical_src.size();
     info.dest_size = canonical_dest.size();
 
-    Sequence src_sequence = DNAUtil.canonicalToDir(
+    Sequence src_sequence = DNAUtil.sequenceToDir(
         canonical_src, StrandsUtil.src(strands));
 
-    Sequence dest_sequence = DNAUtil.canonicalToDir(
+    Sequence dest_sequence = DNAUtil.sequenceToDir(
         canonical_dest, StrandsUtil.dest(strands));
 
     // Check the overlap.

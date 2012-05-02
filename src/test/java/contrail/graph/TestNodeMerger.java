@@ -119,7 +119,7 @@ public class TestNodeMerger extends NodeMerger {
 
         testcase.canonical_src = DNAUtil.canonicalseq(src);
         testcase.merged_sequence =
-            DNAUtil.canonicalToDir(
+            DNAUtil.sequenceToDir(
                 testcase.canonical_src, src_strand).toString();
       }
 
@@ -130,7 +130,7 @@ public class TestNodeMerger extends NodeMerger {
         testcase.overlap = overlap;
         // Make a copy of canonical_src before we modify it.
         Sequence dest = new Sequence(testcase.canonical_src);
-        dest = DNAUtil.canonicalToDir(dest, src_strand);
+        dest = DNAUtil.sequenceToDir(dest, src_strand);
         dest = dest.subSequence(dest.size() - testcase.overlap, dest.size());
 
         String non_overlap = randomString(
@@ -232,7 +232,7 @@ public class TestNodeMerger extends NodeMerger {
             mergeSequences(src, dest, testcase.strands, testcase.overlap);
       }
 
-      Sequence merged_sequence = DNAUtil.canonicalToDir(
+      Sequence merged_sequence = DNAUtil.sequenceToDir(
           merge_info.canonical_merged, merge_info.merged_strand);
       assertEquals(testcase.merged_sequence, merged_sequence.toString());
 
@@ -474,7 +474,7 @@ public class TestNodeMerger extends NodeMerger {
           node_testcase.dest_coverage_length);
 
       // Check the sequence is set correctly.
-      Sequence merged_sequence = DNAUtil.canonicalToDir(
+      Sequence merged_sequence = DNAUtil.sequenceToDir(
           result.node.getSequence(),
           node_testcase.sequence_info.merged_strand);
       assertEquals(
@@ -519,7 +519,7 @@ public class TestNodeMerger extends NodeMerger {
 
     {
       // Check the result
-      String merged_sequence = DNAUtil.canonicalToDir(
+      String merged_sequence = DNAUtil.sequenceToDir(
           result.node.getSequence(), result.strand).toString();
       assertEquals("GGCC", merged_sequence);
     }
