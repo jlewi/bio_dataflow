@@ -43,7 +43,7 @@ public class SimpleGraphBuilder {
 
     String nodeid = canonical_src.toString();
     GraphNode node = new GraphNode();
-    node.setCanonicalSequence(canonical_src);
+    node.setSequence(canonical_src);
     node.setNodeId(nodeid);
     nodes.put(nodeid, node);
     return nodeid;
@@ -108,10 +108,10 @@ public class SimpleGraphBuilder {
     GraphNode dest_node = nodes.get(dest.nodeId);
 
     // Check the overlap
-    Sequence src_sequence = src_node.getCanonicalSequence();
+    Sequence src_sequence = src_node.getSequence();
     src_sequence = DNAUtil.canonicalToDir(src_sequence, src.strand);
 
-    Sequence dest_sequence = dest_node.getCanonicalSequence();
+    Sequence dest_sequence = dest_node.getSequence();
     dest_sequence = DNAUtil.canonicalToDir(dest_sequence, dest.strand);
 
     Sequence src_overlap = src_sequence.subSequence(

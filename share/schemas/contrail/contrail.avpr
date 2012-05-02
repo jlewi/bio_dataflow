@@ -146,10 +146,10 @@
      "type": "record",
      "doc": "Represent a node in the DeBruijn Graph.",
      "fields": [
-     			 // TODO(jlewi): Should we continue to store this field
-     			 // after the QuickMerge stage or should we set it to null to
-     			 // save space?
-     		     {"name": "mertag", "type":"contrail.graph.GraphNodeKMerTag",
+     			       // TODO(jlewi): Should we continue to store this field
+     			       // after the QuickMerge stage or should we set it to null to
+     			       // save space?
+     		         {"name": "mertag", "type":"contrail.graph.GraphNodeKMerTag",
                   "doc": ["A tag for the node based on the read the sequence ",
                           "came from and the chunk within the read.",
                           "This field is primarily used by QuickMerge as a ",
@@ -165,13 +165,14 @@
                   "doc": ["Coverage is a float because when merging nodes it ",
                           "is set to a weighted average of the coverage of ",
                           "the nodes being merged."]
-                 },
-                 // TODO(jlewi): We should rename this canonical_source
-                 // because it won't always be length K.
-                 {"name": "canonical_source_kmer",
+                 },                 
+                 {"name": "sequence",
                   "type":"contrail.sequences.CompressedSequence",
                   "doc": ["Sequence of bytes representing the compressed ",
-                          "canonical sequence corresponding to the source."]
+                          "sequence of this node. The sequence could ",
+                          "correspond to either strand. The strands ",
+                          "associated with edges should always be relative ",
+                          "to the sequence stored here."]
                  },
                  {"name": "neighbors",
                   "type": {"type": "array",

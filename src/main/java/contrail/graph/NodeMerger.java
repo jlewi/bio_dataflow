@@ -257,7 +257,7 @@ public class NodeMerger {
 
     float coverage = (src_coverage * src_coverage_length) +
         (dest_coverage * dest_coverage_length);
-    coverage = coverage / (float) (src_coverage_length + dest_coverage_length);
+    coverage = coverage / (src_coverage_length + dest_coverage_length);
     return coverage;
   }
 
@@ -297,13 +297,13 @@ public class NodeMerger {
     // 4. Remove Incoming edges to dest
     // 5. Add Incoming edges to src
     // 6. Add outgoing edges from dest
-    Sequence src_sequence = src.getCanonicalSequence();
-    Sequence dest_sequence = dest.getCanonicalSequence();
+    Sequence src_sequence = src.getSequence();
+    Sequence dest_sequence = dest.getSequence();
     MergeInfo merge_info = mergeSequences(
         src_sequence, dest_sequence, strands, overlap);
 
     GraphNode new_node = new GraphNode();
-    new_node.setCanonicalSequence(merge_info.canonical_merged);
+    new_node.setSequence(merge_info.canonical_merged);
 
     // Preserve the edges we need to preserve the incoming/outgoing
     // edges corresponding to the strands but we also need to consider
@@ -365,9 +365,9 @@ public class NodeMerger {
     // span the sequence where K = overlap + 1
     int K = overlap + 1;
     int src_coverage_length =
-        src.getCanonicalSequence().size() - K + 1;
+        src.getSequence().size() - K + 1;
     int dest_coverage_length =
-        dest.getCanonicalSequence().size() - K + 1;
+        dest.getSequence().size() - K + 1;
 
       return mergeNodes(
           src, dest, strands, overlap, src_coverage_length,
