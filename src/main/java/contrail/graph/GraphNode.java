@@ -303,14 +303,14 @@ public class GraphNode {
     //    making the copy efficient will be a big win.
     //
     // We can work around all these issues by implementing our own copy method.
-    CompressedSequence sequence = data.getCanonicalSourceKmer();
-    data.setCanonicalSourceKmer(null);
+    CompressedSequence sequence = data.getSequence();
+    data.setSequence(null);
 
     GraphNodeData copy = (GraphNodeData)
         SpecificData.get().deepCopy(data.getSchema(), data);
 
     CompressedSequence sequence_copy = new CompressedSequence();
-    copy.setCanonicalSourceKmer(sequence_copy);
+    copy.setSequence(sequence_copy);
     sequence_copy.setLength(sequence.getLength());
 
     ByteBuffer source_buffer = sequence.getDna();
@@ -320,7 +320,7 @@ public class GraphNode {
         buffer, 0, source_buffer.limit()));
 
     // Reset the sequence.
-    data.setCanonicalSourceKmer(sequence);
+    data.setSequence(sequence);
     return new GraphNode(copy);
   }
 	/**
@@ -369,7 +369,7 @@ public class GraphNode {
 	 * Set the canonical sequence represented by this node.
 	 * @param seq
 	 */
-	public void setCanonicalSequence(Sequence seq) {
+	public void setSequence(Sequence seq) {
 		CompressedSequence compressed = new CompressedSequence();
 		compressed.setDna(ByteBuffer.wrap(seq.toPackedBytes(), 0, seq.numPackedBytes()));
 		compressed.setLength(seq.size());
@@ -379,7 +379,7 @@ public class GraphNode {
 	/**
 	 * @param seq
 	 */
-	public void setCanonicalSequence(ByteBuffer seq, int length) {
+	public void setSequence(ByteBuffer seq, int length) {
 		CompressedSequence compressed = new CompressedSequence();
 		compressed.setDna(seq);
 		compressed.setLength(length);
@@ -702,10 +702,10 @@ public class GraphNode {
 	 * Return the canonical sequence for this node.
 	 * @return
 	 */
-	public Sequence getCanonicalSequence() {
+	public Sequence getSequence() {
 	  Sequence sequence = new Sequence(DNAAlphabetFactory.create());
-	  byte[] bytes = data.getCanonicalSourceKmer().getDna().array();
-	  int length = data.getCanonicalSourceKmer().getLength();
+	  byte[] bytes = data.getSequence().getDna().array();
+	  int length = data.getSequence().getLength();
 	  sequence.readPackedBytes(bytes, length);
 	  return sequence;
 	}

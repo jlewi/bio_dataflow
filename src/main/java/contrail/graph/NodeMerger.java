@@ -257,7 +257,7 @@ public class NodeMerger {
 
     float coverage = (src_coverage * src_coverage_length) +
         (dest_coverage * dest_coverage_length);
-    coverage = coverage / (float) (src_coverage_length + dest_coverage_length);
+    coverage = coverage / (src_coverage_length + dest_coverage_length);
     return coverage;
   }
 

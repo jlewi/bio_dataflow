@@ -18,7 +18,6 @@ import contrail.sequences.StrandsUtil;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -31,12 +30,10 @@ import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
 import org.apache.avro.Schema;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.OptionBuilder;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
@@ -425,7 +422,7 @@ public class BuildGraphAvro extends Stage
             throws IOException {
       Alphabet alphabet = DNAAlphabetFactory.create();
       GraphNode graphnode = new GraphNode();
-      graphnode.setCanonicalSequence(source_kmer_packed_bytes, K);
+      graphnode.setSequence(source_kmer_packed_bytes, K);
 
       Sequence canonical_src = new Sequence(alphabet);
       canonical_src.readPackedBytes(source_kmer_packed_bytes.array(), K);
