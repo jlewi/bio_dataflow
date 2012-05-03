@@ -33,12 +33,12 @@ import contrail.util.Tuple;
 public class TestQuickMergeUtil extends QuickMergeUtil {
   // Random number generator.
   private Random generator;
-  @Before 
+  @Before
   public void setUp() {
     // Create a random generator.
     generator = new Random();
   }
-  
+
   @Test
   public void testcheckIncomingEdgesAreInMemory() {
     final int K = 3;
@@ -46,16 +46,16 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
     SimpleGraphBuilder graph = new SimpleGraphBuilder();
     graph.addEdge("CTG", "TGA", K - 1);
     graph.addEdge("ATG", "TGA", K - 1);
-    
+
 
     assertTrue(checkIncomingEdgesAreInMemory(
         graph.getAllNodes(), graph.findEdgeTerminalForSequence("TGA")));
-                
+
     // Remove one of the edges from memory and check it returns false.
     Hashtable<String, GraphNode> nodes = new Hashtable<String, GraphNode>();
     nodes.putAll(graph.getAllNodes());
     nodes.remove(graph.findEdgeTerminalForSequence("ATG").nodeId);
-    
+
     assertFalse(checkIncomingEdgesAreInMemory(
         nodes, graph.findEdgeTerminalForSequence("TGA")));
   }
@@ -65,16 +65,16 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
    */
   private static class ChainNode {
     // GraphNodes in the order they are connected.
-    GraphNode graph_node;   
-    
+    GraphNode graph_node;
+
     // The direction for the dna in this chain.
     DNAStrand dna_direction;
-    
+
     public String toString() {
       return graph_node.getNodeId() + ":" + dna_direction.toString();
     }
   }
-  
+
   /**
    * Construct a linear chain
    * @param length
@@ -89,14 +89,14 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
 
     return constructChainForSequence(sequence, K);
   }
-  
+
   /**
    * Construct a linear chain from the given sequence using KMers of length K.
    * @param length
    * @return
    */
   private ArrayList<ChainNode> constructChainForSequence(
-      String full_sequence, int K) {    
+      String full_sequence, int K) {
     ArrayList<ChainNode> chain = new ArrayList<ChainNode>();
 
     // Construct the nodes.
@@ -104,7 +104,7 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
       // Construct a graph node.
       GraphNode node = new GraphNode();
       node.setNodeId("node_" + pos);
-      
+
       Sequence sequence = new Sequence(
           full_sequence.substring(pos, pos + K), DNAAlphabetFactory.create());
       node.setCanonicalSequence(DNAUtil.canonicalseq(sequence));
@@ -113,7 +113,7 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
       chain_node.dna_direction = DNAUtil.canonicaldir(sequence);
       chain.add(chain_node);
     }
-    
+
     // Now connect the nodes.
     // TODO(jlewi): We should add incoming and outgoing edges to the first
     // and last node so that we test that walker stops when the node isn't
@@ -124,25 +124,25 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
         ChainNode src = chain.get(pos);
         ChainNode dest = chain.get(pos + 1);
         EdgeTerminal terminal = new EdgeTerminal(
-            dest.graph_node.getNodeId(), 
+            dest.graph_node.getNodeId(),
             dest.dna_direction);
-        src.graph_node.addOutgoingEdge(src.dna_direction, terminal);      
+        src.graph_node.addOutgoingEdge(src.dna_direction, terminal);
       }
-      
+
       // Add the incoming edge.
       if (pos > 0) {
         ChainNode src = chain.get(pos);
         ChainNode dest = chain.get(pos - 1);
         EdgeTerminal terminal = new EdgeTerminal(
-            dest.graph_node.getNodeId(), 
+            dest.graph_node.getNodeId(),
             dest.dna_direction);
         src.graph_node.addIncomingEdge(src.dna_direction, terminal);
-        
+
       }
     }
     return chain;
   }
-  
+
   /**
    * Find the terminals corresponding to the start and end of the
    * chain assuming we start the search at search_start
@@ -152,7 +152,7 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
    * @return
    */
   private Tuple<EdgeTerminal, EdgeTerminal> findChainEnds(
-      ArrayList<ChainNode> chain_nodes, 
+      ArrayList<ChainNode> chain_nodes,
       int search_start) {
     EdgeTerminal start_terminal;
     EdgeTerminal end_terminal;
@@ -174,45 +174,45 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
       end_terminal = new EdgeTerminal(
           chain_nodes.get(end_pos).graph_node.getNodeId(),
           chain_nodes.get(end_pos).dna_direction);
-      
+
       // Flip the nodes because we are on the opposite strand
       // of the one we constructed the chain for.
       start_terminal = start_terminal.flip();
       end_terminal = end_terminal.flip();
-    }   
+    }
     return new Tuple<EdgeTerminal, EdgeTerminal>(start_terminal, end_terminal);
   }
-  
+
   /**
    * Run a trial to test findNodesTomerge
-   * 
+   *
    * This function assumes that the chain of nodes forms a linear chain,
    * so the result of finding the nodes should always be the nodes at
    * the ends of the chain.
-   * 
+   *
    * @param chain_nodes: Chain of nodes.
    * @param search_start: Which node in the chain to start on.
    */
   private void runFindNodesToMergeTrial(
-      ArrayList<ChainNode> chain_nodes, HashMap<String, GraphNode> nodes, 
+      ArrayList<ChainNode> chain_nodes, HashMap<String, GraphNode> nodes,
       int search_start) {
     // Determine which chain links should correspond to the start and end
     // of the merge.
     EdgeTerminal start_terminal;
     EdgeTerminal end_terminal;
-           
+
     Tuple<EdgeTerminal, EdgeTerminal> chain_ends= findChainEnds(
         chain_nodes, search_start);
-    
+
     start_terminal = chain_ends.first;
     end_terminal = chain_ends.second;
     QuickMergeUtil.NodesToMerge merge_info = QuickMergeUtil.findNodesToMerge(
         nodes, chain_nodes.get(search_start).graph_node);
-    
+
     assertEquals(start_terminal, merge_info.start_terminal);
     assertEquals(end_terminal, merge_info.end_terminal);
   }
-    
+
   @Test
   public void testfindNodesToMerge() {
     ArrayList<ChainNode> chain_nodes = constructChain(5, 3);
@@ -251,7 +251,7 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
           chain_ends.second.strand, terminal);
     }
   }
-  
+
   @Test
   public void testfindNodesToMergeCases() {
     // Test various specific cases to make sure the behavior is correct.
@@ -259,11 +259,11 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
     // Create a simple graph.
     SimpleGraphBuilder graph = new SimpleGraphBuilder();
     graph.addKMersForString("CGCAAT", K);
-    
+
     // Add some wings to the edges.
     graph.addEdge("AAT", "ATA", K - 1);
     graph.addEdge("AAT", "ATG", K - 1);
-    
+
     graph.addEdge("TCG", "CGC", K - 1);
     graph.addEdge("ACG", "CGC", K - 1);
 
@@ -271,14 +271,14 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
       EdgeTerminal start_terminal = graph.findEdgeTerminalForSequence("GCA");
       GraphNode start_node = graph.getNode(start_terminal.nodeId);
       NodesToMerge info = findNodesToMerge(graph.getAllNodes(), start_node);
-      
+
       // Note: The merge always starts on the forward strand of the start
       // terminal.
       assertEquals(
           info.start_terminal, graph.findEdgeTerminalForSequence("CGC"));
       assertEquals(
           info.end_terminal, graph.findEdgeTerminalForSequence("AAT"));
-      
+
       HashSet<String> expected_visited = new HashSet<String>();
       expected_visited.add(graph.findEdgeTerminalForSequence("ATT").nodeId);
       expected_visited.add(graph.findEdgeTerminalForSequence("TTG").nodeId);
@@ -286,7 +286,7 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
       expected_visited.add(graph.findEdgeTerminalForSequence("GCG").nodeId);
       assertEquals(expected_visited, info.nodeids_visited);
     }
-    
+
     {
       // Repeat the test but this time remove the nodes ACG and ATG
       // from memory. As a result, we shouldn't be able to include the last
@@ -295,26 +295,26 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
       nodes.putAll(graph.getAllNodes());
       nodes.remove(graph.findEdgeTerminalForSequence("ACG").nodeId);
       nodes.remove(graph.findEdgeTerminalForSequence("ATG").nodeId);
-      
+
       EdgeTerminal start_terminal = graph.findEdgeTerminalForSequence("CGC");
       GraphNode start_node = graph.getNode(start_terminal.nodeId);
       NodesToMerge info = findNodesToMerge(nodes, start_node);
-      
+
       assertEquals(
           info.start_terminal, graph.findEdgeTerminalForSequence("GCA"));
       assertEquals(
           info.end_terminal, graph.findEdgeTerminalForSequence("CAA"));
-      
+
       HashSet<String> expected_visited = new HashSet<String>();
       expected_visited.add(graph.findEdgeTerminalForSequence("CGC").nodeId);
       expected_visited.add(graph.findEdgeTerminalForSequence("GCA").nodeId);
       expected_visited.add(graph.findEdgeTerminalForSequence("CAA").nodeId);
       expected_visited.add(graph.findEdgeTerminalForSequence("AAT").nodeId);
-      assertEquals(expected_visited, info.nodeids_visited); 
-      
+      assertEquals(expected_visited, info.nodeids_visited);
+
     }
   }
-  
+
   @Test
   public void testMergeLinearChain() {
     for (int trial = 0; trial < 10; trial++) {
@@ -326,7 +326,7 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
       int length = generator.nextInt(100) + K;
       String full_sequence = AlphabetUtil.randomString(
           generator, length, DNAAlphabetFactory.create());
-      
+
       int overlap = K - 1;
       ArrayList<ChainNode> chain_nodes =
           constructChainForSequence(full_sequence, K);
@@ -334,28 +334,28 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
       for (ChainNode link: chain_nodes) {
         nodes.put(link.graph_node.getNodeId(), link.graph_node);
       }
-      
+
       // Do the merge.
       int start_search = generator.nextInt(chain_nodes.size());
-      QuickMergeUtil.NodesToMerge merge_info = 
+      QuickMergeUtil.NodesToMerge merge_info =
           QuickMergeUtil.findNodesToMerge(
                nodes, chain_nodes.get(start_search).graph_node);
       QuickMergeUtil.ChainMergeResult result =
           QuickMergeUtil.mergeLinearChain(nodes, merge_info, overlap);
-      
+
       Sequence full_canonical = new Sequence(
           full_sequence, DNAAlphabetFactory.create());
-      
+
       full_canonical = DNAUtil.canonicalseq(full_canonical);
-  
+
       // Check the sequence equals the original sequence.
       assertEquals(full_canonical, result.merged_node.getCanonicalSequence());
-      
-      Set<String> expected_merged_ids = nodes.keySet();  
+
+      Set<String> expected_merged_ids = nodes.keySet();
       assertEquals(expected_merged_ids, result.merged_nodeids);
     }
   }
-  
+
   @Test
   public void testMergeLinearChainCases() {
     // Some special cases.
@@ -367,55 +367,55 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
       graph.addEdge("TCG", "CGC", K - 1);
       graph.addEdge("GCA", "CAC", K - 1);
       graph.addEdge("GCA", "CAA", K - 1);
-      
+
       {
         // Consider a short chain, i.e no interior nodes.
-        QuickMergeUtil.NodesToMerge merge_info = 
+        QuickMergeUtil.NodesToMerge merge_info =
             QuickMergeUtil.findNodesToMerge(
                  graph.getAllNodes(), graph.getNode("CGC"));
-        
+
         assertEquals(graph.findEdgeTerminalForSequence("CGC"),
                      merge_info.start_terminal);
         assertEquals(graph.findEdgeTerminalForSequence("GCA"),
             merge_info.end_terminal);
-        
+
         QuickMergeUtil.ChainMergeResult result = QuickMergeUtil.mergeLinearChain(
             graph.getAllNodes(), merge_info, K - 1);
-        
+
         assertEquals(
-            "CGCA", 
+            "CGCA",
             result.merged_node.getCanonicalSequence().toString());
-        
+
         HashSet<String> expected_visited = new HashSet<String>();
         expected_visited.add("CGC");
         expected_visited.add("GCA");
         assertEquals(expected_visited, merge_info.nodeids_visited);
         assertEquals(expected_visited, result.merged_nodeids);
       }
-      
+
       {
         // Repeat the test but remove one of the incoming edges from memory
         Hashtable<String, GraphNode> nodes = new Hashtable<String, GraphNode>();
         nodes.putAll(graph.getAllNodes());
         nodes.remove(graph.findEdgeTerminalForSequence("ACG").nodeId);
-        QuickMergeUtil.NodesToMerge merge_info = 
+        QuickMergeUtil.NodesToMerge merge_info =
             QuickMergeUtil.findNodesToMerge(
                  nodes, graph.getNode("CGC"));
-        
+
         // We shouldn't be able to do a merge.
         assertEquals(null, merge_info.start_terminal);
         assertEquals(null, merge_info.end_terminal);
       }
     }
   }
-  
+
   @Test
   public void testMergeRepeated() {
-    // Consider the special case where we have a chain in which 
+    // Consider the special case where we have a chain in which
     // some sequence and its reverse complement appears.
     // Note: if a->y->b ...-c>RC(y)->d
     // Then a->y implies RC(y)->RC(A)
-    // which implies either 
+    // which implies either
     // 1) d = RC(a)
     // 2) d != RC(A) then RC(Y) has two outgoing edges
     // RC(y)->d, and RC(y)->RC(a)  in this case we can't merge RC(y) with d.
@@ -432,26 +432,26 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
         true_sequence_str, DNAAlphabetFactory.create());
     DNAStrand true_strand = DNAUtil.canonicaldir(true_canonical);
     true_canonical = DNAUtil.canonicalseq(true_canonical);
-    
+
     // Give GAT incoming degree 2 and ATC outdegree 2
     // this way we can verify that these edges are preserved.
     graph.addEdge("CAT", "ATC", 2);
     graph.addEdge("TAT", "ATC", 2);
-    
+
     graph.addEdge("GAT", "ATA", 2);
     graph.addEdge("GAT", "ATT", 2);
-    
+
     {
       // TODO(jlewi): Verify test is setup correctly i.e we have a KMer
       // and its reverse complement
-      
+
       // Minimial check that the graph is correct.
       assertEquals(5, graph.getAllNodes().size());
     }
-    
+
     Hashtable<String, GraphNode> nodes = new Hashtable<String, GraphNode> ();
     nodes.putAll(graph.getAllNodes());
-    
+
     GraphNode start_node;
     {
       int start = generator.nextInt(true_sequence_str.length() - K + 1);
@@ -461,48 +461,48 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
     }
     NodesToMerge nodes_to_merge = QuickMergeUtil.findNodesToMerge(
         graph.getAllNodes(), start_node);
-    
+
     ChainMergeResult result = QuickMergeUtil.mergeLinearChain(
         nodes, nodes_to_merge, K - 1);
-    
+
     // Check the merged sequence is correct.
     assertEquals(true_canonical, result.merged_node.getCanonicalSequence());
-                
+
     HashSet<String> seen_nodeids = new HashSet<String>();
     seen_nodeids.add("ATC");
     seen_nodeids.add("CGA");
     assertEquals(
         seen_nodeids, result.merged_nodeids);
-    
+
     // Check that the edges at the start and end are correct.
     {
       List<EdgeTerminal> expected_outgoing = new ArrayList<EdgeTerminal>();
-      
+
       // Add the outgoing edges from GAT.
       expected_outgoing.add(graph.findEdgeTerminalForSequence("ATA"));
-      expected_outgoing.add(graph.findEdgeTerminalForSequence("ATT"));        
-      
+      expected_outgoing.add(graph.findEdgeTerminalForSequence("ATT"));
+
       // Add the reverse complement for the incoming edges to ATC.
       expected_outgoing.add(graph.findEdgeTerminalForSequence("ATG"));
-      
+
       List<EdgeTerminal> outgoing = result.merged_node.getEdgeTerminals(
           true_strand, EdgeDirection.OUTGOING);
       assertTrue(ListUtil.listsAreEqual(expected_outgoing, outgoing));
     }
     {
       List<EdgeTerminal> expected_incoming = new ArrayList<EdgeTerminal>();
-      
+
       // Add the incoming edges to ATC.
       expected_incoming.add(graph.findEdgeTerminalForSequence("CAT"));
       expected_incoming.add(graph.findEdgeTerminalForSequence("TAT"));
-      
+
       // Add the reverse complement for the outgoing edges from GAT.
       expected_incoming.add(graph.findEdgeTerminalForSequence("AAT"));
-      
+
       List<EdgeTerminal> incoming = result.merged_node.getEdgeTerminals(
           true_strand, EdgeDirection.INCOMING);
       assertTrue(ListUtil.listsAreEqual(expected_incoming, incoming));
-    }      
+    }
   }
 
   @Test
@@ -513,13 +513,13 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
 
     String true_merged = "ATCGCAT";
 
-    SimpleGraphBuilder graph = new SimpleGraphBuilder(); 
+    SimpleGraphBuilder graph = new SimpleGraphBuilder();
     graph.addKMersForString(true_sequence_str, K);
 
     // Get the KMer corresponding to the start
     String start_kmer = true_merged.substring(0, K);
 
-    EdgeTerminal start_terminal = graph.findEdgeTerminalForSequence(start_kmer);    
+    EdgeTerminal start_terminal = graph.findEdgeTerminalForSequence(start_kmer);
     GraphNode start_node = graph.getAllNodes().get(start_terminal.nodeId);
     NodesToMerge nodes_to_merge = QuickMergeUtil.findNodesToMerge(
         graph.getAllNodes(), start_node);
@@ -534,17 +534,17 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
 
     String last_kmer = true_merged.substring(
         true_merged.length() - K, true_merged.length());
-    
-    EdgeTerminal expected_start = 
+
+    EdgeTerminal expected_start =
         graph.findEdgeTerminalForSequence(start_kmer);
-    EdgeTerminal expected_end = 
+    EdgeTerminal expected_end =
         graph.findEdgeTerminalForSequence(last_kmer);
-    
+
     assertEquals(nodes_to_merge.start_terminal, expected_start);
     assertEquals(nodes_to_merge.end_terminal, expected_end);
     assertEquals(
         graph.getAllNodes().keySet(), nodes_to_merge.nodeids_visited);
-    
+
     ChainMergeResult result = QuickMergeUtil.mergeLinearChain(
         graph.getAllNodes(), nodes_to_merge, K - 1);
 
@@ -554,14 +554,14 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
     // Check the cycle is closed i.e it has incoming/outgoing edges to
     // itself.
     {
-      // Since its a cycle, there should be an outgoing edge to itself.      
+      // Since its a cycle, there should be an outgoing edge to itself.
       List<EdgeTerminal> expected_edges = new ArrayList<EdgeTerminal>();
       expected_edges.add(
           new EdgeTerminal(result.merged_node.getNodeId(), DNAStrand.FORWARD));
 
       List<EdgeTerminal> edges = result.merged_node.getEdgeTerminals(
           DNAStrand.FORWARD, EdgeDirection.OUTGOING);
-      assertTrue(ListUtil.listsAreEqual(expected_edges, edges));      
+      assertTrue(ListUtil.listsAreEqual(expected_edges, edges));
     }
 
     {
