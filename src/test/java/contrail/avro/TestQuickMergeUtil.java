@@ -16,14 +16,11 @@ import org.junit.Test;
 import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
-import contrail.graph.GraphNodeData;
-import contrail.graph.NeighborData;
 import contrail.graph.SimpleGraphBuilder;
 
 import contrail.sequences.AlphabetUtil;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
-import contrail.sequences.DNAStrandUtil;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
 import contrail.util.ListUtil;
@@ -107,7 +104,7 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
 
       Sequence sequence = new Sequence(
           full_sequence.substring(pos, pos + K), DNAAlphabetFactory.create());
-      node.setCanonicalSequence(DNAUtil.canonicalseq(sequence));
+      node.setSequence(DNAUtil.canonicalseq(sequence));
       ChainNode chain_node = new ChainNode();
       chain_node.graph_node = node;
       chain_node.dna_direction = DNAUtil.canonicaldir(sequence);
@@ -349,7 +346,7 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
       full_canonical = DNAUtil.canonicalseq(full_canonical);
 
       // Check the sequence equals the original sequence.
-      assertEquals(full_canonical, result.merged_node.getCanonicalSequence());
+      assertEquals(full_canonical, result.merged_node.getSequence());
 
       Set<String> expected_merged_ids = nodes.keySet();
       assertEquals(expected_merged_ids, result.merged_nodeids);
@@ -384,7 +381,7 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
 
         assertEquals(
             "CGCA",
-            result.merged_node.getCanonicalSequence().toString());
+            result.merged_node.getSequence().toString());
 
         HashSet<String> expected_visited = new HashSet<String>();
         expected_visited.add("CGC");
@@ -466,7 +463,7 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
         nodes, nodes_to_merge, K - 1);
 
     // Check the merged sequence is correct.
-    assertEquals(true_canonical, result.merged_node.getCanonicalSequence());
+    assertEquals(true_canonical, result.merged_node.getSequence());
 
     HashSet<String> seen_nodeids = new HashSet<String>();
     seen_nodeids.add("ATC");
@@ -549,7 +546,7 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
         graph.getAllNodes(), nodes_to_merge, K - 1);
 
     // Check the merged sequence is correct.
-    assertEquals(true_canonical, result.merged_node.getCanonicalSequence());
+    assertEquals(true_canonical, result.merged_node.getSequence());
 
     // Check the cycle is closed i.e it has incoming/outgoing edges to
     // itself.

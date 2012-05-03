@@ -43,7 +43,7 @@ public class TestNodeConverter {
       canonical_sequence = new Sequence(
           sequence_str, DNAAlphabetFactory.create());
       canonical_sequence = DNAUtil.canonicalseq(canonical_sequence);
-      graph_node.setCanonicalSequence(canonical_sequence);
+      graph_node.setSequence(canonical_sequence);
     }
 
     graph_node.setNodeId("trial_node_" + generator.nextInt(100));
@@ -137,7 +137,7 @@ public class TestNodeConverter {
     assertEquals(graph_node.getNodeId(), node.getNodeId());
     assertEquals(graph_node.getCoverage(), node.cov(), .001);
 
-    assertEquals(graph_node.getCanonicalSequence().toString(), node.str());
+    assertEquals(graph_node.getSequence().toString(), node.str());
     {
       String expected_mertag =
           graph_node.getData().getMertag().getReadTag().toString() + "_" +

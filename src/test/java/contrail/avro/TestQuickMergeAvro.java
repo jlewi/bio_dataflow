@@ -33,7 +33,7 @@ public class TestQuickMergeAvro {
 
     for (int trial = 0; trial < ntrials; trial++) {
       GraphNode node = new GraphNode();
-      node.setCanonicalSequence(
+      node.setSequence(
           new Sequence("AGTC", DNAAlphabetFactory.create()));
       String readid = "trial_" + trial;
       int chunk = trial*10;
@@ -44,7 +44,7 @@ public class TestQuickMergeAvro {
           new AvroCollectorMock<Pair<CharSequence, GraphNodeData>>();
 
       ReporterMock reporter_mock = new ReporterMock();
-      Reporter reporter = (Reporter) reporter_mock;
+      Reporter reporter = reporter_mock;
 
       QuickMergeAvro.QuickMergeMapper mapper =
           new QuickMergeAvro.QuickMergeMapper();
@@ -58,7 +58,7 @@ public class TestQuickMergeAvro {
       try {
         mapper.map(
             node.getData(),
-            (AvroCollector<Pair<CharSequence, GraphNodeData>>)collector_mock,
+            collector_mock,
             reporter);
       }
       catch (IOException exception){
@@ -101,7 +101,7 @@ public class TestQuickMergeAvro {
         new AvroCollectorMock<GraphNodeData>();
 
     ReporterMock reporter_mock = new ReporterMock();
-    Reporter reporter = (Reporter) reporter_mock;
+    Reporter reporter = reporter_mock;
 
     ContrailConfig.TEST_MODE = true;
     ContrailConfig.K = 3;
@@ -177,7 +177,7 @@ public class TestQuickMergeAvro {
       // Check the sequences.
       assertEquals(
           expected_sequences.get(node.getNodeId()),
-          node.getCanonicalSequence().toString());
+          node.getSequence().toString());
 
       // Check the edges.
       List<EdgeTerminal> forward_edges = node.getEdgeTerminals(

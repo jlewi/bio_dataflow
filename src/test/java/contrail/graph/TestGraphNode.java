@@ -48,7 +48,7 @@ public class TestGraphNode {
 		    AlphabetUtil.randomString(generator, 10, DNAAlphabetFactory.create());
 		Sequence sequence = new Sequence(
 		    random_sequence, DNAAlphabetFactory.create());
-		node.setCanonicalSequence(sequence);
+		node.setSequence(sequence);
 
 		int num_dest_nodes = generator.nextInt(30) + 5;
 		for (int index = 0; index < num_dest_nodes; index++) {
@@ -389,7 +389,7 @@ public class TestGraphNode {
 
 	  // Double check the sequence because we manipulate the sequence field
 	  // during the clone because of the bug in avro.
-	  assertNotNull(node.getData().getCanonicalSourceKmer());
-	  assertNotNull(copy.getData().getCanonicalSourceKmer());
+	  assertNotNull(node.getData().getSequence());
+	  assertNotNull(copy.getData().getSequence());
 	}
 }

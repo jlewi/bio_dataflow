@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 
@@ -14,7 +13,6 @@ import contrail.ReadState;
 import contrail.ReporterMock;
 
 import contrail.graph.EdgeData;
-import contrail.graph.EdgeTerminal;
 import contrail.graph.NeighborData;
 import contrail.graph.KMerEdge;
 import contrail.graph.GraphNodeData;
@@ -170,7 +168,7 @@ public class TestBuildGraphAvro {
           new AvroCollectorMock<Pair<ByteBuffer, KMerEdge>>();
 
       ReporterMock reporter_mock = new ReporterMock();
-      Reporter reporter = (Reporter) reporter_mock;
+      Reporter reporter = reporter_mock;
 
       BuildGraphAvro.BuildGraphMapper mapper =
           new BuildGraphAvro.BuildGraphMapper();
@@ -186,7 +184,7 @@ public class TestBuildGraphAvro {
       try {
         mapper.map(
             test_data.getRead(),
-            (AvroCollector<Pair<ByteBuffer, KMerEdge>>)collector_mock, reporter);
+            collector_mock, reporter);
       }
       catch (IOException exception){
         fail("IOException occured in map: " + exception.getMessage());
@@ -380,7 +378,8 @@ public class TestBuildGraphAvro {
       // The destination direction depends on the source direction
       // and the K-1 overlap
       Sequence dest_kmer =
-          DNAUtil.canonicalToDir(src_canonical, src_strand);
+          DNAUtil.sequenceToDir(src_canonical, src_strand);
+
       dest_kmer = dest_kmer.subSequence(1,  dest_kmer.size());
       dest_kmer.add(seq_last_base);
 
@@ -451,7 +450,7 @@ public class TestBuildGraphAvro {
         // The destination direction depends on the source direction
         // and the K-1 overlap
         Sequence dest_kmer =
-            DNAUtil.canonicalToDir(src_canonical, src_strand);
+            DNAUtil.sequenceToDir(src_canonical, src_strand);
         dest_kmer = dest_kmer.subSequence(1,  dest_kmer.size());
         dest_kmer.add(last_base);
 
@@ -505,7 +504,7 @@ public class TestBuildGraphAvro {
           new AvroCollectorMock<GraphNodeData>();
 
       ReporterMock reporter_mock = new ReporterMock();
-      Reporter reporter = (Reporter) reporter_mock;
+      Reporter reporter = reporter_mock;
 
       Sequence src_canonical =
           DNAUtil.canonicalseq(reduce_data.getSrcSequence());
