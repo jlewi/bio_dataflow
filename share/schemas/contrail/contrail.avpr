@@ -232,42 +232,47 @@
                  "type": "contrail.graph.GraphNodeData",
                  "doc": "The node data."}]
     },
-    {"name": "contrail.avro.EdgeUpdateAfterMerge",
+    {"name": "contrail.avro.EdgeUpdateForMerge",
      "type": "record",
      "doc": ["This message describes how an edge in a node needs to be ",
-             "updated, after merging other nodes."],
-     "fields": [{"name": "node_to_update",
+             "updated to point to a merged node."],
+     "fields": [{"name": "old_id",
                  "type": "string",
-                 "doc": "The id for the node to update."},
-                {"name": "old_terminal_id",
+                 "doc": "The id for the node which is being merged away."},
+                {"name": "new_id",
                  "type": "string",
-                 "doc": "The old id for the edge terminal."},
-                {"name": "new_terminal_id",
-                 "type": "string",
-                 "doc": "The new id for the edge terminal."},
-                {"name": "old_strands",
-                 "type": "contrail.sequences.StrandsForEdge",
-                 "doc": "The old strands for the edge."},
-                {"name": "new_strands",
-                 "type": "contrail.sequences.StrandsForEdge",
-                 "doc": "The new strands for the edge."}
+                 "doc": "The id for the merged node."},
+                {"name": "new_strand",
+                 "type": "contrail.sequences.DNAStrand",
+                 "doc": ["The strand of the merged node that will correspond ",
+                        "to the edge."]}
                ]
     },
-    {"name": "contrail.avro.PairMergeOutput",
+    {"name": "contrail.avro.NodeInfoForMerge",
+     "type": "record",
+     "doc": ["Contains the information about nodes outputted by the pair mark ",
+             "stage."],
+     "fields": [{"name": "compressible_node",
+                 "type": "contrail.avro.CompressibleNodeData",
+                 "doc": "A node in the graph."},
+                {"name": "strand_to_merge",
+                 "type": "contrail.avro.CompressibleStrands",
+                 "doc": ["Which strand if any to merge. The value should not ",
+                         "be both."]
+                }
+               ]
+    },
+    {"name": "contrail.avro.PairMarkOutput",
      "type": "record",
      "doc": ["Contains the result of merging several nodes together. ",
              "The result includes messages which need to be sent to other ",
              "nodes to let them know the graph has changed."],
-     "fields": [{"name": "compressible_node",
-                 "type": "contrail.avro.CompressibleNodeData",
-                 "doc": "A node in the graph."},
-                {"name": "update_messages",
-                 "type": {"type":"array",
-                          "items":"contrail.avro.EdgeUpdateAfterMerge"},
-                 "doc": ["An array of messages to send to update edges ",
-                         "after the merge."]
-                }
+     "fields": [{"name": "payload",
+                 "type": ["contrail.avro.EdgeUpdateForMerge",
+                          "contrail.avro.NodeInfoForMerge"],
+                 "doc": "The data for this message."
+                 }
                ]
-    }
+     }
   ] // end types
 }

@@ -45,27 +45,55 @@ import contrail.sequences.StrandsUtil;
  * nodes can be merged into one node through a series of local merges,
  * e.g A + B = AB, C+D= DC, .. AB+DC = ABDC, etc... When performing these
  * merges in parallel we need to make sure that a node doesn't get merged
- * twice. For example, if B is merged into A, we shouldn't simulatenously
- * merge B into C.
+ * twice. For example, if B is merged into A, we shouldn't simultaneously
+ * merge B into C. Another challenge, is that when we merge two nodes we
+ * need to send messages to those nodes which have been merged away, letting
+ * them know the new strand and node id that corresponds to the node
+ * which is been merged away.
  *
- * To solve this problem, we randomly flip a coin for each node and assign
- * the node a value of Up or Down. If an up node is next to a down node,
- * that up node can be sent to the down node to be merged with the down
- * node.
+ * In this stage, we identify which nodes will be sent to other nodes to be
+ * merged. Furthermore, edges are updated so they point to what will be the
+ * new merged node. The actual merge, however, doesn't happen until the next
+ * stage.
  *
- * The random seed is based on a global seed value and the node id.
- * Thus, each node can compute the result of the coin toss for any other node.
+ * Some key aspects for the merge are:
+ * 1. Each compressible node is randomly assigned a state of Up or Down.
+ * 2. The Up/Down state is determined from a global seed and the nodeid.
+ *    Thus any node can compute the state for any other node.
+ * 3. Down nodes preserve i) their id and ii) their strand.
+ *    Thus, if a down node stores the sequence A and is merged with its
+ *    neighbor storing B. The merged node will always store the sequence
+ *    AB as the forward strand of the merged node. This means, the sequence
+ *    stored in nodes after the merge may NOT BE the Canonical sequence.
  *
- * The mapper performs the toin coss for the node. If a compressible node
- * assigned up is next to a down node, then that up node gets sent to the same
- * reducer as the down node. The reducer then merges the two nodes together.
+ *    This is necessary, to allow edge updates to be properly propogated in all
+ *    case.
  *
- * While performing the merge of two nodes, the reducer keeps track of
- * edges that would need to be updated. For example, suppose we have
- * A->B->C->D and we merge B with C. Then the edge A->B needs to be updated
- * so that it uses the new merged node. The reducer keeps track of these
- * updates and outputs them. A subsequent map reduce job sends these messages
- * to the respective nodes so they can update their edges.
+ * The mapper does the following.
+ * 1. Randomly assign up and down states to nodes.
+ * 2. Identify special cases, in which a down state may be converted to an up
+ *    state to allow some additional merges.
+ * 3. Form edge update messages.
+ *    Suppose we have  A->B->C
+ *    If B is merged into A. Then the mapper constructs a message to inform
+ *    C of the new id and strand for node B so that it can move its edges.
+ * 4. Output each node, keyed by its id in the graph. If the node is an up
+ *    node to be merged, then the mapper identifies it as such and marks
+ *    it along with which node it will be merged with.
+ *
+ * The reducer does the following:
+ * 1. Apply the edge updates to the node.
+ * 2. Output each node, along with information about which node it will be
+ *    merged with if applicable.
+ *
+ * The conditions for deciding when to merge an up node into a down node are
+ * as follows.
+ * 1. If a down node is in between two down nodes, and the node has the
+ *    smallest id of its neighbors convert the node to an up node and merge it.
+ * 2. If a down node is compressible along a single strand, and its compressible
+ *    neighbor is a down node, and the node has the smaller node id. Convert
+ *    it to an up node.
+ * 3. If node is an up node merge it with one of its neighboring down nodes.
  */
 public class PairMergeAvro extends Stage {
   private static final Logger sLogger = Logger.getLogger(PairMergeAvro.class);
