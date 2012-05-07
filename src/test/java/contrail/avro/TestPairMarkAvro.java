@@ -1,151 +1,190 @@
 package contrail.avro;
 
+import static org.junit.Assert.*;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.apache.avro.mapred.Pair;
+import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.Reporter;
+import org.junit.Test;
+
+import contrail.ReporterMock;
+import contrail.graph.EdgeDirection;
+import contrail.graph.EdgeTerminal;
+import contrail.graph.GraphNode;
+import contrail.graph.SimpleGraphBuilder;
+import contrail.graph.TailData;
+import contrail.sequences.DNAStrand;
+
 // Extend PairMergeAvro so we can access the mapper and reducer.
-public class TestPairMergeAvro extends PairMergeAvro {
+public class TestPairMarkAvro extends PairMarkAvro {
   // A CoinFlipper which is not random but uses a hash table to map
   // strings to coin flips. This makes it easy to control the tosses assigned
   // to the nodes.
-//  private static class CoinFlipperFixed extends CoinFlipper {
-//    public HashMap<String, CoinFlip> tosses;
-//    public CoinFlipperFixed() {
-//      super(0);
-//      tosses = new HashMap<String, CoinFlip>();
-//    }
-//
-//    public CoinFlip flip(String seed) {
-//      if (!tosses.containsKey(seed)) {
-//        throw new RuntimeException("Flipper is missing seed:" + seed);
-//      }
-//      return tosses.get(seed);
-//    }
-//  }
-//
-//  // Return true if the strand of the specified node is compressible.
-//  // This is used to setup some of the test cases.
-//  private boolean isCompressibleStrand(
-//      Map<String, GraphNode> nodes, String nodeid, DNAStrand strand) {
-//    GraphNode node = nodes.get(nodeid);
-//
-//    if (node == null) {
-//      fail("Could not find node:" + nodeid);
-//    }
-//
-//    TailData tail = node.getTail(strand, EdgeDirection.OUTGOING);
-//    if (tail == null) {
-//      return false;
-//    }
-//
-//    // Check if the other node has a tail in this direction.
-//    GraphNode other_node = nodes.get(tail.terminal.nodeId);
-//    if (other_node == null) {
-//      fail("Could not find node:" + tail.terminal.nodeId);
-//    }
-//    TailData other_tail = other_node.getTail(
-//        tail.terminal.strand, EdgeDirection.INCOMING);
-//
-//    if (other_tail == null) {
-//      return false;
-//    }
-//
-//    // Sanity check. The terminal for the other_node should be this node.
-//    assertEquals(new EdgeTerminal(nodeid, strand), other_tail.terminal);
-//
-//    return true;
-//  }
-//
-//  // Determine which strands for the given node are compressible.
-//  private CompressibleStrands isCompressible(
-//      Map<String, GraphNode> nodes, String nodeid) {
-//    boolean f_compressible =
-//        isCompressibleStrand(nodes, nodeid, DNAStrand.FORWARD);
-//    boolean r_compressible =
-//        isCompressibleStrand(nodes, nodeid, DNAStrand.FORWARD);
-//
-//    if (f_compressible && r_compressible) {
-//      return CompressibleStrands.BOTH;
-//    }
-//
-//    if (f_compressible) {
-//      return CompressibleStrands.FORWARD;
-//    }
-//
-//    if (r_compressible) {
-//      return CompressibleStrands.REVERSE;
-//    }
-//
-//    return CompressibleStrands.NONE;
-//  }
-//
-//  // We can't use avro methods to copy GraphNode.
-//  // See https://issues.apache.org/jira/browse/AVRO-1045.
-//  private CompressibleNodeData copyCompressibleNode(CompressibleNodeData node) {
-//    CompressibleNodeData copy = new CompressibleNodeData();
-//    copy.setCompressibleStrands(node.getCompressibleStrands());
-//    copy.setNode((new GraphNode(node.getNode())).clone().getData());
-//    return copy;
-//  }
-//
-//  // This class serves as a container for the data for testing the mapper.
-//  private static class MapperTestCase {
-//    public MapperTestCase() {
-//      input = new ArrayList<CompressibleNodeData>();
-//      expected_output =
-//          new HashMap<String, Pair<CharSequence, CompressibleNodeData>>();
-//      flipper = new CoinFlipperFixed();
-//    }
-//    // The input to the mapper.
-//    public List<CompressibleNodeData> input;
-//    // The expected output of the mapper.
-//    public HashMap<String, Pair<CharSequence, CompressibleNodeData>>
-//      expected_output;
-//
-//    // The flipper to use in the test.
-//    public CoinFlipper flipper;
-//  }
-//
-//  private MapperTestCase simpleMapperTest() {
-//    // Construct the simplest mapper test case.
-//    // We have two nodes. The first is assigned heads and the second tails.
-//    SimpleGraphBuilder builder = new SimpleGraphBuilder();
-//    builder.addKMersForString("ACTG", 3);
-//
-//    MapperTestCase test_case = new MapperTestCase();
-//    for (GraphNode node: builder.getAllNodes().values()) {
-//      CompressibleNodeData data = new CompressibleNodeData();
-//      data.setNode(node.getData());
-//
-//      data.setCompressibleStrands(CompressibleStrands.NONE);
-//      if (node.degree(DNAStrand.FORWARD) == 1 &&
-//          node.degree(DNAStrand.REVERSE) == 1) {
-//        data.setCompressibleStrands(CompressibleStrands.BOTH);
-//      } else if (node.degree(DNAStrand.FORWARD) == 1) {
-//        data.setCompressibleStrands(CompressibleStrands.FORWARD);
-//      } else if (node.degree(DNAStrand.REVERSE) == 1) {
-//        data.setCompressibleStrands(CompressibleStrands.REVERSE);
-//      }
-//      test_case.input.add(data);
-//    }
-//
-//    // Make the first node the up node.
-//    GraphNode up_node = builder.getNode(builder.findNodeIdForSequence("ACT"));
-//    GraphNode down_node = builder.getNode(builder.findNodeIdForSequence("CTG"));
-//
-//    CoinFlipperFixed flipper = new CoinFlipperFixed();
-//    test_case.flipper = flipper;
-//    flipper.tosses.put(up_node.getNodeId(), CoinFlipper.CoinFlip.Up);
-//    flipper.tosses.put(
-//        down_node.getNodeId(), CoinFlipper.CoinFlip.Down);
-//
-//    for (CompressibleNodeData input_node: test_case.input) {
-//      // The output is just the node but the output gets sent to the down
-//      // node.
-//      test_case.expected_output.put(input_node.getNode().getNodeId().toString(),
-//          new Pair<CharSequence, CompressibleNodeData>(
-//              down_node.getNodeId(), copyCompressibleNode(input_node)));
-//    }
-//    return test_case;
-//  }
-//
+  private static class CoinFlipperFixed extends CoinFlipper {
+    public HashMap<String, CoinFlip> tosses;
+    public CoinFlipperFixed() {
+      super(0);
+      tosses = new HashMap<String, CoinFlip>();
+    }
+
+    public CoinFlip flip(String seed) {
+      if (!tosses.containsKey(seed)) {
+        throw new RuntimeException("Flipper is missing seed:" + seed);
+      }
+      return tosses.get(seed);
+    }
+  }
+
+  // Return true if the strand of the specified node is compressible.
+  // This is used to setup some of the test cases.
+  private boolean isCompressibleStrand(
+      Map<String, GraphNode> nodes, String nodeid, DNAStrand strand) {
+    GraphNode node = nodes.get(nodeid);
+
+    if (node == null) {
+      fail("Could not find node:" + nodeid);
+    }
+
+    TailData tail = node.getTail(strand, EdgeDirection.OUTGOING);
+    if (tail == null) {
+      return false;
+    }
+
+    // Check if the other node has a tail in this direction.
+    GraphNode other_node = nodes.get(tail.terminal.nodeId);
+    if (other_node == null) {
+      fail("Could not find node:" + tail.terminal.nodeId);
+    }
+    TailData other_tail = other_node.getTail(
+        tail.terminal.strand, EdgeDirection.INCOMING);
+
+    if (other_tail == null) {
+      return false;
+    }
+
+    // Sanity check. The terminal for the other_node should be this node.
+    assertEquals(new EdgeTerminal(nodeid, strand), other_tail.terminal);
+
+    return true;
+  }
+
+  // Determine which strands for the given node are compressible.
+  private CompressibleStrands isCompressible(
+      Map<String, GraphNode> nodes, String nodeid) {
+    boolean f_compressible =
+        isCompressibleStrand(nodes, nodeid, DNAStrand.FORWARD);
+    boolean r_compressible =
+        isCompressibleStrand(nodes, nodeid, DNAStrand.FORWARD);
+
+    if (f_compressible && r_compressible) {
+      return CompressibleStrands.BOTH;
+    }
+
+    if (f_compressible) {
+      return CompressibleStrands.FORWARD;
+    }
+
+    if (r_compressible) {
+      return CompressibleStrands.REVERSE;
+    }
+
+    return CompressibleStrands.NONE;
+  }
+
+  // Class to contain the input and output pairs used for the mapper.
+  private static class MapperInputOutput {
+    public MapperInputOutput () {
+      edge_updates = new HashMap<String, EdgeUpdateForMerge>();
+    }
+    CompressibleNodeData input_node;
+    HashMap<String, EdgeUpdateForMerge> edge_updates;
+    NodeInfoForMerge output_node;
+  }
+
+  // This class serves as a container for the data for testing the mapper.
+  private static class MapperTestCase {
+    public MapperTestCase() {
+      inputs_outputs = new HashMap<String, MapperInputOutput>();
+    }
+    // The various input/output sets for this test case.
+    // The key is typically the id of the node processed as input.
+
+    public HashMap<String, MapperInputOutput> inputs_outputs;
+
+
+    // The flipper to use in the test.
+    public CoinFlipper flipper;
+  }
+
+  private MapperTestCase simpleMapperTest() {
+    // Construct the simplest mapper test case.
+    // We have three nodes assigned the states Down, Up, Down.
+
+    SimpleGraphBuilder builder = new SimpleGraphBuilder();
+    builder.addKMersForString("AACTG", 3);
+
+    MapperTestCase test_case = new MapperTestCase();
+    for (GraphNode node: builder.getAllNodes().values()) {
+      CompressibleNodeData data = new CompressibleNodeData();
+      data.setNode(node.getData());
+      data.setCompressibleStrands(isCompressible(
+          builder.getAllNodes(), node.getNodeId()));
+
+      MapperInputOutput input_output = new MapperInputOutput();
+      input_output.input_node = data;
+
+      // Each node outputs at least itself.
+      NodeInfoForMerge node_info_for_merge = new NodeInfoForMerge();
+      node_info_for_merge.setCompressibleNode(
+          CompressUtil.copyCompressibleNode(data));
+
+      if (node.getNodeId().toString().equals(
+          builder.findNodeIdForSequence("ACT"))) {
+        node_info_for_merge.setStrandToMerge(CompressibleStrands.FORWARD);
+      } else {
+        node_info_for_merge.setStrandToMerge(CompressibleStrands.NONE);
+      }
+
+      input_output.output_node = node_info_for_merge;
+      test_case.inputs_outputs.put(node.getNodeId(), input_output);
+    }
+
+    CoinFlipperFixed flipper = new CoinFlipperFixed();
+    test_case.flipper = flipper;
+    flipper.tosses.put(
+        builder.findNodeIdForSequence("AAC"), CoinFlipper.CoinFlip.Down);
+    flipper.tosses.put(
+        builder.findNodeIdForSequence("ACT"), CoinFlipper.CoinFlip.Up);
+    flipper.tosses.put(
+        builder.findNodeIdForSequence("CTG"), CoinFlipper.CoinFlip.Down);
+
+    // For the middle node we need to add the edge update.
+    String up_id = builder.findNodeIdForSequence("ACT");
+    GraphNode up_node = builder.getNode(up_id);
+
+    // The up node gets merged along the forward strand.
+    EdgeTerminal new_terminal = up_node.getEdgeTerminals(
+        DNAStrand.FORWARD, EdgeDirection.OUTGOING).get(0);
+
+    EdgeTerminal update_target = up_node.getEdgeTerminals(
+        DNAStrand.FORWARD, EdgeDirection.INCOMING).get(0);
+
+    EdgeUpdateForMerge edge_update = new EdgeUpdateForMerge();
+    edge_update.setOldId(up_id);
+    edge_update.setOldStrand(DNAStrand.FORWARD);
+    edge_update.setNewId(new_terminal.nodeId);
+    edge_update.setNewStrand(new_terminal.strand);
+
+    MapperInputOutput input_output = test_case.inputs_outputs.get(up_id);
+    input_output.edge_updates.put(update_target.nodeId, edge_update);
+    return test_case;
+  }
+
 //  private MapperTestCase mapperNoMergeTest() {
 //    // Construct the test case where the nodes can't be compressed.
 //    SimpleGraphBuilder builder = new SimpleGraphBuilder();
@@ -227,59 +266,76 @@ public class TestPairMergeAvro extends PairMergeAvro {
 //    }
 //    return test_case;
 //  }
-//
-//  // Check the output of the mapper matches the expected result.
-//  private void assertMapperOutput(
-//      CompressibleNodeData input,
-//      Pair<CharSequence, CompressibleNodeData> expected_output,
-//      AvroCollectorMock<Pair<CharSequence, CompressibleNodeData>>
-//          collector_mock) {
-//    assertEquals(1, collector_mock.data.size());
-//    assertEquals(expected_output, collector_mock.data.get(0));
-//  }
-//
-//  @Test
-//  public void testMapper() {
-//    ArrayList<MapperTestCase> test_cases = new ArrayList<MapperTestCase>();
-//    test_cases.add(mapperNoMergeTest());
-//    test_cases.add(simpleMapperTest());
+
+  // Check the output of the mapper matches the expected result.
+  private void assertMapperOutput(
+      MapperInputOutput input_output,
+      AvroCollectorMock<Pair<CharSequence, PairMarkOutput>>
+          collector_mock) {
+    assertEquals(1, collector_mock.data.size());
+
+    String input_id = input_output.input_node.getNode().getNodeId().toString();
+    HashMap<String, EdgeUpdateForMerge> edge_updates =
+        new HashMap<String, EdgeUpdateForMerge>();
+    // Separate the output into edge updates and the node itself.
+    int num_nodes = 0;
+    for (Pair<CharSequence, PairMarkOutput> out_pair: collector_mock.data) {
+      if (out_pair.value().getPayload() instanceof NodeInfoForMerge) {
+        ++num_nodes;
+        // The node should be sent to itself.
+        assertEquals(input_id, out_pair.key().toString());
+        NodeInfoForMerge node_info =
+            (NodeInfoForMerge) out_pair.value().getPayload();
+        assertEquals(input_output.output_node, node_info);
+      } else {
+        edge_updates.put(
+            out_pair.key().toString(),
+            (EdgeUpdateForMerge) out_pair.value().getPayload());
+      }
+    }
+    assertEquals(1, num_nodes);
+    assertEquals(input_output.edge_updates, edge_updates);
+  }
+
+  @Test
+  public void testMapper() {
+    ArrayList<MapperTestCase> test_cases = new ArrayList<MapperTestCase>();
+    //test_cases.add(mapperNoMergeTest());
+    test_cases.add(simpleMapperTest());
 //    test_cases.add(mapperConvertDownToUpTest());
-//
-//    PairMergeMapper mapper = new PairMergeMapper();
-//
-//    JobConf job = new JobConf(PairMergeMapper.class);
-//    job.setLong("randseed", 11);
-//
-//    mapper.configure(job);
-//
-//    ReporterMock reporter_mock = new ReporterMock();
-//    Reporter reporter = reporter_mock;
-//
-//    for (MapperTestCase test_case: test_cases) {
-//      for (CompressibleNodeData input_data: test_case.input) {
-//        // We need a new collector for each invocation because the
-//        // collector stores the outputs of the mapper.
-//        AvroCollectorMock<Pair<CharSequence, CompressibleNodeData>>
-//          collector_mock =
-//          new AvroCollectorMock<Pair<CharSequence, CompressibleNodeData>>();
-//
-//        mapper.setFlipper(test_case.flipper);
-//        try {
-//          mapper.map(
-//              input_data,collector_mock, reporter);
-//        }
-//        catch (IOException exception){
-//          fail("IOException occured in map: " + exception.getMessage());
-//        }
-//
-//        assertMapperOutput(
-//            input_data,
-//            test_case.expected_output.get(input_data.getNode().getNodeId()),
-//            collector_mock);
-//      }
-//    }
-//  }
-//
+
+    PairMarkMapper mapper = new PairMarkMapper();
+
+    JobConf job = new JobConf(PairMarkMapper.class);
+    job.setLong("randseed", 11);
+
+    mapper.configure(job);
+
+    ReporterMock reporter_mock = new ReporterMock();
+    Reporter reporter = reporter_mock;
+
+    for (MapperTestCase test_case: test_cases) {
+      for (MapperInputOutput input_output: test_case.inputs_outputs.values()) {
+        // We need a new collector for each invocation because the
+        // collector stores the outputs of the mapper.
+        AvroCollectorMock<Pair<CharSequence, PairMarkOutput>>
+          collector_mock =
+          new AvroCollectorMock<Pair<CharSequence, PairMarkOutput>>();
+
+        mapper.setFlipper(test_case.flipper);
+        try {
+          mapper.map(
+              input_output.input_node, collector_mock, reporter);
+        }
+        catch (IOException exception){
+          fail("IOException occured in map: " + exception.getMessage());
+        }
+
+        assertMapperOutput(input_output, collector_mock);
+      }
+    }
+  }
+
 //  // A container class used for organizing the data for the reducer tests.
 //  private class ReducerTestCase {
 //    public int K;
