@@ -136,6 +136,13 @@ public class PairMarkAvro extends Stage {
       }
       return false;
     }
+
+    public String toString() {
+      if (node == null) {
+        return "";
+      }
+      return node.toString();
+    }
   }
 
   /**

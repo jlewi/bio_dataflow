@@ -185,34 +185,36 @@ public class TestPairMarkAvro extends PairMarkAvro {
     return test_case;
   }
 
-//  private MapperTestCase mapperNoMergeTest() {
-//    // Construct the test case where the nodes can't be compressed.
-//    SimpleGraphBuilder builder = new SimpleGraphBuilder();
-//    builder.addKMersForString("ACTG", 3);
-//    builder.addEdge("ACT","CTC", 2);
-//
-//    MapperTestCase test_case = new MapperTestCase();
-//    for (GraphNode node: builder.getAllNodes().values()) {
-//      CompressibleNodeData data = new CompressibleNodeData();
-//      data.setNode(node.getData());
-//
-//      // Nodes aren't compressible.
-//      data.setCompressibleStrands(CompressibleStrands.NONE);
-//      test_case.input.add(data);
-//
-//      CompressibleNodeData output = new CompressibleNodeData();
-//      output.setNode(node.clone().getData());
-//      output.setCompressibleStrands(CompressibleStrands.NONE);
-//      // Up node is sent to the down node.
-//      test_case.expected_output.put(node.getNodeId(),
-//          new Pair<CharSequence, CompressibleNodeData>(
-//              node.getNodeId(), copyCompressibleNode(output)));
-//    }
-//
-//    // Use the random coin flipper.
-//    test_case.flipper = new CoinFlipper(12);
-//    return test_case;
-//  }
+  private MapperTestCase mapperNoMergeTest() {
+    // Construct the test case where the nodes can't be compressed.
+    SimpleGraphBuilder builder = new SimpleGraphBuilder();
+    builder.addKMersForString("ACTG", 3);
+    builder.addEdge("ACT","CTC", 2);
+
+    MapperTestCase test_case = new MapperTestCase();
+    for (GraphNode node: builder.getAllNodes().values()) {
+      CompressibleNodeData data = new CompressibleNodeData();
+      data.setNode(node.getData());
+
+      // Nodes aren't compressible.
+      data.setCompressibleStrands(CompressibleStrands.NONE);
+
+      MapperInputOutput input_output = new MapperInputOutput();
+      input_output.input_node = CompressUtil.copyCompressibleNode(data);
+
+      // Each node outputs at itself.
+      NodeInfoForMerge node_info_for_merge = new NodeInfoForMerge();
+      node_info_for_merge.setCompressibleNode(
+          CompressUtil.copyCompressibleNode(data));
+      node_info_for_merge.setStrandToMerge(CompressibleStrands.NONE);
+      input_output.output_node = node_info_for_merge;
+      test_case.inputs_outputs.put(node.getNodeId(), input_output);
+    }
+
+    // Use the random coin flipper.
+    test_case.flipper = new CoinFlipper(12);
+    return test_case;
+  }
 //
 //  private MapperTestCase mapperConvertDownToUpTest() {
 //    // Construct a chain of 3 nodes all assigned down.
@@ -272,8 +274,8 @@ public class TestPairMarkAvro extends PairMarkAvro {
       MapperInputOutput input_output,
       AvroCollectorMock<Pair<CharSequence, PairMarkOutput>>
           collector_mock) {
-    assertEquals(1, collector_mock.data.size());
-
+    int num_expected_outputs = input_output.edge_updates.size() + 1;
+    assertEquals(num_expected_outputs, collector_mock.data.size());
     String input_id = input_output.input_node.getNode().getNodeId().toString();
     HashMap<String, EdgeUpdateForMerge> edge_updates =
         new HashMap<String, EdgeUpdateForMerge>();
@@ -300,7 +302,7 @@ public class TestPairMarkAvro extends PairMarkAvro {
   @Test
   public void testMapper() {
     ArrayList<MapperTestCase> test_cases = new ArrayList<MapperTestCase>();
-    //test_cases.add(mapperNoMergeTest());
+    test_cases.add(mapperNoMergeTest());
     test_cases.add(simpleMapperTest());
 //    test_cases.add(mapperConvertDownToUpTest());
 
