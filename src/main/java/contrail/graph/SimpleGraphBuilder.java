@@ -58,7 +58,7 @@ public class SimpleGraphBuilder {
     Sequence canonical_src = DNAUtil.canonicalseq(sequence);
 
     GraphNode node = new GraphNode();
-    node.setCanonicalSequence(canonical_src);
+    node.setSequence(canonical_src);
     node.setNodeId(nodeid);
     nodes.put(nodeid, node);
     return nodeid;
@@ -74,7 +74,7 @@ public class SimpleGraphBuilder {
     Sequence canonical_src = DNAUtil.canonicalseq(sequence);
 
     for (GraphNode node: nodes.values()) {
-      if (node.getCanonicalSequence().equals(canonical_src)) {
+      if (node.getSequence().equals(canonical_src)) {
         return node.getNodeId();
       }
     }
@@ -123,11 +123,11 @@ public class SimpleGraphBuilder {
     GraphNode dest_node = nodes.get(dest.nodeId);
 
     // Check the overlap
-    Sequence src_sequence = src_node.getCanonicalSequence();
-    src_sequence = DNAUtil.canonicalToDir(src_sequence, src.strand);
+    Sequence src_sequence = src_node.getSequence();
+    src_sequence = DNAUtil.sequenceToDir(src_sequence, src.strand);
 
-    Sequence dest_sequence = dest_node.getCanonicalSequence();
-    dest_sequence = DNAUtil.canonicalToDir(dest_sequence, dest.strand);
+    Sequence dest_sequence = dest_node.getSequence();
+    dest_sequence = DNAUtil.sequenceToDir(dest_sequence, dest.strand);
 
     Sequence src_overlap = src_sequence.subSequence(
         src_sequence.size() - overlap, src_sequence.size());

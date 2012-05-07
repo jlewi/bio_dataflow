@@ -562,7 +562,7 @@ public class BuildGraphAvro extends Stage
       JobClient.runJob(conf);
       long endtime = System.currentTimeMillis();
 
-      float diff = (float) (((float) (endtime - starttime)) / 1000.0);
+      float diff = (float) ((endtime - starttime) / 1000.0);
 
       sLogger.info("Runtime: " + diff + " s");
     }

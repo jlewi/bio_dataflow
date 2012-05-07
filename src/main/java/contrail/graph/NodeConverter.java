@@ -24,7 +24,7 @@ public class NodeConverter {
     }
 
     node.setCoverage(graph_node.getCoverage());
-    node.setstr(graph_node.getCanonicalSequence().toString());
+    node.setstr(graph_node.getSequence().toString());
 
     // Add the edges.
     for (NeighborData neighbor: graph_node.getData().getNeighbors()) {

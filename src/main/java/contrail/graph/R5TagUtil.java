@@ -24,7 +24,7 @@ public class R5TagUtil {
     // R5Tag is always relative to the canonical strands so
     // we fetch the canonical version.
     Sequence canonical = DNAUtil.canonicalseq(src);
-    src = DNAUtil.canonicalToDir(src, tag.getStrand());
+    src = DNAUtil.sequenceToDir(src, tag.getStrand());
 
     int offset = tag.getOffset();
     if (tag.getStrand() == DNAStrand.REVERSE) {

@@ -375,7 +375,7 @@ public class GraphNode {
 		CompressedSequence compressed = new CompressedSequence();
 		compressed.setDna(ByteBuffer.wrap(seq.toPackedBytes(), 0, seq.numPackedBytes()));
 		compressed.setLength(seq.size());
-		data.setCanonicalSourceKmer(compressed);
+		data.setSequence(compressed);
 	}
 
 	/**
@@ -385,7 +385,7 @@ public class GraphNode {
 		CompressedSequence compressed = new CompressedSequence();
 		compressed.setDna(seq);
 		compressed.setLength(length);
-		data.setCanonicalSourceKmer(compressed);
+		data.setSequence(compressed);
 	}
 
 	/**
@@ -689,7 +689,7 @@ public class GraphNode {
 	 */
 	public String toString() {
 	    String represent = "Id:" + getNodeId() + " ";
-	    represent += "Sequence:" + this.getCanonicalSequence().toString();
+	    represent += "Sequence:" + this.getSequence().toString();
 	    represent += " F_EDGES: ";
 	    for (EdgeTerminal edge:
 	      this.getEdgeTerminals(DNAStrand.FORWARD, EdgeDirection.OUTGOING)) {

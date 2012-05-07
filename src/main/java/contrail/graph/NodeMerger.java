@@ -111,10 +111,10 @@ public class NodeMerger {
     info.src_size = canonical_src.size();
     info.dest_size = canonical_dest.size();
 
-    Sequence src_sequence = DNAUtil.canonicalToDir(
+    Sequence src_sequence = DNAUtil.sequenceToDir(
         canonical_src, StrandsUtil.src(strands));
 
-    Sequence dest_sequence = DNAUtil.canonicalToDir(
+    Sequence dest_sequence = DNAUtil.sequenceToDir(
         canonical_dest, StrandsUtil.dest(strands));
 
     // Check the overlap.
@@ -297,13 +297,13 @@ public class NodeMerger {
     // 4. Remove Incoming edges to dest
     // 5. Add Incoming edges to src
     // 6. Add outgoing edges from dest
-    Sequence src_sequence = src.getCanonicalSequence();
-    Sequence dest_sequence = dest.getCanonicalSequence();
+    Sequence src_sequence = src.getSequence();
+    Sequence dest_sequence = dest.getSequence();
     MergeInfo merge_info = mergeSequences(
         src_sequence, dest_sequence, strands, overlap);
 
     GraphNode new_node = new GraphNode();
-    new_node.setCanonicalSequence(merge_info.canonical_merged);
+    new_node.setSequence(merge_info.canonical_merged);
 
     // Preserve the edges we need to preserve the incoming/outgoing
     // edges corresponding to the strands but we also need to consider
@@ -365,9 +365,9 @@ public class NodeMerger {
     // span the sequence where K = overlap + 1
     int K = overlap + 1;
     int src_coverage_length =
-        src.getCanonicalSequence().size() - K + 1;
+        src.getSequence().size() - K + 1;
     int dest_coverage_length =
-        dest.getCanonicalSequence().size() - K + 1;
+        dest.getSequence().size() - K + 1;
 
       return mergeNodes(
           src, dest, strands, overlap, src_coverage_length,
