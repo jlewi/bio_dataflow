@@ -5,6 +5,7 @@ import static org.junit.Assert.*;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.avro.mapred.Pair;
@@ -18,7 +19,9 @@ import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
 import contrail.graph.SimpleGraphBuilder;
 import contrail.graph.TailData;
+import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
+import contrail.sequences.Sequence;
 
 // Extend PairMergeAvro so we can access the mapper and reducer.
 public class TestPairMarkAvro extends PairMarkAvro {
@@ -349,60 +352,59 @@ public class TestPairMarkAvro extends PairMarkAvro {
     }
   }
 
-//  // A container class used for organizing the data for the reducer tests.
-//  private class ReducerTestCase {
-//    public int K;
-//    public String reducer_key;
-//    // The input to the reducer.
-//    public List<CompressibleNodeData> input;
-//    // The expected output from the reducer.
-//    public PairMergeOutput expected_output;
-//  }
-//
-//  // Asserts that the output of the reducer is correct for this test case.
-//  private void assertReducerTestCase(
-//      ReducerTestCase test_case,
-//      AvroCollectorMock<PairMergeOutput> collector_mock) {
-//
-//    assertEquals(1, collector_mock.data.size());
-//    PairMergeOutput output = collector_mock.data.get(0);
-//
-//    // Check the nodes are equal.
-//    assertEquals(
-//        test_case.expected_output.getCompressibleNode(),
-//        output.getCompressibleNode());
-//
-//    // Check the lists are equal without regard to order.
-//    assertTrue(ListUtil.listsAreEqual(
-//        test_case.expected_output.getUpdateMessages(),
-//        output.getUpdateMessages()));
-//  }
-//
-//  private ReducerTestCase reducerNoMergeTest() {
-//    // Construct a simple reduce test case in which no nodes are merged.
-//    ReducerTestCase test_case = new ReducerTestCase();
-//    test_case.K = 3;
-//
-//    test_case.input = new ArrayList<CompressibleNodeData>();
-//    GraphNode node = new GraphNode();
-//    node.setNodeId("somenode");
-//    Sequence sequence = new Sequence("ACGCT", DNAAlphabetFactory.create());
-//    node.setCanonicalSequence(sequence);
-//    test_case.reducer_key = node.getNodeId();
-//
-//    CompressibleNodeData merge_data = new CompressibleNodeData();
-//    merge_data.setNode(node.clone().getData());
-//    merge_data.setCompressibleStrands(CompressibleStrands.NONE);
-//    test_case.input.add(merge_data);
-//
-//    test_case.expected_output = new PairMergeOutput();
-//    test_case.expected_output.setCompressibleNode(
-//        copyCompressibleNode(merge_data));
-//    test_case.expected_output.setUpdateMessages(
-//        new ArrayList<EdgeUpdateAfterMerge>());
-//
-//    return test_case;
-//  }
+  // A container class used for organizing the data for the reducer tests.
+  private class ReducerTestCase {
+    public String reducer_key;
+    // The input to the reducer.
+    public List<PairMarkOutput> input;
+    // The expected output from the reducer.
+    public NodeInfoForMerge expected_output;
+  }
+
+  // Asserts that the output of the reducer is correct for this test case.
+  private void assertReducerTestCase(
+      ReducerTestCase test_case,
+      AvroCollectorMock<NodeInfoForMerge> collector_mock) {
+
+    assertEquals(1, collector_mock.data.size());
+    NodeInfoForMerge output = collector_mock.data.get(0);
+
+    // Check the nodes are equal.
+    assertEquals(test_case.expected_output, output);
+  }
+
+  private ReducerTestCase reducerNoUpdatesTest() {
+    // Construct a simple reduce test case in which no edges are updated.
+    ReducerTestCase test_case = new ReducerTestCase();
+
+    test_case.input = new ArrayList<PairMarkOutput>();
+    GraphNode node = new GraphNode();
+    node.setNodeId("somenode");
+    Sequence sequence = new Sequence("ACGCT", DNAAlphabetFactory.create());
+    node.setSequence(sequence);
+    test_case.reducer_key = node.getNodeId();
+
+    CompressibleNodeData merge_data = new CompressibleNodeData();
+    merge_data.setNode(node.clone().getData());
+    merge_data.setCompressibleStrands(CompressibleStrands.NONE);
+
+    NodeInfoForMerge out_node = new NodeInfoForMerge();
+    out_node.setCompressibleNode(
+        CompressUtil.copyCompressibleNode(merge_data));
+    out_node.setStrandToMerge(CompressibleStrands.NONE);
+
+    PairMarkOutput mapper_output = new PairMarkOutput();
+    mapper_output.setPayload(out_node);
+    test_case.input.add(mapper_output);
+
+
+    test_case.expected_output = new NodeInfoForMerge();
+    test_case.expected_output.setCompressibleNode(
+        CompressUtil.copyCompressibleNode(merge_data));    ;
+    test_case.expected_output.setStrandToMerge(CompressibleStrands.NONE);
+
+    return test_case;
+  }
 //
 //  private ReducerTestCase reducerSimpleMergeTest() {
 //    // Construct a simple reduce test case in which two nodes are merged.
@@ -590,42 +592,39 @@ public class TestPairMarkAvro extends PairMarkAvro {
 //    return test_case;
 //  }
 //
-//  @Test
-//  public void testReducer() {
-//    ArrayList<ReducerTestCase> test_cases = new ArrayList<ReducerTestCase>();
-//    test_cases.add(reducerNoMergeTest());
-//    test_cases.add(reducerSimpleMergeTest());
-//    test_cases.add(reducerTwoMergeTest());
-//    PairMergeReducer reducer = new PairMergeReducer();
-//
-//    JobConf job = new JobConf(PairMergeReducer.class);
-//
-//    // TODO: Reduce test cases can only use this value.
-//    job.setLong("K", 3);
-//
-//    reducer.configure(job);
-//
-//    ReporterMock reporter_mock = new ReporterMock();
-//    Reporter reporter = reporter_mock;
-//
-//    for (ReducerTestCase test_case: test_cases) {
-//
-//      // We need a new collector for each invocation because the
-//      // collector stores the outputs of the mapper.
-//      AvroCollectorMock<PairMergeOutput> collector_mock =
-//        new AvroCollectorMock<PairMergeOutput>();
-//
-//      try {
-//        reducer.reduce(
-//            test_case.reducer_key, test_case.input, collector_mock, reporter);
-//      }
-//      catch (IOException exception){
-//        fail("IOException occured in map: " + exception.getMessage());
-//      }
-//
-//      assertReducerTestCase(test_case, collector_mock);
-//    }
-//  }
+  @Test
+  public void testReducer() {
+    ArrayList<ReducerTestCase> test_cases = new ArrayList<ReducerTestCase>();
+    test_cases.add(reducerNoUpdatesTest());
+    //test_cases.add(reducerSimpleMergeTest());
+    //test_cases.add(reducerTwoMergeTest());
+    PairMarkReducer reducer = new PairMarkReducer();
+
+    JobConf job = new JobConf(PairMarkReducer.class);
+
+    reducer.configure(job);
+
+    ReporterMock reporter_mock = new ReporterMock();
+    Reporter reporter = reporter_mock;
+
+    for (ReducerTestCase test_case: test_cases) {
+
+      // We need a new collector for each invocation because the
+      // collector stores the outputs of the mapper.
+      AvroCollectorMock<NodeInfoForMerge> collector_mock =
+        new AvroCollectorMock<NodeInfoForMerge>();
+
+      try {
+        reducer.reduce(
+            test_case.reducer_key, test_case.input, collector_mock, reporter);
+      }
+      catch (IOException exception){
+        fail("IOException occured in map: " + exception.getMessage());
+      }
+
+      assertReducerTestCase(test_case, collector_mock);
+    }
+  }
 //
 //  @Test
 //  public void testRun() {

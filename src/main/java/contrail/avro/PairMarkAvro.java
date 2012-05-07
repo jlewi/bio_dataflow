@@ -31,8 +31,6 @@ import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
 import contrail.graph.TailData;
 import contrail.sequences.DNAStrand;
-import contrail.sequences.StrandsForEdge;
-import contrail.sequences.StrandsUtil;
 
 
 /**
@@ -590,7 +588,7 @@ public class PairMarkAvro extends Stage {
 
       for (EdgeUpdateForMerge edge_update: edge_updates) {
         EdgeTerminal old_terminal = new EdgeTerminal(
-            edge_update.getOldId(), edge_update.getOldStrand());
+            edge_update.getOldId().toString(), edge_update.getOldStrand());
 
         DNAStrand strand = graph_node.findStrandWithEdgeToTerminal(
             old_terminal, EdgeDirection.OUTGOING);
