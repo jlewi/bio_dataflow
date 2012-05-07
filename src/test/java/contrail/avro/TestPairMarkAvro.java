@@ -405,199 +405,72 @@ public class TestPairMarkAvro extends PairMarkAvro {
 
     return test_case;
   }
-//
-//  private ReducerTestCase reducerSimpleMergeTest() {
-//    // Construct a simple reduce test case in which two nodes are merged.
-//    // TODO(jlewi): We should really randomize this so we cover more cases.
-//    ReducerTestCase test_case = new ReducerTestCase();
-//    test_case.K = 3;
-//
-//    SimpleGraphBuilder builder = new SimpleGraphBuilder();
-//    // We will merge node ACT and CTT
-//    builder.addKMersForString("ACTT", test_case.K);
-//
-//    // Add some incoming/outgoing edges so that we have edges that need to
-//    // be updated.
-//    builder.addEdge("CAC", "ACT", test_case.K - 1);
-//    builder.addEdge("GAC", "ACT", test_case.K - 1);
-//    builder.addEdge("CTT", "TTA", test_case.K - 1);
-//
-//    test_case.input = new ArrayList<CompressibleNodeData>();
-//    {
-//      GraphNode node = builder.getNode(builder.findNodeIdForSequence("ACT"));
-//      CompressibleNodeData merge_data = new CompressibleNodeData();
-//      merge_data.setCompressibleStrands(CompressibleStrands.FORWARD);
-//      merge_data.setNode(node.clone().getData());
-//      test_case.input.add(merge_data);
-//    }
-//    {
-//      GraphNode node = builder.getNode(builder.findNodeIdForSequence("CTT"));
-//      CompressibleNodeData merge_data = new CompressibleNodeData();
-//      merge_data.setCompressibleStrands(CompressibleStrands.BOTH);
-//      merge_data.setNode(node.clone().getData());
-//      test_case.input.add(merge_data);
-//    }
-//
-//    // Construct the expected output.
-//    // The sequence ACTT is the reverse strand.
-//    GraphNode merged_node = new GraphNode();
-//    Sequence merged_sequence =
-//        new Sequence("ACTT", DNAAlphabetFactory.create());
-//    merged_node.setCanonicalSequence(DNAUtil.canonicalseq(merged_sequence));
-//    merged_node.addIncomingEdge(
-//        DNAStrand.REVERSE, new EdgeTerminal("CAC", DNAStrand.FORWARD));
-//    merged_node.addIncomingEdge(
-//        DNAStrand.REVERSE, new EdgeTerminal("GAC", DNAStrand.FORWARD));
-//
-//    merged_node.addOutgoingEdge(
-//        DNAStrand.REVERSE, new EdgeTerminal("TAA", DNAStrand.REVERSE));
-//    merged_node.setNodeId(builder.findNodeIdForSequence("CTT"));
-//
-//    test_case.reducer_key = merged_node.getNodeId();
-//
-//    CompressibleNodeData node_data = new CompressibleNodeData();
-//    node_data.setNode(merged_node.clone().getData());
-//    node_data.setCompressibleStrands(CompressibleStrands.REVERSE);
-//    test_case.expected_output = new PairMergeOutput();
-//    test_case.expected_output.setCompressibleNode(node_data);
-//    test_case.expected_output.setUpdateMessages(
-//        new ArrayList<EdgeUpdateAfterMerge>());
-//
-//    // Add the messages
-//    {
-//     EdgeUpdateAfterMerge update = new EdgeUpdateAfterMerge();
-//     update.setNodeToUpdate(builder.findNodeIdForSequence("GAC"));
-//     update.setOldTerminalId(builder.findNodeIdForSequence("ACT"));
-//     update.setNewTerminalId(merged_node.getNodeId());
-//     update.setOldStrands(StrandsForEdge.FF);
-//     update.setNewStrands(StrandsForEdge.FR);
-//
-//     test_case.expected_output.getUpdateMessages().add(update);
-//    }
-//
-//    {
-//      EdgeUpdateAfterMerge update = new EdgeUpdateAfterMerge();
-//      update.setNodeToUpdate(builder.findNodeIdForSequence("CAC"));
-//      update.setOldTerminalId(builder.findNodeIdForSequence("ACT"));
-//      update.setNewTerminalId(merged_node.getNodeId());
-//      update.setOldStrands(StrandsForEdge.FF);
-//      update.setNewStrands(StrandsForEdge.FR);
-//
-//      test_case.expected_output.getUpdateMessages().add(update);
-//    }
-//
-//    {
-//      EdgeUpdateAfterMerge update = new EdgeUpdateAfterMerge();
-//      update.setNodeToUpdate(builder.findNodeIdForSequence("TTA"));
-//      update.setOldTerminalId(builder.findNodeIdForSequence("CTT"));
-//      update.setNewTerminalId(merged_node.getNodeId());
-//
-//      // The old edge is RC(CTT->TTA) TAA->AAG (FF)
-//      // The merged sequence is AAGT = RC(ACTT)
-//      update.setOldStrands(StrandsForEdge.FF);
-//      update.setNewStrands(StrandsForEdge.FF);
-//
-//      test_case.expected_output.getUpdateMessages().add(update);
-//     }
-//
-//    return test_case;
-//  }
-//
-//  private ReducerTestCase reducerTwoMergeTest() {
-//    // Construct a test case where two nodes are merged into another node.
-//    // i.e we have the chain A->B-C, and nodes A,C get sent to B to be
-//    // merged.
-//    ReducerTestCase test_case = new ReducerTestCase();
-//    test_case.K = 3;
-//
-//    SimpleGraphBuilder builder = new SimpleGraphBuilder();
-//    // AAT->ATC>TCT
-//    builder.addKMersForString("AATCT", test_case.K);
-//
-//    // Add some incoming/outgoing edges so that we have edges that need to
-//    // be updated.
-//    builder.addEdge("TAA", "AAT", test_case.K - 1);
-//    builder.addEdge("TCT", "CTT", test_case.K - 1);
-//
-//    test_case.input = new ArrayList<CompressibleNodeData>();
-//    {
-//      GraphNode node = builder.getNode(builder.findNodeIdForSequence("AAT"));
-//      CompressibleNodeData merge_data = new CompressibleNodeData();
-//      merge_data.setCompressibleStrands(CompressibleStrands.BOTH);
-//      merge_data.setNode(node.clone().getData());
-//      test_case.input.add(merge_data);
-//    }
-//    {
-//      GraphNode node = builder.getNode(builder.findNodeIdForSequence("ATC"));
-//      CompressibleNodeData merge_data = new CompressibleNodeData();
-//      merge_data.setCompressibleStrands(CompressibleStrands.BOTH);
-//      merge_data.setNode(node.clone().getData());
-//      test_case.input.add(merge_data);
-//    }
-//    {
-//      GraphNode node = builder.getNode(builder.findNodeIdForSequence("TCT"));
-//      CompressibleNodeData merge_data = new CompressibleNodeData();
-//      merge_data.setCompressibleStrands(CompressibleStrands.BOTH);
-//      merge_data.setNode(node.clone().getData());
-//      test_case.input.add(merge_data);
-//    }
-//    // Construct the expected output.
-//    GraphNode merged_node = new GraphNode();
-//    Sequence merged_sequence =
-//        new Sequence("AATCT", DNAAlphabetFactory.create());
-//    merged_node.setCanonicalSequence(DNAUtil.canonicalseq(merged_sequence));
-//    merged_node.addIncomingEdge(
-//        DNAStrand.FORWARD, new EdgeTerminal("TAA", DNAStrand.FORWARD));
-//    merged_node.addOutgoingEdge(
-//        DNAStrand.FORWARD, new EdgeTerminal("AAG", DNAStrand.REVERSE));
-//    merged_node.setNodeId(builder.findNodeIdForSequence("ATC"));
-//
-//    test_case.reducer_key = merged_node.getNodeId();
-//
-//    CompressibleNodeData node_output = new CompressibleNodeData();
-//    node_output.setCompressibleStrands(CompressibleStrands.BOTH);
-//    node_output.setNode(merged_node.clone().getData());
-//    test_case.expected_output = new PairMergeOutput();
-//    test_case.expected_output.setCompressibleNode(node_output);
-//    test_case.expected_output.setUpdateMessages(
-//        new ArrayList<EdgeUpdateAfterMerge>());
-//
-//    // Add the messages
-//    {
-//     // Old Edge: TAA ->AAT
-//     // New Edge: TAA ->AATCT
-//     EdgeUpdateAfterMerge update = new EdgeUpdateAfterMerge();
-//     update.setNodeToUpdate(builder.findNodeIdForSequence("TAA"));
-//     update.setOldTerminalId(builder.findNodeIdForSequence("AAT"));
-//     update.setNewTerminalId(merged_node.getNodeId());
-//     update.setOldStrands(StrandsForEdge.FF);
-//     update.setNewStrands(StrandsForEdge.FF);
-//
-//     test_case.expected_output.getUpdateMessages().add(update);
-//    }
-//
-//    {
-//      // Old Edge: AAG -> AGA
-//      // New Edge: AAG -> AGATT
-//      EdgeUpdateAfterMerge update = new EdgeUpdateAfterMerge();
-//      update.setNodeToUpdate(builder.findNodeIdForSequence("AAG"));
-//      update.setOldTerminalId(builder.findNodeIdForSequence("AGA"));
-//      update.setNewTerminalId(merged_node.getNodeId());
-//      update.setOldStrands(StrandsForEdge.FF);
-//      update.setNewStrands(StrandsForEdge.FR);
-//
-//      test_case.expected_output.getUpdateMessages().add(update);
-//     }
-//
-//    return test_case;
-//  }
-//
+
+  private ReducerTestCase reducerUpdateTest() {
+    // Construct a simple reduce test case in which one edge of the node
+    // gets merged.
+    ReducerTestCase test_case = new ReducerTestCase();
+
+    test_case.input = new ArrayList<PairMarkOutput>();
+    GraphNode node = new GraphNode();
+    GraphNode output_node = null;
+    node.setNodeId("somenode");
+    Sequence sequence = new Sequence("ACG", DNAAlphabetFactory.create());
+    node.setSequence(sequence);
+
+    // Add two outgoing edges.
+    EdgeTerminal terminal1 = new EdgeTerminal("node1", DNAStrand.FORWARD);
+    EdgeTerminal terminal2 = new EdgeTerminal("node2", DNAStrand.REVERSE);
+    node.addOutgoingEdge(DNAStrand.FORWARD, terminal1);
+
+    // Clone the node before adding the edge that will be moved.
+    output_node = node.clone();
+    node.addOutgoingEdge(DNAStrand.FORWARD, terminal2);
+
+    EdgeUpdateForMerge edge_update = new EdgeUpdateForMerge();
+    edge_update.setOldId("node2");
+    edge_update.setOldStrand(DNAStrand.REVERSE);
+    edge_update.setNewId("node3");
+    edge_update.setNewStrand(DNAStrand.FORWARD);
+
+    EdgeTerminal terminal3 = new EdgeTerminal("node3", DNAStrand.FORWARD);
+    output_node.addOutgoingEdge(DNAStrand.FORWARD, terminal3);
+    test_case.reducer_key = node.getNodeId();
+
+    CompressibleNodeData input_data = new CompressibleNodeData();
+    input_data.setNode(node.getData());
+    input_data.setCompressibleStrands(CompressibleStrands.REVERSE);
+    NodeInfoForMerge input_node = new NodeInfoForMerge();
+    input_node.setCompressibleNode(input_data);
+    input_node.setStrandToMerge(CompressibleStrands.REVERSE);
+
+    PairMarkOutput map_output_node = new PairMarkOutput();
+    map_output_node.setPayload(input_node);
+
+    PairMarkOutput map_output_update = new PairMarkOutput();
+    map_output_update.setPayload(edge_update);
+
+    test_case.input.add(map_output_node);
+    test_case.input.add(map_output_update);
+
+
+    test_case.expected_output = new NodeInfoForMerge();
+    test_case.expected_output.setCompressibleNode(
+        new CompressibleNodeData());
+    test_case.expected_output.getCompressibleNode().setNode(
+        output_node.getData());
+    test_case.expected_output.getCompressibleNode().setCompressibleStrands(
+        CompressibleStrands.REVERSE);
+    test_case.expected_output.setStrandToMerge(CompressibleStrands.REVERSE);
+
+    return test_case;
+  }
+
   @Test
   public void testReducer() {
     ArrayList<ReducerTestCase> test_cases = new ArrayList<ReducerTestCase>();
     test_cases.add(reducerNoUpdatesTest());
-    //test_cases.add(reducerSimpleMergeTest());
-    //test_cases.add(reducerTwoMergeTest());
+    test_cases.add(reducerUpdateTest());
     PairMarkReducer reducer = new PairMarkReducer();
 
     JobConf job = new JobConf(PairMarkReducer.class);
