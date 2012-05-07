@@ -419,7 +419,7 @@ public class PairMarkAvro extends Stage {
   }
 
   protected static class PairMarkReducer extends
-    AvroReducer <CharSequence, CompressibleNodeData, NodeInfoForMerge> {
+    AvroReducer <CharSequence, PairMarkOutput, NodeInfoForMerge> {
 
     // The output for the reducer.
     private NodeInfoForMerge output_node;
@@ -632,9 +632,6 @@ public class PairMarkAvro extends Stage {
     if (line.hasOption("outputpath")) {
       stage_options.put("outputpath", line.getOptionValue("outputpath"));
     }
-    if (line.hasOption("K")) {
-      stage_options.put("K", Long.valueOf(line.getOptionValue("K")));
-    }
     if (line.hasOption("randseed")) {
       stage_options.put(
           "randseed", Long.valueOf(line.getOptionValue("randseed")));
@@ -649,20 +646,18 @@ public class PairMarkAvro extends Stage {
 
   @Override
   protected int run() throws Exception {
-    String[] required_args = {"inputpath", "outputpath", "K", "randseed"};
+    String[] required_args = {"inputpath", "outputpath", "randseed"};
     checkHasOptionsOrDie(required_args);
 
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
-    long K = (Long)stage_options.get("K");
     long randseed = (Long)stage_options.get("randseed");
 
     sLogger.info(" - input: "  + inputPath);
     sLogger.info(" - output: " + outputPath);
-    sLogger.info(" - K: " + K);
     sLogger.info(" - randseed: " + randseed);
     JobConf conf = new JobConf(PairMarkAvro.class);
-    conf.setJobName("PairMarkAvro " + inputPath + " " + K);
+    conf.setJobName("PairMarkAvro " + inputPath);
 
     initializeJobConfiguration(conf);
 
@@ -670,10 +665,10 @@ public class PairMarkAvro extends Stage {
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
     CompressibleNodeData compressible_node = new CompressibleNodeData();
-    Pair<CharSequence, CompressibleNodeData> map_output =
-        new Pair<CharSequence, CompressibleNodeData>
-          ("", new CompressibleNodeData());
-    PairMarkOutput reducer_output = new PairMarkOutput();
+    Pair<CharSequence, PairMarkOutput> map_output =
+        new Pair<CharSequence, PairMarkOutput>
+          ("", new PairMarkOutput());
+    NodeInfoForMerge reducer_output = new NodeInfoForMerge();
     AvroJob.setInputSchema(conf, compressible_node.getSchema());
     AvroJob.setMapOutputSchema(conf, map_output.getSchema());
     AvroJob.setOutputSchema(conf, reducer_output.getSchema());
