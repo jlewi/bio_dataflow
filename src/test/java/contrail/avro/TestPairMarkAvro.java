@@ -215,59 +215,70 @@ public class TestPairMarkAvro extends PairMarkAvro {
     test_case.flipper = new CoinFlipper(12);
     return test_case;
   }
-//
-//  private MapperTestCase mapperConvertDownToUpTest() {
-//    // Construct a chain of 3 nodes all assigned down.
-//    // Check that we properly convert the node in the middle to up.
-//    SimpleGraphBuilder builder = new SimpleGraphBuilder();
-//
-//    // Add the three nodes. We need to assign the node in the middle
-//    // a node id less than the two terminals.
-//    builder.addNode("node_1", "ACT");
-//    builder.addNode("node_0", "CTG");
-//    builder.addNode("node_2", "TGA");
-//
-//    builder.addEdge("ACT", "CTG", 2);
-//    builder.addEdge("CTG", "TGA", 2);
-//
-//    MapperTestCase test_case = new MapperTestCase();
-//
-//    CoinFlipperFixed flipper = new CoinFlipperFixed();
-//    test_case.flipper = flipper;
-//    for (GraphNode node: builder.getAllNodes().values()) {
-//      CompressibleNodeData data = new CompressibleNodeData();
-//      data.setNode(node.getData());
-//
-//      // Nodes are all compressible.
-//      data.setCompressibleStrands(
-//          isCompressible(builder.getAllNodes(), node.getNodeId()));
-//      test_case.input.add(data);
-//
-//      CompressibleNodeData output = new CompressibleNodeData();
-//      output.setNode(node.clone().getData());
-//
-//      // The output key for the reducer.
-//      String target_nodeid = "";
-//      if (node.getNodeId().equals("node_0")) {
-//        target_nodeid = "node_1";
-//        output.setCompressibleStrands(CompressibleStrands.BOTH);
-//      } else if (node.getNodeId().equals("node_1")) {
-//        target_nodeid = node.getNodeId();
-//        output.setCompressibleStrands(CompressibleStrands.FORWARD);
-//      } else if (node.getNodeId().equals("node_2")) {
-//        target_nodeid = node.getNodeId();
-//        output.setCompressibleStrands(CompressibleStrands.FORWARD);
-//      }
-//      // Up node is sent to the down node.
-//      test_case.expected_output.put(node.getNodeId(),
-//          new Pair<CharSequence, CompressibleNodeData>(target_nodeid, output));
-//
-//      // All nodes assigned down.
-//      flipper.tosses.put(
-//          node.getNodeId(), CoinFlipper.CoinFlip.Down);
-//    }
-//    return test_case;
-//  }
+
+  private MapperTestCase mapperConvertDownToUpTest() {
+    // Construct a chain of 3 nodes all assigned down.
+    // Check that we properly convert the node in the middle to up.
+    SimpleGraphBuilder builder = new SimpleGraphBuilder();
+
+    // Add the three nodes. We need to assign the node in the middle
+    // a node id less than the two terminals.
+    builder.addNode("node_1", "ACT");
+    builder.addNode("node_0", "CTG");
+    builder.addNode("node_2", "TGA");
+
+    builder.addEdge("ACT", "CTG", 2);
+    builder.addEdge("CTG", "TGA", 2);
+
+    String middle_id = builder.findNodeIdForSequence("CTG");
+
+    MapperTestCase test_case = new MapperTestCase();
+
+    CoinFlipperFixed flipper = new CoinFlipperFixed();
+    test_case.flipper = flipper;
+    for (GraphNode node: builder.getAllNodes().values()) {
+      CompressibleNodeData data = new CompressibleNodeData();
+      data.setNode(node.getData());
+
+      // Nodes are all compressible.
+      data.setCompressibleStrands(
+          isCompressible(builder.getAllNodes(), node.getNodeId()));
+
+      MapperInputOutput input_output = new MapperInputOutput();
+      test_case.inputs_outputs.put(node.getNodeId(), input_output);
+      input_output.input_node = data;
+
+      NodeInfoForMerge output = new NodeInfoForMerge();
+      output.setCompressibleNode(CompressUtil.copyCompressibleNode(data));
+      input_output.output_node = output;
+
+      if (node.getNodeId().equals(middle_id)) {
+        output.setStrandToMerge(CompressibleStrands.FORWARD);
+      } else {
+        output.setStrandToMerge(CompressibleStrands.NONE);
+      }
+
+      if (node.getNodeId().equals(middle_id)) {
+        EdgeUpdateForMerge edge_update = new EdgeUpdateForMerge();
+        edge_update.setOldId(node.getNodeId());
+        edge_update.setOldStrand(DNAStrand.FORWARD);
+
+        EdgeTerminal new_terminal = node.getEdgeTerminals(
+            DNAStrand.FORWARD, EdgeDirection.OUTGOING).get(0);
+        edge_update.setNewId(new_terminal.nodeId);
+        edge_update.setNewStrand(new_terminal.strand);
+
+        EdgeTerminal update_terminal = node.getEdgeTerminals(
+            DNAStrand.FORWARD, EdgeDirection.INCOMING).get(0);
+
+        input_output.edge_updates.put(update_terminal.nodeId, edge_update);
+      }
+      // All nodes assigned down.
+      flipper.tosses.put(
+          node.getNodeId(), CoinFlipper.CoinFlip.Down);
+    }
+    return test_case;
+  }
 
   // Check the output of the mapper matches the expected result.
   private void assertMapperOutput(
@@ -304,7 +315,7 @@ public class TestPairMarkAvro extends PairMarkAvro {
     ArrayList<MapperTestCase> test_cases = new ArrayList<MapperTestCase>();
     test_cases.add(mapperNoMergeTest());
     test_cases.add(simpleMapperTest());
-//    test_cases.add(mapperConvertDownToUpTest());
+    test_cases.add(mapperConvertDownToUpTest());
 
     PairMarkMapper mapper = new PairMarkMapper();
 
