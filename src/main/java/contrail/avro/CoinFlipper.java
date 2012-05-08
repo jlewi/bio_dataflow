@@ -5,7 +5,7 @@ import java.util.Random;
 /**
  * The CoinFlipper class maps a string to a random value. The random
  * value is based on a seed and the string passed in. This class is
- * primarily used by PairMergeAvro to determine which pairs of nodes can
+ * primarily used by PairMarkAvro to determine which pairs of nodes can
  * be merged.
  */
 public class CoinFlipper {
@@ -18,10 +18,13 @@ public class CoinFlipper {
     randseed = seed;
   }
 
-  // We don't use Heads and Tails because we already
-  // use tails to refer to tails of a node. We don't want to use
-  // Male/Female because the abbreviation "F" gets confused with the
-  // forward strand of DNA. So we use Up and Down.
+  /**
+   * Enumeration defines the state for compressible nodes.
+   * We don't use Heads and Tails because we already
+   * use tails to refer to tails of a node. We don't want to use
+   * Male/Female because the abbreviation "F" gets confused with the
+   * forward strand of DNA. So we use Up and Down.
+   */
   public enum CoinFlip {
     Up, Down;
   }

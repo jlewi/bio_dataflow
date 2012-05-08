@@ -5,7 +5,6 @@ import contrail.sequences.DNAStrand;
 
 /**
  * A collection of routines used by the stages for compressing linear chains.
- *
  */
 public class CompressUtil {
   /**
@@ -33,7 +32,7 @@ public class CompressUtil {
   /**
    * Make a copy of a CompressibleNodeData record.
    *
-   * Note: Eventually we will just use Avro methods once the following issue
+   * Note: Eventually we will just use AVRO methods once the following issue
    * is resolved.
    * https://issues.apache.org/jira/browse/AVRO-1045.
    * @param node
