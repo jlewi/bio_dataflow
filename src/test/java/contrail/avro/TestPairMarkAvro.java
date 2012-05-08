@@ -1,3 +1,4 @@
+// Author: Jeremy Lewi
 package contrail.avro;
 
 import static org.junit.Assert.*;
@@ -28,7 +29,7 @@ import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.Sequence;
 
-// Extend PairMergeAvro so we can access the mapper and reducer.
+/** Extend PairMergeAvro so we can access the mapper and reducer.*/
 public class TestPairMarkAvro extends PairMarkAvro {
   // A CoinFlipper which is not random but uses a hash table to map
   // strings to coin flips. This makes it easy to control the tosses assigned
@@ -48,7 +49,7 @@ public class TestPairMarkAvro extends PairMarkAvro {
     }
   }
 
-  // Return true if the strand of the specified node is compressible.
+  // Returns true if the strand of the specified node is compressible.
   // This is used to setup some of the test cases.
   private boolean isCompressibleStrand(
       Map<String, GraphNode> nodes, String nodeid, DNAStrand strand) {
@@ -104,7 +105,7 @@ public class TestPairMarkAvro extends PairMarkAvro {
     return CompressibleStrands.NONE;
   }
 
-  // Class to contain the input and output pairs used for the mapper.
+  // Class to contain the input and output pairs for the mapper.
   private static class MapperInputOutput {
     public MapperInputOutput () {
       edge_updates = new HashMap<String, EdgeUpdateForMerge>();
@@ -121,9 +122,7 @@ public class TestPairMarkAvro extends PairMarkAvro {
     }
     // The various input/output sets for this test case.
     // The key is typically the id of the node processed as input.
-
     public HashMap<String, MapperInputOutput> inputs_outputs;
-
 
     // The flipper to use in the test.
     public CoinFlipper flipper;
@@ -132,7 +131,6 @@ public class TestPairMarkAvro extends PairMarkAvro {
   private MapperTestCase simpleMapperTest() {
     // Construct the simplest mapper test case.
     // We have three nodes assigned the states Down, Up, Down.
-
     SimpleGraphBuilder builder = new SimpleGraphBuilder();
     builder.addKMersForString("AACTG", 3);
 
@@ -171,7 +169,7 @@ public class TestPairMarkAvro extends PairMarkAvro {
     flipper.tosses.put(
         builder.findNodeIdForSequence("CTG"), CoinFlipper.CoinFlip.Down);
 
-    // For the middle node we need to add the edge update.
+    // For the middle node we need to add the edge update to the output.
     String up_id = builder.findNodeIdForSequence("ACT");
     GraphNode up_node = builder.getNode(up_id);
 
@@ -293,8 +291,10 @@ public class TestPairMarkAvro extends PairMarkAvro {
       MapperInputOutput input_output,
       AvroCollectorMock<Pair<CharSequence, PairMarkOutput>>
           collector_mock) {
+    // The mapper should output the edge updates and the node.
     int num_expected_outputs = input_output.edge_updates.size() + 1;
     assertEquals(num_expected_outputs, collector_mock.data.size());
+
     String input_id = input_output.input_node.getNode().getNodeId().toString();
     HashMap<String, EdgeUpdateForMerge> edge_updates =
         new HashMap<String, EdgeUpdateForMerge>();
@@ -402,7 +402,6 @@ public class TestPairMarkAvro extends PairMarkAvro {
     mapper_output.setPayload(out_node);
     test_case.input.add(mapper_output);
 
-
     test_case.expected_output = new NodeInfoForMerge();
     test_case.expected_output.setCompressibleNode(
         CompressUtil.copyCompressibleNode(merge_data));    ;
@@ -412,8 +411,8 @@ public class TestPairMarkAvro extends PairMarkAvro {
   }
 
   private ReducerTestCase reducerUpdateTest() {
-    // Construct a simple reduce test case in which one edge of the node
-    // gets merged.
+    // Construct a simple reduce test case in which one edge is connected
+    // to a node which gets merged. So the edge needs to be moved.
     ReducerTestCase test_case = new ReducerTestCase();
 
     test_case.input = new ArrayList<PairMarkOutput>();
@@ -458,7 +457,6 @@ public class TestPairMarkAvro extends PairMarkAvro {
     test_case.input.add(map_output_node);
     test_case.input.add(map_output_update);
 
-
     test_case.expected_output = new NodeInfoForMerge();
     test_case.expected_output.setCompressibleNode(
         new CompressibleNodeData());
@@ -486,7 +484,6 @@ public class TestPairMarkAvro extends PairMarkAvro {
     Reporter reporter = reporter_mock;
 
     for (ReducerTestCase test_case: test_cases) {
-
       // We need a new collector for each invocation because the
       // collector stores the outputs of the mapper.
       AvroCollectorMock<NodeInfoForMerge> collector_mock =
@@ -506,7 +503,7 @@ public class TestPairMarkAvro extends PairMarkAvro {
 
   @Test
   public void testRun() {
-    // This function tests that we can run the job without errors.
+    // This function tests that we can run the MR job without errors.
     // It doesn't test for correctness.
     MapperTestCase test_case = this.mapperConvertDownToUpTest();
 
