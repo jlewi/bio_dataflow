@@ -198,7 +198,7 @@ public class PairMarkAvro extends Stage {
       if (fbuddy != null) {
         CoinFlipper.CoinFlip f_flip = flipper.flip(fbuddy.terminal.nodeId);
 
-        if (f_flip == CoinFlipper.CoinFlip.Down) {
+        if (f_flip == CoinFlipper.CoinFlip.DOWN) {
           // We can compress the forward strand.
           return new EdgeToCompress(fbuddy.terminal, DNAStrand.FORWARD);
         }
@@ -209,7 +209,7 @@ public class PairMarkAvro extends Stage {
       if (rbuddy != null) {
         CoinFlipper.CoinFlip r_flip = flipper.flip(rbuddy.terminal.nodeId);
 
-        if (r_flip == CoinFlipper.CoinFlip.Down) {
+        if (r_flip == CoinFlipper.CoinFlip.DOWN) {
           return new EdgeToCompress(rbuddy.terminal, DNAStrand.REVERSE);
         }
       }
@@ -254,8 +254,8 @@ public class PairMarkAvro extends Stage {
         CoinFlipper.CoinFlip f_flip = flipper.flip(fbuddy.terminal.nodeId);
         CoinFlipper.CoinFlip r_flip = flipper.flip(rbuddy.terminal.nodeId);
 
-        if (f_flip == CoinFlipper.CoinFlip.Down &&
-            r_flip == CoinFlipper.CoinFlip.Down &&
+        if (f_flip == CoinFlipper.CoinFlip.DOWN &&
+            r_flip == CoinFlipper.CoinFlip.DOWN &&
             (node.getNodeId().compareTo(
                 fbuddy.terminal.nodeId) < 0) &&
                 (node.getNodeId().compareTo(
@@ -284,7 +284,7 @@ public class PairMarkAvro extends Stage {
       }
 
       CoinFlipper.CoinFlip flip = flipper.flip(neighbor);
-      if (flip == CoinFlipper.CoinFlip.Down && (
+      if (flip == CoinFlipper.CoinFlip.DOWN && (
           node.getNodeId().compareTo(neighbor) < 0)) {
         return true;
       }
@@ -302,12 +302,12 @@ public class PairMarkAvro extends Stage {
       CoinFlipper.CoinFlip coin = flipper.flip(node.getNodeId());
       // If this node is randomly assigned Down, see if it can be converted
       // to up.
-      if (coin == CoinFlipper.CoinFlip.Up) {
+      if (coin == CoinFlipper.CoinFlip.UP) {
         return coin;
       }
 
       if (convertDownToUp(node, fbuddy, rbuddy)) {
-        return CoinFlipper.CoinFlip.Up;
+        return CoinFlipper.CoinFlip.UP;
       }
       return coin;
     }
@@ -335,7 +335,7 @@ public class PairMarkAvro extends Stage {
       CoinFlipper.CoinFlip coin = computeState(
           compressible_node.getNode(), fbuddy, rbuddy);
 
-      if (coin == CoinFlipper.CoinFlip.Down) {
+      if (coin == CoinFlipper.CoinFlip.DOWN) {
         // Just output this node since this is a Down node.
         out_pair.key(compressible_node.getNode().getNodeId());
         node_info_for_merge.setCompressibleNode(node_data);

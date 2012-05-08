@@ -26,7 +26,7 @@ public class CoinFlipper {
    * forward strand of DNA. So we use Up and Down.
    */
   public enum CoinFlip {
-    Up, Down;
+    UP, DOWN;
   }
 
   /**
@@ -39,7 +39,7 @@ public class CoinFlipper {
     rfactory.setSeed(string_seed.hashCode() ^ randseed);
 
     double rand = rfactory.nextDouble();
-    CoinFlip side = (rand >= .5) ? CoinFlip.Up : CoinFlip.Down;
+    CoinFlip side = (rand >= .5) ? CoinFlip.UP : CoinFlip.DOWN;
     return side;
   }
 

@@ -163,11 +163,11 @@ public class TestPairMarkAvro extends PairMarkAvro {
     CoinFlipperFixed flipper = new CoinFlipperFixed();
     test_case.flipper = flipper;
     flipper.tosses.put(
-        builder.findNodeIdForSequence("AAC"), CoinFlipper.CoinFlip.Down);
+        builder.findNodeIdForSequence("AAC"), CoinFlipper.CoinFlip.DOWN);
     flipper.tosses.put(
-        builder.findNodeIdForSequence("ACT"), CoinFlipper.CoinFlip.Up);
+        builder.findNodeIdForSequence("ACT"), CoinFlipper.CoinFlip.UP);
     flipper.tosses.put(
-        builder.findNodeIdForSequence("CTG"), CoinFlipper.CoinFlip.Down);
+        builder.findNodeIdForSequence("CTG"), CoinFlipper.CoinFlip.DOWN);
 
     // For the middle node we need to add the edge update to the output.
     String up_id = builder.findNodeIdForSequence("ACT");
@@ -281,7 +281,7 @@ public class TestPairMarkAvro extends PairMarkAvro {
       }
       // All nodes assigned down.
       flipper.tosses.put(
-          node.getNodeId(), CoinFlipper.CoinFlip.Down);
+          node.getNodeId(), CoinFlipper.CoinFlip.DOWN);
     }
     return test_case;
   }
