@@ -3,6 +3,7 @@ package contrail.graph;
 import java.util.List;
 
 import contrail.sequences.DNAStrand;
+import contrail.sequences.DNAStrandUtil;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
 import contrail.sequences.StrandsForEdge;
@@ -18,7 +19,7 @@ import contrail.sequences.StrandsUtil;
  * 3. We all the R5Tags.
  */
 public class NodeReverser {
-  public GraphNode flip(GraphNode input_node) {
+  public GraphNode reverse(GraphNode input_node) {
     input = input_node;
 
     // We start by copying the input node. This way all fields that dont'
@@ -44,7 +45,8 @@ public class NodeReverser {
         StrandsForEdge old_strands = edge_data.getStrands();
         DNAStrand src_strand = StrandsUtil.src(old_strands);
         DNAStrand dest_strand = StrandsUtil.dest(old_strands);
-        StrandsForEdge new_strands = StrandsUtil.form(src_strand, dest_strand);
+        StrandsForEdge new_strands = StrandsUtil.form(
+            DNAStrandUtil.flip(src_strand), dest_strand);
         edge_data.setStrands(new_strands);
       }
     }
@@ -55,7 +57,11 @@ public class NodeReverser {
    * actual reads.
    */
   protected void reverseReadTags() {
-
+    GraphNodeData node_data = output.getData();
+    int length = output.getSequence().size();
+    for (R5Tag tag: node_data.getR5Tags()) {
+      R5TagUtil.reverse(tag, length);
+    }
   }
 
   /**
