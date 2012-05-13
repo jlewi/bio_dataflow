@@ -43,165 +43,43 @@ import contrail.sequences.StrandsUtil;
 public class PairMergeAvro extends Stage {
   private static final Logger sLogger = Logger.getLogger(PairMergeAvro.class);
 
-  /**
-   * A wrapper class for the CompressibleNodeData schema.
-   */
-  private static class CompressibleNode {
-    private CompressibleNodeData data;
-    private GraphNode node;
-
-    public CompressibleNode() {
-      // data gets set with setData.
-      data = null;
-      node = new GraphNode();
-    }
-    public void setData(CompressibleNodeData new_data) {
-      data = new_data;
-      node.setData(new_data.getNode());
-    }
-
-    public GraphNode getNode() {
-      return node;
-    }
-
-    /**
-     * Whether the given strand of the node can be compressed.
-     * @param strand
-     * @return
-     */
-    public boolean canCompress(DNAStrand strand){
-      if (data.getCompressibleStrands() == CompressibleStrands.BOTH) {
-        return true;
-      }
-      if (strand == DNAStrand.FORWARD &&
-          data.getCompressibleStrands() == CompressibleStrands.FORWARD) {
-        return true;
-      }
-      if (strand == DNAStrand.REVERSE &&
-          data.getCompressibleStrands() == CompressibleStrands.REVERSE) {
-        return true;
-      }
-      return false;
-    }
-  }
-
-  /**
-   * Convert the enumeration CompressibleStrands to the equivalent DNAStrand
-   * enumeration if possible.
-   * @param strands
-   * @return
-   */
-  protected static DNAStrand compressibleStrandsToDNAStrand(
-      CompressibleStrands strands) {
-    switch (strands) {
-      case BOTH:
-        return null;
-      case NONE:
-        return null;
-      case FORWARD:
-        return DNAStrand.FORWARD;
-      case REVERSE:
-        return DNAStrand.REVERSE;
-      default:
-        return null;
-    }
-  }
-
   protected static class PairMergeMapper extends
-  AvroMapper<CompressibleNodeData, Pair<CharSequence, CompressibleNodeData>> {
-    private CompressibleNode node;
-    private CoinFlipper flipper;
+  AvroMapper<NodeInfoForMerge, Pair<CharSequence, NodeInfoForMerge>> {
+    private GraphNode node;
+    private Pair<CharSequence, NodeInfoForMerge> out_pair;
     public void configure(JobConf job) {
-      node = new CompressibleNode();
-      flipper = new CoinFlipper(Long.parseLong(job.get("randseed")));
-      out_pair = new Pair<CharSequence, CompressibleNodeData>(
-          "", new CompressibleNodeData());
+      node = new GraphNode();
+      out_pair = new Pair<CharSequence, NodeInfoForMerge>(
+          "", new NodeInfoForMerge());
     }
 
-
-    public void map(CompressibleNodeData node_data,
-        AvroCollector<Pair<CharSequence, CompressibleNodeData>> collector,
+    public void map(NodeInfoForMerge node_info,
+        AvroCollector<Pair<CharSequence, NodeInfoForMerge>> collector,
         Reporter reporter) throws IOException {
-      node.setData(node_data);
-
-    }
-
-    /**
-     * Sets the coin flipper. This is primarily intended for use by the
-     * unittest.
-     */
-    public void setFlipper(CoinFlipper flipper) {
-      this.flipper = flipper;
+      // Get the id to send this node to.
+      CharSequence out_id =
+          node_info.getCompressibleNode().getNode().getNodeId();
+      if (node_info.getStrandToMerge() != CompressibleStrands.NONE) {
+        node.setData(node_info.getCompressibleNode().getNode());
+        DNAStrand strand = CompressUtil.compressibleStrandsToDNAStrand(
+            node_info.getStrandToMerge());
+        EdgeTerminal destination = node.getEdgeTerminals(
+            strand, EdgeDirection.OUTGOING).get(0);
+        out_id = destination.nodeId;
+      }
+      out_pair.key(out_id);
+      out_pair.value(node_info);
     }
   }
 
   protected static class PairMergeReducer extends
-    AvroReducer <CharSequence, CompressibleNodeData, PairMergeOutput> {
-
-    // The output for the reducer.
-    private PairMergeOutput output;
+    AvroReducer <CharSequence, NodeInfoForMerge, CompressibleNodeData> {
 
     // The length of the KMers.
     private int K;
 
     public void configure(JobConf job) {
       K = Integer.parseInt(job.get("K"));
-      output = new PairMergeOutput();
-      output.setUpdateMessages(new ArrayList<EdgeUpdateAfterMerge>());
-      output.setCompressibleNode(null);
-    }
-
-    /**
-     * Find the strand that connects strand this_strand of node
-     * to node other_node.
-     *
-     * @returns The strand on the other node or null if no edge exists.
-     */
-    public DNAStrand findTargetStrand(
-        GraphNode node, DNAStrand this_strand, String other_node) {
-      for (EdgeTerminal terminal:
-           node.getEdgeTerminals(this_strand, EdgeDirection.OUTGOING)) {
-        if (terminal.nodeId.equals(other_node)) {
-          return terminal.strand;
-        }
-      }
-      return null;
-    }
-
-    /**
-     * This function returns a list of the messages to update edges for the
-     * nodes which have been merged.
-     * @param node: The node that has been merged. This is the node
-     *   we get a list of edges that need to be updated.
-     * @param strand: The strand of node that has been merged.
-     * @param new_nodeid: The id for the new node that represents node.
-     * @param new_strand: The strand of the merged node corresponding to
-     *   strand of node.
-     * @return: A list of the update messages.
-     */
-    protected List<EdgeUpdateAfterMerge> updateMessagesForEdge(
-        GraphNode node, DNAStrand strand, String new_nodeid,
-        DNAStrand new_strand) {
-      List<EdgeUpdateAfterMerge> edge_updates =
-          new ArrayList<EdgeUpdateAfterMerge> ();
-      // For the source node, we need to update the incoming edges
-      // to the strand that was merged.
-      List<EdgeTerminal> incoming_terminals =
-          node.getEdgeTerminals(strand, EdgeDirection.INCOMING);
-
-      for (EdgeTerminal terminal: incoming_terminals) {
-        EdgeUpdateAfterMerge update = new EdgeUpdateAfterMerge();
-        update.setOldStrands(StrandsUtil.form(terminal.strand, strand));
-        update.setNewStrands(StrandsUtil.form(terminal.strand, new_strand));
-
-        update.setOldTerminalId(node.getNodeId());
-        update.setNewTerminalId(new_nodeid);
-
-        update.setNodeToUpdate(terminal.nodeId);
-
-        edge_updates.add(update);
-      }
-      return edge_updates;
     }
 
     /**
@@ -214,6 +92,7 @@ public class PairMergeAvro extends Stage {
      */
     protected CompressibleStrands isCompressible(
         ArrayList<ChainLink> chain, DNAStrand merged_strand) {
+      throw new RuntimeException("Need to update this code");
       // Now we need to determine whether the merged node is compressible.
       // The merged node is compressible if the ends of the chain are
       // compressible in both directions.
@@ -280,6 +159,7 @@ public class PairMergeAvro extends Stage {
      */
     protected void mergeChain(
         ArrayList<ChainLink> chain, String new_id) {
+      throw new RuntimeException("Need to update this code");
       // Check the chain and find out which strand of each node belongs in
       // the chain.
       GraphNode node = new GraphNode();
@@ -351,6 +231,10 @@ public class PairMergeAvro extends Stage {
      * should be compressed.
      */
     private class ChainLink {
+      public ChainLink(CompressibleNodeData node, DNAStrand strand) {
+        this.node = node;
+        this.compressible_strand = strand;
+      }
       CompressibleNodeData node;
       DNAStrand compressible_strand;
     }
@@ -359,70 +243,86 @@ public class PairMergeAvro extends Stage {
      * This function sorts the nodes into a chain that can be compressed.
      * The nodes in the returned chain are ordered such that strand[i]
      * of node[i] has an outgoing edge to strand[i + 1] of node[i + 1].
+     *
+     * The node assigned a state of DOWN is identifiable because
+     * strand_to_merge will be set to none.
      * @param nodes
      * @return
      */
     private ArrayList<ChainLink> sortNodes(
-        ArrayList<CompressibleNodeData> nodes) {
-      HashMap<String, CompressibleNodeData>
-        nodes_map = new HashMap<String, CompressibleNodeData>();
+        ArrayList<NodeInfoForMerge> nodes) {
+      List<NodeInfoForMerge> up_nodes = new ArrayList<NodeInfoForMerge>();
 
+      // Loop through the nodes and find the down nodes.
+      // Then order the nodes in the chain based on the down node.
+      String down_id = null;
+      // Keep track of the position in the chain of the node corresponding
+      // to the down node.
+      int down_index = -1;
       ArrayList<ChainLink> chain = new ArrayList<ChainLink> ();
-      for (CompressibleNodeData node: nodes) {
-        nodes_map.put(node.getNode().getNodeId().toString(), node);
+      for (NodeInfoForMerge node: nodes) {
+        String node_id =
+            node.getCompressibleNode().getNode().getNodeId().toString();
+        if (node.getStrandToMerge() == CompressibleStrands.NONE) {
+          // Sanity check a single node should of strandToMergeNonde
+          if (down_id != null) {
+            throw new RuntimeException(
+                "More than 1 node has strand_to_merge set to none.");
+          }
+          down_id = node_id;
+          // Always merge the forward strand of the down node.
+          ChainLink link = new ChainLink(
+              node.getCompressibleNode(), DNAStrand.FORWARD);
+          chain.add(link);
+          down_index = 0;
+        } else {
+          up_nodes.add(node);
+        }
       }
       GraphNode graph_node = new GraphNode();
 
-      // To sort the nodes we start by finding one end of the chain.
-      for (CompressibleNodeData node: nodes) {
-        graph_node.setData(node.getNode());
-        if (node.getCompressibleStrands() != CompressibleStrands.BOTH) {
-          // This node must be one end of the chain because it
-          // is compressible along a single direction.
-          ChainLink link = new ChainLink();
-          link.node = node;
-          link.compressible_strand =
-              compressibleStrandsToDNAStrand(node.getCompressibleStrands());
-          chain.add(link);
-          break;
+      // To sort the nodes we process each up node.
+      for (NodeInfoForMerge up_node: up_nodes) {
+        DNAStrand strand_to_merge =
+            CompressUtil.compressibleStrandsToDNAStrand(
+                up_node.getStrandToMerge());
+        graph_node.setData(up_node.getCompressibleNode().getNode());
+        List<EdgeTerminal> terminals = graph_node.getEdgeTerminals(
+            strand_to_merge, EdgeDirection.OUTGOING);
+        // Sanity check there should be a single edge.
+        if (terminals.size() != 0) {
+          throw new RuntimeException(
+              "Can't merge node:" + graph_node.getNodeId() + " along strand " +
+              strand_to_merge + " because there is more than 1 edge.");
         }
-        // Both strands must be compressible.
-        TailData f_tail = graph_node.getTail(
-            DNAStrand.FORWARD, EdgeDirection.OUTGOING);
-        TailData r_tail = graph_node.getTail(
-            DNAStrand.REVERSE, EdgeDirection.OUTGOING);
-
-        // If the nodes for both tails are provided then this is a middle
-        // node.
-        if (nodes_map.containsKey(f_tail.terminal.nodeId) &&
-            nodes_map.containsKey(r_tail.terminal.nodeId)) {
-          continue;
+        EdgeTerminal other_terminal = terminals.get(0);
+        // Sanity check.
+        if (!other_terminal.nodeId.equals(down_id)) {
+          throw new RuntimeException(
+              "The up node isn't connected to the down node along the strand " +
+              "to merge");
         }
-        ChainLink link = new ChainLink();
-        link.node = node;
-        if (nodes_map.containsKey(f_tail.terminal.nodeId)) {
-          link.compressible_strand = DNAStrand.FORWARD;
+        if (other_terminal.strand == DNAStrand.FORWARD) {
+         // Since this up node is merged with the forward strand of
+         // the down node we insert it before the down node.
+          ChainLink link = new ChainLink(
+              up_node.getCompressibleNode(), strand_to_merge);
+          // The down_node should be at position 0.
+          chain.add(0, link);
+          // Down node is shifted right.
+          ++down_index;
         } else {
-          link.compressible_strand = DNAStrand.REVERSE;
-        }
-        chain.add(link);
-        break;
-      }
+          // Since this up node is merged with the reverse strand of
+          // the up node, we need to take the reverse of strand to merge
+          // to get the strand of this node that is merged with the
+          // forward strand of the down node.
+          ChainLink link = new ChainLink(
+              up_node.getCompressibleNode(),
+              DNAStrandUtil.flip(strand_to_merge));
 
-      // Chain contains the first node in the chain. So we walk the chain
-      // in order to add the other nodes.
-      graph_node.setData(chain.get(0).node.getNode());
-      TailData tail = graph_node.getTail(
-          chain.get(0).compressible_strand, EdgeDirection.OUTGOING);
-      while (nodes_map.containsKey(tail.terminal.nodeId)) {
-        ChainLink link = new ChainLink();
-        link.node = nodes_map.get(tail.terminal.nodeId);
-        link.compressible_strand = tail.terminal.strand;
-        chain.add(link);
-        // Advance to the next node in the chain.
-        graph_node.setData(link.node.getNode());
-        tail = graph_node.getTail(
-            link.compressible_strand, EdgeDirection.OUTGOING);
+          // Insert this node after the down node
+          chain.add(down_index + 1, link);
+        }
       }
 
       // Sanity check. Check the size of the chain is correct.
@@ -435,26 +335,19 @@ public class PairMergeAvro extends Stage {
     }
 
     public void reduce(
-        CharSequence nodeid, Iterable<CompressibleNodeData> iterable,
-        AvroCollector<PairMergeOutput> collector, Reporter reporter)
+        CharSequence nodeid, Iterable<NodeInfoForMerge> iterable,
+        AvroCollector<CompressibleNodeData> collector, Reporter reporter)
             throws IOException {
-      Iterator<CompressibleNodeData> iter = iterable.iterator();
+      Iterator<NodeInfoForMerge> iter = iterable.iterator();
 
       // The nodes to merge.
-      ArrayList<CompressibleNodeData> nodes_to_merge =
-          new ArrayList<CompressibleNodeData>();
+      ArrayList<NodeInfoForMerge> nodes_to_merge =
+          new ArrayList<NodeInfoForMerge>();
       while(iter.hasNext()) {
-        CompressibleNodeData node_data = iter.next();
+        NodeInfoForMerge node_data = iter.next();
 
         // We need to make a copy of the node because iterable
-        // will reuse the same instance when next is called.
-        // Because of https://issues.apache.org/jira/browse/AVRO-1045 we
-        // can't use the Avro methods for copying the data.
-        CompressibleNodeData node_copy = new CompressibleNodeData();
-        node_copy.setCompressibleStrands(node_data.getCompressibleStrands());
-        GraphNode node = new GraphNode(node_data.getNode()).clone();
-        node_copy.setNode(node.getData());
-        nodes_to_merge.add(node_copy);
+        nodes_to_merge.add(CompressUtil.copyNodeInfoForMerge(node_data));
       }
 
       // Sanity check. There should be at most three nodes in nodes_to_merge.
@@ -470,16 +363,12 @@ public class PairMergeAvro extends Stage {
 
       if (nodes_to_merge.size() == 1) {
         // Output the node
-        // Clear the list of messages in the output array.
-        output.getUpdateMessages().clear();
-        output.setCompressibleNode(nodes_to_merge.get(0));
-        collector.collect(output);
+        collector.collect(nodes_to_merge.get(0).getCompressibleNode());
         return;
       }
+
       // Sort the nodes into a chain so that we just need to merge
       // each node with its neighbor.
-      // Only the nodes at the end of the chain need to be considered to
-      // identify nodes whose edges need to be updated because of the merge.
       ArrayList<ChainLink> chain = sortNodes(nodes_to_merge);
       mergeChain(chain, nodeid.toString());
 
