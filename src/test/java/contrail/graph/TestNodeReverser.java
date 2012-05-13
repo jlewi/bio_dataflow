@@ -2,7 +2,6 @@ package contrail.graph;
 
 import static org.junit.Assert.*;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
@@ -19,11 +18,9 @@ import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
 
 public class TestNodeReverser {
-  // Random number generator.
   private Random generator;
   @Before
   public void setUp() {
-    // Create a random generator.
     generator = new Random();
   }
 
@@ -43,11 +40,8 @@ public class TestNodeReverser {
    */
   private GraphNode createNode() {
     GraphNode node = new GraphNode();
-    GraphNodeData node_data = node.getData();
-    node.setData(node_data);
     node.setCoverage(generator.nextFloat() * 100);
-    node_data.setNodeId("node");
-    node_data.setNeighbors(new ArrayList<NeighborData>());
+    node.setNodeId("node");
 
     String random_sequence =
         AlphabetUtil.randomString(generator, 10, DNAAlphabetFactory.create());
@@ -57,19 +51,13 @@ public class TestNodeReverser {
 
     int num_dest_nodes = generator.nextInt(30) + 5;
     for (int index = 0; index < num_dest_nodes; index++) {
-      NeighborData dest_node = new NeighborData();
-      dest_node.setNodeId("dest_" + index);
-      node_data.getNeighbors().add(dest_node);
-      dest_node.setEdges(new ArrayList<EdgeData> ());
-
-      // Generate an edge to this neighbor.
+      // Generate an edge.
       StrandsForEdge strands = StrandsForEdge.values()[
           generator.nextInt(StrandsForEdge.values().length)];
 
-      EdgeData edge = new EdgeData();
-      edge.setStrands(strands);
-      edge.setReadTags(new ArrayList<CharSequence>());
-      dest_node.getEdges().add(edge);
+      EdgeTerminal terminal = new EdgeTerminal(
+          "dest_" + index, StrandsUtil.dest(strands));
+      node.addOutgoingEdge(StrandsUtil.src(strands), terminal);
     }
     return node;
   }
@@ -106,6 +94,9 @@ public class TestNodeReverser {
 
     createR5Tags(
         "read_1", 3, test_case.node.getSequence(),
+        test_case.node.getData().getR5Tags(), test_case.prefixes);
+    createR5Tags(
+        "read_2", 3, test_case.node.getSequence(),
         test_case.node.getData().getR5Tags(), test_case.prefixes);
     return test_case;
   }
@@ -167,7 +158,7 @@ public class TestNodeReverser {
           test_case.node.getSequence().size() - out_tag.getOffset() - 1);
     }
 
-    // Finally, reverse the output node again and check it equals
+    // Finally, reverse the output node and check it equals
     // the original input. This should ensure all fields are set properly.
     NodeReverser reverser = new NodeReverser();
     GraphNode match_input =  reverser.reverse(reversed);
@@ -184,5 +175,4 @@ public class TestNodeReverser {
       assertReversedNode(test_case, reversed);
     }
   }
-
 }

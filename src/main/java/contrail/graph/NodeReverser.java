@@ -16,13 +16,18 @@ import contrail.sequences.StrandsUtil;
  * Reversing a node entails the following steps.
  * 1. Replace the stored sequence with the reverse sequence.
  * 2. We flip the source strand for all edges.
- * 3. We all the R5Tags.
+ * 3. We reverse the R5Tags.
  */
 public class NodeReverser {
+  /**
+   * Reverse a node.
+   * @param input_node
+   * @return: The reversed node.
+   */
   public GraphNode reverse(GraphNode input_node) {
     input = input_node;
 
-    // We start by copying the input node. This way all fields that dont'
+    // We start by copying the input node. This ensures all fields that don't
     // change (e.g coverage) are preserved.
     output = input.clone();
 
