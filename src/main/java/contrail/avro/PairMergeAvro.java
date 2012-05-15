@@ -69,6 +69,7 @@ public class PairMergeAvro extends Stage {
       }
       out_pair.key(out_id);
       out_pair.value(node_info);
+      collector.collect(out_pair);
     }
   }
 
