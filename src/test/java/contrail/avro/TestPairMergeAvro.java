@@ -4,6 +4,7 @@ import static org.junit.Assert.*;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.avro.mapred.Pair;
 import org.apache.hadoop.mapred.JobConf;
@@ -13,6 +14,7 @@ import org.junit.Test;
 import contrail.ReporterMock;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
+import contrail.graph.SimpleGraphBuilder;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.Sequence;
@@ -226,158 +228,136 @@ public class TestPairMergeAvro extends PairMergeAvro {
 
     }
   }
-//
-//  // A container class used for organizing the data for the reducer tests.
-//  private class ReducerTestCase {
-//    public int K;
-//    public String reducer_key;
-//    // The input to the reducer.
-//    public List<CompressibleNodeData> input;
-//    // The expected output from the reducer.
-//    public PairMergeOutput expected_output;
-//  }
-//
-//  // Asserts that the output of the reducer is correct for this test case.
-//  private void assertReducerTestCase(
-//      ReducerTestCase test_case,
-//      AvroCollectorMock<PairMergeOutput> collector_mock) {
-//
-//    assertEquals(1, collector_mock.data.size());
-//    PairMergeOutput output = collector_mock.data.get(0);
-//
-//    // Check the nodes are equal.
-//    assertEquals(
-//        test_case.expected_output.getCompressibleNode(),
-//        output.getCompressibleNode());
-//
-//    // Check the lists are equal without regard to order.
-//    assertTrue(ListUtil.listsAreEqual(
-//        test_case.expected_output.getUpdateMessages(),
-//        output.getUpdateMessages()));
-//  }
-//
-//  private ReducerTestCase reducerNoMergeTest() {
-//    // Construct a simple reduce test case in which no nodes are merged.
-//    ReducerTestCase test_case = new ReducerTestCase();
-//    test_case.K = 3;
-//
-//    test_case.input = new ArrayList<CompressibleNodeData>();
-//    GraphNode node = new GraphNode();
-//    node.setNodeId("somenode");
-//    Sequence sequence = new Sequence("ACGCT", DNAAlphabetFactory.create());
-//    node.setCanonicalSequence(sequence);
-//    test_case.reducer_key = node.getNodeId();
-//
-//    CompressibleNodeData merge_data = new CompressibleNodeData();
-//    merge_data.setNode(node.clone().getData());
-//    merge_data.setCompressibleStrands(CompressibleStrands.NONE);
-//    test_case.input.add(merge_data);
-//
-//    test_case.expected_output = new PairMergeOutput();
-//    test_case.expected_output.setCompressibleNode(
-//        copyCompressibleNode(merge_data));
-//    test_case.expected_output.setUpdateMessages(
-//        new ArrayList<EdgeUpdateAfterMerge>());
-//
-//    return test_case;
-//  }
-//
-//  private ReducerTestCase reducerSimpleMergeTest() {
-//    // Construct a simple reduce test case in which two nodes are merged.
-//    // TODO(jlewi): We should really randomize this so we cover more cases.
-//    ReducerTestCase test_case = new ReducerTestCase();
-//    test_case.K = 3;
-//
-//    SimpleGraphBuilder builder = new SimpleGraphBuilder();
-//    // We will merge node ACT and CTT
-//    builder.addKMersForString("ACTT", test_case.K);
-//
-//    // Add some incoming/outgoing edges so that we have edges that need to
-//    // be updated.
-//    builder.addEdge("CAC", "ACT", test_case.K - 1);
-//    builder.addEdge("GAC", "ACT", test_case.K - 1);
-//    builder.addEdge("CTT", "TTA", test_case.K - 1);
-//
-//    test_case.input = new ArrayList<CompressibleNodeData>();
-//    {
-//      GraphNode node = builder.getNode(builder.findNodeIdForSequence("ACT"));
-//      CompressibleNodeData merge_data = new CompressibleNodeData();
-//      merge_data.setCompressibleStrands(CompressibleStrands.FORWARD);
-//      merge_data.setNode(node.clone().getData());
-//      test_case.input.add(merge_data);
-//    }
-//    {
-//      GraphNode node = builder.getNode(builder.findNodeIdForSequence("CTT"));
-//      CompressibleNodeData merge_data = new CompressibleNodeData();
-//      merge_data.setCompressibleStrands(CompressibleStrands.BOTH);
-//      merge_data.setNode(node.clone().getData());
-//      test_case.input.add(merge_data);
-//    }
-//
-//    // Construct the expected output.
-//    // The sequence ACTT is the reverse strand.
-//    GraphNode merged_node = new GraphNode();
-//    Sequence merged_sequence =
-//        new Sequence("ACTT", DNAAlphabetFactory.create());
-//    merged_node.setCanonicalSequence(DNAUtil.canonicalseq(merged_sequence));
-//    merged_node.addIncomingEdge(
-//        DNAStrand.REVERSE, new EdgeTerminal("CAC", DNAStrand.FORWARD));
-//    merged_node.addIncomingEdge(
-//        DNAStrand.REVERSE, new EdgeTerminal("GAC", DNAStrand.FORWARD));
-//
-//    merged_node.addOutgoingEdge(
-//        DNAStrand.REVERSE, new EdgeTerminal("TAA", DNAStrand.REVERSE));
-//    merged_node.setNodeId(builder.findNodeIdForSequence("CTT"));
-//
-//    test_case.reducer_key = merged_node.getNodeId();
-//
-//    CompressibleNodeData node_data = new CompressibleNodeData();
-//    node_data.setNode(merged_node.clone().getData());
-//    node_data.setCompressibleStrands(CompressibleStrands.REVERSE);
-//    test_case.expected_output = new PairMergeOutput();
-//    test_case.expected_output.setCompressibleNode(node_data);
-//    test_case.expected_output.setUpdateMessages(
-//        new ArrayList<EdgeUpdateAfterMerge>());
-//
-//    // Add the messages
-//    {
-//     EdgeUpdateAfterMerge update = new EdgeUpdateAfterMerge();
-//     update.setNodeToUpdate(builder.findNodeIdForSequence("GAC"));
-//     update.setOldTerminalId(builder.findNodeIdForSequence("ACT"));
-//     update.setNewTerminalId(merged_node.getNodeId());
-//     update.setOldStrands(StrandsForEdge.FF);
-//     update.setNewStrands(StrandsForEdge.FR);
-//
-//     test_case.expected_output.getUpdateMessages().add(update);
-//    }
-//
-//    {
-//      EdgeUpdateAfterMerge update = new EdgeUpdateAfterMerge();
-//      update.setNodeToUpdate(builder.findNodeIdForSequence("CAC"));
-//      update.setOldTerminalId(builder.findNodeIdForSequence("ACT"));
-//      update.setNewTerminalId(merged_node.getNodeId());
-//      update.setOldStrands(StrandsForEdge.FF);
-//      update.setNewStrands(StrandsForEdge.FR);
-//
-//      test_case.expected_output.getUpdateMessages().add(update);
-//    }
-//
-//    {
-//      EdgeUpdateAfterMerge update = new EdgeUpdateAfterMerge();
-//      update.setNodeToUpdate(builder.findNodeIdForSequence("TTA"));
-//      update.setOldTerminalId(builder.findNodeIdForSequence("CTT"));
-//      update.setNewTerminalId(merged_node.getNodeId());
-//
-//      // The old edge is RC(CTT->TTA) TAA->AAG (FF)
-//      // The merged sequence is AAGT = RC(ACTT)
-//      update.setOldStrands(StrandsForEdge.FF);
-//      update.setNewStrands(StrandsForEdge.FF);
-//
-//      test_case.expected_output.getUpdateMessages().add(update);
-//     }
-//
-//    return test_case;
-//  }
+
+  // A container class used for organizing the data for the reducer tests.
+  private class ReducerTestCase {
+    public int K;
+    public String reducer_key;
+    // The input to the reducer.
+    public List<NodeInfoForMerge> input;
+    // The expected output from the reducer.
+    public CompressibleNodeData expected_output;
+  }
+
+  // Asserts that the output of the reducer is correct for this test case.
+  private void assertReducerTestCase(
+      ReducerTestCase test_case,
+      AvroCollectorMock<CompressibleNodeData> collector_mock) {
+
+    assertEquals(1, collector_mock.data.size());
+    CompressibleNodeData output = collector_mock.data.get(0);
+
+    // Check the nodes are equal.
+    // TODO(jlewi): This will probably fail because the order of data
+    // in GraphNodeData may not match. We probably need to implement
+    // GraphNode.equals
+    GraphNode merged_node = new GraphNode(output.getNode());
+    GraphNode expected_node =
+        new GraphNode(test_case.expected_output.getNode());
+    assertEquals(expected_node.getData(), merged_node.getData());
+    assertEquals(
+        test_case.expected_output.getCompressibleStrands(),
+        output.getCompressibleStrands());
+  }
+
+  private ReducerTestCase reducerNoMergeTest() {
+    // Construct a simple reduce test case in which no nodes are merged.
+    ReducerTestCase test_case = new ReducerTestCase();
+
+    test_case.input = new ArrayList<NodeInfoForMerge>();
+    test_case.K = 3;
+    GraphNode node = new GraphNode();
+    node.setNodeId("some_node");
+    node.setSequence(new Sequence("ACTG", DNAAlphabetFactory.create()));
+
+    CompressibleNodeData compressible_node = new CompressibleNodeData();
+    compressible_node.setNode(node.getData());
+    compressible_node.setCompressibleStrands(CompressibleStrands.FORWARD);
+
+    NodeInfoForMerge merge_info = new NodeInfoForMerge();
+    merge_info.setCompressibleNode(compressible_node);
+    merge_info.setStrandToMerge(CompressibleStrands.NONE);
+    test_case.input.add(merge_info);
+
+    test_case.expected_output =
+        CompressUtil.copyCompressibleNode(compressible_node);
+
+    return test_case;
+  }
+
+  private ReducerTestCase reducerSimpleMergeTest() {
+    // Construct a simple reduce test case in which two nodes are merged.
+    // TODO(jlewi): We should really randomize this so we cover more cases.
+    ReducerTestCase test_case = new ReducerTestCase();
+    test_case.K = 3;
+
+    SimpleGraphBuilder builder = new SimpleGraphBuilder();
+    // We will merge node ACT and CTT
+    builder.addKMersForString("ACTT", test_case.K);
+
+    // Add some incoming/outgoing edges so that we have edges that need to
+    // be preserved.
+    builder.addEdge("CAC", "ACT", test_case.K - 1);
+    builder.addEdge("GAC", "ACT", test_case.K - 1);
+    builder.addEdge("CTT", "TTA", test_case.K - 1);
+
+    test_case.input = new ArrayList<NodeInfoForMerge>();
+
+
+    {
+      GraphNode node = builder.getNode(builder.findNodeIdForSequence("ACT"));
+      CompressibleNodeData merge_data = new CompressibleNodeData();
+      merge_data.setCompressibleStrands(CompressibleStrands.FORWARD);
+      merge_data.setNode(node.clone().getData());
+
+      NodeInfoForMerge merge_info = new NodeInfoForMerge();
+      merge_info.setCompressibleNode(merge_data);
+      merge_info.setStrandToMerge(CompressibleStrands.FORWARD);
+      test_case.input.add(merge_info);
+    }
+    {
+      GraphNode node = builder.getNode(builder.findNodeIdForSequence("CTT"));
+      CompressibleNodeData merge_data = new CompressibleNodeData();
+      merge_data.setCompressibleStrands(CompressibleStrands.BOTH);
+      merge_data.setNode(node.clone().getData());
+
+      NodeInfoForMerge merge_info = new NodeInfoForMerge();
+      merge_info.setCompressibleNode(merge_data);
+      merge_info.setStrandToMerge(CompressibleStrands.NONE);
+      test_case.input.add(merge_info);
+    }
+
+    // Construct the expected output.
+    // The down node is "CTT. Since the down node preserves its strand
+    // the merged node will store AAGT.
+    // Which means the merged node will be compressible along the reverse
+    // strand.
+    GraphNode merged_node = new GraphNode();
+    Sequence merged_sequence =
+        new Sequence("AAGT", DNAAlphabetFactory.create());
+    merged_node.setSequence(merged_sequence);
+
+    String terminal_id = builder.findNodeIdForSequence("TTA");
+    merged_node.addOutgoingEdge(
+        DNAStrand.REVERSE, new EdgeTerminal(terminal_id, DNAStrand.REVERSE));
+
+    terminal_id = builder.findNodeIdForSequence("CAC");
+    merged_node.addOutgoingEdge(
+        DNAStrand.FORWARD, new EdgeTerminal(terminal_id, DNAStrand.REVERSE));
+
+    terminal_id = builder.findNodeIdForSequence("GAC");
+    merged_node.addOutgoingEdge(
+        DNAStrand.FORWARD, new EdgeTerminal(terminal_id, DNAStrand.REVERSE));
+
+    merged_node.setNodeId(builder.findNodeIdForSequence("CTT"));
+
+    test_case.reducer_key = merged_node.getNodeId();
+    test_case.expected_output = new CompressibleNodeData();
+    test_case.expected_output.setNode(merged_node.getData());
+    test_case.expected_output.setCompressibleStrands(
+        CompressibleStrands.REVERSE);
+    return test_case;
+  }
 //
 //  private ReducerTestCase reducerTwoMergeTest() {
 //    // Construct a test case where two nodes are merged into another node.
@@ -468,42 +448,45 @@ public class TestPairMergeAvro extends PairMergeAvro {
 //    return test_case;
 //  }
 //
-//  @Test
-//  public void testReducer() {
-//    ArrayList<ReducerTestCase> test_cases = new ArrayList<ReducerTestCase>();
-//    test_cases.add(reducerNoMergeTest());
-//    test_cases.add(reducerSimpleMergeTest());
-//    test_cases.add(reducerTwoMergeTest());
-//    PairMergeReducer reducer = new PairMergeReducer();
-//
-//    JobConf job = new JobConf(PairMergeReducer.class);
-//
-//    // TODO: Reduce test cases can only use this value.
-//    job.setLong("K", 3);
-//
-//    reducer.configure(job);
-//
-//    ReporterMock reporter_mock = new ReporterMock();
-//    Reporter reporter = reporter_mock;
-//
-//    for (ReducerTestCase test_case: test_cases) {
-//
-//      // We need a new collector for each invocation because the
-//      // collector stores the outputs of the mapper.
-//      AvroCollectorMock<PairMergeOutput> collector_mock =
-//        new AvroCollectorMock<PairMergeOutput>();
-//
-//      try {
-//        reducer.reduce(
-//            test_case.reducer_key, test_case.input, collector_mock, reporter);
-//      }
-//      catch (IOException exception){
-//        fail("IOException occured in map: " + exception.getMessage());
-//      }
-//
-//      assertReducerTestCase(test_case, collector_mock);
-//    }
-//  }
+  @Test
+  public void testReducer() {
+    ArrayList<ReducerTestCase> test_cases = new ArrayList<ReducerTestCase>();
+    test_cases.add(reducerNoMergeTest());
+    test_cases.add(reducerSimpleMergeTest());
+    //test_cases.add(reducerTwoMergeTest());
+    PairMergeReducer reducer = new PairMergeReducer();
+
+    JobConf job = new JobConf(PairMergeReducer.class);
+
+    // TODO: Reduce test cases can only use this value.
+    job.setLong("K", 3);
+
+    reducer.configure(job);
+
+    ReporterMock reporter_mock = new ReporterMock();
+    Reporter reporter = reporter_mock;
+
+    for (ReducerTestCase test_case: test_cases) {
+      if (test_case.K != Integer.parseInt(job.get("K"))) {
+        job.setLong("K", test_case.K);
+        reducer.configure(job);
+      }
+      // We need a new collector for each invocation because the
+      // collector stores the outputs of the mapper.
+      AvroCollectorMock<CompressibleNodeData> collector_mock =
+        new AvroCollectorMock<CompressibleNodeData>();
+
+      try {
+        reducer.reduce(
+            test_case.reducer_key, test_case.input, collector_mock, reporter);
+      }
+      catch (IOException exception){
+        fail("IOException occured in map: " + exception.getMessage());
+      }
+
+      assertReducerTestCase(test_case, collector_mock);
+    }
+  }
 //
 //  @Test
 //  public void testRun() {

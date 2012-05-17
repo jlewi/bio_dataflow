@@ -150,8 +150,7 @@ public class PairMergeAvro extends Stage {
      * @return: The merged node. The forward strand of this node corresponds
      *   to the merged strands of each node.
      */
-    protected GraphNode mergeChain(
-        ArrayList<ChainLink> chain, String new_id) {
+    protected GraphNode mergeChain(Chain chain) {
       // Check the chain and find out which strand of each node belongs in
       // the chain.
       GraphNode node = new GraphNode();
@@ -187,14 +186,16 @@ public class PairMergeAvro extends Stage {
         merged_strand = result.strand;
       }
 
-      merged_node.setNodeId(new_id);
+      String down_node_id =
+          chain.get(chain.down_index).node.getNode().getNodeId().toString();
+      merged_node.setNodeId(down_node_id);
 
       // We need the sequence stored in the node to represent the sequence
-      // corresponding to the compressed strands from each node.
-      // merged_strand tell us whether this desired strand corresponds to
-      // the forward or reverse strand of the merged node. If its the
-      // reverse strand then we need to reverse the node.
-      if (merged_strand == DNAStrand.REVERSE) {
+      // corresponding to the down node. So we check if the merged_strand
+      // corresponds to the strand of the down_node that was merged.
+      // If not we reverse the node.
+      DNAStrand down_merged_strand = chain.get(chain.down_index).merge_strand;
+      if (merged_strand != down_merged_strand) {
         merged_node = node_reverser.reverse(merged_node);
       }
 
@@ -212,10 +213,22 @@ public class PairMergeAvro extends Stage {
         this.node = node;
         this.merge_strand = strand;
       }
+
       CompressibleNodeData node;
       DNAStrand merge_strand;
     }
 
+    /**
+     * A chain of nodes to merge.
+     */
+    @SuppressWarnings("serial")
+    private class Chain extends ArrayList<ChainLink> {
+      public Chain () {
+        down_index = -1;
+      }
+      // Which element in the chain corresponds to the down node.
+      public int down_index;
+    }
     /**
      * This function sorts the nodes into a chain that can be compressed.
      * The nodes in the returned chain are ordered such that strand[i]
@@ -226,17 +239,15 @@ public class PairMergeAvro extends Stage {
      * @param nodes
      * @return
      */
-    private ArrayList<ChainLink> sortNodes(
-        ArrayList<NodeInfoForMerge> nodes) {
+    private Chain sortNodes(ArrayList<NodeInfoForMerge> nodes) {
       List<NodeInfoForMerge> up_nodes = new ArrayList<NodeInfoForMerge>();
 
       // Loop through the nodes and find the down nodes.
       // Then order the nodes in the chain based on the down node.
       String down_id = null;
-      // Keep track of the position in the chain of the node corresponding
-      // to the down node.
-      int down_index = -1;
-      ArrayList<ChainLink> chain = new ArrayList<ChainLink> ();
+
+      Chain chain = new Chain();
+
       for (NodeInfoForMerge node: nodes) {
         String node_id =
             node.getCompressibleNode().getNode().getNodeId().toString();
@@ -251,7 +262,7 @@ public class PairMergeAvro extends Stage {
           ChainLink link = new ChainLink(
               node.getCompressibleNode(), DNAStrand.FORWARD);
           chain.add(link);
-          down_index = 0;
+          chain.down_index = 0;
         } else {
           up_nodes.add(node);
         }
@@ -268,7 +279,7 @@ public class PairMergeAvro extends Stage {
         List<EdgeTerminal> terminals = graph_node.getEdgeTerminals(
             strand_to_merge, EdgeDirection.OUTGOING);
         // Sanity check there should be a single edge.
-        if (terminals.size() != 0) {
+        if (terminals.size() != 1) {
           throw new RuntimeException(
               "Can't merge node:" + graph_node.getNodeId() + " along strand " +
               strand_to_merge + " because there is more than 1 edge.");
@@ -288,7 +299,7 @@ public class PairMergeAvro extends Stage {
           // The down_node should be at position 0.
           chain.add(0, link);
           // Down node is shifted right.
-          ++down_index;
+          ++chain.down_index;
         } else {
           // Since this up node is merged with the reverse strand of
           // the down node, we need to take the reverse of strand to merge
@@ -299,7 +310,7 @@ public class PairMergeAvro extends Stage {
               DNAStrandUtil.flip(strand_to_merge));
 
           // Insert this node after the down node
-          chain.add(down_index + 1, link);
+          chain.add(chain.down_index + 1, link);
         }
       }
 
@@ -307,6 +318,11 @@ public class PairMergeAvro extends Stage {
       if (chain.size() != nodes.size()) {
         throw new RuntimeException(
             "The chain constructed doesn't have all the nodes. This is most " +
+            "likely a bug in the code.");
+      }
+      if (chain.down_index < 0) {
+        throw new RuntimeException(
+            "The chain constructed doesn't have a down node. This is most " +
             "likely a bug in the code.");
       }
       return chain;
@@ -352,8 +368,8 @@ public class PairMergeAvro extends Stage {
 
       // Sort the nodes into a chain so that we just need to merge
       // each node with its neighbor.
-      ArrayList<ChainLink> chain = sortNodes(nodes_to_merge);
-      GraphNode merged_node = mergeChain(chain, nodeid.toString());
+      Chain chain = sortNodes(nodes_to_merge);
+      GraphNode merged_node = mergeChain(chain);
 
       CompressibleStrands compressible_strands = isCompressible(chain);
 

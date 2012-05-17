@@ -56,9 +56,9 @@ import contrail.sequences.DNAStrand;
  * 2. The Up/Down state is determined from a global seed and the nodeid.
  *    Thus any node can compute the state for any other node.
  * 3. Down nodes preserve i) their id and ii) their strand.
- *    Thus, if a down node stores the sequence A and is merged with its
- *    neighbor storing B, the merged node will always store the sequence
- *    AB as the forward strand of the merged node. This means, the sequence
+ *    Suppose a down node stores the sequence A and is merged with its
+ *    neighbor storing B. Furthermore, suppose the sequence A corresponds
+ *    to the reverse strand of the down node. This means, the sequence
  *    stored in nodes after the merge may NOT BE the Canonical sequence.
  *
  *    This is necessary, to allow edge updates to be properly propogated in all
