@@ -30,15 +30,28 @@ import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
 import contrail.graph.NodeMerger;
 import contrail.graph.NodeReverser;
-import contrail.graph.TailData;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAStrandUtil;
 import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
 
-
 /**
+ * The second stage for doing parallel compression of linear chains.
  *
+ * The input to the mapper is a NodeInfoForMerge. This record contains a
+ * CompressibleNodeDataRecord as well as a field strand_to_merge which
+ * identifies which strand if any gets merged. If strand_to_merge is set
+ * then the mapper gets the outgoing edge for that strand and sends the
+ * node to that neighbor by outputting the node keyed by the id of the
+ * neighbor. If strand_to_merge is none then the mapper just outputs the node
+ * keyed by its id.
+ *
+ * The reducer merges all nodes keyed by the same id. At most, 3 nodes
+ * should be merged by the reducer; 2 up nodes and 1 down node. The down
+ * node is identifiable because its node id will match the reducer key and
+ * strand_to_merge will be set to None. The nodes are merged such that
+ * the forward strand of the down node always corresponds to the forward
+ * strand of the down node.
  */
 public class PairMergeAvro extends Stage {
   private static final Logger sLogger = Logger.getLogger(PairMergeAvro.class);
@@ -75,7 +88,6 @@ public class PairMergeAvro extends Stage {
 
   protected static class PairMergeReducer extends
     AvroReducer <CharSequence, NodeInfoForMerge, CompressibleNodeData> {
-
     // The length of the KMers.
     private int K;
     private NodeReverser node_reverser;
@@ -91,45 +103,30 @@ public class PairMergeAvro extends Stage {
      * compressible.
      * @param chain: The chain of nodes which are merged together.
      *   The forward strand of the merged node always corresponds to the
-     *   merged strands.
+     *   forward strand of the down node. Furthermore, the nodes in
+     *   chain are aligned such that the forward strand of the down node
+     *   is always merged. Thus, the forward strand of the merged node
+     *   corresponds to the strands to merge in chain.
      * @return: Which strands if any of the merged node are compressible.
      */
     protected CompressibleStrands isCompressible(Chain chain) {
-      // Now we need to determine whether the merged node is compressible.
+      // We need to determine whether the merged node is compressible.
       // For each node at the end of the chain, we can compress the merged
       // node along one strand if that end of the chain was
       // compressible in both directions.
       ArrayList<DNAStrand> compressible_strands = new ArrayList<DNAStrand>();
 
-      // Lets assume the forward strand of the merged sequence corresponds
-      // to the merged strands in chain. Then if the first element
-      // is compressible along both strands, the merged node will be
-      // compressible along its REVERSE strand.
       if (chain.get(0).node.getCompressibleStrands() ==
           CompressibleStrands.BOTH) {
         compressible_strands.add(DNAStrand.REVERSE);
       }
 
-      // Assuming the forward strand of the merged sequence coressponds
-      // to the merged strands of each node, then if the last node
-      // is compressible along both strands then the merged sequence is
-      // compressible along its forward edge.
       int tail = chain.size() - 1;
       if (chain.get(tail).node.getCompressibleStrands() ==
           CompressibleStrands.BOTH) {
         compressible_strands.add(DNAStrand.FORWARD);
       }
 
-      // We now account for the fact that the forward strand of the merged
-      // sequence may not correspond to the merged strands of the chain.
-      // The forward strand of the down node is preserved. So if the
-      // reverse strand of the down node was merged then we need to
-      // flip the strand to merge.
-      if (compressible_strands.size() == 1 &&
-          chain.get(chain.down_index).merge_strand == DNAStrand.REVERSE) {
-        compressible_strands.set(
-            0, DNAStrandUtil.flip(compressible_strands.get(0)));
-      }
       switch (compressible_strands.size()) {
         case 0:
           return CompressibleStrands.NONE;
@@ -156,33 +153,17 @@ public class PairMergeAvro extends Stage {
      * Merge the nodes together.
      *
      * @param chain: An array of nodes to merge together. The nodes
-     *   should be ordered corresponding to their position in the chain.
-     * @param new_id: The new id to assign to the merged nodes.
+     *   should be ordered corresponding to their edges. In particular
+     *   chain[i] should have an outgoing edge for strand chain[i].merge_strand
+     *   to chain[i+1]. Furthermore, the nodes should be arranged such that
+     *   merge_strand is always FORWARD for the down node. This ensures
+     *   the merged strands in chain correspond to the FORWARD strand of chain.
+     *
      * @return: The merged node. The forward strand of this node corresponds
      *   to the merged strands of each node.
      */
     protected GraphNode mergeChain(Chain chain) {
-      // Check the chain and find out which strand of each node belongs in
-      // the chain.
       GraphNode node = new GraphNode();
-      for (int pos = 0; pos < chain.size() -1; pos++) {
-        node.setData(chain.get(pos).node.getNode());
-        TailData tail =
-            node.getTail(
-                chain.get(pos).merge_strand, EdgeDirection.OUTGOING);
-        if (tail == null) {
-          throw new RuntimeException(
-              "Nodes don't form a chain. This shouldn't happen and could be " +
-              "a bug in the code.");
-        }
-        if (!tail.terminal.nodeId.equals(
-            chain.get(pos + 1).node.getNode().getNodeId())) {
-          throw new RuntimeException(
-              "Nodes don't form a chain. This shouldn't happen and could be " +
-              "a bug in the code.");
-        }
-      }
-
       // Merge the nodes sequentially.
       GraphNode merged_node = new GraphNode(chain.get(0).node.getNode());
       DNAStrand merged_strand = chain.get(0).merge_strand;
@@ -217,7 +198,7 @@ public class PairMergeAvro extends Stage {
      * Utility class for storing nodes to be compressed in an array.
      * Each node is stored as ChainLink. The node field stores the actual
      * node. The field merge_strand stores which strand of the node
-     * should be merge.
+     * should be merged.
      */
     private class ChainLink {
       public ChainLink(CompressibleNodeData node, DNAStrand strand) {
@@ -240,10 +221,15 @@ public class PairMergeAvro extends Stage {
       // Which element in the chain corresponds to the down node.
       public int down_index;
     }
+
     /**
      * This function sorts the nodes into a chain that can be compressed.
      * The nodes in the returned chain are ordered such that strand[i]
      * of node[i] has an outgoing edge to strand[i + 1] of node[i + 1].
+     *
+     * Furthermore, the nodes are arranged so the DOWN node is always merged
+     * along its FORWARD strand. This ensures that the merged strands of
+     * the returned chain correspond to the forward strand of the merged node.
      *
      * The node assigned a state of DOWN is identifiable because
      * strand_to_merge will be set to none.
@@ -263,7 +249,7 @@ public class PairMergeAvro extends Stage {
         String node_id =
             node.getCompressibleNode().getNode().getNodeId().toString();
         if (node.getStrandToMerge() == CompressibleStrands.NONE) {
-          // Sanity check a single node should of strandToMergeNonde
+          // Sanity check a single node should ha strandToMerge None.
           if (down_id != null) {
             throw new RuntimeException(
                 "More than 1 node has strand_to_merge set to none.");
@@ -351,7 +337,7 @@ public class PairMergeAvro extends Stage {
       while(iter.hasNext()) {
         NodeInfoForMerge node_data = iter.next();
 
-        // We need to make a copy of the node because iterable reused the
+        // We need to make a copy of the node because iterable reuses the
         // data.
         nodes_to_merge.add(CompressUtil.copyNodeInfoForMerge(node_data));
       }
