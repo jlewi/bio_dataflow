@@ -2,11 +2,16 @@ package contrail.avro;
 
 import static org.junit.Assert.*;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.avro.Schema;
+import org.apache.avro.file.DataFileWriter;
+import org.apache.avro.io.DatumWriter;
 import org.apache.avro.mapred.Pair;
+import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 import org.junit.Test;
@@ -420,65 +425,66 @@ public class TestPairMergeAvro extends PairMergeAvro {
       assertReducerTestCase(test_case, collector_mock);
     }
   }
-//
-//  @Test
-//  public void testRun() {
-//    // This function tests that we can run the job without errors.
-//    // It doesn't test for correctness.
-//    MapperTestCase test_case = this.mapperConvertDownToUpTest();
-//
-//    File temp = null;
-//
-//    try {
-//      temp = File.createTempFile("temp", Long.toString(System.nanoTime()));
-//    } catch (IOException exception) {
-//      fail("Could not create temporary file. Exception:" +
-//          exception.getMessage());
-//    }
-//    if(!(temp.delete())){
-//        throw new RuntimeException(
-//            "Could not delete temp file: " + temp.getAbsolutePath());
-//    }
-//
-//    if(!(temp.mkdir())) {
-//        throw new RuntimeException(
-//            "Could not create temp directory: " + temp.getAbsolutePath());
-//    }
-//
-//    File avro_file = new File(temp, "compressible.avro");
-//
-//    // Write the data to the file.
-//    Schema schema = (new CompressibleNodeData()).getSchema();
-//    DatumWriter<CompressibleNodeData> datum_writer =
-//        new SpecificDatumWriter<CompressibleNodeData>(schema);
-//    DataFileWriter<CompressibleNodeData> writer =
-//        new DataFileWriter<CompressibleNodeData>(datum_writer);
-//
-//    try {
-//      writer.create(schema, avro_file);
-//      for (CompressibleNodeData node: test_case.input) {
-//        writer.append(node);
-//      }
-//      writer.close();
-//    } catch (IOException exception) {
-//      fail("There was a problem writing the graph to an avro file. Exception:" +
-//          exception.getMessage());
-//    }
-//
-//    // Run it.
-//    PairMergeAvro pair_merge = new PairMergeAvro();
-//    File output_path = new File(temp, "output");
-//
-//    String[] args =
-//      {"--inputpath=" + temp.toURI().toString(),
-//       "--outputpath=" + output_path.toURI().toString(),
-//       "--K=3",
-//       "--randseed=12"};
-//
-//    try {
-//      pair_merge.run(args);
-//    } catch (Exception exception) {
-//      fail("Exception occured:" + exception.getMessage());
-//    }
-//  }
+
+  @Test
+  public void testRun() {
+    // This function tests that we can run the job without errors.
+    // It doesn't test for correctness.
+    ArrayList<MapperTestCase> test_cases = new ArrayList<MapperTestCase>();
+    test_cases.add(mapperNoMergeTest());
+    test_cases.add(mapperMergeTest());
+
+    File temp = null;
+
+    try {
+      temp = File.createTempFile("temp", Long.toString(System.nanoTime()));
+    } catch (IOException exception) {
+      fail("Could not create temporary file. Exception:" +
+          exception.getMessage());
+    }
+    if(!(temp.delete())){
+        throw new RuntimeException(
+            "Could not delete temp file: " + temp.getAbsolutePath());
+    }
+
+    if(!(temp.mkdir())) {
+        throw new RuntimeException(
+            "Could not create temp directory: " + temp.getAbsolutePath());
+    }
+
+    File avro_file = new File(temp, "compressible.avro");
+
+    // Write the data to the file.
+    Schema schema = (new NodeInfoForMerge()).getSchema();
+    DatumWriter<NodeInfoForMerge> datum_writer =
+        new SpecificDatumWriter<NodeInfoForMerge>(schema);
+    DataFileWriter<NodeInfoForMerge> writer =
+        new DataFileWriter<NodeInfoForMerge>(datum_writer);
+
+    try {
+      writer.create(schema, avro_file);
+      for (MapperTestCase test_case: test_cases) {
+        writer.append(test_case.input);
+      }
+      writer.close();
+    } catch (IOException exception) {
+      fail("There was a problem writing the graph to an avro file. Exception:" +
+          exception.getMessage());
+    }
+
+    // Run it.
+    PairMergeAvro pair_merge = new PairMergeAvro();
+    File output_path = new File(temp, "output");
+
+    String[] args =
+      {"--inputpath=" + temp.toURI().toString(),
+       "--outputpath=" + output_path.toURI().toString(),
+       "--K=3"};
+
+    try {
+      pair_merge.run(args);
+    } catch (Exception exception) {
+      fail("Exception occured:" + exception.getMessage());
+    }
+  }
 }

@@ -432,7 +432,6 @@ public class PairMergeAvro extends Stage {
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
     long K = (Long)stage_options.get("K");
-    long randseed = (Long)stage_options.get("randseed");
 
     sLogger.info(" - input: "  + inputPath);
     sLogger.info(" - output: " + outputPath);
@@ -446,12 +445,12 @@ public class PairMergeAvro extends Stage {
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
-    CompressibleNodeData compressible_node = new CompressibleNodeData();
-    Pair<CharSequence, CompressibleNodeData> map_output =
-        new Pair<CharSequence, CompressibleNodeData>
-          ("", new CompressibleNodeData());
+    NodeInfoForMerge merge_info = new NodeInfoForMerge();
+    Pair<CharSequence, NodeInfoForMerge> map_output =
+        new Pair<CharSequence, NodeInfoForMerge> ("", merge_info);
 
-    AvroJob.setInputSchema(conf, compressible_node.getSchema());
+    CompressibleNodeData compressible_node = new CompressibleNodeData();
+    AvroJob.setInputSchema(conf, merge_info.getSchema());
     AvroJob.setMapOutputSchema(conf, map_output.getSchema());
     AvroJob.setOutputSchema(conf, compressible_node.getSchema());
 
