@@ -131,59 +131,7 @@ public class TestPairMergeAvro extends PairMergeAvro {
 
     return test_case;
   }
-//  private MapperTestCase mapperConvertDownToUpTest() {
-//    // Construct a chain of 3 nodes all assigned down.
-//    // Check that we properly convert the node in the middle to up.
-//    SimpleGraphBuilder builder = new SimpleGraphBuilder();
-//
-//    // Add the three nodes. We need to assign the node in the middle
-//    // a node id less than the two terminals.
-//    builder.addNode("node_1", "ACT");
-//    builder.addNode("node_0", "CTG");
-//    builder.addNode("node_2", "TGA");
-//
-//    builder.addEdge("ACT", "CTG", 2);
-//    builder.addEdge("CTG", "TGA", 2);
-//
-//    MapperTestCase test_case = new MapperTestCase();
-//
-//    CoinFlipperFixed flipper = new CoinFlipperFixed();
-//    test_case.flipper = flipper;
-//    for (GraphNode node: builder.getAllNodes().values()) {
-//      CompressibleNodeData data = new CompressibleNodeData();
-//      data.setNode(node.getData());
-//
-//      // Nodes are all compressible.
-//      data.setCompressibleStrands(
-//          isCompressible(builder.getAllNodes(), node.getNodeId()));
-//      test_case.input.add(data);
-//
-//      CompressibleNodeData output = new CompressibleNodeData();
-//      output.setNode(node.clone().getData());
-//
-//      // The output key for the reducer.
-//      String target_nodeid = "";
-//      if (node.getNodeId().equals("node_0")) {
-//        target_nodeid = "node_1";
-//        output.setCompressibleStrands(CompressibleStrands.BOTH);
-//      } else if (node.getNodeId().equals("node_1")) {
-//        target_nodeid = node.getNodeId();
-//        output.setCompressibleStrands(CompressibleStrands.FORWARD);
-//      } else if (node.getNodeId().equals("node_2")) {
-//        target_nodeid = node.getNodeId();
-//        output.setCompressibleStrands(CompressibleStrands.FORWARD);
-//      }
-//      // Up node is sent to the down node.
-//      test_case.expected_output.put(node.getNodeId(),
-//          new Pair<CharSequence, CompressibleNodeData>(target_nodeid, output));
-//
-//      // All nodes assigned down.
-//      flipper.tosses.put(
-//          node.getNodeId(), CoinFlipper.CoinFlip.Down);
-//    }
-//    return test_case;
-//  }
-//
+
   // Check the output of the mapper matches the expected result.
   private void assertMapperOutput(
       MapperTestCase test_case,
@@ -231,6 +179,10 @@ public class TestPairMergeAvro extends PairMergeAvro {
 
   // A container class used for organizing the data for the reducer tests.
   private class ReducerTestCase {
+    public ReducerTestCase() {
+      input = new ArrayList<NodeInfoForMerge>();
+      expected_output = new CompressibleNodeData();
+    }
     public int K;
     public String reducer_key;
     // The input to the reducer.
@@ -358,102 +310,83 @@ public class TestPairMergeAvro extends PairMergeAvro {
         CompressibleStrands.REVERSE);
     return test_case;
   }
-//
-//  private ReducerTestCase reducerTwoMergeTest() {
-//    // Construct a test case where two nodes are merged into another node.
-//    // i.e we have the chain A->B-C, and nodes A,C get sent to B to be
-//    // merged.
-//    ReducerTestCase test_case = new ReducerTestCase();
-//    test_case.K = 3;
-//
-//    SimpleGraphBuilder builder = new SimpleGraphBuilder();
-//    // AAT->ATC>TCT
-//    builder.addKMersForString("AATCT", test_case.K);
-//
-//    // Add some incoming/outgoing edges so that we have edges that need to
-//    // be updated.
-//    builder.addEdge("TAA", "AAT", test_case.K - 1);
-//    builder.addEdge("TCT", "CTT", test_case.K - 1);
-//
-//    test_case.input = new ArrayList<CompressibleNodeData>();
-//    {
-//      GraphNode node = builder.getNode(builder.findNodeIdForSequence("AAT"));
-//      CompressibleNodeData merge_data = new CompressibleNodeData();
-//      merge_data.setCompressibleStrands(CompressibleStrands.BOTH);
-//      merge_data.setNode(node.clone().getData());
-//      test_case.input.add(merge_data);
-//    }
-//    {
-//      GraphNode node = builder.getNode(builder.findNodeIdForSequence("ATC"));
-//      CompressibleNodeData merge_data = new CompressibleNodeData();
-//      merge_data.setCompressibleStrands(CompressibleStrands.BOTH);
-//      merge_data.setNode(node.clone().getData());
-//      test_case.input.add(merge_data);
-//    }
-//    {
-//      GraphNode node = builder.getNode(builder.findNodeIdForSequence("TCT"));
-//      CompressibleNodeData merge_data = new CompressibleNodeData();
-//      merge_data.setCompressibleStrands(CompressibleStrands.BOTH);
-//      merge_data.setNode(node.clone().getData());
-//      test_case.input.add(merge_data);
-//    }
-//    // Construct the expected output.
-//    GraphNode merged_node = new GraphNode();
-//    Sequence merged_sequence =
-//        new Sequence("AATCT", DNAAlphabetFactory.create());
-//    merged_node.setCanonicalSequence(DNAUtil.canonicalseq(merged_sequence));
-//    merged_node.addIncomingEdge(
-//        DNAStrand.FORWARD, new EdgeTerminal("TAA", DNAStrand.FORWARD));
-//    merged_node.addOutgoingEdge(
-//        DNAStrand.FORWARD, new EdgeTerminal("AAG", DNAStrand.REVERSE));
-//    merged_node.setNodeId(builder.findNodeIdForSequence("ATC"));
-//
-//    test_case.reducer_key = merged_node.getNodeId();
-//
-//    CompressibleNodeData node_output = new CompressibleNodeData();
-//    node_output.setCompressibleStrands(CompressibleStrands.BOTH);
-//    node_output.setNode(merged_node.clone().getData());
-//    test_case.expected_output = new PairMergeOutput();
-//    test_case.expected_output.setCompressibleNode(node_output);
-//    test_case.expected_output.setUpdateMessages(
-//        new ArrayList<EdgeUpdateAfterMerge>());
-//
-//    // Add the messages
-//    {
-//     // Old Edge: TAA ->AAT
-//     // New Edge: TAA ->AATCT
-//     EdgeUpdateAfterMerge update = new EdgeUpdateAfterMerge();
-//     update.setNodeToUpdate(builder.findNodeIdForSequence("TAA"));
-//     update.setOldTerminalId(builder.findNodeIdForSequence("AAT"));
-//     update.setNewTerminalId(merged_node.getNodeId());
-//     update.setOldStrands(StrandsForEdge.FF);
-//     update.setNewStrands(StrandsForEdge.FF);
-//
-//     test_case.expected_output.getUpdateMessages().add(update);
-//    }
-//
-//    {
-//      // Old Edge: AAG -> AGA
-//      // New Edge: AAG -> AGATT
-//      EdgeUpdateAfterMerge update = new EdgeUpdateAfterMerge();
-//      update.setNodeToUpdate(builder.findNodeIdForSequence("AAG"));
-//      update.setOldTerminalId(builder.findNodeIdForSequence("AGA"));
-//      update.setNewTerminalId(merged_node.getNodeId());
-//      update.setOldStrands(StrandsForEdge.FF);
-//      update.setNewStrands(StrandsForEdge.FR);
-//
-//      test_case.expected_output.getUpdateMessages().add(update);
-//     }
-//
-//    return test_case;
-//  }
-//
+
+  private ReducerTestCase reducerTwoMergeTest() {
+    // Construct a test case where two nodes are merged into another node.
+    // i.e we have the chain A->B-C, and nodes A,C get sent to B to be
+    // merged.
+    ReducerTestCase test_case = new ReducerTestCase();
+    test_case.K = 3;
+
+    SimpleGraphBuilder builder = new SimpleGraphBuilder();
+    // AAT->ATC>TCT
+    builder.addKMersForString("AATCT", test_case.K);
+
+    // Add some incoming/outgoing edges so that we have edges that need to
+    // be preserved.
+    builder.addEdge("TAA", "AAT", test_case.K - 1);
+    builder.addEdge("TCT", "CTT", test_case.K - 1);
+
+    {
+      GraphNode node = builder.getNode(builder.findNodeIdForSequence("AAT"));
+      CompressibleNodeData merge_data = new CompressibleNodeData();
+      merge_data.setCompressibleStrands(CompressibleStrands.BOTH);
+      merge_data.setNode(node.clone().getData());
+      NodeInfoForMerge merge_info = new NodeInfoForMerge();
+      merge_info.setCompressibleNode(merge_data);
+      merge_info.setStrandToMerge(CompressibleStrands.FORWARD);
+      test_case.input.add(merge_info);
+    }
+    {
+      GraphNode node = builder.getNode(builder.findNodeIdForSequence("ATC"));
+      CompressibleNodeData merge_data = new CompressibleNodeData();
+      merge_data.setCompressibleStrands(CompressibleStrands.BOTH);
+      merge_data.setNode(node.clone().getData());
+      NodeInfoForMerge merge_info = new NodeInfoForMerge();
+      merge_info.setCompressibleNode(merge_data);
+      merge_info.setStrandToMerge(CompressibleStrands.NONE);
+      test_case.input.add(merge_info);
+    }
+    {
+      GraphNode node = builder.getNode(builder.findNodeIdForSequence("TCT"));
+      CompressibleNodeData merge_data = new CompressibleNodeData();
+      merge_data.setCompressibleStrands(CompressibleStrands.BOTH);
+      merge_data.setNode(node.clone().getData());
+      NodeInfoForMerge merge_info = new NodeInfoForMerge();
+      merge_info.setCompressibleNode(merge_data);
+      merge_info.setStrandToMerge(CompressibleStrands.FORWARD);
+      test_case.input.add(merge_info);
+    }
+    // Construct the expected output.
+    GraphNode merged_node = new GraphNode();
+    // The merged sequence preserves the forward strand of the down node.
+    // The down node in this case is "ATC" which is the forward strand
+    // so the merged sequence stores AATCT as the forward strand.
+    Sequence merged_sequence =
+        new Sequence("AATCT", DNAAlphabetFactory.create());
+    merged_node.setSequence(merged_sequence);
+    merged_node.addIncomingEdge(
+        DNAStrand.FORWARD, new EdgeTerminal("TAA", DNAStrand.FORWARD));
+    merged_node.addOutgoingEdge(
+        DNAStrand.FORWARD, new EdgeTerminal("AAG", DNAStrand.REVERSE));
+    merged_node.setNodeId(builder.findNodeIdForSequence("ATC"));
+
+    test_case.reducer_key = merged_node.getNodeId();
+
+    CompressibleNodeData node_output = new CompressibleNodeData();
+    node_output.setCompressibleStrands(CompressibleStrands.BOTH);
+    node_output.setNode(merged_node.clone().getData());
+    test_case.expected_output = node_output;
+
+    return test_case;
+  }
+
   @Test
   public void testReducer() {
     ArrayList<ReducerTestCase> test_cases = new ArrayList<ReducerTestCase>();
     test_cases.add(reducerNoMergeTest());
     test_cases.add(reducerSimpleMergeTest());
-    //test_cases.add(reducerTwoMergeTest());
+    test_cases.add(reducerTwoMergeTest());
     PairMergeReducer reducer = new PairMergeReducer();
 
     JobConf job = new JobConf(PairMergeReducer.class);

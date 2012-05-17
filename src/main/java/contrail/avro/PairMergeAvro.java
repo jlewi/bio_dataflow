@@ -94,31 +94,42 @@ public class PairMergeAvro extends Stage {
      *   merged strands.
      * @return: Which strands if any of the merged node are compressible.
      */
-    protected CompressibleStrands isCompressible(ArrayList<ChainLink> chain) {
+    protected CompressibleStrands isCompressible(Chain chain) {
       // Now we need to determine whether the merged node is compressible.
       // For each node at the end of the chain, we can compress the merged
       // node along one strand if that end of the chain was
       // compressible in both directions.
       ArrayList<DNAStrand> compressible_strands = new ArrayList<DNAStrand>();
 
+      // Lets assume the forward strand of the merged sequence corresponds
+      // to the merged strands in chain. Then if the first element
+      // is compressible along both strands, the merged node will be
+      // compressible along its REVERSE strand.
       if (chain.get(0).node.getCompressibleStrands() ==
           CompressibleStrands.BOTH) {
-        // Get the strand of node 0 that wasn't compressed.
-        DNAStrand strand =
-            DNAStrandUtil.flip(chain.get(0).merge_strand);
-        compressible_strands.add(strand);
+        compressible_strands.add(DNAStrand.REVERSE);
       }
 
+      // Assuming the forward strand of the merged sequence coressponds
+      // to the merged strands of each node, then if the last node
+      // is compressible along both strands then the merged sequence is
+      // compressible along its forward edge.
       int tail = chain.size() - 1;
       if (chain.get(tail).node.getCompressibleStrands() ==
           CompressibleStrands.BOTH) {
-        // Get the strand of the last node that wasn't compressed.
-        // The last node would have been compressed along the incoming
-        // edge, so we can still compress it along merge_strand.
-        DNAStrand strand = chain.get(tail).merge_strand;
-        compressible_strands.add(strand);
+        compressible_strands.add(DNAStrand.FORWARD);
       }
 
+      // We now account for the fact that the forward strand of the merged
+      // sequence may not correspond to the merged strands of the chain.
+      // The forward strand of the down node is preserved. So if the
+      // reverse strand of the down node was merged then we need to
+      // flip the strand to merge.
+      if (compressible_strands.size() == 1 &&
+          chain.get(chain.down_index).merge_strand == DNAStrand.REVERSE) {
+        compressible_strands.set(
+            0, DNAStrandUtil.flip(compressible_strands.get(0)));
+      }
       switch (compressible_strands.size()) {
         case 0:
           return CompressibleStrands.NONE;
