@@ -1,3 +1,4 @@
+// Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.avro;
 
 import static org.junit.Assert.*;
@@ -26,64 +27,6 @@ import contrail.sequences.Sequence;
 
 // Extend PairMergeAvro so we can access the mapper and reducer.
 public class TestPairMergeAvro extends PairMergeAvro {
-
-//  // Return true if the strand of the specified node is compressible.
-//  // This is used to setup some of the test cases.
-//  private boolean isCompressibleStrand(
-//      Map<String, GraphNode> nodes, String nodeid, DNAStrand strand) {
-//    GraphNode node = nodes.get(nodeid);
-//
-//    if (node == null) {
-//      fail("Could not find node:" + nodeid);
-//    }
-//
-//    TailData tail = node.getTail(strand, EdgeDirection.OUTGOING);
-//    if (tail == null) {
-//      return false;
-//    }
-//
-//    // Check if the other node has a tail in this direction.
-//    GraphNode other_node = nodes.get(tail.terminal.nodeId);
-//    if (other_node == null) {
-//      fail("Could not find node:" + tail.terminal.nodeId);
-//    }
-//    TailData other_tail = other_node.getTail(
-//        tail.terminal.strand, EdgeDirection.INCOMING);
-//
-//    if (other_tail == null) {
-//      return false;
-//    }
-//
-//    // Sanity check. The terminal for the other_node should be this node.
-//    assertEquals(new EdgeTerminal(nodeid, strand), other_tail.terminal);
-//
-//    return true;
-//  }
-//
-//  // Determine which strands for the given node are compressible.
-//  private CompressibleStrands isCompressible(
-//      Map<String, GraphNode> nodes, String nodeid) {
-//    boolean f_compressible =
-//        isCompressibleStrand(nodes, nodeid, DNAStrand.FORWARD);
-//    boolean r_compressible =
-//        isCompressibleStrand(nodes, nodeid, DNAStrand.FORWARD);
-//
-//    if (f_compressible && r_compressible) {
-//      return CompressibleStrands.BOTH;
-//    }
-//
-//    if (f_compressible) {
-//      return CompressibleStrands.FORWARD;
-//    }
-//
-//    if (r_compressible) {
-//      return CompressibleStrands.REVERSE;
-//    }
-//
-//    return CompressibleStrands.NONE;
-//  }
-//
-//
   // This class serves as a container for the data for testing the mapper.
   private static class MapperTestCase {
     public MapperTestCase() {
@@ -95,7 +38,7 @@ public class TestPairMergeAvro extends PairMergeAvro {
     // The expected key for the mapper output.
     public String key;
   }
-//
+
   private MapperTestCase mapperNoMergeTest() {
     // Construct a map test case where a node gets sent to itself
     // because it isn't merged.
@@ -178,7 +121,6 @@ public class TestPairMergeAvro extends PairMergeAvro {
       }
 
       assertMapperOutput(test_case, collector_mock);
-
     }
   }
 
@@ -200,12 +142,11 @@ public class TestPairMergeAvro extends PairMergeAvro {
   private void assertReducerTestCase(
       ReducerTestCase test_case,
       AvroCollectorMock<CompressibleNodeData> collector_mock) {
-
     assertEquals(1, collector_mock.data.size());
     CompressibleNodeData output = collector_mock.data.get(0);
 
     // Check the nodes are equal.
-    // TODO(jlewi): This will probably fail because the order of data
+    // TODO(jlewi): This might start failing because the order of data
     // in GraphNodeData may not match. We probably need to implement
     // GraphNode.equals
     GraphNode merged_node = new GraphNode(output.getNode());
@@ -285,7 +226,7 @@ public class TestPairMergeAvro extends PairMergeAvro {
     }
 
     // Construct the expected output.
-    // The down node is "CTT. Since the down node preserves its strand
+    // The down node is CTT. Since the down node preserves its strand
     // the merged node will store AAGT.
     // Which means the merged node will be compressible along the reverse
     // strand.
@@ -362,6 +303,7 @@ public class TestPairMergeAvro extends PairMergeAvro {
       merge_info.setStrandToMerge(CompressibleStrands.FORWARD);
       test_case.input.add(merge_info);
     }
+
     // Construct the expected output.
     GraphNode merged_node = new GraphNode();
     // The merged sequence preserves the forward strand of the down node.
