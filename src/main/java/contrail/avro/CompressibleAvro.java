@@ -70,7 +70,7 @@ public class CompressibleAvro extends Stage {
   protected List<Option> getCommandLineOptions() {
     List<Option> options = super.getCommandLineOptions();
     options.addAll(ContrailOptions.getInputOutputPathOptions());
-     return options;
+    return options;
   }
 
   public static class CompressibleMapper extends

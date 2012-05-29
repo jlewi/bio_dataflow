@@ -12,15 +12,14 @@ import org.apache.hadoop.mapred.JobConf;
 public class FileUtil {
   /**
    * Function which "saves" some intermediary data by renaming it.
-   * @param base
-   * @param opath
-   * @param npath
+   * @param old_path: The existing directory.
+   * @param new_path: The new directory.
    * @throws IOException
    */
   public static void saveResult(
-      JobConf conf, String base, String opath, String npath)
+      JobConf conf, String old_path, String new_path)
           throws IOException {
-    FileSystem.get(conf).delete(new Path(base+npath), true);
-    FileSystem.get(conf).rename(new Path(base+opath), new Path(base+npath));
+    FileSystem.get(conf).delete(new Path(new_path), true);
+    FileSystem.get(conf).rename(new Path(old_path), new Path(new_path));
   }
 }

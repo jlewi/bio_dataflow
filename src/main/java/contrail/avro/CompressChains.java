@@ -1,5 +1,6 @@
 package contrail.avro;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.text.DecimalFormat;
@@ -99,13 +100,16 @@ public class CompressChains extends Stage {
   /**
    * Maximally compress chains.
    *
-   * @param basePath
-   * @param startname
-   * @param finalname
+   * @param input_path: The directory to act as input. This could
+   *   be an uncompressed graph or it could be the output of PairMergeAvro
+   *   if we are continuing a previous compression.
+   * @param temp_path: The parent directory for the outputs from each
+   *   stage of compression.
+   * @param final_path: The directory where the final output should be stored.
    * @throws Exception
    */
-  private void compressChains(String basePath, String startname, String finalname) throws Exception
-  {
+  private void compressChains(
+      String input_path, String temp_path, String final_path) throws Exception {
     CompressibleAvro compress = new CompressibleAvro();
 
     // TODO(jlewi) Need to add the code for QuickMarkAvro
@@ -118,7 +122,14 @@ public class CompressChains extends Stage {
     int stage = 0;
     long compressible = 0;
 
+    // When formatting the step as a string we want to zero pad it
+    DecimalFormat sf = new DecimalFormat("00");
+
     //RunningJob job = null;
+
+    // Keep track of the path from the latest step as this will be
+    // the input to the next step.
+    String latest_path = null;
 
     // TODO(jlewi): How should RESTART_COMPRESS etc... be encoded.
     // One possibility is to encode it as an AVRO record which gets passed
@@ -138,9 +149,17 @@ public class CompressChains extends Stage {
     else {
       // Mark compressible nodes
       start("Compressible");
-      Map<String, Object> stage_options = new HashMap<String, Object>();
-      stage_options.put("inputpath", basePath + startname);
-      stage_options.put("outputpath", basePath + startname + "." + stage);
+
+      // Make a shallow copy of the stage options so we can overwrite some
+      // of the options.
+      Map<String, Object> substage_options =
+          (HashMap<String, Object>) stage_options.clone();
+      substage_options.put("inputpath", input_path);
+
+      latest_path =
+          (new File(temp_path, "step_" + sf.format(stage))).getPath();
+
+      substage_options.put("outputpath", latest_path);
       compress.setOptionValues(stage_options);
       RunningJob job = compress.runJob();
       compressible = counter(job, GraphCounters.compressible_nodes);
@@ -156,13 +175,18 @@ public class CompressChains extends Stage {
       stage++;
 
       // Input path for marking nodes to be merged.
-      String mark_input  = basePath + startname + "." + Integer.toString(prev);
-      // The path containing the graph marked for merging.
-      String marked_graph_path = mark_input + ".0";
-      // The path for the merged graph.
-      String merged_graph_path =
-          basePath + startname + "." + Integer.toString(stage);
+      String mark_input  = latest_path;
 
+      // The directory for this step.
+      String step_dir =
+          new File(temp_path, "step_" + sf.format(stage)).getPath();
+      // The path containing the graph marked for merging.
+      String marked_graph_path = new File(step_dir, "marked_graph").getPath();
+
+      // The path for the merged graph.
+      String merged_graph_path = new File(step_dir, "merged_graph").getPath();
+
+      latest_path = merged_graph_path;
       long remaining = 0;
 
       if (lastremaining < ContrailConfig.HADOOP_LOCALNODES)
@@ -212,7 +236,6 @@ public class CompressChains extends Stage {
           end(job);
           remaining = counter(job,GraphCounters.pair_merge_compressible_nodes);
         }
-
       }
 
       JobConf job_conf = new JobConf(CompressChains.class);
@@ -228,9 +251,9 @@ public class CompressChains extends Stage {
     }
 
     JobConf job_conf = new JobConf(CompressChains.class);
-    msg("Save result to " + finalname + "\n\n");
+    msg("Save result to " + final_path + "\n\n");
     FileUtil.saveResult(
-        job_conf, basePath, startname + "." + stage, finalname);
+        job_conf, latest_path, final_path);
   }
 
   /**
@@ -265,16 +288,14 @@ public class CompressChains extends Stage {
     for (Stage stage: substages) {
       List<Option> stage_options = stage.getCommandLineOptions();
       for (Option option: stage_options) {
-        if (alloptions.containsKey(option.getArgName())) {
+        if (alloptions.containsKey(option.getOpt())) {
           continue;
         }
-        alloptions.put(option.getArgName(), option);
-        option.getArgName();
+        alloptions.put(option.getOpt(), option);
       }
     }
 
     List<Option> options = new ArrayList<Option>();
-
     options.addAll(alloptions.values());
 
     return options;
@@ -283,11 +304,30 @@ public class CompressChains extends Stage {
   @Override
   protected void parseCommandLine(CommandLine line) {
     super.parseCommandLine(line);
-    throw new RuntimeException("Need to update this code");
+
+    // Parse the options for each stage.
+    Stage[] substages =
+      {new CompressibleAvro() , new QuickMergeAvro(), new PairMarkAvro(),
+       new PairMergeAvro()};
+    HashMap<String, HashMap<String, Object>> substage_options =
+        new HashMap<String, HashMap<String, Object>>();
+
+    for (Stage stage: substages) {
+      stage.parseCommandLine(line);
+      substage_options.put(stage.getClass().getName(), stage.stage_options);
+
+      // TODO(jlewi): It would be better to allow main distinct maps
+      // for each stage. The problem with that is figuring out how the
+      // substage options would be set when they aren't passed as a set
+      // of string arguments.
+      stage_options.putAll(stage.stage_options);
+    }
   }
 
   @Override
   public RunningJob runJob() throws Exception {
+    throw new RuntimeException("Need to call compressChains");
+
 //    String[] required_args = {"inputpath", "outputpath", "K"};
 //    checkHasOptionsOrDie(required_args);
 //
