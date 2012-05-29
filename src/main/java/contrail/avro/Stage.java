@@ -10,12 +10,10 @@ import java.util.List;
 import java.util.Map;
 
 import org.w3c.dom.Document;
-import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
@@ -29,19 +27,54 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.Tool;
 import org.apache.log4j.Logger;
-
-import contrail.Contrail;
 
 /**
  * An abstract base class for each stage of processing.
  *
+ * To create a new stage you should overload the following methods
+ *   * getCommandLineOptions(): This function returns a list of options
+ *      which the stage can take. You should always start by calling
+ *      the implementation in the base class.
+ *   * parseCommindLine(CommandLine[]): This function parses the arguments
+ *      that would be passed on the command line and converts them to typed
+ *      java objects. The command line options should then be added to the
+ *      map stage_options.
+ *   * runJob(): This function runs the actual job. You should initialize
+ *      the job configuration using the configuration returned by getConf().
+ *      This ensures the job uses any generic hadoop options set on the
+ *      command line or by the caller depending on how it is run.
+ *
+ * This class is designed to accommodate running stages in two different ways
+ *   1. Directly via the command line.
+ *   2. Running the stage from within java.
+ *
+ * Executing the stage from the command line:
+ *   To make the stage executable from the command line you would add a main
+ *   function to your subclass. Your main function should use ToolRunner
+ *   to invoke run(String[]) so that generic hadoop options get parsed
+ *   and added to the configuration.
+ *
+ * Executing the stage from within java:
+ *   Call setOptionValues(Map<String, Object>). The map should pass along
+ *   any options required by the stage.
+ *
+ *   Call runJob(). This runs the job once it has been setup.
+ *
+ * TODO(jlewi): We should add a function setOptionValuesFromStrings
+ * which would set the arguments by parsing the command line options. This
+ * would make it more consistent with how we run stages from a binary.
+ *
+ * TODO(jlewi): Do we need some way to pass along generic hadoop options
+ * when running from within java? Since stage implements Configured I think
+ * the caller can just set the configuration. runJob should then initialize
+ * its job configuration using the configuration stored in the class.
  */
 public abstract class Stage extends Configured implements Tool  {
   private static final Logger sLogger =
@@ -356,10 +389,12 @@ public abstract class Stage extends Configured implements Tool  {
     formatter.printHelp(
         "hadoop jar CONTRAILJAR MAINCLASS [options]", options);
   }
+
   /**
    * Run the stage.
    */
   protected int run(Map<String, Object> options) throws Exception  {
+    // TODO(jlewi): Should this method be public? Is it currently being used?
     // Copy the options from the input.
     stage_options.putAll(options);
 
@@ -367,15 +402,59 @@ public abstract class Stage extends Configured implements Tool  {
     return run();
   }
 
+  /**
+   * Run the job.
+   *
+   * @return
+   * @throws Exception
+   */
+  public RunningJob runJob() throws Exception {
+    // TODO(jlewi): runJob should be an abstract method. The only reason its
+    // not is because we want to provide backwards compatibility.
+    // We should make it abstract as soon as the Stony Brook team has a chance
+    // to update their code.
+    throw new NotImplementedException("Not implemented");
+  }
+
+  /**
+   * Run the stage after parsing the string arguments.
+   *
+   * In general, this implementation should be sufficient and subclasses
+   * shouldn't need to overload it.
+   */
   public int run(String[] args) throws Exception {
+    // This function provides the entry point when running from the command
+    // line; i.e. using ToolRunner.
     sLogger.info("Tool name: " + this.getClass().getName());
     parseCommandLine(args);
-    return run();
+    RunningJob job = runJob();
+    if (job.isSuccessful()) {
+      return 0;
+    } else {
+      return -1;
+    }
   }
+
   /**
    * Run the stage.
+   * TODO(jlewi): run is deprecated in favor of runJob();
    */
-  abstract protected int run() throws Exception;
+  @Deprecated
+  protected int run() throws Exception {
+    // We provide a base implementation here because this function is
+    // deprecated and we don't subclasses to have to overload it anymore.
+    // TODO(jlewi): We could probably just delete this function.
+    return 0;
+  }
+
+  /**
+   * Set the values for various stage options.
+   */
+  public void setOptionValues(Map<String, Object> options) throws Exception  {
+    // TODO(jlewi): Should this method be public? Is it currently being used?
+    // Copy the options from the input.
+    stage_options.putAll(options);
+  }
 
   /**
    * Write the job configuration to an XML file specified in the stage option.

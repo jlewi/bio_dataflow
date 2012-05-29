@@ -231,7 +231,7 @@ public class QuickMergeAvro extends Stage {
     sLogger.info(" - input: "  + inputPath);
     sLogger.info(" - output: " + outputPath);
 
-    JobConf conf = new JobConf(QuickMergeAvro.class);
+    JobConf conf = new JobConf(getConf(), QuickMergeAvro.class);
     conf.setJobName("QuickMergeAvro " + inputPath + " " + K);
 
     initializeJobConfiguration(conf);
@@ -264,7 +264,7 @@ public class QuickMergeAvro extends Stage {
       JobClient.runJob(conf);
       long endtime = System.currentTimeMillis();
 
-      float diff = (float) (((float) (endtime - starttime)) / 1000.0);
+      float diff = (float) ((endtime - starttime) / 1000.0);
 
       System.out.println("Runtime: " + diff + " s");
     }

@@ -529,7 +529,7 @@ public class BuildGraphAvro extends Stage
     sLogger.info(" - input: "  + inputPath);
     sLogger.info(" - output: " + outputPath);
 
-    JobConf conf = new JobConf(BuildGraphAvro.class);
+    JobConf conf = new JobConf(getConf(), BuildGraphAvro.class);
     conf.setJobName("BuildGraph " + inputPath + " " + K);
 
     initializeJobConfiguration(conf);

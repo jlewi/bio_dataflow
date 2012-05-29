@@ -23,6 +23,7 @@ import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -371,7 +372,9 @@ public class PairMarkAvro extends Stage {
           CompressUtil.dnaStrandToCompressibleStrands(edge_to_compress.strand));
       out_pair.value().setPayload(node_info_for_merge);
       collector.collect(out_pair);
-      reporter.incrCounter("Contrail", "nodes_to_merge", 1);
+      reporter.incrCounter(
+          GraphCounters.num_nodes_to_merge.group,
+          GraphCounters.num_nodes_to_merge.tag, 1);
     }
 
     /**
@@ -495,11 +498,12 @@ public class PairMarkAvro extends Stage {
   public int run(String[] args) throws Exception {
     sLogger.info("Tool name: PairMarkAvro");
     parseCommandLine(args);
-    return run();
+    runJob();
+    return 0;
   }
 
   @Override
-  protected int run() throws Exception {
+  public RunningJob runJob() throws Exception {
     String[] required_args = {"inputpath", "outputpath", "randseed"};
     checkHasOptionsOrDie(required_args);
 
@@ -510,7 +514,15 @@ public class PairMarkAvro extends Stage {
     sLogger.info(" - input: "  + inputPath);
     sLogger.info(" - output: " + outputPath);
     sLogger.info(" - randseed: " + randseed);
-    JobConf conf = new JobConf(PairMarkAvro.class);
+
+    Configuration base_conf = getConf();
+    JobConf conf = null;
+    if (base_conf != null) {
+      conf = new JobConf(getConf(), PairMarkAvro.class);
+    } else {
+      conf = new JobConf(PairMarkAvro.class);
+    }
+
     conf.setJobName("PairMarkAvro " + inputPath);
 
     initializeJobConfiguration(conf);
@@ -544,14 +556,15 @@ public class PairMarkAvro extends Stage {
       }
 
       long starttime = System.currentTimeMillis();
-      JobClient.runJob(conf);
+      RunningJob job = JobClient.runJob(conf);
       long endtime = System.currentTimeMillis();
 
       float diff = (float) ((endtime - starttime) / 1000.0);
 
       System.out.println("Runtime: " + diff + " s");
+      return job;
     }
-    return 0;
+    return null;
   }
 
   public static void main(String[] args) throws Exception {

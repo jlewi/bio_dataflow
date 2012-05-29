@@ -22,6 +22,7 @@ import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -369,7 +370,12 @@ public class PairMergeAvro extends Stage {
       GraphNode merged_node = mergeChain(chain);
 
       CompressibleStrands compressible_strands = isCompressible(chain);
+      if (compressible_strands != CompressibleStrands.NONE) {
+        reporter.incrCounter(
+            GraphCounters.pair_merge_compressible_nodes.group,
+            GraphCounters.pair_merge_compressible_nodes.tag, 1);
 
+      }
       output.setNode(merged_node.getData());
       output.setCompressibleStrands(compressible_strands);
       collector.collect(output);
@@ -407,11 +413,12 @@ public class PairMergeAvro extends Stage {
   public int run(String[] args) throws Exception {
     sLogger.info("Tool name: PairMergeAvro");
     parseCommandLine(args);
-    return run();
+    runJob();
+    return 0;
   }
 
   @Override
-  protected int run() throws Exception {
+  public RunningJob runJob() throws Exception {
     String[] required_args = {"inputpath", "outputpath", "K"};
     checkHasOptionsOrDie(required_args);
 
@@ -423,7 +430,14 @@ public class PairMergeAvro extends Stage {
     sLogger.info(" - output: " + outputPath);
     sLogger.info(" - K: " + K);
 
-    JobConf conf = new JobConf(PairMergeAvro.class);
+    Configuration base_conf = getConf();
+    JobConf conf = null;
+    if (base_conf != null) {
+      conf = new JobConf(getConf(), PairMergeAvro.class);
+    } else {
+      conf = new JobConf(PairMergeAvro.class);
+    }
+
     conf.setJobName("PairMergeAvro " + inputPath + " " + K);
 
     initializeJobConfiguration(conf);
@@ -457,14 +471,14 @@ public class PairMergeAvro extends Stage {
       }
 
       long starttime = System.currentTimeMillis();
-      JobClient.runJob(conf);
+      RunningJob job = JobClient.runJob(conf);
       long endtime = System.currentTimeMillis();
 
       float diff = (float) ((endtime - starttime) / 1000.0);
-
       System.out.println("Runtime: " + diff + " s");
+      return job;
     }
-    return 0;
+    return null;
   }
 
   public static void main(String[] args) throws Exception {
