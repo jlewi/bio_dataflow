@@ -2,7 +2,6 @@ package contrail.avro;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -38,46 +37,10 @@ public class CompressChains extends Stage {
   // TODO(jlewi): Should we create a separate base class for jobs which
   // run several map reduce jobs.
   private static final Logger sLogger = Logger.getLogger(CompressChains.class);
-  private static PrintStream logstream;
   private static DecimalFormat df = new DecimalFormat("0.00");
 
   long GLOBALNUMSTEPS = 0;
   long JOBSTARTTIME = 0;
-
-  /**
-   * Sets up a print stream to use as a logger.
-   *
-   * The logger writes to a non HDFS path. Unless a shared filesystem (e.g NFS)
-   * is used, the files will only be available on the machine where the
-   * code runs.
-   */
-//  private void configureLogger() {
-//    // TODO(jlewi): Should this be moved into Stage so we can do it for all
-//    // stages.
-//    // Setup to use a file appender
-//    BasicConfigurator.resetConfiguration();
-//
-//    TTCCLayout lay = new TTCCLayout();
-//    lay.setDateFormat("yyyy-mm-dd HH:mm:ss.SSS");
-//
-////    FileAppender fa = new FileAppender(
-////        lay, ContrailConfig.localBasePath + "contrail.details.log", true);
-////    fa.setName("File Appender");
-////    fa.setThreshold(Level.INFO);
-////    BasicConfigurator.configure(fa);
-////
-////    throw new RuntimeException("We should replace localBasePath with a stage option");
-////    FileOutputStream logfile = new FileOutputStream(
-////        ContrailConfig.localBasePath+"contrail.log", true);
-////    logstream = new PrintStream(logfile);
-////
-////    ContrailConfig.printConfiguration();
-////
-////    // Time stamp
-////    DateFormat dfm = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-////    sLogger.info("== Starting time " + dfm.format(new Date()) + "\n");
-////    long globalstarttime = System.currentTimeMillis();
-//  }
 
   public void start(String desc) {
     sLogger.info(desc + ":\t");
@@ -100,13 +63,6 @@ public class CompressChains extends Stage {
       System.exit(1);
     }
   }
-
-//  public static void msg(String msg)
-//  {
-//    sLogger.info(msg)
-////    logstream.print(msg);
-////    System.out.print(msg);
-//  }
 
   /**
    * Maximally compress chains.
@@ -139,33 +95,30 @@ public class CompressChains extends Stage {
     // When formatting the step as a string we want to zero pad it
     DecimalFormat sf = new DecimalFormat("00");
 
-    //RunningJob job = null;
-
     // Keep track of the path from the latest step as this will be
     // the input to the next step.
     String latest_path = null;
+
+    final boolean RESUME = (Boolean) stage_options.get("resume");
 
     // TODO(jlewi): How should RESTART_COMPRESS etc... be encoded.
     // How about just adding a command line option resume?
     // By default, we could always make the first iteration parallel
     // if resuming the compression. We could add a second flag to allow
-    // this to be overwritten
+    // this to be overwritten.
     // To determine the step number we should probably parse the directory,
     // or else make it a command line option.
-    if (false) {
-      // TODO(jlewi): This if block represents the case where
-      // we resume Mark/Merge iterations after some previous processing
+    if (RESUME) {
+      // We resume Mark/Merge iterations after some previous processing
       // Compressible nodes should already be marked so we don't
       // need to run compression.
-      throw new NotImplementedException("Need to update this code");
-      //compressible = ContrailConfig.RESTART_COMPRESS_REMAIN;
+      sLogger.info("Restarting compression after stage " + stage + ":");
 
-      //sLogger.info("Restarting compression after stage " + stage + ":");
+      // If specified we use the stage option to determine the output directory.
+      stage = (Integer) stage_options.get("stage");
 
-      //ContrailConfig.RESTART_COMPRESS = 0;
-      //ContrailConfig.RESTART_COMPRESS_REMAIN = 0;
-    }
-    else {
+      latest_path = (String) stage_options.get("inputpath");
+    } else {
       // Mark compressible nodes
       start("Compressible");
 
@@ -189,7 +142,6 @@ public class CompressChains extends Stage {
     long lastremaining = compressible;
 
     while (lastremaining > 0) {
-      int prev = stage;
       stage++;
 
       // Input path for marking nodes to be merged.
@@ -223,8 +175,7 @@ public class CompressChains extends Stage {
 //
 //        remaining = counter(job, "needcompress");
       }
-      else
-      {
+      else {
         // Use the randomized algorithm
         double rand = Math.random();
 
@@ -322,12 +273,27 @@ public class CompressChains extends Stage {
             "If the number of compressible nodes is less than this value " +
             "then all compressible nodes get sent to a single worker " +
             "for compression.").create("localnodes"));
+
+    options.add(OptionBuilder.withArgName("resume").hasArg().
+        withDescription(
+            "Indicates we want to resume compressing a set of nodes. " +
+            "The input in this case should be an AVRO file with " +
+            "CompressibleNodeData records").create("resume"));
+
+    options.add(OptionBuilder.withArgName("stage").hasArg().
+        withDescription(
+            "Should only be specified if resume is true. " +
+            "This is an integer indicating the next stage in the " +
+            "compression. This is optional and only used to name the " +
+            "intermediate output directories.").create("stage"));
     return options;
   }
 
   protected void initializeDefaultOptions() {
     super.initializeDefaultOptions();
     default_options.put("localnodes", new Long(1000));
+    default_options.put("resume", new Boolean(false));
+    default_options.put("stage", new Integer(0));
   }
 
   @Override
@@ -369,49 +335,12 @@ public class CompressChains extends Stage {
     // TODO(jlewi): Is just appending "temp" to the output path
     // really a good idea?
     String temp_path = new Path(output_path, "temp").toString();
-
-//    long K = (Long)stage_options.get("K");
-//
-//    sLogger.info(" - input: "  + inputPath);
-//    sLogger.info(" - output: " + outputPath);
-//    sLogger.info(" - K: " + K);
-//
-//    JobConf conf = new JobConf(PairMergeAvro.class);
-//    conf.setJobName("PairMergeAvro " + inputPath + " " + K);
-//
-//    initializeJobConfiguration(conf);
-//
-//    FileInputFormat.addInputPath(conf, new Path(inputPath));
-//    FileOutputFormat.setOutputPath(conf, new Path(outputPath));
-//
-//    NodeInfoForMerge merge_info = new NodeInfoForMerge();
-//    Pair<CharSequence, NodeInfoForMerge> map_output =
-//        new Pair<CharSequence, NodeInfoForMerge> ("", merge_info);
-//
-//    CompressibleNodeData compressible_node = new CompressibleNodeData();
-//    AvroJob.setInputSchema(conf, merge_info.getSchema());
-//    AvroJob.setMapOutputSchema(conf, map_output.getSchema());
-//    AvroJob.setOutputSchema(conf, compressible_node.getSchema());
-//
-//    AvroJob.setMapperClass(conf, PairMergeMapper.class);
-//    AvroJob.setReducerClass(conf, PairMergeReducer.class);
-
     if (stage_options.containsKey("writeconfig")) {
       // TODO(jlewi): Can we write the configuration for this stage like
       // other stages or do we need to do something special?
       throw new NotImplementedException(
           "Support for writeconfig isn't implemented yet for compresschains");
     } else {
-      // Delete the output directory if it exists already
-//      Path out_path = new Path(outputPath);
-//      if (FileSystem.get(conf).exists(out_path)) {
-//        // TODO(jlewi): We should only delete an existing directory
-//        // if explicitly told to do so.
-//        sLogger.info("Deleting output path: " + out_path.toString() + " " +
-//            "because it already exists.");
-//        FileSystem.get(conf).delete(out_path, true);
-//      }
-//
       long starttime = System.currentTimeMillis();
       compressChains(input_path, temp_path, output_path);
       long endtime = System.currentTimeMillis();
