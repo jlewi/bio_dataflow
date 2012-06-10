@@ -11,17 +11,14 @@ import java.util.Map;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
+import org.apache.commons.cli.OptionBuilder;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
-import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Logger;
-import org.apache.log4j.TTCCLayout;
-
-import contrail.ContrailConfig;
 
 /**
  * Compress linear chains into single nodes.
@@ -29,6 +26,13 @@ import contrail.ContrailConfig;
  * This stage consists of several mapreduce jobs which perform the following
  *   1. Find nodes which can be compressed together.
  *   2. Compress all nodes together (requires several mapreduce jobs).
+ *
+ * Input: The input should be an AVRO file encoding the graph; e.g records
+ * are GraphNodeData.
+ *
+ * Alternatively, its possible to resume compressing stages. In this
+ * case the input should be an AVRO file whose records are
+ * CompressibleNodeData.
  */
 public class CompressChains extends Stage {
   // TODO(jlewi): Should we create a separate base class for jobs which
@@ -39,38 +43,44 @@ public class CompressChains extends Stage {
 
   long GLOBALNUMSTEPS = 0;
   long JOBSTARTTIME = 0;
-  private void configureLogger() {
-    // TODO(jlewi): Should this be moved into Stage so we can do it for all
-    // stages.
-    // Setup to use a file appender
-    BasicConfigurator.resetConfiguration();
 
-    TTCCLayout lay = new TTCCLayout();
-    lay.setDateFormat("yyyy-mm-dd HH:mm:ss.SSS");
-
-    throw new RuntimeException("Code below needs to be updated.");
-//    throw new RuntimeException("We should replace localBasePath with a stage option");
-//    FileAppender fa = new FileAppender(
-//        lay, ContrailConfig.localBasePath+"contrail.details.log", true);
-//    fa.setName("File Appender");
-//    fa.setThreshold(Level.INFO);
-//    BasicConfigurator.configure(fa);
+  /**
+   * Sets up a print stream to use as a logger.
+   *
+   * The logger writes to a non HDFS path. Unless a shared filesystem (e.g NFS)
+   * is used, the files will only be available on the machine where the
+   * code runs.
+   */
+//  private void configureLogger() {
+//    // TODO(jlewi): Should this be moved into Stage so we can do it for all
+//    // stages.
+//    // Setup to use a file appender
+//    BasicConfigurator.resetConfiguration();
 //
-//    throw new RuntimeException("We should replace localBasePath with a stage option");
-//    FileOutputStream logfile = new FileOutputStream(
-//        ContrailConfig.localBasePath+"contrail.log", true);
-//    logstream = new PrintStream(logfile);
+//    TTCCLayout lay = new TTCCLayout();
+//    lay.setDateFormat("yyyy-mm-dd HH:mm:ss.SSS");
 //
-//    ContrailConfig.printConfiguration();
-//
-//    // Time stamp
-//    DateFormat dfm = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-//    msg("== Starting time " + dfm.format(new Date()) + "\n");
-//    long globalstarttime = System.currentTimeMillis();
-  }
+////    FileAppender fa = new FileAppender(
+////        lay, ContrailConfig.localBasePath + "contrail.details.log", true);
+////    fa.setName("File Appender");
+////    fa.setThreshold(Level.INFO);
+////    BasicConfigurator.configure(fa);
+////
+////    throw new RuntimeException("We should replace localBasePath with a stage option");
+////    FileOutputStream logfile = new FileOutputStream(
+////        ContrailConfig.localBasePath+"contrail.log", true);
+////    logstream = new PrintStream(logfile);
+////
+////    ContrailConfig.printConfiguration();
+////
+////    // Time stamp
+////    DateFormat dfm = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+////    sLogger.info("== Starting time " + dfm.format(new Date()) + "\n");
+////    long globalstarttime = System.currentTimeMillis();
+//  }
 
   public void start(String desc) {
-    msg(desc + ":\t");
+    sLogger.info(desc + ":\t");
 
     // TODO(jlewi): What to do about the following variables.
     JOBSTARTTIME = System.currentTimeMillis();
@@ -82,7 +92,7 @@ public class CompressChains extends Stage {
     long endtime = System.currentTimeMillis();
     long diff = (endtime - JOBSTARTTIME) / 1000;
 
-    msg(job.getJobID() + " " + diff + " s");
+    sLogger.info(job.getJobID() + " " + diff + " s");
 
     if (!job.isSuccessful())
     {
@@ -91,11 +101,12 @@ public class CompressChains extends Stage {
     }
   }
 
-  public static void msg(String msg)
-  {
-    logstream.print(msg);
-    System.out.print(msg);
-  }
+//  public static void msg(String msg)
+//  {
+//    sLogger.info(msg)
+////    logstream.print(msg);
+////    System.out.print(msg);
+//  }
 
   /**
    * Maximally compress chains.
@@ -122,6 +133,9 @@ public class CompressChains extends Stage {
     int stage = 0;
     long compressible = 0;
 
+    // The minimum number of nodes for doing parallel compressions
+    final long LOCALNODES = (Long) stage_options.get("localnodes");
+
     // When formatting the step as a string we want to zero pad it
     DecimalFormat sf = new DecimalFormat("00");
 
@@ -132,19 +146,24 @@ public class CompressChains extends Stage {
     String latest_path = null;
 
     // TODO(jlewi): How should RESTART_COMPRESS etc... be encoded.
-    // One possibility is to encode it as an AVRO record which gets passed
-    // via the hadoop job configuration. We could encode it using json
-    // so it would be human readable.
-    if (ContrailConfig.RESTART_COMPRESS > 0)
-    {
-      throw new RuntimeException("This code needs to be updated");
-//      stage = ContrailConfig.RESTART_COMPRESS;
-//      compressible = ContrailConfig.RESTART_COMPRESS_REMAIN;
-//
-//      msg("  Restarting compression after stage " + stage + ":");
-//
-//      ContrailConfig.RESTART_COMPRESS = 0;
-//      ContrailConfig.RESTART_COMPRESS_REMAIN = 0;
+    // How about just adding a command line option resume?
+    // By default, we could always make the first iteration parallel
+    // if resuming the compression. We could add a second flag to allow
+    // this to be overwritten
+    // To determine the step number we should probably parse the directory,
+    // or else make it a command line option.
+    if (false) {
+      // TODO(jlewi): This if block represents the case where
+      // we resume Mark/Merge iterations after some previous processing
+      // Compressible nodes should already be marked so we don't
+      // need to run compression.
+      throw new NotImplementedException("Need to update this code");
+      //compressible = ContrailConfig.RESTART_COMPRESS_REMAIN;
+
+      //sLogger.info("Restarting compression after stage " + stage + ":");
+
+      //ContrailConfig.RESTART_COMPRESS = 0;
+      //ContrailConfig.RESTART_COMPRESS_REMAIN = 0;
     }
     else {
       // Mark compressible nodes
@@ -160,17 +179,16 @@ public class CompressChains extends Stage {
           (new File(temp_path, "step_" + sf.format(stage))).getPath();
 
       substage_options.put("outputpath", latest_path);
-      compress.setOptionValues(stage_options);
+      compress.setOptionValues(substage_options);
       RunningJob job = compress.runJob();
       compressible = counter(job, GraphCounters.compressible_nodes);
       end(job);
     }
 
-    msg("  " + compressible + " compressible\n");
+    sLogger.info("  " + compressible + " compressible\n");
     long lastremaining = compressible;
 
-    while (lastremaining > 0)
-    {
+    while (lastremaining > 0) {
       int prev = stage;
       stage++;
 
@@ -189,15 +207,15 @@ public class CompressChains extends Stage {
       latest_path = merged_graph_path;
       long remaining = 0;
 
-      if (lastremaining < ContrailConfig.HADOOP_LOCALNODES)
-      {
+      // TODO(jlewi): Should we make local nodes a stage variable?
+      if (lastremaining < LOCALNODES) {
         throw new RuntimeException("This code needs to be updated");
 //        // Send all the compressible nodes to the same machine for serial processing
 //        start("  QMark " + stage);
 //        job = qmark.run(input, input0);
 //        end(job);
 //
-//        msg("  " + counter(job, "compressibleneighborhood") + " marked\n");
+//        sLogger.info("  " + counter(job, "compressibleneighborhood") + " marked\n");
 //
 //        start("  QMerge " + stage);
 //        job = qmerge.run(input0, output);
@@ -216,13 +234,13 @@ public class CompressChains extends Stage {
           mark_options.put("inputpath", mark_input);
           mark_options.put("outputpath", marked_graph_path);
 
-          Integer seed = (int)(rand*10000000);
-          mark_options.put("randseed", seed.toString());
+          Long seed = (long)(rand*10000000);
+          mark_options.put("randseed", seed);
           pmark.setOptionValues(mark_options);
           RunningJob job = pmark.runJob();
           end(job);
 
-          msg("  " + counter(job, GraphCounters.num_nodes_to_merge) +
+          sLogger.info("  " + counter(job, GraphCounters.num_nodes_to_merge) +
               " marked\n");
         }
         {
@@ -230,7 +248,7 @@ public class CompressChains extends Stage {
           Map<String, Object> mark_options = new HashMap<String, Object>();
           mark_options.put("inputpath", marked_graph_path);
           mark_options.put("outputpath", merged_graph_path);
-
+          mark_options.put("K", stage_options.get("K"));
           pmerge.setOptionValues(mark_options);
           RunningJob job = pmerge.runJob();
           end(job);
@@ -245,13 +263,13 @@ public class CompressChains extends Stage {
       String percchange =
           df.format((lastremaining > 0) ? 100*(remaining - lastremaining) /
               lastremaining : 0);
-      msg("  " + remaining + " remaining (" + percchange + "%)\n");
+      sLogger.info("  " + remaining + " remaining (" + percchange + "%)\n");
 
       lastremaining = remaining;
     }
 
     JobConf job_conf = new JobConf(CompressChains.class);
-    msg("Save result to " + final_path + "\n\n");
+    sLogger.info("Save result to " + final_path + "\n\n");
     FileUtil.saveResult(
         job_conf, latest_path, final_path);
   }
@@ -298,7 +316,18 @@ public class CompressChains extends Stage {
     List<Option> options = new ArrayList<Option>();
     options.addAll(alloptions.values());
 
+    // Add options specific to this stage.
+    options.add(OptionBuilder.withArgName("localnodes").hasArg().
+        withDescription(
+            "If the number of compressible nodes is less than this value " +
+            "then all compressible nodes get sent to a single worker " +
+            "for compression.").create("localnodes"));
     return options;
+  }
+
+  protected void initializeDefaultOptions() {
+    super.initializeDefaultOptions();
+    default_options.put("localnodes", new Long(1000));
   }
 
   @Override
@@ -316,23 +345,31 @@ public class CompressChains extends Stage {
       stage.parseCommandLine(line);
       substage_options.put(stage.getClass().getName(), stage.stage_options);
 
-      // TODO(jlewi): It would be better to allow main distinct maps
+      // TODO(jlewi): It would be better to allow distinct maps
       // for each stage. The problem with that is figuring out how the
       // substage options would be set when they aren't passed as a set
       // of string arguments.
       stage_options.putAll(stage.stage_options);
     }
+
+    // Get the options which are specific to this stage.
+    if (line.hasOption("localnodes")) {
+      stage_options.put(
+          "localnodes", Long.parseLong(line.getOptionValue("localnodes")));
+    }
   }
 
   @Override
   public RunningJob runJob() throws Exception {
-    throw new RuntimeException("Need to call compressChains");
+    String[] required_args = {"inputpath", "outputpath", "localnodes", "K"};
+    checkHasOptionsOrDie(required_args);
 
-//    String[] required_args = {"inputpath", "outputpath", "K"};
-//    checkHasOptionsOrDie(required_args);
-//
-//    String inputPath = (String) stage_options.get("inputpath");
-//    String outputPath = (String) stage_options.get("outputpath");
+    String input_path = (String) stage_options.get("inputpath");
+    String output_path = (String) stage_options.get("outputpath");
+    // TODO(jlewi): Is just appending "temp" to the output path
+    // really a good idea?
+    String temp_path = new Path(output_path, "temp").toString();
+
 //    long K = (Long)stage_options.get("K");
 //
 //    sLogger.info(" - input: "  + inputPath);
@@ -360,7 +397,10 @@ public class CompressChains extends Stage {
 //    AvroJob.setReducerClass(conf, PairMergeReducer.class);
 
     if (stage_options.containsKey("writeconfig")) {
-     // writeJobConfig(conf);
+      // TODO(jlewi): Can we write the configuration for this stage like
+      // other stages or do we need to do something special?
+      throw new NotImplementedException(
+          "Support for writeconfig isn't implemented yet for compresschains");
     } else {
       // Delete the output directory if it exists already
 //      Path out_path = new Path(outputPath);
@@ -372,13 +412,12 @@ public class CompressChains extends Stage {
 //        FileSystem.get(conf).delete(out_path, true);
 //      }
 //
-//      long starttime = System.currentTimeMillis();
-//      JobClient.runJob(conf);
-//      long endtime = System.currentTimeMillis();
-//
-//      float diff = (float) ((endtime - starttime) / 1000.0);
-//
-//      System.out.println("Runtime: " + diff + " s");
+      long starttime = System.currentTimeMillis();
+      compressChains(input_path, temp_path, output_path);
+      long endtime = System.currentTimeMillis();
+
+      float diff = (float) ((endtime - starttime) / 1000.0);
+      System.out.println("Runtime: " + diff + " s");
     }
     return null;
   }

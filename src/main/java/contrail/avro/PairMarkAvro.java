@@ -509,7 +509,7 @@ public class PairMarkAvro extends Stage {
 
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
-    long randseed = (Long)stage_options.get("randseed");
+    long randseed = (Long) stage_options.get("randseed");
 
     sLogger.info(" - input: "  + inputPath);
     sLogger.info(" - output: " + outputPath);
