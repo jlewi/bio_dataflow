@@ -359,8 +359,12 @@ public abstract class Stage extends Configured implements Tool  {
       Object value = stage_options.get(key);
       if (value instanceof  String) {
         conf.set(key, (String)value);
-      } else if (value instanceof Long){
+      } else if (value instanceof Long) {
         conf.setLong(key, (Long)(value));
+      } else if (value instanceof Boolean) {
+        conf.setBoolean(key, (Boolean)(value));
+      } else if (value instanceof Integer) {
+        conf.setInt(key, (Integer) value);
       } else {
         throw new RuntimeException("option: " + key + " doesn't have an " +
             "acceptable type");

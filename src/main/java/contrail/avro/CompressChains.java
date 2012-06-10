@@ -298,6 +298,8 @@ public class CompressChains extends Stage {
 
   @Override
   protected void parseCommandLine(CommandLine line) {
+    // Initialize the options with the defaults.
+    stage_options.putAll(default_options);
     super.parseCommandLine(line);
 
     // Parse the options for each stage.
