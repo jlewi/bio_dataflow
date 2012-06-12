@@ -33,6 +33,22 @@ public class SimpleGraphBuilder {
    * @return nodeid for the new node.
    */
   public String addNode(String str_seq) {
+    // nodeid will be the canonical sequence.
+    Sequence sequence = new Sequence(str_seq, alphabet);
+    Sequence canonical_src = DNAUtil.canonicalseq(sequence);
+
+    String nodeid = canonical_src.toString();
+    return addNode(nodeid, str_seq);
+  }
+
+  /**
+   * Add a node to the graph to represent this sequence. If
+   * a node with this sequence exists throw an exception.
+   *
+   * @param sequence
+   * @return nodeid for the new node.
+   */
+  public String addNode(String nodeid, String str_seq) {
     if (findEdgeTerminalForSequence(str_seq) != null) {
       throw new RuntimeException(
           "Can't add node for: " + str_seq + "because one already exists.");
@@ -41,7 +57,6 @@ public class SimpleGraphBuilder {
     Sequence sequence = new Sequence(str_seq, alphabet);
     Sequence canonical_src = DNAUtil.canonicalseq(sequence);
 
-    String nodeid = canonical_src.toString();
     GraphNode node = new GraphNode();
     node.setSequence(canonical_src);
     node.setNodeId(nodeid);
@@ -58,12 +73,12 @@ public class SimpleGraphBuilder {
     Sequence sequence = new Sequence(str_seq, alphabet);
     Sequence canonical_src = DNAUtil.canonicalseq(sequence);
 
-    String nodeid = canonical_src.toString();
-
-    if (!(nodes.containsKey(nodeid))) {
-      return null;
+    for (GraphNode node: nodes.values()) {
+      if (node.getSequence().equals(canonical_src)) {
+        return node.getNodeId();
+      }
     }
-    return nodeid;
+    return null;
   }
 
   /**
@@ -145,7 +160,8 @@ public class SimpleGraphBuilder {
     if (!src.substring(src.length() - overlap).equals(
         dest.substring(0, overlap))) {
         throw new RuntimeException("Sequences don't overlap by: " + overlap);
-     }
+
+    }
 
     EdgeTerminal src_terminal = findEdgeTerminalForSequence(src);
     if (src_terminal == null) {

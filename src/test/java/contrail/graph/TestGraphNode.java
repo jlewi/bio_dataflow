@@ -57,16 +57,14 @@ public class TestGraphNode {
 			node_data.getNeighbors().add(dest_node);
 			dest_node.setEdges(new ArrayList<EdgeData> ());
 
-			// generate some links for this node.
-			int num_edges =
-					generator.nextInt(StrandsForEdge.values().length) + 1;
+			// Generate an edge to this neighbor.
+			StrandsForEdge strands = StrandsForEdge.values()[
+					generator.nextInt(StrandsForEdge.values().length)];
 
-			for (int edge_index = 0; edge_index < num_edges; edge_index++) {
-				EdgeData edge = new EdgeData();
-				edge.setStrands(StrandsForEdge.values()[edge_index]);
-				edge.setReadTags(new ArrayList<CharSequence>());
-				dest_node.getEdges().add(edge);
-			}
+			EdgeData edge = new EdgeData();
+			edge.setStrands(strands);
+			edge.setReadTags(new ArrayList<CharSequence>());
+			dest_node.getEdges().add(edge);
 		}
 		return node;
 	}
@@ -271,6 +269,31 @@ public class TestGraphNode {
 				DNAStrand.FORWARD, EdgeDirection.OUTGOING);
 		assertEquals(1, outgoing_edges.size());
 		assertEquals(terminal, outgoing_edges.get(0));
+	}
+
+	@Test
+	public void testFindStrandWithEdgeToTerminal() {
+	  // Create a graph node with some edges.
+	  GraphNode node = createNode();
+
+	  // Loop over the edges and for each edge invoke
+	  // findStrandWithEdgeToTerminal and verify the result is the correct
+	  // strand.
+	  for (DNAStrand strand: DNAStrand.values()) {
+	    for (EdgeDirection direction: EdgeDirection.values()) {
+	      for (EdgeTerminal terminal: node.getEdgeTerminals(strand, direction)) {
+	        DNAStrand found_strand =
+	            node.findStrandWithEdgeToTerminal(terminal, direction);
+	        assertEquals(strand, found_strand);
+	      }
+	    }
+	  }
+
+	  // Check that for an edge that doesn't exist null is returned.
+	  EdgeTerminal terminal = new EdgeTerminal("nonexistent", DNAStrand.FORWARD);
+	  DNAStrand strand = node.findStrandWithEdgeToTerminal(
+	      terminal, EdgeDirection.OUTGOING);
+	  assertEquals(null, strand);
 	}
 
 	@Test
