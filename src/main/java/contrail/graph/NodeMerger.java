@@ -72,8 +72,7 @@ public class NodeMerger {
    */
   protected static void reverseReads(List<R5Tag> tags, int length) {
     for (R5Tag tag: tags) {
-      tag.setStrand(DNAStrandUtil.flip(tag.getStrand()));
-      tag.setOffset(length - tag.getOffset() -1);
+      R5TagUtil.reverse(tag, length);
     }
   }
 
