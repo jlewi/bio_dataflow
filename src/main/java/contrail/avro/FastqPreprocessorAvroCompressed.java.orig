@@ -177,7 +177,11 @@ public class FastqPreprocessorAvroCompressed extends Stage {
         // Replace any funny characters.
         replacer.replaceAll(data);
 
+<<<<<<< HEAD
+        read.setId(new String(data, ByteReplaceAll.encoding));       
+=======
         read.setId(new String(data, ByteReplaceAll.encoding));
+>>>>>>> lewi_master
       }
       else if (idx == 1) {
         byte[] raw_bytes = line.getBytes();
@@ -196,7 +200,11 @@ public class FastqPreprocessorAvroCompressed extends Stage {
       else if (idx == 2) {
       }
       else if (idx == 3)
+<<<<<<< HEAD
+      {						  				 			
+=======
       {
+>>>>>>> lewi_master
         output.collect(out_wrapper, NullWritable.get());
 
         reporter.incrCounter("Contrail", "preprocessed_reads", 1);

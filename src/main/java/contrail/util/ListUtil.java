@@ -11,7 +11,7 @@ public class ListUtil {
    */
   public static <E> Hashtable<E, Integer> countElements (List<E> list) {
     Hashtable<E, Integer> table = new Hashtable<E, Integer>();
-    for (E element: list) {      
+    for (E element: list) {
       if (!table.containsKey(element)) {
         table.put(element, new Integer(0));
       }
@@ -20,7 +20,7 @@ public class ListUtil {
     }
     return table;
   }
-  
+
   /**
    * Return true if the two hashtables are equal.
    */
@@ -29,7 +29,7 @@ public class ListUtil {
     if (a.size() != b.size()) {
       return false;
     }
-    
+
     // Testing equality of the entry sets doesn't appear to work.
     for (E key: a.keySet()) {
       if (!a.get(key).equals(b.get(key))) {
@@ -38,10 +38,10 @@ public class ListUtil {
     }
     return true;
   }
-  
+
   /**
    * Check if the contents of two lists are equal.
-   * 
+   *
    * This function assumes the element type implements the hash code
    * function and hashing is consistent with equals.
    * @param a
@@ -49,14 +49,14 @@ public class ListUtil {
    * @return
    */
   public static <E> boolean listsAreEqual(List<E> a, List<E> b ) {
-    
+
     if (a.size() != b.size()) {
       return false;
     }
-    
+
     Hashtable<E, Integer> hash_a = countElements(a);
     Hashtable<E, Integer> hash_b = countElements(b);
-        
-    return countsAreEqual(hash_a, hash_b);    
+
+    return countsAreEqual(hash_a, hash_b);
   }
 }

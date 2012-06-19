@@ -12,13 +12,13 @@
     <avro-version>1.6.1</avro-version>
   </properties>
   <dependencies>
-  	<!--Provides useful methods for manipulating core classes; e.g 
+  	<!--Provides useful methods for manipulating core classes; e.g
   	    StringUtils-->
   	<dependency>
   	 <groupId>org.apache.commons</groupId>
    	 <artifactId>commons-lang3</artifactId>
   	 <version>3.1</version>
-  	</dependency>  	  
+  	</dependency>
   	<dependency>
     	<groupId>commons-configuration</groupId>
     	<artifactId>commons-configuration</artifactId>
@@ -87,7 +87,7 @@
     <plugins>
       <!--Added this plugin to deal with compile issues when using java 1.7
           See http://goo.gl/E12JG -->
-      <plugin> 
+      <plugin>
 	<groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
 	<version>2.3.2</version>

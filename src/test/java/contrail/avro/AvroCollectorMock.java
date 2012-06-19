@@ -19,7 +19,7 @@ import org.apache.avro.specific.SpecificDatumWriter;
 /**
  * A mock class for the avro output collector. This is intended
  * for unittesting map functions.
- * 
+ *
  * @author jlewi
  *
  */
@@ -37,9 +37,9 @@ public class AvroCollectorMock<VALUET> extends AvroCollector<VALUET>  {
     //schemacls.getConstructor(parameterTypes)
     SpecificDatumWriter<VALUET> datum_writer = new SpecificDatumWriter<VALUET>();
     DataFileWriter<VALUET> file_writer = new DataFileWriter<VALUET>(datum_writer);
-    
-    ByteArrayOutputStream out_stream = new ByteArrayOutputStream(); 
-    
+
+    ByteArrayOutputStream out_stream = new ByteArrayOutputStream();
+
     Method get_schema_method;
     Schema value_schema;
     try{
@@ -55,7 +55,7 @@ public class AvroCollectorMock<VALUET> extends AvroCollector<VALUET>  {
     catch (InvocationTargetException exception) {
       throw new RuntimeException("Problem invoking getSchema on value:" + exception.getMessage());
     }
-    
+
     try {
       file_writer.create(value_schema, out_stream);
       file_writer.append(value);
@@ -64,12 +64,12 @@ public class AvroCollectorMock<VALUET> extends AvroCollector<VALUET>  {
     catch (IOException exception) {
       throw new RuntimeException("Exception occured while serializaing the data:" + exception.getMessage());
     }
-    
+
     SeekableByteArrayInput in_stream = new SeekableByteArrayInput(out_stream.toByteArray());
     SpecificDatumReader<VALUET> data_reader = new SpecificDatumReader<VALUET>();
-    
+
     VALUET copy;
-    
+
     try {
       DataFileReader<VALUET> file_reader = new DataFileReader<VALUET>(in_stream, data_reader);
       copy = file_reader.next();
@@ -78,7 +78,7 @@ public class AvroCollectorMock<VALUET> extends AvroCollector<VALUET>  {
     catch (IOException exception) {
       throw new RuntimeException(exception.getMessage());
     }
-            
+
     data.add(copy);
   }
 }

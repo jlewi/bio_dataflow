@@ -25,7 +25,7 @@ import org.apache.avro.specific.SpecificData;
 
 /**
  * Wrapper class for accessing modifying the GraphNodeData structure.
- * 
+ *
  * This class is used to represent the output of BuildGraphAvro.
  * The class represents a node (KMer) in the graph and all outgoing
  * edges from that sequence
@@ -45,11 +45,13 @@ public class GraphNode {
 		// Whether we have created the edge lists.
 		private boolean lists_created;
 
-		// Store list of edge terminals for the specified strand in the given 
-		// direction these lists are immutable so that we can safely return 
+		// Store list of edge terminals for the specified strand in the given
+		// direction these lists are immutable so that we can safely return
 		// references to the caller.
 
 		// For each strand we store a list of outgoing and incoming edges.
+		// TODO(jlewi): We should consider using HashSet's so that lookups
+		// for a particular terminal will be fast.
 		private List<EdgeTerminal> f_outgoing_edges;
 		private List<EdgeTerminal> r_outgoing_edges;
 		private List<EdgeTerminal> f_incoming_edges;
@@ -59,26 +61,26 @@ public class GraphNode {
 		// to a list of the read tags that gave rise to that edge.
 		private HashMap<EdgeTerminal, List<CharSequence>> f_edge_tags_map;
 		private HashMap<EdgeTerminal, List<CharSequence>> r_edge_tags_map;
-		
+
 		public DerivedData(GraphNodeData data) {
 			this.data = data;
 			lists_created = false;
 		}
 		/**
-		 * This hash map maps the enum StrandsForEdge to a list of strings  
+		 * This hash map maps the enum StrandsForEdge to a list of strings
 		 * which are the node ids for the neighbors.
-		 * If there are no ids for this value of StrandsForEdge the list is 
+		 * If there are no ids for this value of StrandsForEdge the list is
 		 * empty (not null);
 		 */
-		private HashMap<StrandsForEdge, List<CharSequence>> 
+		private HashMap<StrandsForEdge, List<CharSequence>>
 		strands_to_neighbors;
 
 
 		// TODO(jlewi): Would it be better to use sorted sets for fast lookups?
 		private void createEdgeLists() {
 			lists_created = true;
-			
-			strands_to_neighbors = 
+
+			strands_to_neighbors =
 					new HashMap<StrandsForEdge, List<CharSequence>> ();
 			// Initialize the lists.
 			strands_to_neighbors.put(
@@ -95,7 +97,7 @@ public class GraphNode {
 
 			f_edge_tags_map = new HashMap<EdgeTerminal, List<CharSequence>>();
 			r_edge_tags_map = new HashMap<EdgeTerminal, List<CharSequence>>();
-			
+
 			NeighborData dest_node;
 			List<CharSequence> id_list;
 
@@ -107,32 +109,32 @@ public class GraphNode {
 				if (list_link_dirs == null) {
 					throw new RuntimeException(
 							"The list of StrandsForEdge is null for destination:" +
-					        dest_node.getNodeId() + 
+					        dest_node.getNodeId() +
 					        " this should not happen.");
 				}
-				for (Iterator<EdgeData> edge_it = 
+				for (Iterator<EdgeData> edge_it =
 						dest_node.getEdges().iterator();
 				     edge_it.hasNext();) {
 					EdgeData edge_data = edge_it.next();
 					StrandsForEdge strands = edge_data.getStrands();
 					id_list = strands_to_neighbors.get(strands);
 					id_list.add(dest_node.getNodeId());
-					
-					EdgeTerminal terminal = 
-					    new EdgeTerminal(dest_node.getNodeId().toString(), 
-					                     StrandsUtil.dest(strands)); 
-					
+
+					EdgeTerminal terminal =
+					    new EdgeTerminal(dest_node.getNodeId().toString(),
+					                     StrandsUtil.dest(strands));
+
 					// Create an immutable list out of the read tags.
-					List<CharSequence> immutable_tags = 
+					List<CharSequence> immutable_tags =
 					    Collections.unmodifiableList(edge_data.getReadTags());
 					if (StrandsUtil.src(strands) == DNAStrand.FORWARD) {
 						f_outgoing_edges.add(terminal);
-						f_edge_tags_map.put(terminal, immutable_tags);		
+						f_edge_tags_map.put(terminal, immutable_tags);
 					} else {
 						r_outgoing_edges.add(terminal);
 						r_edge_tags_map.put(terminal, immutable_tags);
 					}
-					
+
 				}
 			}
 
@@ -189,13 +191,13 @@ public class GraphNode {
 			}
 			List<EdgeTerminal> terminals;
 			if (strand == DNAStrand.FORWARD) {
-				if (direction == EdgeDirection.OUTGOING) {    			
+				if (direction == EdgeDirection.OUTGOING) {
 					terminals = f_outgoing_edges;
 				} else {
 					terminals = f_incoming_edges;
-				}    		
+				}
 			} else {
-				if (direction == EdgeDirection.OUTGOING) {    			
+				if (direction == EdgeDirection.OUTGOING) {
 					terminals = r_outgoing_edges;
 				} else {
 					terminals = r_incoming_edges;
@@ -203,27 +205,27 @@ public class GraphNode {
 			}
 			return terminals;
 		}
-		
+
 	  /**
 	   * Returns an unmodifiable view of all of the tags for which this terminal
 	   * came from.
 	   * @param strand: Which strand of this node to get the tags for.
 	   * @param terminal: The other end of the edge for which we want the tags.
-	   * @return: An unmodifiable list of the tags for these edges.  
+	   * @return: An unmodifiable list of the tags for these edges.
 	   */
 	  public List<CharSequence> getTagsForEdge(
 	      DNAStrand strand, EdgeTerminal terminal) {
 	    if (!lists_created) {
 	      createEdgeLists();
 	    }
-	    
+
 	    if (strand == DNAStrand.FORWARD) {
 	      return f_edge_tags_map.get(terminal);
 	    } else {
 	      return r_edge_tags_map.get(terminal);
 	    }
 	  }
-	  
+
 		/**
 		 * Clear any precomputed data. This function needs to be called
 		 * whenever the graph changes so that we don't return stale data;
@@ -248,31 +250,31 @@ public class GraphNode {
 	public GraphNode() {
 		data = new GraphNodeData();
 		derived_data = new DerivedData(data);
-		// Initialize any member variables so that if we serialize this instance of 
+		// Initialize any member variables so that if we serialize this instance of
 		// GraphNodeData we don't have null members which causes exceptions.
 		data.setR5Tags(new ArrayList<R5Tag>());
 		data.setNeighbors(new ArrayList<NeighborData>());
 		data.setNodeId("");
-		
+
 		GraphNodeKMerTag tag = new GraphNodeKMerTag();
 		tag.setReadTag("");
 		tag.setChunk(0);
-		data.setMertag(tag);		
+		data.setMertag(tag);
 	}
-	
+
   /**
    * Construct a new node with a reference to the passed in data.
    */
   public GraphNode(GraphNodeData graph_data) {
     data = graph_data;
-    derived_data = new DerivedData(data);  
+    derived_data = new DerivedData(data);
   }
 
   /**
-   * Make a copy of the object. 
+   * Make a copy of the object.
    */
-  public GraphNode clone() {    
-    // TODO(jlewi): The preferred way to make copies of avro records is 
+  public GraphNode clone() {
+    // TODO(jlewi): The preferred way to make copies of avro records is
     // GraphNodeData data = GraphNodeData.newBuilder(value).build();
     // Unfortunately, there are a couple issues with avro that prevent this code
     // from working fully and necessitate some gymnastics.
@@ -291,41 +293,46 @@ public class GraphNode {
     //    compressed sequence separately. So we set the field to null
     //    during the copy and then reset it and manually copy it.
     //
+    //    See https://issues.apache.org/jira/browse/AVRO-1045
+    //    Should be fixed in Avro 1.7.0
+    //
     // 3. The Builder API in avro has some inefficiencies see:
     //    https://issues.apache.org/jira/browse/AVRO-985
     //    https://issues.apache.org/jira/browse/AVRO-989
     //
-    //    We should see whether we are affected by these issues. In several 
-    //    stages, e.g QuickMerge, we will make copies of all nodes so 
+    //    We should see whether we are affected by these issues. In several
+    //    stages, e.g QuickMerge, we will make copies of all nodes so
     //    making the copy efficient will be a big win.
     //
     // We can work around all these issues by implementing our own copy method.
-    CompressedSequence sequence = data.getCanonicalSourceKmer();
-    data.setCanonicalSourceKmer(null);
+    CompressedSequence sequence = data.getSequence();
+    data.setSequence(null);
 
     GraphNodeData copy = (GraphNodeData)
         SpecificData.get().deepCopy(data.getSchema(), data);
-        
+
     CompressedSequence sequence_copy = new CompressedSequence();
-    copy.setCanonicalSourceKmer(sequence_copy);
+    copy.setSequence(sequence_copy);
     sequence_copy.setLength(sequence.getLength());
-    
+
     ByteBuffer source_buffer = sequence.getDna();
     byte[] buffer = Arrays.copyOf(
         sequence.getDna().array(), sequence.getDna().array().length);
     sequence_copy.setDna(ByteBuffer.wrap(
         buffer, 0, source_buffer.limit()));
-    
+
+    // Reset the sequence.
+    data.setSequence(sequence);
     return new GraphNode(copy);
   }
 	/**
 	 * Add information about a destination KMer which came from the start of a read.
-	 * 
+	 *
 	 * If the destination KMer came from the start of a read, then the edge
-	 * Source KMer->Destination KMer edge allows us to connect the two reads. 
-	 * 
+	 * Source KMer->Destination KMer edge allows us to connect the two reads.
+	 *
 	 * @param tag - String identifying the read from where the destination KMer came
-	 *              from. 
+	 *              from.
 	 * @param offset - 0 if isRC is false, K-1 otherwise.
 	 * @param strand - The strand that is aligned with the start of the read.
 	 * @param maxR5 - Maximum number of r5 tags to store.
@@ -350,7 +357,7 @@ public class GraphNode {
 	 */
 	public void setMertag(KMerReadTag mertag) {
 	  // TODO(jlewi): Do we really need this method?
-		GraphNodeKMerTag tag = new GraphNodeKMerTag(); 
+		GraphNodeKMerTag tag = new GraphNodeKMerTag();
 		tag.setReadTag(mertag.read_id);
 		tag.setChunk(mertag.chunk);
 		data.setMertag(tag);
@@ -360,25 +367,25 @@ public class GraphNode {
 		data.setCoverage(cov);
 	}
 
-	/** 
+	/**
 	 * Set the canonical sequence represented by this node.
 	 * @param seq
 	 */
-	public void setCanonicalSequence(Sequence seq) {
+	public void setSequence(Sequence seq) {
 		CompressedSequence compressed = new CompressedSequence();
 		compressed.setDna(ByteBuffer.wrap(seq.toPackedBytes(), 0, seq.numPackedBytes()));
-		compressed.setLength(seq.size()); 
-		data.setCanonicalSourceKmer(compressed);  
+		compressed.setLength(seq.size());
+		data.setSequence(compressed);
 	}
 
-	/** 
+	/**
 	 * @param seq
 	 */
-	public void setCanonicalSequence(ByteBuffer seq, int length) {
+	public void setSequence(ByteBuffer seq, int length) {
 		CompressedSequence compressed = new CompressedSequence();
 		compressed.setDna(seq);
-		compressed.setLength(length); 
-		data.setCanonicalSourceKmer(compressed);  
+		compressed.setLength(length);
+		data.setSequence(compressed);
 	}
 
 	/**
@@ -391,29 +398,54 @@ public class GraphNode {
 
 	/**
 	 * Find the instance of NeighborData for the specified nodeId.
-	 * @param: nodeId 
+	 * @param: nodeId
 	 * @return The instance if found or null otherwise.
-	 * 
-	 * TODO(jlewi): We could probably speed this up by creating a hash map for  
+	 *
+	 * TODO(jlewi): We could probably speed this up by creating a hash map for
 	 * the destination nodeIds. This function should probably go in
 	 * derived_data.
 	 */
 	private NeighborData findNeighbor(String nodeId) {
 		if (data.getNeighbors() == null) {
 			return null;
-		}		
+		}
 		for (Iterator<NeighborData> it_dest_node = data.getNeighbors().iterator();
 				it_dest_node.hasNext();) {
-			NeighborData dest = it_dest_node.next();		
+			NeighborData dest = it_dest_node.next();
 			if (dest.getNodeId().toString().equals(nodeId)) {
 				return dest;
 			}
 		}
-		return null;   
+		return null;
 	}
 
+  /**
+   * Find the strand of node that has an edge to terminal.
+   *
+   * @param terminal: The terminal to find the edge to.
+   * @param direction: The direction for the edge.
+   * @returns The strand or null if no edge exists.
+   */
+  public DNAStrand findStrandWithEdgeToTerminal(
+      EdgeTerminal terminal, EdgeDirection direction) {
+    // TODO(jlewi): We can optimize this by storing the edge terminals
+    // associated with each strands as hash sets so we can do faster lookups.
+    // TODO(jlewi): Add a unittest
+    for (DNAStrand strand : DNAStrand.values()) {
+      List<EdgeTerminal> terminals_for_strand =
+          getEdgeTerminals(strand, direction);
+
+      for (EdgeTerminal candidate: terminals_for_strand) {
+        if (terminal.equals(candidate)) {
+          return strand;
+        }
+      }
+    }
+    return null;
+  }
+
  /**
-   * Add an outgoing edge to this node. 
+   * Add an outgoing edge to this node.
    * @param strand: Which strand to add the edge to.
    * @param dest: The destination
    * @param tags: (Optional): List of strings identifying the reads where this
@@ -421,13 +453,13 @@ public class GraphNode {
    * @param MAXTHREADREADS: The tag will only be recorded if we have fewer
    *   than this number of tags associated with this read.
    */
-  public void addOutgoingEdgeWithTags(DNAStrand strand, EdgeTerminal dest, 
-                                      List<CharSequence> tags, 
+  public void addOutgoingEdgeWithTags(DNAStrand strand, EdgeTerminal dest,
+                                      List<CharSequence> tags,
                                       long MAXTHREADREADS) {
     // Clear the derived data.
     this.derived_data.clear();
     NeighborData dest_node = findNeighbor(dest.nodeId);
-    
+
     if (dest_node == null) {
       dest_node = new NeighborData();
       dest_node.setNodeId(dest.nodeId);
@@ -436,66 +468,66 @@ public class GraphNode {
         neighbors = new ArrayList<NeighborData>();
         data.setNeighbors(neighbors);
       }
-      neighbors.add(dest_node);     
+      neighbors.add(dest_node);
     }
-    
+
     List<EdgeData> list_edge_strands = dest_node.getEdges();
     if (list_edge_strands == null) {
       list_edge_strands = new ArrayList<EdgeData> ();
       dest_node.setEdges(list_edge_strands);
     }
-    
+
     StrandsForEdge strands = StrandsUtil.form(strand, dest.strand);
     EdgeData edge = findEdgeDataForStrands(
         dest_node, strands);
-    
+
     if (edge == null) {
       edge = new EdgeData();
       list_edge_strands.add(edge);
       edge.setStrands(strands);
       edge.setReadTags(new ArrayList<CharSequence>());
     }
-    
+
     if (tags !=null) {
       if (edge.getReadTags().size() < MAXTHREADREADS){
         List<CharSequence> edge_tags = edge.getReadTags();
-        long max_insert = MAXTHREADREADS - edge.getReadTags().size();        
-        long num_to_insert = max_insert > tags.size() ? tags.size() : 
-            max_insert; 
+        long max_insert = MAXTHREADREADS - edge.getReadTags().size();
+        long num_to_insert = max_insert > tags.size() ? tags.size() :
+            max_insert;
         for (int i = 0 ; i < num_to_insert; i++) {
           edge_tags.add(tags.get(i));
         }
       }
-    }   
+    }
   }
-  
+
 	/**
-	 * Add an outgoing edge to this node. 
+	 * Add an outgoing edge to this node.
 	 * @param strand: Which strand to add the edge to.
 	 * @param dest: The destination
-	 * @param tag: (Optional): String identifying the read where this edge 
+	 * @param tag: (Optional): String identifying the read where this edge
 	 *   came from.
 	 * @param MAXTHREADREADS: The tag will only be recorded if we have fewer
 	 *   than this number of tags associated with this read.
 	 */
-	public void addOutgoingEdge(DNAStrand strand, EdgeTerminal dest, String tag, 
+	public void addOutgoingEdge(DNAStrand strand, EdgeTerminal dest, String tag,
 	                            long MAXTHREADREADS) {
 	  List<CharSequence> tags = new ArrayList<CharSequence>();
 	  tags.add(tag);
 		addOutgoingEdgeWithTags(strand, dest, tags, MAXTHREADREADS);
 	}
-	
+
 	/**
-	 * Add an outgoing edge to this node. 
+	 * Add an outgoing edge to this node.
 	 * @param strand: Which strand to add the edge to.
 	 * @param dest: The destination
 	 */
 	public void addOutgoingEdge(DNAStrand strand, EdgeTerminal dest) {
 	  addOutgoingEdgeWithTags(strand, dest, null, 0);
 	}
- 	
+
   /**
-   * Add an incoming edge to this node. 
+   * Add an incoming edge to this node.
    * @param strand: Which strand to add the edge to.
    * @param src: The destination
    * @param tags: (Optional): List of strings identifying the reads where this
@@ -503,41 +535,41 @@ public class GraphNode {
    * @param MAXTHREADREADS: The tag will only be recorded if we have fewer
    *   than this number of tags associated with this read.
    */
-  public void addIncomingEdgeWithTags(DNAStrand strand, EdgeTerminal src, 
-                                      List<CharSequence> tags, 
+  public void addIncomingEdgeWithTags(DNAStrand strand, EdgeTerminal src,
+                                      List<CharSequence> tags,
                                       long MAXTHREADREADS) {
     // Let this node be X.
     // Then edge Y->X implies edge RC(x)->RC(y).
-    // So we add RC(x)->RC(y) to this node.   
+    // So we add RC(x)->RC(y) to this node.
     EdgeTerminal dest = new EdgeTerminal(
         src.nodeId, DNAStrandUtil.flip(src.strand));
     addOutgoingEdge(DNAStrandUtil.flip(strand), dest);
   }
- 
+
 	/**
-	 * Add an incoming edge to this node. 
+	 * Add an incoming edge to this node.
 	 * @param strand: Which strand to add the edge to.
 	 * @param src: The source terminal
 	 */
 	public void addIncomingEdge(DNAStrand strand, EdgeTerminal src) {
 		// Let this node be X.
 		// Then edge Y->X implies edge RC(x)->RC(y).
-		// So we add RC(x)->RC(y) to this node.		
+		// So we add RC(x)->RC(y) to this node.
 		EdgeTerminal dest = new EdgeTerminal(
 		    src.nodeId, DNAStrandUtil.flip(src.strand));
 		addOutgoingEdge(DNAStrandUtil.flip(strand), dest);
 	}
-	
+
 	/**
 	 * Find the edge instances inside NeighborData for the given strands.
-	 * 
+	 *
 	 * @param canonical_sequence
 	 * @return The instance if found or null otherwise.
-	 * 
-	 * TODO(jlewi): We could probably speed this up by creating a hash map for the 
+	 *
+	 * TODO(jlewi): We could probably speed this up by creating a hash map for the
 	 * destination sequences.
 	 */
-	private EdgeData findEdgeDataForStrands(NeighborData node, 
+	private EdgeData findEdgeDataForStrands(NeighborData node,
 	                                        StrandsForEdge strands) {
 		if (node.getEdges() == null) {
 			return null;
@@ -563,20 +595,20 @@ public class GraphNode {
 	}
 
 	/**
-	 * Compute the degree for this node. 
-	 * 
-	 * The degree is the number of outgoing edges from this node when the kmer 
+	 * Compute the degree for this node.
+	 *
+	 * The degree is the number of outgoing edges from this node when the kmer
 	 * sequence represented by this node is read in direction dir.
-	 * 
+	 *
 	 * @param strand - Which strand to consider.
-	 * @return 
+	 * @return
 	 * TODO(jlewi): Add a unittest.
 	 */
 	public int degree(DNAStrand strand) {
 		int retval = 0;
 
 
-		StrandsForEdge fd = StrandsUtil.form(strand, DNAStrand.FORWARD);    
+		StrandsForEdge fd = StrandsUtil.form(strand, DNAStrand.FORWARD);
 		retval += this.derived_data.getNeighborsForStrands(fd).size();
 
 
@@ -587,20 +619,20 @@ public class GraphNode {
 	}
 
 	public String getNodeId() {
-		return data.getNodeId().toString(); 
+		return data.getNodeId().toString();
 	}
 
 	public void setNodeId(String nodeid) {
-	  data.setNodeId(nodeid); 
+	  data.setNodeId(nodeid);
 	}
 
 	/**
-	 * Return a list of the canonical compressed sequences for the specific 
+	 * Return a list of the canonical compressed sequences for the specific
 	 * link direction;
-	 * 
+	 *
 	 * @param link_dir: Two letter string representing the canonical direction
 	 *   for the source and destination sequences.
-	 * @return: List of the CompressedSequences for the canonical 
+	 * @return: List of the CompressedSequences for the canonical
 	 *   represention for the destination KMer.
 	 */
 	public List<CompressedSequence> getCanonicalEdgeData(String key) {
@@ -610,21 +642,21 @@ public class GraphNode {
 	/**
 	 * Return the tail information for this node. If this node has out degree
 	 * 1 then its tail is the node we are connected to.
-	 * 
+	 *
 	 * @param strand - Which strand of DNA to consider the tail information for.
 	 * @param tail_dir - The direction of the tail. Outgoing means follow
 	 *                   the outgoing edges. Incoming means follow the incoming
 	 *                   edges.
-	 * @return - An instance of Tailinfo. ID is set to the  
+	 * @return - An instance of Tailinfo. ID is set to the
 	 *  representation of the destination node,
-	 *   dist is initialized to 1, and dir is the direction coresponding to the 
+	 *   dist is initialized to 1, and dir is the direction coresponding to the
 	 *   destination node.
-	 *   
-	 * TODO(jlewi): Add a unittest. 
-	 * TODO(jlewi): Clean up the docstring once the code is finalized. 
+	 *
+	 * TODO(jlewi): Add a unittest.
+	 * TODO(jlewi): Clean up the docstring once the code is finalized.
 	 */
 	public TailData getTail(DNAStrand dir, EdgeDirection tail_dir)
-	{    
+	{
 
 		TailData ti = new TailData();
 		ti.dist = 1;
@@ -640,9 +672,9 @@ public class GraphNode {
 		return ti;
 	}
 
-	/** 
+	/**
 	 * Return a list of the node ids for neighbors with edges corresponding
-	 * to the given strands. 
+	 * to the given strands.
 	 * @param link_dir
 	 * @return
 	 */
@@ -651,20 +683,20 @@ public class GraphNode {
 	}
 
 	/**
-	 * A partial string representation that is primarily intended for displaying 
+	 * A partial string representation that is primarily intended for displaying
 	 * in a debugger. This representation is likely to change and it should
 	 * not be relied upon for any processing.
 	 */
 	public String toString() {
-	    String represent = "Id:" + getNodeId() + " "; 
-	    represent += "Sequence:" + this.getCanonicalSequence().toString();
+	    String represent = "Id:" + getNodeId() + " ";
+	    represent += "Sequence:" + this.getSequence().toString();
 	    represent += " F_EDGES: ";
-	    for (EdgeTerminal edge: 
+	    for (EdgeTerminal edge:
 	      this.getEdgeTerminals(DNAStrand.FORWARD, EdgeDirection.OUTGOING)) {
 	      represent += edge.toString() + ",";
 	    }
 	    represent += " R_EDGES: ";
-	    for (EdgeTerminal edge: 
+	    for (EdgeTerminal edge:
         this.getEdgeTerminals(DNAStrand.REVERSE, EdgeDirection.OUTGOING)) {
         represent += edge.toString() + ",";
       }
@@ -680,41 +712,41 @@ public class GraphNode {
 			DNAStrand strand, EdgeDirection direction) {
 		return derived_data.getEdgeTerminals(strand, direction);
 	}
-	
+
 	/**
 	 * Returns an unmodifiable view of all of the tags for which this terminal
 	 * came from.
 	 * @param strand: Which strand of this node to get the tags for.
 	 * @param terminal: The other end of the edge for which we want the tags.
-	 * @return: An unmodifiable list of the tags for these edges.  
+	 * @return: An unmodifiable list of the tags for these edges.
 	 */
 	public List<CharSequence> getTagsForEdge(
 	    DNAStrand strand, EdgeTerminal terminal) {
 	  return derived_data.getTagsForEdge(strand, terminal);
 	}
-	
+
 	/**
 	 * Return the canonical sequence for this node.
 	 * @return
 	 */
-	public Sequence getCanonicalSequence() {
+	public Sequence getSequence() {
 	  Sequence sequence = new Sequence(DNAAlphabetFactory.create());
-	  byte[] bytes = data.getCanonicalSourceKmer().getDna().array();
-	  int length = data.getCanonicalSourceKmer().getLength();
+	  byte[] bytes = data.getSequence().getDna().array();
+	  int length = data.getSequence().getLength();
 	  sequence.readPackedBytes(bytes, length);
 	  return sequence;
-	}	
-	
+	}
+
 	/**
 	 * Return the coverage.
 	 */
 	public float getCoverage() {
 	  return this.data.getCoverage();
-	}	
-	
+	}
+
 	/**
-	 * Move the outgoing edge. 
-	 * 
+	 * Move the outgoing edge.
+	 *
 	 * This function is used when the terminal for an outgoing edge gets merged
 	 * with other nodes. Thus, we need to update the nodeid and strand for this
 	 * terminal
@@ -725,18 +757,18 @@ public class GraphNode {
 	public void moveOutgoingEdge(
 	    DNAStrand strand, EdgeTerminal old_terminal, EdgeTerminal new_terminal) {
 	  NeighborData old_neighbor = findNeighbor(old_terminal.nodeId);
-	  
+
 	  if (old_neighbor == null) {
 	    throw new RuntimeException(
 	        "Could not find a neighbor with id:" + old_terminal.nodeId);
 	  }
-	  
+
 	  if (old_terminal.equals(new_terminal)) {
 	    // Note: It is possible that the nodeid is the same but the strand
 	    // is different.
 	    throw new RuntimeException("New node is the same as the old node");
 	  }
-	  
+
 	  NeighborData new_neighbor = findNeighbor(new_terminal.nodeId);
 	  if (new_neighbor == null) {
 	    new_neighbor = new NeighborData();
@@ -744,7 +776,7 @@ public class GraphNode {
 	    new_neighbor.setEdges(new ArrayList<EdgeData>());
 	    data.getNeighbors().add(new_neighbor);
 	  }
-	  
+
 	  // Find the edge data.
 	  StrandsForEdge old_strands = StrandsUtil.form(strand, old_terminal.strand);
 	  EdgeData old_edgedata = findEdgeDataForStrands(old_neighbor, old_strands);
@@ -752,44 +784,44 @@ public class GraphNode {
 	    throw new RuntimeException(
 	        "Could not find edge data for the edge being moved");
 	  }
-	  
+
 	  // Find the new edge data.
 	  StrandsForEdge new_strands = StrandsUtil.form(strand, new_terminal.strand);
 	  EdgeData new_edgedata = findEdgeDataForStrands(new_neighbor, new_strands);
 	  if (new_edgedata == null) {
 	    new_edgedata = new EdgeData();
 	    new_edgedata.setStrands(new_strands);
-	    new_edgedata.setReadTags(new ArrayList<CharSequence>());	   
+	    new_edgedata.setReadTags(new ArrayList<CharSequence>());
 	    new_neighbor.getEdges().add(new_edgedata);
 	  }
-	  
+
 	  // Copy the data.
 	  new_edgedata.getReadTags().addAll(old_edgedata.getReadTags());
-	  
+
 	  // Remove this data from the old neighbor.
 	  removeEdgesForNeighbor(old_neighbor, old_strands);
-	  
+
 	  for (int index = 0; index < old_neighbor.getEdges().size(); index++) {
 	    if (old_neighbor.getEdges().get(index).getStrands() == old_strands) {
 	      old_neighbor.getEdges().remove(index);
 	      break;
 	    }
 	  }
-	  
+
 	  // Remove old_neighbor if there are no more edges to it.
 	  if (old_neighbor.getEdges().size() == 0) {
 	    removeNeighbor(old_neighbor.getNodeId().toString());
 	  }
-	  
+
 	  // Clear the derived data because it is invalid.
 	  derived_data.clear();
 	}
-	
+
   /**
    * Remove the edge for the given strands from the given neighbor.
    * Neighbor should be a reference to data inside this.data.
    * We don't check to verify this.
-   * 
+   *
    * @return: True on success false otherwise.
    */
   protected boolean removeEdgesForNeighbor(
@@ -801,14 +833,14 @@ public class GraphNode {
         neighbor.getEdges().remove(index);
         derived_data.clear();
         return true;
-      }    
+      }
     }
     return false;
   }
 
   /**
    * Remove the neighbor with the given id from this node.
-   * 
+   *
    * @return: True on success false otherwise.
    */
   protected boolean removeNeighbor(
@@ -821,8 +853,8 @@ public class GraphNode {
         data.getNeighbors().remove(index);
         derived_data.clear();
         return true;
-      }    
+      }
     }
     return false;
-  } 
+  }
 }
