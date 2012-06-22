@@ -47,6 +47,24 @@ public class CompressUtil {
   }
 
   /**
+   * Make a deep copy of NodeInfoForMerge.
+   *
+   * Note: Eventually we will just use AVRO methods once the following issue
+   * is resolved.
+   * https://issues.apache.org/jira/browse/AVRO-1045.
+   * @param node_info
+   * @return
+   */
+  public static NodeInfoForMerge copyNodeInfoForMerge(
+      NodeInfoForMerge node_info) {
+    NodeInfoForMerge copy = new NodeInfoForMerge();
+    copy.setStrandToMerge(node_info.getStrandToMerge());
+    copy.setCompressibleNode(
+        copyCompressibleNode(node_info.getCompressibleNode()));
+    return copy;
+  }
+
+  /**
    * Convert DNAStrand to an instance of CompressibleStrands.
    */
   protected static CompressibleStrands dnaStrandToCompressibleStrands(
