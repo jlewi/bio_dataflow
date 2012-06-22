@@ -261,7 +261,8 @@
                 {"name": "strand_to_merge",
                  "type": "contrail.avro.CompressibleStrands",
                  "doc": ["Which strand if any to merge. The value should not ",
-                         "be both."]
+                         "be both. The node is compressed along the outgoing ",
+                         "edge for this strand."]
                 }
                ]
     },
