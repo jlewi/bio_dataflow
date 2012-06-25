@@ -51,7 +51,7 @@ import contrail.sequences.StrandsUtil;
  * node is identifiable because its node id will match the reducer key and
  * strand_to_merge will be set to None. The nodes are merged such that
  * the forward strand of the down node always corresponds to the forward
- * strand of the down node.
+ * strand of the merged node (see the javadoc for PairMarkAvro).
  */
 public class PairMergeAvro extends Stage {
   private static final Logger sLogger = Logger.getLogger(PairMergeAvro.class);

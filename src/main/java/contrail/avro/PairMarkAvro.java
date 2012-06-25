@@ -62,7 +62,7 @@ import contrail.sequences.DNAStrand;
  *    stored in nodes after the merge may NOT BE the Canonical sequence.
  *
  *    This is necessary, to allow edge updates to be properly propogated in all
- *    case.
+ *    cases.
  *
  * The mapper does the following.
  * 1. Randomly assign up and down states to nodes.
