@@ -215,7 +215,7 @@ public class FastqPreprocessorAvroCompressed extends Stage {
   }
 
   @Override
-  public int run() throws Exception {
+  public RunningJob runJob() throws Exception {
     sLogger.info("Tool name: FastqPreprocessorAvroCompressed");
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
@@ -252,7 +252,6 @@ public class FastqPreprocessorAvroCompressed extends Stage {
 
     if (stage_options.containsKey("writeconfig")) {
       writeJobConfig(conf);
-      return 0;
     } else {
 
       //delete the output directory if it exists already
@@ -263,8 +262,9 @@ public class FastqPreprocessorAvroCompressed extends Stage {
       long end_time = System.currentTimeMillis();
       double nseconds = (end_time - start_time) / 1000.0;
       System.out.println("Job took: " + nseconds + " seconds");
-      return 0;
+      return result;
     }
+    return null;
   }
 
   /**
