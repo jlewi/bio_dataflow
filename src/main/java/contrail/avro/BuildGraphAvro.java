@@ -41,6 +41,7 @@ import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -513,11 +514,19 @@ public class BuildGraphAvro extends Stage
   {
     sLogger.info("Tool name: BuildGraph");
     parseCommandLine(args);
-    return run();
+    RunningJob job = runJob();
+    if (job == null) {
+      return 0;
+    }
+    if (job.isSuccessful()) {
+      return 0;
+    } else {
+      return -1;
+    }
   }
 
   @Override
-  protected int run() throws Exception {
+  public RunningJob runJob() throws Exception {
     // Check for missing arguments.
     String[] required_args = {"inputpath", "outputpath", "K"};
     checkHasOptionsOrDie(required_args);
@@ -559,14 +568,15 @@ public class BuildGraphAvro extends Stage
       }
 
       long starttime = System.currentTimeMillis();
-      JobClient.runJob(conf);
+      RunningJob result = JobClient.runJob(conf);
       long endtime = System.currentTimeMillis();
 
       float diff = (float) ((endtime - starttime) / 1000.0);
 
       sLogger.info("Runtime: " + diff + " s");
+      return result;
     }
-    return 0;
+    return null;
   }
 
   public static void main(String[] args) throws Exception
