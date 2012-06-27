@@ -432,6 +432,12 @@ public abstract class Stage extends Configured implements Tool  {
     sLogger.info("Tool name: " + this.getClass().getName());
     parseCommandLine(args);
     RunningJob job = runJob();
+
+    if (job == null) {
+      // The job doesn't actually run a mapreduce job; e.g when we write
+      // job configs.
+      return 0;
+    }
     if (job.isSuccessful()) {
       return 0;
     } else {
@@ -491,6 +497,7 @@ public abstract class Stage extends Configured implements Tool  {
         // and not in the individual job configuration stages.
         HashSet<String> exclude = new HashSet<String>();
         exclude.add("fs.default.name");
+        exclude.add("fs.defaultFS");
         exclude.add("mapred.job.tracker");
         exclude.add("mapred.jar");
 
