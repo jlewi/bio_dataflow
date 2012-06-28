@@ -4,17 +4,16 @@ import static org.junit.Assert.*;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.List;
 
-import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.Pair;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 import org.junit.Test;
 
-import contrail.ContrailConfig;
 import contrail.ReporterMock;
 import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
@@ -48,11 +47,9 @@ public class TestQuickMergeAvro {
 
       QuickMergeAvro.QuickMergeMapper mapper =
           new QuickMergeAvro.QuickMergeMapper();
-      ContrailConfig.TEST_MODE = true;
-      ContrailConfig.K = 3;
 
       JobConf job = new JobConf(QuickMergeAvro.QuickMergeMapper.class);
-      ContrailConfig.initializeConfiguration(job);
+
       mapper.configure(job);
 
       try {
@@ -103,9 +100,6 @@ public class TestQuickMergeAvro {
     ReporterMock reporter_mock = new ReporterMock();
     Reporter reporter = reporter_mock;
 
-    ContrailConfig.TEST_MODE = true;
-    ContrailConfig.K = 3;
-
     try {
       List<GraphNodeData> data = new ArrayList<GraphNodeData>();
       for (GraphNode node: graph.getAllNodes().values()) {
@@ -115,7 +109,11 @@ public class TestQuickMergeAvro {
       QuickMergeAvro.QuickMergeReducer reducer =
           new QuickMergeAvro.QuickMergeReducer();
       JobConf job = new JobConf(QuickMergeAvro.QuickMergeMapper.class);
-      ContrailConfig.initializeConfiguration(job);
+
+      HashMap<String, ParameterDefinition> definitions =
+          QuickMergeAvro.createParameterDefinitions();
+      definitions.get("K").addToJobConf(job, new Integer(3));
+
       reducer.configure(job);
 
       reducer.reduce("key",
