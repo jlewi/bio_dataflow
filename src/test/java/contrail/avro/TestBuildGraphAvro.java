@@ -31,7 +31,6 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import org.junit.Test;
 
-import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.Pair;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
@@ -161,6 +160,8 @@ public class TestBuildGraphAvro {
     int ntrials = 10;
     Alphabet alphabet = DNAAlphabetFactory.create();
 
+    HashMap<String, ParameterDefinition> definitions =
+        BuildGraphAvro.createParameterDefinitions();
     for (int trial = 0; trial < ntrials; trial++) {
       MapTestData test_data = MapTestData.RandomTest();
 
@@ -172,13 +173,11 @@ public class TestBuildGraphAvro {
 
       BuildGraphAvro.BuildGraphMapper mapper =
           new BuildGraphAvro.BuildGraphMapper();
-      ContrailConfig.PREPROCESS_SUFFIX = 0;
-      ContrailConfig.TEST_MODE = true;
-      ContrailConfig.K = test_data.getK();
+
 
       int K = test_data.getK();
       JobConf job = new JobConf(BuildGraphAvro.BuildGraphMapper.class);
-      ContrailConfig.initializeConfiguration(job);
+      definitions.get("K").addToJobConf(job, new Integer(test_data.K));
       mapper.configure(job);
 
       try {
@@ -487,14 +486,16 @@ public class TestBuildGraphAvro {
 
     ReduceTest reduce_data;
     Alphabet alphabet = DNAAlphabetFactory.create();
+
+    HashMap<String, ParameterDefinition> definitions =
+        BuildGraphAvro.createParameterDefinitions();
+
     for (int trial = 0; trial < NTRIALS; trial++) {
       reduce_data = ReduceTest.RandomTest(MIN_K, MAX_K, MAX_EDGES);
 
       JobConf job = new JobConf(BuildGraphAvro.BuildGraphReducer.class);
-      ContrailConfig.PREPROCESS_SUFFIX = 0;
-      ContrailConfig.TEST_MODE = true;
-      ContrailConfig.K = reduce_data.K;
-      ContrailConfig.initializeConfiguration(job);
+
+      definitions.get("K").addToJobConf(job, new Integer(reduce_data.K));
 
       BuildGraphAvro.BuildGraphReducer reducer =
           new BuildGraphAvro.BuildGraphReducer();

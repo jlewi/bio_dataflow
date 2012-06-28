@@ -81,38 +81,39 @@ public class BuildGraphAvro extends Stage
     return sequence.toString();
   }
 
-  protected HashMap<String, ParameterDefinition> createParameterDefinitions() {
-    HashMap<String, ParameterDefinition> defs =
+  protected static HashMap<String, ParameterDefinition>
+    createParameterDefinitions() {
+      HashMap<String, ParameterDefinition> defs =
         new HashMap<String, ParameterDefinition>();
 
-    defs.putAll(super.createParameterDefinitions());
+    defs.putAll(Stage.createParameterDefinitions());
 
     // Add options specific to this stage.
     ParameterDefinition max_reads =
         new ParameterDefinition("max_reads",
-            "max reads starts per node.", Long.class, new Long(250));
+            "max reads starts per node.", Integer.class, new Integer(250));
 
     ParameterDefinition trim3 =
         new ParameterDefinition("TRIM3",
-            "Chopped bases.", Long.class, new Long(0));
+            "Chopped bases.", Integer.class, new Integer(0));
 
     ParameterDefinition trim5 =
         new ParameterDefinition("TRIM5",
-            "Chopped bases.", Long.class, new Long(0));
+            "Chopped bases.", Integer.class, new Integer(0));
 
     ParameterDefinition maxR5 =
         new ParameterDefinition("MAXR5",
-            "Max R5.", Long.class, new Long(250));
+            "Max R5.", Integer.class, new Integer(250));
 
 
     ParameterDefinition max_thread_reads =
         new ParameterDefinition("MAXTHREADREADS",
-            "Max thread reads.", Long.class, new Long(250));
+            "Max thread reads.", Integer.class, new Integer(250));
 
 
     ParameterDefinition record_all_threads =
         new ParameterDefinition("RECORD_ALL_THREADS",
-            "Record all threads.", Long.class, new Long(250));
+            "Record all threads.", Boolean.class, new Boolean(false));
 
     for (ParameterDefinition def:
       new ParameterDefinition[] {
@@ -241,12 +242,14 @@ public class BuildGraphAvro extends Stage
     private KMerEdge node = new KMerEdge();
     public void configure(JobConf job)
     {
-      K = Integer.parseInt(job.get("K"));
+      HashMap<String, ParameterDefinition> definitions =
+          createParameterDefinitions();
+      K = (Integer)(definitions.get("K").parseJobConf(job));
       if (K <= 0) {
         throw new RuntimeException("K must be a positive integer");
       }
-      int TRIM5 = Integer.parseInt(job.get("TRIM5"));
-      int TRIM3 = Integer.parseInt(job.get("TRIM3"));
+      int TRIM5 = (Integer)(definitions.get("TRIM5").parseJobConf(job));
+      int TRIM3 = (Integer)(definitions.get("TRIM3").parseJobConf(job));;
 
       preprocessor = new SequencePreProcessor(alphabet, TRIM5, TRIM3);
     }
@@ -415,10 +418,14 @@ public class BuildGraphAvro extends Stage
     private static boolean RECORD_ALL_THREADS = false;
 
     public void configure(JobConf job) {
-      K = Integer.parseInt(job.get("K"));
-      MAXTHREADREADS = Integer.parseInt(job.get("MAXTHREADREADS"));
-      MAXR5 = Integer.parseInt(job.get("MAXR5"));
-      RECORD_ALL_THREADS = Integer.parseInt(job.get("RECORD_ALL_THREADS")) == 1;
+      HashMap<String, ParameterDefinition> definitions =
+          createParameterDefinitions();
+      K = (Integer)(definitions.get("K").parseJobConf(job));
+      MAXTHREADREADS = (Integer)
+          (definitions.get("MAXTHREADREADS").parseJobConf(job));
+      MAXR5 = (Integer) (definitions.get("MAXR5").parseJobConf(job));
+      RECORD_ALL_THREADS = (Boolean)
+          (definitions.get("RECORD_ALL_THREADS").parseJobConf(job));
     }
 
     @Override

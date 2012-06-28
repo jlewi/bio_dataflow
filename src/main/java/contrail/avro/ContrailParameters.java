@@ -132,7 +132,7 @@ public class ContrailParameters {
 
 
     ParameterDefinition k = new ParameterDefinition(
-        "k", "Length of KMers [required].", Integer.class, null);
+        "K", "Length of KMers [required].", Integer.class, null);
     stage_options.add(k);
     return stage_options;
   }

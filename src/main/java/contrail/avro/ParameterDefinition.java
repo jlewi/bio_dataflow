@@ -117,6 +117,9 @@ public class ParameterDefinition {
    */
   public Object parseJobConf(JobConf conf) {
     String value = conf.get(name_);
+    if (value == null) {
+      return default_value_;
+    }
     return fromString(value);
   }
 

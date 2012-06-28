@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 
 import org.w3c.dom.Document;
@@ -23,7 +22,6 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.GnuParser;
 import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.lang3.StringUtils;
@@ -121,8 +119,11 @@ public abstract class Stage extends Configured implements Tool  {
    * This function creates the set of parameter definitions for this stage.
    * Overload this function in your subclass to set the definitions for the
    * stage.
+   *
+   * This function is declared static because its per stage not instance.
    */
-  protected HashMap<String, ParameterDefinition> createParameterDefinitions() {
+  protected static HashMap<String, ParameterDefinition>
+    createParameterDefinitions() {
     HashMap<String, ParameterDefinition> parameters =
         new HashMap<String, ParameterDefinition>();
 
@@ -149,8 +150,8 @@ public abstract class Stage extends Configured implements Tool  {
   protected void parseCommandLine(String[] args) {
     Options options = new Options();
 
-    for (Iterator<ParameterDefinition> it = getParameterDefinitions().iterator();
-        it.hasNext();) {
+    for (Iterator<ParameterDefinition> it =
+          getParameterDefinitions().values().iterator(); it.hasNext();) {
       options.addOption(it.next().getOption());
     }
     CommandLineParser parser = new GnuParser();
@@ -171,8 +172,8 @@ public abstract class Stage extends Configured implements Tool  {
   protected void parseCommandLine(CommandLine line) {
     HashMap<String, Object> parameters = new HashMap<String, Object>();
 
-    for (Iterator<ParameterDefinition> it = getParameterDefinitions().iterator();
-        it.hasNext();) {
+    for (Iterator<ParameterDefinition> it =
+            getParameterDefinitions().values().iterator(); it.hasNext();) {
       ParameterDefinition def = it.next();
       Object value = def.parseCommandLine(line);
       if (value != null) {
@@ -218,7 +219,7 @@ public abstract class Stage extends Configured implements Tool  {
       if (exclude.contains(key)) {
         continue;
       }
-      ParameterDefinition def = option_definitions.get(key);
+      ParameterDefinition def = getParameterDefinitions().get(key);
       def.addToJobConf(conf, stage_options.get(key));
     }
   }
@@ -229,8 +230,9 @@ public abstract class Stage extends Configured implements Tool  {
   protected void printHelp() {
     HelpFormatter formatter = new HelpFormatter();
     Options options = new Options();
-    for (Option option: getCommandLineOptions()) {
-      options.addOption(option);
+    for (Iterator<ParameterDefinition> it =
+        getParameterDefinitions().values().iterator(); it.hasNext();) {
+      options.addOption(it.next().getOption());
     }
     formatter.printHelp(
         "hadoop jar CONTRAILJAR MAINCLASS [options]", options);
@@ -308,8 +310,8 @@ public abstract class Stage extends Configured implements Tool  {
     // Copy the options from the input.
     stage_options.putAll(values);
 
-    for (Iterator<ParameterDefinition> it = getParameterDefinitions().iterator();
-        it.hasNext();) {
+    for (Iterator<ParameterDefinition> it =
+            getParameterDefinitions().values().iterator(); it.hasNext();) {
       ParameterDefinition def = it.next();
       // If the value hasn't be set and the parameter has a default value
       // initialize it to the default value
