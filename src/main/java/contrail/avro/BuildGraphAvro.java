@@ -18,9 +18,9 @@ import contrail.sequences.StrandsUtil;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Set;
 
 import org.apache.avro.mapred.AvroCollector;
@@ -30,9 +30,6 @@ import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
 import org.apache.avro.Schema;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.OptionBuilder;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -84,43 +81,50 @@ public class BuildGraphAvro extends Stage
     return sequence.toString();
   }
 
-  protected void initializeDefaultOptions() {
-    super.initializeDefaultOptions();
-    default_options.put("TRIM3", new Long(0));
-    default_options.put("TRIM5", new Long(0));
-    default_options.put("MAXR5", new Long(250));
-    default_options.put("MAXTHREADREADS", new Long(250));
-    default_options.put("RECORD_ALL_THREADS", new Long(0));
-  }
+  protected HashMap<String, ParameterDefinition> createParameterDefinitions() {
+    HashMap<String, ParameterDefinition> defs =
+        new HashMap<String, ParameterDefinition>();
 
-  /**
-   * Get the options required by this stage.
-   */
-  protected List<Option> getCommandLineOptions() {
-    List<Option> options = super.getCommandLineOptions();
+    defs.putAll(super.createParameterDefinitions());
 
-    // Default values.
-    // hard trim
-    long TRIM3 = (Long)default_options.get("TRIM3");
-    long TRIM5 = (Long)default_options.get("TRIM5");
-    long MAXR5 = (Long)default_options.get("MAXR5");
-    long MAXTHREADREADS = (Long)default_options.get("MAXTHREADREADS");
-    long  RECORD_ALL_THREADS = (Long)default_options.get("RECORD_ALL_THREADS");
     // Add options specific to this stage.
-    options.add(OptionBuilder.withArgName("K").hasArg().withDescription(
-        "Graph nodes size [required]").create("K"));
-    options.add(OptionBuilder.withArgName(
-        "max reads").hasArg().withDescription(
-            "max reads starts per node (default: " + MAXR5 +")").create(
-                "maxr5"));
-    options.add(OptionBuilder.withArgName("3' bp").hasArg().withDescription(
-        "Chopped bases (default: " + TRIM3 +")").create("trim3"));
-    options.add(OptionBuilder.withArgName("5' bp").hasArg().withDescription(
-        "Chopped bases (default: " + TRIM5 + ")").create("trim5"));
-    options.add(new Option(
-        "record_all_threads",  "record threads even on non-branching nodes"));
-    options.addAll(ContrailOptions.getInputOutputPathOptions());
-    return options;
+    ParameterDefinition max_reads =
+        new ParameterDefinition("max_reads",
+            "max reads starts per node.", Long.class, new Long(250));
+
+    ParameterDefinition trim3 =
+        new ParameterDefinition("TRIM3",
+            "Chopped bases.", Long.class, new Long(0));
+
+    ParameterDefinition trim5 =
+        new ParameterDefinition("TRIM5",
+            "Chopped bases.", Long.class, new Long(0));
+
+    ParameterDefinition maxR5 =
+        new ParameterDefinition("MAXR5",
+            "Max R5.", Long.class, new Long(250));
+
+
+    ParameterDefinition max_thread_reads =
+        new ParameterDefinition("MAXTHREADREADS",
+            "Max thread reads.", Long.class, new Long(250));
+
+
+    ParameterDefinition record_all_threads =
+        new ParameterDefinition("RECORD_ALL_THREADS",
+            "Record all threads.", Long.class, new Long(250));
+
+    for (ParameterDefinition def:
+      new ParameterDefinition[] {
+        max_reads, trim3, trim5, maxR5, max_thread_reads, record_all_threads}) {
+      defs.put(def.getName(), def);
+    }
+
+    for (ParameterDefinition def:
+      ContrailParameters.getInputOutputPathOptions()) {
+      defs.put(def.getName(), def);
+    }
+    return defs;
   }
 
   /**
@@ -487,49 +491,11 @@ public class BuildGraphAvro extends Stage
     }
   }
 
-  protected void parseCommandLine(CommandLine line) {
-    super.parseCommandLine(line);
-
-    if (line.hasOption("K")) {
-      stage_options.put("K", Long.valueOf(line.getOptionValue("K")));
-    }
-    if (line.hasOption("maxr5")) {
-      stage_options.put("MAXR5", Long.valueOf(line.getOptionValue("maxr5")));
-    }
-    if (line.hasOption("trim3")) {
-      stage_options.put("TRIM3", Long.valueOf(line.getOptionValue("trim3")));
-    }
-    if (line.hasOption("trim5")) {
-      stage_options.put("TRIM5", Long.valueOf(line.getOptionValue("trim5")));
-    }
-    if (line.hasOption("inputpath")) {
-      stage_options.put("inputpath", line.getOptionValue("inputpath"));
-    }
-    if (line.hasOption("outputpath")) {
-      stage_options.put("outputpath", line.getOptionValue("outputpath"));
-    }
-  }
-
-  public int run(String[] args) throws Exception
-  {
-    sLogger.info("Tool name: BuildGraph");
-    parseCommandLine(args);
-    RunningJob job = runJob();
-    if (job == null) {
-      return 0;
-    }
-    if (job.isSuccessful()) {
-      return 0;
-    } else {
-      return -1;
-    }
-  }
-
   @Override
   public RunningJob runJob() throws Exception {
     // Check for missing arguments.
     String[] required_args = {"inputpath", "outputpath", "K"};
-    checkHasOptionsOrDie(required_args);
+    checkHasParametersOrDie(required_args);
 
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
@@ -579,8 +545,7 @@ public class BuildGraphAvro extends Stage
     return null;
   }
 
-  public static void main(String[] args) throws Exception
-  {
+  public static void main(String[] args) throws Exception {
     int res = ToolRunner.run(new Configuration(), new BuildGraphAvro(), args);
     System.exit(res);
   }

@@ -13,8 +13,6 @@ import java.util.List;
 
 import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroWrapper;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Option;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -253,7 +251,6 @@ public class FastqPreprocessorAvroCompressed extends Stage {
     if (stage_options.containsKey("writeconfig")) {
       writeJobConfig(conf);
     } else {
-
       //delete the output directory if it exists already
       FileSystem.get(conf).delete(new Path(outputPath), true);
 
@@ -270,22 +267,13 @@ public class FastqPreprocessorAvroCompressed extends Stage {
   /**
    * Get the options required by this stage.
    */
-  protected List<Option> getCommandLineOptions() {
-    List<Option> options = super.getCommandLineOptions();
-    options.addAll(ContrailOptions.getInputOutputPathOptions());
+  public List<ParameterDefinition> getParameterDefinitions() {
+    List<ParameterDefinition> defs = super.getParameterDefinitions();
+    defs.addAll(ContrailParameters.getInputOutputPathOptions());
 
-    return options;
+    return defs;
   }
 
-  protected void parseCommandLine(CommandLine line) {
-    super.parseCommandLine(line);
-    if (line.hasOption("inputpath")) {
-      stage_options.put("inputpath", line.getOptionValue("inputpath"));
-    }
-    if (line.hasOption("outputpath")) {
-      stage_options.put("outputpath", line.getOptionValue("outputpath"));
-    }
-  }
 
   public static void main(String[] args) throws Exception {
     int res = ToolRunner.run(
