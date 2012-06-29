@@ -1,6 +1,7 @@
 package contrail.avro;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 /* This class encapsulates the common parameter definitions.
@@ -135,5 +136,18 @@ public class ContrailParameters {
         "K", "Length of KMers [required].", Integer.class, null);
     stage_options.add(k);
     return stage_options;
+  }
+
+  /**
+   * Add a list of parameters to a map of parameters.
+   * @param map
+   * @param parameters
+   */
+  public static void addList(
+      HashMap<String, ParameterDefinition> map,
+      List<ParameterDefinition> parameters) {
+    for (ParameterDefinition param: parameters) {
+      map.put(param.getName(), param);
+    }
   }
 }

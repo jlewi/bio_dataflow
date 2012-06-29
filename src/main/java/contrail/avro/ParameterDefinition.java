@@ -107,6 +107,8 @@ public class ParameterDefinition {
       conf.setBoolean(name_, (Boolean)(value));
     } else if (type_.equals(Integer.class)) {
       conf.setInt(name_, (Integer) value);
+    } else if (type_.equals(Float.class)) {
+      conf.setFloat(name_, (Float) value);
     } else {
       throw new RuntimeException("No handler for this type of parameter");
     }
@@ -138,6 +140,8 @@ public class ParameterDefinition {
       return Boolean.parseBoolean(value);
     } else if (type_.equals(Integer.class)) {
       return Integer.parseInt(value);
+    } else if (type_.equals(Float.class)) {
+      return Float.parseFloat(value);
     } else {
       throw new RuntimeException("No handler for this type of parameter");
     }

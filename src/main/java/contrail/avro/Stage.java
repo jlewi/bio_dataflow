@@ -44,6 +44,8 @@ import org.apache.log4j.Logger;
  *      the job configuration using the configuration returned by getConf().
  *      This ensures the job uses any generic hadoop options set on the
  *      command line or by the caller depending on how it is run.
+ *   * constructor: The constructor should invoke initialize with the output
+ *      of createParameterDefinitions.
  *
  * This class is designed to accommodate running stages in two different ways
  *   1. Directly via the command line.
@@ -74,7 +76,6 @@ public abstract class Stage extends Configured implements Tool  {
   private static final Logger sLogger =
       Logger.getLogger(Stage.class);
   public Stage() {
-    initialize();
   }
 
   /**
@@ -87,10 +88,10 @@ public abstract class Stage extends Configured implements Tool  {
       new HashMap<String, Object>();
 
   /**
-   * Definitions of the parameters
+   * Definitions of the parameters. Subclasses can access it
+   * by calling getParameterDefinitions.
    */
-  protected HashMap<String, ParameterDefinition> definitions =
-     new HashMap<String, ParameterDefinition> ();
+  private HashMap<String, ParameterDefinition> definitions = null;
 
   /**
    * Check if the indicated options have been supplied to the stage
@@ -139,6 +140,11 @@ public abstract class Stage extends Configured implements Tool  {
    *
    */
   final public HashMap<String, ParameterDefinition> getParameterDefinitions() {
+    if (definitions == null) {
+      throw new RuntimeException(
+          "There is a bug in the code. initialize hasn't been invoked for " +
+          "stage:" + this.getClass().getName());
+    }
     return definitions;
   }
 
@@ -186,7 +192,7 @@ public abstract class Stage extends Configured implements Tool  {
 
     // TODO(jlewi): This is a bit of a hack. We should come up with
     // a better way of handling functionality common to all stages.
-    if (stage_options.containsKey("help")) {
+    if ((Boolean)stage_options.get("help")) {
       printHelp();
       System.exit(0);
     }
@@ -194,10 +200,9 @@ public abstract class Stage extends Configured implements Tool  {
 
   /**
    * Initialize the stage.
-   *
    */
-  protected void initialize() {
-    definitions = createParameterDefinitions();
+  protected void initialize(HashMap<String, ParameterDefinition> defs) {
+    definitions = defs;
   }
 
   /**
