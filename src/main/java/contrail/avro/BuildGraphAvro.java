@@ -21,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.avro.mapred.AvroCollector;
@@ -245,7 +246,7 @@ public class BuildGraphAvro extends Stage
     private KMerEdge node = new KMerEdge();
     public void configure(JobConf job)
     {
-      HashMap<String, ParameterDefinition> definitions =
+      Map<String, ParameterDefinition> definitions =
           createParameterDefinitions();
       K = (Integer)(definitions.get("K").parseJobConf(job));
       if (K <= 0) {
@@ -421,7 +422,7 @@ public class BuildGraphAvro extends Stage
     private static boolean RECORD_ALL_THREADS = false;
 
     public void configure(JobConf job) {
-      HashMap<String, ParameterDefinition> definitions =
+      Map<String, ParameterDefinition> definitions =
           createParameterDefinitions();
       K = (Integer)(definitions.get("K").parseJobConf(job));
       MAXTHREADREADS = (Integer)

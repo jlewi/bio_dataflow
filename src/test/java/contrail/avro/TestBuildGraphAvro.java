@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import contrail.CompressedRead;
 import contrail.ContrailConfig;
@@ -160,7 +161,7 @@ public class TestBuildGraphAvro {
     int ntrials = 10;
     Alphabet alphabet = DNAAlphabetFactory.create();
 
-    HashMap<String, ParameterDefinition> definitions =
+    Map<String, ParameterDefinition> definitions =
         BuildGraphAvro.createParameterDefinitions();
     for (int trial = 0; trial < ntrials; trial++) {
       MapTestData test_data = MapTestData.RandomTest();
@@ -487,8 +488,9 @@ public class TestBuildGraphAvro {
     ReduceTest reduce_data;
     Alphabet alphabet = DNAAlphabetFactory.create();
 
-    HashMap<String, ParameterDefinition> definitions =
-        BuildGraphAvro.createParameterDefinitions();
+    BuildGraphAvro stage = new BuildGraphAvro();
+    Map<String, ParameterDefinition> definitions =
+        stage.getParameterDefinitions();
 
     for (int trial = 0; trial < NTRIALS; trial++) {
       reduce_data = ReduceTest.RandomTest(MIN_K, MAX_K, MAX_EDGES);

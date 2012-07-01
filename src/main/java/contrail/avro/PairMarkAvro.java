@@ -3,6 +3,7 @@ package contrail.avro;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -475,7 +476,7 @@ public class PairMarkAvro extends Stage {
   /**
    * Return a list of parameters used by this stage.
    */
-  protected static HashMap<String, ParameterDefinition>
+  protected static Map<String, ParameterDefinition>
     createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs =
       new HashMap<String, ParameterDefinition>();
@@ -492,7 +493,7 @@ public class PairMarkAvro extends Stage {
           "each iteration", Long.class, null);
 
     defs.put(seed.getName(), seed);
-    return defs;
+    return Collections.unmodifiableMap(defs);
   }
 
   public int run(String[] args) throws Exception {
