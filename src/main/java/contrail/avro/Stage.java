@@ -121,14 +121,6 @@ public abstract class Stage extends Configured implements Tool  {
    * This function creates the set of parameter definitions for this stage.
    * Overload this function in your subclass to set the definitions for the
    * stage.
-   *
-   * This function is declared static because its per stage not instance.
-   * Its more efficient to use getParameterDefinitions if you are dealing
-   * with an instance of the stage.
-   *
-   * If code outside the protected scope needs access to the stage parameters
-   * it should do so by instantiating the stage and calling
-   * getParameterDefinitions.
    */
   protected static Map<String, ParameterDefinition>
     createParameterDefinitions() {
@@ -147,9 +139,7 @@ public abstract class Stage extends Configured implements Tool  {
    */
   final public Map<String, ParameterDefinition> getParameterDefinitions() {
     if (definitions == null) {
-      throw new RuntimeException(
-          "There is a bug in the code. initialize hasn't been invoked for " +
-          "stage:" + this.getClass().getName());
+      definitions = createParameterDefinitions();
     }
     return definitions;
   }

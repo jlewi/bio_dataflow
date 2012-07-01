@@ -18,6 +18,7 @@ import contrail.sequences.StrandsUtil;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -129,7 +130,7 @@ public class BuildGraphAvro extends Stage
       ContrailParameters.getInputOutputPathOptions()) {
       defs.put(def.getName(), def);
     }
-    return defs;
+    return Collections.unmodifiableMap(defs);
   }
 
   /**

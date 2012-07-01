@@ -3,14 +3,10 @@ package contrail.avro;
 import java.io.File;
 import java.io.IOException;
 import java.text.DecimalFormat;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.OptionBuilder;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -41,6 +37,10 @@ public class CompressChains extends Stage {
 
   long GLOBALNUMSTEPS = 0;
   long JOBSTARTTIME = 0;
+
+  public CompressChains() {
+    initialize(createParameterDefinitions());
+  }
 
   public void start(String desc) {
     sLogger.info(desc + ":\t");
@@ -132,7 +132,7 @@ public class CompressChains extends Stage {
           (new File(temp_path, "step_" + sf.format(stage))).getPath();
 
       substage_options.put("outputpath", latest_path);
-      compress.setOptionValues(substage_options);
+      compress.setParameters(substage_options);
       RunningJob job = compress.runJob();
       compressible = counter(job, GraphCounters.compressible_nodes);
       end(job);
@@ -187,7 +187,7 @@ public class CompressChains extends Stage {
 
           Long seed = (long)(rand*10000000);
           mark_options.put("randseed", seed);
-          pmark.setOptionValues(mark_options);
+          pmark.setParameters(mark_options);
           RunningJob job = pmark.runJob();
           end(job);
 
@@ -200,7 +200,7 @@ public class CompressChains extends Stage {
           mark_options.put("inputpath", marked_graph_path);
           mark_options.put("outputpath", merged_graph_path);
           mark_options.put("K", stage_options.get("K"));
-          pmerge.setOptionValues(mark_options);
+          pmerge.setParameters(mark_options);
           RunningJob job = pmerge.runJob();
           end(job);
           remaining = counter(job,GraphCounters.pair_merge_compressible_nodes);
@@ -239,15 +239,12 @@ public class CompressChains extends Stage {
   }
 
   /**
-   * Get the options required by this stage.
+   * Get the parameters used by this stage.
    */
-  protected List<Option> getCommandLineOptions() {
-    List<Option> super_options = super.getCommandLineOptions();
-
-    HashMap<String, Option> alloptions = new HashMap<String, Option>();
-    for (Option option: super_options) {
-      alloptions.put(option.getArgName(), option);
-    }
+  protected static Map<String, ParameterDefinition>
+      createParameterDefinitions() {
+    HashMap<String, ParameterDefinition> definitions =
+        new HashMap<String, ParameterDefinition>();
 
     // We add all the options for the stages we depend on.
     Stage[] substages =
@@ -255,82 +252,43 @@ public class CompressChains extends Stage {
        new PairMergeAvro()};
 
     for (Stage stage: substages) {
-      List<Option> stage_options = stage.getCommandLineOptions();
-      for (Option option: stage_options) {
-        if (alloptions.containsKey(option.getOpt())) {
-          continue;
-        }
-        alloptions.put(option.getOpt(), option);
-      }
+      definitions.putAll(stage.getParameterDefinitions());
     }
 
-    List<Option> options = new ArrayList<Option>();
-    options.addAll(alloptions.values());
 
-    // Add options specific to this stage.
-    options.add(OptionBuilder.withArgName("localnodes").hasArg().
-        withDescription(
+    ParameterDefinition localnodes =
+        new ParameterDefinition("localnodes",
             "If the number of compressible nodes is less than this value " +
             "then all compressible nodes get sent to a single worker " +
-            "for compression.").create("localnodes"));
+            "for compression.",
+            Integer.class, new Integer(1000));
 
-    options.add(OptionBuilder.withArgName("resume").hasArg().
-        withDescription(
+    ParameterDefinition resume =
+        new ParameterDefinition("resume",
             "Indicates we want to resume compressing a set of nodes. " +
             "The input in this case should be an AVRO file with " +
-            "CompressibleNodeData records").create("resume"));
+            "CompressibleNodeData records",
+            Boolean.class, new Boolean(false));
 
-    options.add(OptionBuilder.withArgName("stage").hasArg().
-        withDescription(
+    ParameterDefinition stage_num =
+        new ParameterDefinition("stage",
             "Should only be specified if resume is true. " +
             "This is an integer indicating the next stage in the " +
             "compression. This is optional and only used to name the " +
-            "intermediate output directories.").create("stage"));
-    return options;
-  }
+            "intermediate output directories.",
+            Boolean.class, new Integer(0));
 
-  protected void initializeDefaultOptions() {
-    super.initializeDefaultOptions();
-    default_options.put("localnodes", new Long(1000));
-    default_options.put("resume", new Boolean(false));
-    default_options.put("stage", new Integer(0));
-  }
-
-  @Override
-  protected void parseCommandLine(CommandLine line) {
-    // Initialize the options with the defaults.
-    stage_options.putAll(default_options);
-    super.parseCommandLine(line);
-
-    // Parse the options for each stage.
-    Stage[] substages =
-      {new CompressibleAvro() , new QuickMergeAvro(), new PairMarkAvro(),
-       new PairMergeAvro()};
-    HashMap<String, HashMap<String, Object>> substage_options =
-        new HashMap<String, HashMap<String, Object>>();
-
-    for (Stage stage: substages) {
-      stage.parseCommandLine(line);
-      substage_options.put(stage.getClass().getName(), stage.stage_options);
-
-      // TODO(jlewi): It would be better to allow distinct maps
-      // for each stage. The problem with that is figuring out how the
-      // substage options would be set when they aren't passed as a set
-      // of string arguments.
-      stage_options.putAll(stage.stage_options);
+    for (ParameterDefinition def:
+      new ParameterDefinition[] {localnodes, resume, stage_num}) {
+      definitions.put(def.getName(), def);
     }
-
-    // Get the options which are specific to this stage.
-    if (line.hasOption("localnodes")) {
-      stage_options.put(
-          "localnodes", Long.parseLong(line.getOptionValue("localnodes")));
-    }
+    return Collections.unmodifiableMap(definitions);
   }
 
   @Override
   public RunningJob runJob() throws Exception {
     String[] required_args = {"inputpath", "outputpath", "localnodes", "K"};
-    checkHasOptionsOrDie(required_args);
+    checkHasParametersOrDie(required_args);
 
     String input_path = (String) stage_options.get("inputpath");
     String output_path = (String) stage_options.get("outputpath");
