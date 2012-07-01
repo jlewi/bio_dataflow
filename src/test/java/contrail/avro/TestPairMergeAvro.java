@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileWriter;
@@ -98,7 +99,6 @@ public class TestPairMergeAvro extends PairMergeAvro {
     PairMergeMapper mapper = new PairMergeMapper();
 
     JobConf job = new JobConf(PairMergeMapper.class);
-    job.setLong("K", 3);
 
     mapper.configure(job);
 
@@ -339,7 +339,9 @@ public class TestPairMergeAvro extends PairMergeAvro {
     JobConf job = new JobConf(PairMergeReducer.class);
 
     // TODO: Reduce test cases can only use this value.
-    job.setLong("K", 3);
+    Map<String, ParameterDefinition> definitions =
+        PairMergeAvro.createParameterDefinitions();
+    definitions.get("K").addToJobConf(job, new Integer(3));
 
     reducer.configure(job);
 

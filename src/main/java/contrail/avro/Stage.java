@@ -3,6 +3,7 @@ package contrail.avro;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -91,7 +92,7 @@ public abstract class Stage extends Configured implements Tool  {
    * Definitions of the parameters. Subclasses can access it
    * by calling getParameterDefinitions.
    */
-  private HashMap<String, ParameterDefinition> definitions = null;
+  private Map<String, ParameterDefinition> definitions = null;
 
   /**
    * Check if the indicated options have been supplied to the stage
@@ -122,8 +123,14 @@ public abstract class Stage extends Configured implements Tool  {
    * stage.
    *
    * This function is declared static because its per stage not instance.
+   * Its more efficient to use getParameterDefinitions if you are dealing
+   * with an instance of the stage.
+   *
+   * If code outside the protected scope needs access to the stage parameters
+   * it should do so by instantiating the stage and calling
+   * getParameterDefinitions.
    */
-  protected static HashMap<String, ParameterDefinition>
+  protected static Map<String, ParameterDefinition>
     createParameterDefinitions() {
     HashMap<String, ParameterDefinition> parameters =
         new HashMap<String, ParameterDefinition>();
@@ -132,14 +139,13 @@ public abstract class Stage extends Configured implements Tool  {
     for (ParameterDefinition def: ContrailParameters.getCommon()) {
       parameters.put(def.getName(), def);
     }
-    return parameters;
+    return Collections.unmodifiableMap(parameters);
   }
 
   /**
    * Return a list of the parameter definitions for this stage.
-   *
    */
-  final public HashMap<String, ParameterDefinition> getParameterDefinitions() {
+  final public Map<String, ParameterDefinition> getParameterDefinitions() {
     if (definitions == null) {
       throw new RuntimeException(
           "There is a bug in the code. initialize hasn't been invoked for " +
@@ -201,7 +207,7 @@ public abstract class Stage extends Configured implements Tool  {
   /**
    * Initialize the stage.
    */
-  protected void initialize(HashMap<String, ParameterDefinition> defs) {
+  protected void initialize(Map<String, ParameterDefinition> defs) {
     definitions = defs;
   }
 

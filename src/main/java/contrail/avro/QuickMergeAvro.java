@@ -50,6 +50,10 @@ public class QuickMergeAvro extends Stage {
   public static final Schema REDUCE_OUT_SCHEMA =
       new GraphNodeData().getSchema();
 
+  public QuickMergeAvro() {
+    initialize(createParameterDefinitions());
+  }
+
   public static class QuickMergeMapper extends
 	  AvroMapper<GraphNodeData, Pair<CharSequence, GraphNodeData>> {
 

@@ -67,7 +67,7 @@ public class CompressibleAvro extends Stage {
   /**
    * Get the options required by this stage.
    */
-  protected List<Option> getCommandLineOptions() {
+  public List<Option> getCommandLineOptions() {
     List<Option> options = super.getCommandLineOptions();
     options.addAll(ContrailOptions.getInputOutputPathOptions());
     return options;
@@ -320,20 +320,9 @@ public class CompressibleAvro extends Stage {
   }
 
   @Override
-  protected void parseCommandLine(CommandLine line) {
-    super.parseCommandLine(line);
-    if (line.hasOption("inputpath")) {
-      stage_options.put("inputpath", line.getOptionValue("inputpath"));
-    }
-    if (line.hasOption("outputpath")) {
-      stage_options.put("outputpath", line.getOptionValue("outputpath"));
-    }
-  }
-
-  @Override
   public RunningJob runJob() throws Exception {
     String[] required_args = {"inputpath", "outputpath"};
-    checkHasOptionsOrDie(required_args);
+    checkHasParametersOrDie(required_args);
 
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");

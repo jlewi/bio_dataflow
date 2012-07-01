@@ -67,6 +67,9 @@ public class BuildGraphAvro extends Stage
   public static final Schema REDUCE_OUT_SCHEMA = graph_node_data_schema;
 
 
+  public BuildGraphAvro() {
+    initialize(createParameterDefinitions());
+  }
   /**
    * Construct the nodeId for a given sequence.
    *
@@ -81,7 +84,7 @@ public class BuildGraphAvro extends Stage
     return sequence.toString();
   }
 
-  protected static HashMap<String, ParameterDefinition>
+  protected static Map<String, ParameterDefinition>
     createParameterDefinitions() {
       HashMap<String, ParameterDefinition> defs =
         new HashMap<String, ParameterDefinition>();
