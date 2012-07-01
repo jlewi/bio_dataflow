@@ -3,6 +3,7 @@ package contrail.avro;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -401,7 +402,7 @@ public class PairMergeAvro extends Stage {
       ContrailParameters.getInputOutputPathOptions()) {
       defs.put(def.getName(), def);
     }
-    return defs;
+    return Collections.unmodifiableMap(defs);
   }
 
   public int run(String[] args) throws Exception {
