@@ -160,7 +160,6 @@ public class SimpleGraphBuilder {
     if (!src.substring(src.length() - overlap).equals(
         dest.substring(0, overlap))) {
         throw new RuntimeException("Sequences don't overlap by: " + overlap);
-
     }
 
     EdgeTerminal src_terminal = findEdgeTerminalForSequence(src);
