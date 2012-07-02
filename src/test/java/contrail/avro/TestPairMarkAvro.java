@@ -328,7 +328,10 @@ public class TestPairMarkAvro extends PairMarkAvro {
     PairMarkMapper mapper = new PairMarkMapper();
 
     JobConf job = new JobConf(PairMarkMapper.class);
-    job.setLong("randseed", 11);
+    PairMarkAvro stage = new PairMarkAvro();
+    Map<String, ParameterDefinition> parameters =
+        stage.getParameterDefinitions();
+    parameters.get("randseed").addToJobConf(job, new Long(1));
 
     mapper.configure(job);
 

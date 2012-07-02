@@ -9,7 +9,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -19,10 +18,6 @@ import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.OptionBuilder;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -55,22 +50,7 @@ public class QuickMergeAvro extends Stage {
   public static final Schema REDUCE_OUT_SCHEMA =
       new GraphNodeData().getSchema();
 
-  /**
-   * Get the options required by this stage.
-   */
-  protected List<Option> getCommandLineOptions() {
-    List<Option> options = super.getCommandLineOptions();
-    options.addAll(ContrailOptions.getInputOutputPathOptions());
-
-    // Add options specific to this stage.
-    options.add(OptionBuilder.withArgName("K").hasArg().withDescription(
-        "KMer size [required]").create("K"));
-
-    return options;
-  }
-
-
-	public static class QuickMergeMapper extends
+  public static class QuickMergeMapper extends
 	  AvroMapper<GraphNodeData, Pair<CharSequence, GraphNodeData>> {
 
 		private static Pair<CharSequence, GraphNodeData> out_pair =
@@ -114,7 +94,10 @@ public class QuickMergeAvro extends Stage {
 		public static boolean VERBOSE = false;
 
 		public void configure(JobConf job) {
-			K = Integer.parseInt(job.get("K"));
+		  QuickMergeAvro stage = new QuickMergeAvro();
+      Map<String, ParameterDefinition> definitions =
+          stage.getParameterDefinitions();
+      K = (Integer)(definitions.get("K").parseJobConf(job));
 		}
 
 		/**
@@ -201,17 +184,18 @@ public class QuickMergeAvro extends Stage {
 		}
 	}
 
-  protected void parseCommandLine(CommandLine line) {
-    super.parseCommandLine(line);
-    if (line.hasOption("K")) {
-      stage_options.put("K", Long.valueOf(line.getOptionValue("K")));
+  protected Map<String, ParameterDefinition>
+    createParameterDefinitions() {
+      HashMap<String, ParameterDefinition> defs =
+        new HashMap<String, ParameterDefinition>();
+
+    defs.putAll(super.createParameterDefinitions());
+
+    for (ParameterDefinition def:
+      ContrailParameters.getInputOutputPathOptions()) {
+      defs.put(def.getName(), def);
     }
-    if (line.hasOption("inputpath")) {
-      stage_options.put("inputpath", line.getOptionValue("inputpath"));
-    }
-    if (line.hasOption("outputpath")) {
-      stage_options.put("outputpath", line.getOptionValue("outputpath"));
-    }
+    return defs;
   }
 
   public int run(String[] args) throws Exception {
@@ -231,7 +215,7 @@ public class QuickMergeAvro extends Stage {
 	@Override
 	public RunningJob runJob() throws Exception {
 	  String[] required_args = {"inputpath", "outputpath", "K"};
-    checkHasOptionsOrDie(required_args);
+    checkHasParametersOrDie(required_args);
 
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");

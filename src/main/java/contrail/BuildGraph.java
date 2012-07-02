@@ -38,18 +38,18 @@ import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 
-public class BuildGraph extends Configured implements Tool
-{
+public class BuildGraph extends Configured implements Tool 
+{	
 	private static final Logger sLogger = Logger.getLogger(BuildGraph.class);
 
-	private static class BuildGraphMapper extends MapReduceBase
-	implements Mapper<LongWritable, Text, Text, Text>
+	private static class BuildGraphMapper extends MapReduceBase 
+	implements Mapper<LongWritable, Text, Text, Text> 
 	{
 		private static int K = 0;
 		private static int TRIM5 = 0;
 		private static int TRIM3 = 0;
 
-		public void configure(JobConf job)
+		public void configure(JobConf job) 
 		{
 			K = Integer.parseInt(job.get("K"));
 			TRIM5 = Integer.parseInt(job.get("TRIM5"));
@@ -57,33 +57,33 @@ public class BuildGraph extends Configured implements Tool
 		}
 
 		/*
-		 * Input (int,text) - Each input tuple is the linumber of the file the input was read from and the value is
+		 * Input (int,text) - Each input tuple is the linumber of the file the input was read from and the value is 
 		 * 	is the text of the line. The text is a tab delimted sring where the first field is some form
 		 * 	of tag and the second field is the sequence of the read.
-		 *
+		 * 
 		 * Output (text,text) - The key of the output tuple is the canonical version of the K-mer representing
-		 * 	an edge in the DeBruijn graph. The k-mer is represented as compressed version of the DNA sequence.
+		 * 	an edge in the DeBruijn graph. The k-mer is represented as compressed version of the DNA sequence. 
 		 *  value - A tab delimited string containing the following fields:
-		 *		field 0 - a two character sequence e.g "ff", "fr", where
+		 *		field 0 - a two character sequence e.g "ff", "fr", where 
 		 *          each character specifies the canonical direction of one of the kmers.
 		 *      field 1 - is the last base of the second k-mer.
 		 *      	In conjuction with the key, this allows us to construct the two k-1 Mer nodes which
-		 *        	are connected by the K-mer encoded in the key.
+		 *        	are connected by the K-mer encoded in the key. 
 		 *		field 2 -  is "tagCchunknum" where tag is the ID for the read from which this output tuple
 		 *			was generated. chunknum is how many times our mapper saw the canonical version of this k-mer
-		 *			in this read. If the read is only seen once then this field is just tag.
+		 *			in this read. If the read is only seen once then this field is just tag. 
 		 *      field 3 - state. Values are "5", or "m" I think 5 means 5 end of the read
-		 *               whereas "m" means internal read
+		 *               whereas "m" means internal read  	
 		 *
 		 * For each successive pair of k-mers in the input read, we output two output tuples; where each tuple corresponds to the
-		 * read coming from a different strand of the pair.
-		 *
+		 * read coming from a different strand of the pair. 
+		 * 
 		 * (non-Javadoc)
 		 * @see org.apache.hadoop.mapred.Mapper#map(java.lang.Object, java.lang.Object, org.apache.hadoop.mapred.OutputCollector, org.apache.hadoop.mapred.Reporter)
 		 */
 		public void map(LongWritable lineid, Text nodetxt,
 				OutputCollector<Text, Text> output, Reporter reporter)
-						throws IOException
+						throws IOException 
 						{
 			String[] fields = nodetxt.toString().split("\t");
 
@@ -118,7 +118,7 @@ public class BuildGraph extends Configured implements Tool
 			if (seq.matches(".*[^ACGT].*"))
 			{
 				//System.err.println("WARNING: non-DNA characters found in " + tag + ": " + seq);
-				reporter.incrCounter("Contrail", "reads_skipped", 1);
+				reporter.incrCounter("Contrail", "reads_skipped", 1);	
 				return;
 			}
 
@@ -126,7 +126,7 @@ public class BuildGraph extends Configured implements Tool
 			if (seq.length() <= K)
 			{
 				//System.err.println("WARNING: read " + tag + " is too short: " + seq);
-				reporter.incrCounter("Contrail", "reads_short", 1);
+				reporter.incrCounter("Contrail", "reads_short", 1);	
 				return;
 			}
 
@@ -168,7 +168,7 @@ public class BuildGraph extends Configured implements Tool
 				String uc0 = Node.canonicalseq(u);
 				String vc0 = Node.canonicalseq(v);
 
-				// Keys of the output will be
+				// Keys of the output will be 
 				// the k-mer sequences
 				String uc = Node.str2dna(uc0);
 				String vc = Node.str2dna(vc0);
@@ -192,14 +192,14 @@ public class BuildGraph extends Configured implements Tool
 				//(Lewi) tag is the first field after splitting the value of the input key.
 				//       It looks like tag is some kind of identifier (i.e. similar to line number)
 				//       Chunstr is a count of how many times this mapper has seen this kmer.
-				//       t - is a two character sequence e.g "ff", "fr", where
+				//       t - is a two character sequence e.g "ff", "fr", where 
 				//           each character specificies the canonical direction of one of the kmers.
 				//       l - is the last base of the second k-mer.
 				//       tag - is the tag for the seqeunce. In the
 				//       chunkstr - Counts how many times this mapper has seen this kmer.
 				//       ustate - Values are "5", or "m" I think 5 means 5 end of the read
 				//                whereas "m" means internal read
-				output.collect(new Text(uc),
+				output.collect(new Text(uc), 
 						new Text(t + "\t" + l + "\t" + tag + chunkstr + "\t" + ustate));
 
 				if (seen)
@@ -211,7 +211,7 @@ public class BuildGraph extends Configured implements Tool
 
 				//print "$vc\t$tr\t$f\t$tag$chunk\t$vstate\n";
 
-				output.collect(new Text(vc),
+				output.collect(new Text(vc), 
 						new Text(tr + "\t" + f + "\t" + tag + chunkstr + "\t" + vstate));
 
 				ustate = 'm';
@@ -219,11 +219,11 @@ public class BuildGraph extends Configured implements Tool
 
 			reporter.incrCounter("Contrail", "reads_good", 1);
 			reporter.incrCounter("Contrail", "reads_goodbp", seq.length());
-						}
+						}			
 	}
 
-	private static class BuildGraphReducer extends MapReduceBase
-	implements Reducer<Text, Text, Text, Text>
+	private static class BuildGraphReducer extends MapReduceBase 
+	implements Reducer<Text, Text, Text, Text> 
 	{
 		private static int K = 0;
 		private static int MAXTHREADREADS = 0;
@@ -239,20 +239,20 @@ public class BuildGraph extends Configured implements Tool
 
 		/**
 		 * Perform the reduce phase.
-		 *
+		 * 
 		 * Input (edge,value) - Input key is a compressed representation of the K-mer representing an edge.
 		 * 	The value is a tab delimeted field providing information about the edge and the two k-1 mers it connects.
-		 * For more info see the javadoc for the mappers.
-		 *
+		 * For more info see the javadoc for the mappers.  
+		 * 
 		 * Output (kmer,node)
 		 * 	key - The key is a compressed version of the K-Mer representing a source Node.
 		 *  node - A serialized version of a Node object representing the source node. This object contains
-		 *    all of the outgoing edges for this node.
-		 *
+		 *    all of the outgoing edges for this node. 
+		 *  
 		 */
 		public void reduce(Text curnode, Iterator<Text> iter,
 				OutputCollector<Text, Text> output, Reporter reporter)
-						throws IOException
+						throws IOException 
 						{
 			Node node = new Node();
 
@@ -260,18 +260,18 @@ public class BuildGraph extends Configured implements Tool
 			float cov = 0;
 
 			// The keys for edges map are the two characte type code,
-			// e.g "ff", "rf", "rr","fr" assigned to each edge based
-			// on the canonical direction of the read.
+			// e.g "ff", "rf", "rr","fr" assigned to each edge based 
+			// on the canonical direction of the read. 
 			//
-			// The values are a MAP contain the neighbors for this read.
+			// The values are a MAP contain the neighbors for this read. 
 			// The keys of the negbors are the DNA character e.g "A" representing
 			// the base we need to add to the K-Mer representing this node so that
-			// we can construct the two k Mers connected by the k-1 Mer of overlap
+			// we can construct the two k Mers connected by the k-1 Mer of overlap 
 			// where the outgoing node is represented by currnode
 			Map<String, Map<String, List<String>>> edges = new HashMap<String, Map<String, List<String>>>();
 
 			// loop over all the tuples for this kmer. Since they keys, are the same.
-			// The k-1 Mer representing the starting node and the K-mer representing the edge are the same.
+			// The k-1 Mer representing the starting node and the K-mer representing the edge are the same. 
 			while(iter.hasNext())
 			{
 				String valstr = iter.next().toString();
@@ -313,7 +313,7 @@ public class BuildGraph extends Configured implements Tool
 				}
 
 				// Check on the mertag
-				// set mertag to the smallest (lexicographically) tag
+				// set mertag to the smallest (lexicographically) tag 
 				// of all the tags associated with this key
 				if (mertag == null || (tag.compareTo(mertag) < 0))
 				{
@@ -343,7 +343,7 @@ public class BuildGraph extends Configured implements Tool
 			String seq = Node.dna2str(curnode.toString());
 			String rc  = Node.rc(seq);
 
-			// create a node representing the k-mer corresponding
+			// create a node representing the k-mer corresponding 
 			// to the key
 			node.setstr_raw(curnode.toString());
 
@@ -356,7 +356,7 @@ public class BuildGraph extends Configured implements Tool
 
 			for (int d = 0; d < 2; d++)
 			{
-				String x = Character.toString(dirs[d]);
+				String x = Character.toString(dirs[d]); 
 
 				int degree = 0;
 
@@ -386,7 +386,7 @@ public class BuildGraph extends Configured implements Tool
 							// Construct the k-Mer corresponding to the destination
 							// node for this edge. seq is the K-1 Mer of overlap.
 							// vc (the keys of edgeinfo) are the base we need to add
-							// to the k-1 overlap to get the destination kmer
+							// to the k-1 overlap to get the destination kmer							
 							v = v +  vc;
 
 							if (dirs[e] == 'r') { v = Node.rc(v); }
@@ -446,7 +446,7 @@ public class BuildGraph extends Configured implements Tool
 		return JobClient.runJob(conf);
 	}
 
-	public int run(String[] args) throws Exception
+	public int run(String[] args) throws Exception 
 	{
 
 		// TODO (jlewi): Currently the options specified here need to appear first on
@@ -485,14 +485,14 @@ public class BuildGraph extends Configured implements Tool
 
 		long endtime = System.currentTimeMillis();
 
-		float diff = (float) ((endtime - starttime) / 1000.0);
+		float diff = (float) (((float) (endtime - starttime)) / 1000.0);
 
 		System.out.println("Runtime: " + diff + " s");
 
 		return 0;
 	}
 
-	public static void main(String[] args) throws Exception
+	public static void main(String[] args) throws Exception 
 	{
 		int res = ToolRunner.run(new Configuration(), new BuildGraph(), args);
 		System.exit(res);

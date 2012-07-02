@@ -3,8 +3,11 @@ package contrail.avro;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroJob;
@@ -12,9 +15,6 @@ import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
 import org.apache.avro.specific.SpecificData;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.OptionBuilder;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -155,7 +155,12 @@ public class PairMarkAvro extends Stage {
 
     public void configure(JobConf job) {
       compressible_node = new CompressibleNode();
-      flipper = new CoinFlipper(Long.parseLong(job.get("randseed")));
+
+      PairMarkAvro stage = new PairMarkAvro();
+      Map<String, ParameterDefinition> parameters
+        = stage.getParameterDefinitions();
+      long randseed = (Long) parameters.get("randseed").parseJobConf(job);
+      flipper = new CoinFlipper(randseed);
       out_pair = new Pair<CharSequence, PairMarkOutput>(
           "", new PairMarkOutput());
       node_info_for_merge = new NodeInfoForMerge();
@@ -468,31 +473,25 @@ public class PairMarkAvro extends Stage {
   }
 
   /**
-   * Get the options required by this stage.
+   * Return a list of parameters used by this stage.
    */
-  protected List<Option> getCommandLineOptions() {
-    List<Option> options = super.getCommandLineOptions();
-    options.addAll(ContrailOptions.getInputOutputPathOptions());
+  protected Map<String, ParameterDefinition> createParameterDefinitions() {
+    HashMap<String, ParameterDefinition> defs =
+      new HashMap<String, ParameterDefinition>();
 
-    // Add options specific to this stage.
-    options.add(OptionBuilder.withArgName("randseed").hasArg().withDescription(
-        "seed for the random number generator [required]").create("randseed"));
-    return options;
-  }
+    defs.putAll(super.createParameterDefinitions());
 
-  @Override
-  protected void parseCommandLine(CommandLine line) {
-    super.parseCommandLine(line);
-    if (line.hasOption("inputpath")) {
-      stage_options.put("inputpath", line.getOptionValue("inputpath"));
-    }
-    if (line.hasOption("outputpath")) {
-      stage_options.put("outputpath", line.getOptionValue("outputpath"));
-    }
-    if (line.hasOption("randseed")) {
-      stage_options.put(
-          "randseed", Long.valueOf(line.getOptionValue("randseed")));
-    }
+    ContrailParameters.addList(
+        defs, ContrailParameters.getInputOutputPathOptions());
+
+    ParameterDefinition seed
+      = new ParameterDefinition(
+          "randseed",
+          "Seed for the random number generator. Needs to be unique for " +
+          "each iteration", Long.class, null);
+
+    defs.put(seed.getName(), seed);
+    return Collections.unmodifiableMap(defs);
   }
 
   public int run(String[] args) throws Exception {
@@ -505,7 +504,7 @@ public class PairMarkAvro extends Stage {
   @Override
   public RunningJob runJob() throws Exception {
     String[] required_args = {"inputpath", "outputpath", "randseed"};
-    checkHasOptionsOrDie(required_args);
+    checkHasParametersOrDie(required_args);
 
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");

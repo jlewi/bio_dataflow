@@ -1,9 +1,11 @@
 package contrail.avro;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
+import java.util.Map;
 
 import org.apache.avro.Schema;
 import org.apache.avro.mapred.AvroCollector;
@@ -11,8 +13,6 @@ import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Option;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -65,12 +65,19 @@ public class CompressibleAvro extends Stage {
       (new CompressibleNodeData()).getSchema();
 
   /**
-   * Get the options required by this stage.
+   * Get the parameters used by this stage.
    */
-  protected List<Option> getCommandLineOptions() {
-    List<Option> options = super.getCommandLineOptions();
-    options.addAll(ContrailOptions.getInputOutputPathOptions());
-    return options;
+  protected Map<String, ParameterDefinition> createParameterDefinitions() {
+    HashMap<String, ParameterDefinition> defs =
+      new HashMap<String, ParameterDefinition>();
+
+    defs.putAll(super.createParameterDefinitions());
+
+    for (ParameterDefinition def:
+      ContrailParameters.getInputOutputPathOptions()) {
+      defs.put(def.getName(), def);
+    }
+    return Collections.unmodifiableMap(defs);
   }
 
   public static class CompressibleMapper extends
@@ -320,20 +327,9 @@ public class CompressibleAvro extends Stage {
   }
 
   @Override
-  protected void parseCommandLine(CommandLine line) {
-    super.parseCommandLine(line);
-    if (line.hasOption("inputpath")) {
-      stage_options.put("inputpath", line.getOptionValue("inputpath"));
-    }
-    if (line.hasOption("outputpath")) {
-      stage_options.put("outputpath", line.getOptionValue("outputpath"));
-    }
-  }
-
-  @Override
   public RunningJob runJob() throws Exception {
     String[] required_args = {"inputpath", "outputpath"};
-    checkHasOptionsOrDie(required_args);
+    checkHasParametersOrDie(required_args);
 
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");

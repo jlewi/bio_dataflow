@@ -3,17 +3,17 @@ package contrail.avro;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.OptionBuilder;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -58,7 +58,7 @@ public class PairMergeAvro extends Stage {
   private static final Logger sLogger = Logger.getLogger(PairMergeAvro.class);
 
   protected static class PairMergeMapper extends
-  AvroMapper<NodeInfoForMerge, Pair<CharSequence, NodeInfoForMerge>> {
+      AvroMapper<NodeInfoForMerge, Pair<CharSequence, NodeInfoForMerge>> {
     private GraphNode node;
     private Pair<CharSequence, NodeInfoForMerge> out_pair;
     public void configure(JobConf job) {
@@ -94,7 +94,10 @@ public class PairMergeAvro extends Stage {
     private NodeReverser node_reverser;
     private CompressibleNodeData output;
     public void configure(JobConf job) {
-      K = Integer.parseInt(job.get("K"));
+      PairMergeAvro stage = new PairMergeAvro();
+      Map<String, ParameterDefinition> definitions =
+          stage.getParameterDefinitions();
+      K = (Integer)(definitions.get("K")).parseJobConf(job);
       node_reverser = new NodeReverser();
       output = new CompressibleNodeData();
     }
@@ -383,31 +386,19 @@ public class PairMergeAvro extends Stage {
   }
 
   /**
-   * Get the options required by this stage.
+   * Get the parameters used by this stage.
    */
-  protected List<Option> getCommandLineOptions() {
-    List<Option> options = super.getCommandLineOptions();
-    options.addAll(ContrailOptions.getInputOutputPathOptions());
+  protected Map<String, ParameterDefinition> createParameterDefinitions() {
+      HashMap<String, ParameterDefinition> defs =
+        new HashMap<String, ParameterDefinition>();
 
-    // Add options specific to this stage.
-    options.add(OptionBuilder.withArgName("K").hasArg().withDescription(
-        "KMer size [required]").create("K"));
+    defs.putAll(super.createParameterDefinitions());
 
-    return options;
-  }
-
-  @Override
-  protected void parseCommandLine(CommandLine line) {
-    super.parseCommandLine(line);
-    if (line.hasOption("inputpath")) {
-      stage_options.put("inputpath", line.getOptionValue("inputpath"));
+    for (ParameterDefinition def:
+      ContrailParameters.getInputOutputPathOptions()) {
+      defs.put(def.getName(), def);
     }
-    if (line.hasOption("outputpath")) {
-      stage_options.put("outputpath", line.getOptionValue("outputpath"));
-    }
-    if (line.hasOption("K")) {
-      stage_options.put("K", Long.valueOf(line.getOptionValue("K")));
-    }
+    return Collections.unmodifiableMap(defs);
   }
 
   public int run(String[] args) throws Exception {
@@ -420,11 +411,11 @@ public class PairMergeAvro extends Stage {
   @Override
   public RunningJob runJob() throws Exception {
     String[] required_args = {"inputpath", "outputpath", "K"};
-    checkHasOptionsOrDie(required_args);
+    checkHasParametersOrDie(required_args);
 
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
-    long K = (Long)stage_options.get("K");
+    int K = (Integer) stage_options.get("K");
 
     sLogger.info(" - input: "  + inputPath);
     sLogger.info(" - output: " + outputPath);
