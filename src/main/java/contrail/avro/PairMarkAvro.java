@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroJob;
@@ -95,9 +96,6 @@ import contrail.sequences.DNAStrand;
 public class PairMarkAvro extends Stage {
   private static final Logger sLogger = Logger.getLogger(PairMarkAvro.class);
 
-  public PairMarkAvro() {
-    initialize(createParameterDefinitions());
-  }
   /**
    * A wrapper class for the CompressibleNodeData schema.
    */
@@ -158,8 +156,9 @@ public class PairMarkAvro extends Stage {
     public void configure(JobConf job) {
       compressible_node = new CompressibleNode();
 
-      HashMap<String, ParameterDefinition> parameters
-        = PairMarkAvro.createParameterDefinitions();
+      PairMarkAvro stage = new PairMarkAvro();
+      Map<String, ParameterDefinition> parameters
+        = stage.getParameterDefinitions();
       long randseed = (Long) parameters.get("randseed").parseJobConf(job);
       flipper = new CoinFlipper(randseed);
       out_pair = new Pair<CharSequence, PairMarkOutput>(
@@ -476,12 +475,11 @@ public class PairMarkAvro extends Stage {
   /**
    * Return a list of parameters used by this stage.
    */
-  protected static Map<String, ParameterDefinition>
-    createParameterDefinitions() {
+  protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs =
       new HashMap<String, ParameterDefinition>();
 
-    defs.putAll(Stage.createParameterDefinitions());
+    defs.putAll(super.createParameterDefinitions());
 
     ContrailParameters.addList(
         defs, ContrailParameters.getInputOutputPathOptions());

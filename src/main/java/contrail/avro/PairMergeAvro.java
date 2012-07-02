@@ -57,10 +57,6 @@ import contrail.sequences.StrandsUtil;
 public class PairMergeAvro extends Stage {
   private static final Logger sLogger = Logger.getLogger(PairMergeAvro.class);
 
-  public PairMergeAvro() {
-    initialize(createParameterDefinitions());
-  }
-
   protected static class PairMergeMapper extends
       AvroMapper<NodeInfoForMerge, Pair<CharSequence, NodeInfoForMerge>> {
     private GraphNode node;
@@ -98,8 +94,9 @@ public class PairMergeAvro extends Stage {
     private NodeReverser node_reverser;
     private CompressibleNodeData output;
     public void configure(JobConf job) {
+      PairMergeAvro stage = new PairMergeAvro();
       Map<String, ParameterDefinition> definitions =
-          PairMergeAvro.createParameterDefinitions();
+          stage.getParameterDefinitions();
       K = (Integer)(definitions.get("K")).parseJobConf(job);
       node_reverser = new NodeReverser();
       output = new CompressibleNodeData();
@@ -391,12 +388,11 @@ public class PairMergeAvro extends Stage {
   /**
    * Get the parameters used by this stage.
    */
-  protected static Map<String, ParameterDefinition>
-    createParameterDefinitions() {
+  protected Map<String, ParameterDefinition> createParameterDefinitions() {
       HashMap<String, ParameterDefinition> defs =
         new HashMap<String, ParameterDefinition>();
 
-    defs.putAll(Stage.createParameterDefinitions());
+    defs.putAll(super.createParameterDefinitions());
 
     for (ParameterDefinition def:
       ContrailParameters.getInputOutputPathOptions()) {

@@ -64,18 +64,14 @@ public class CompressibleAvro extends Stage {
   public static final Schema REDUCE_OUT_SCHEMA =
       (new CompressibleNodeData()).getSchema();
 
-  public CompressibleAvro() {
-    initialize(createParameterDefinitions());
-  }
   /**
    * Get the parameters used by this stage.
    */
-  protected static Map<String, ParameterDefinition>
-    createParameterDefinitions() {
-      HashMap<String, ParameterDefinition> defs =
-        new HashMap<String, ParameterDefinition>();
+  protected Map<String, ParameterDefinition> createParameterDefinitions() {
+    HashMap<String, ParameterDefinition> defs =
+      new HashMap<String, ParameterDefinition>();
 
-    defs.putAll(Stage.createParameterDefinitions());
+    defs.putAll(super.createParameterDefinitions());
 
     for (ParameterDefinition def:
       ContrailParameters.getInputOutputPathOptions()) {

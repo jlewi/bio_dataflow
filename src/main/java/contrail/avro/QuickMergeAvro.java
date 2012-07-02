@@ -50,10 +50,6 @@ public class QuickMergeAvro extends Stage {
   public static final Schema REDUCE_OUT_SCHEMA =
       new GraphNodeData().getSchema();
 
-  public QuickMergeAvro() {
-    initialize(createParameterDefinitions());
-  }
-
   public static class QuickMergeMapper extends
 	  AvroMapper<GraphNodeData, Pair<CharSequence, GraphNodeData>> {
 
@@ -98,8 +94,9 @@ public class QuickMergeAvro extends Stage {
 		public static boolean VERBOSE = false;
 
 		public void configure(JobConf job) {
-      HashMap<String, ParameterDefinition> definitions =
-          createParameterDefinitions();
+		  QuickMergeAvro stage = new QuickMergeAvro();
+      Map<String, ParameterDefinition> definitions =
+          stage.getParameterDefinitions();
       K = (Integer)(definitions.get("K").parseJobConf(job));
 		}
 
@@ -187,12 +184,12 @@ public class QuickMergeAvro extends Stage {
 		}
 	}
 
-  protected static HashMap<String, ParameterDefinition>
+  protected Map<String, ParameterDefinition>
     createParameterDefinitions() {
       HashMap<String, ParameterDefinition> defs =
         new HashMap<String, ParameterDefinition>();
 
-    defs.putAll(Stage.createParameterDefinitions());
+    defs.putAll(super.createParameterDefinitions());
 
     for (ParameterDefinition def:
       ContrailParameters.getInputOutputPathOptions()) {

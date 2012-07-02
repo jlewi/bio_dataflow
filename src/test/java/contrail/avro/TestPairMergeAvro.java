@@ -339,8 +339,9 @@ public class TestPairMergeAvro extends PairMergeAvro {
     JobConf job = new JobConf(PairMergeReducer.class);
 
     // TODO: Reduce test cases can only use this value.
+    PairMergeAvro stage = new PairMergeAvro();
     Map<String, ParameterDefinition> definitions =
-        PairMergeAvro.createParameterDefinitions();
+        stage.getParameterDefinitions();
     definitions.get("K").addToJobConf(job, new Integer(3));
 
     reducer.configure(job);

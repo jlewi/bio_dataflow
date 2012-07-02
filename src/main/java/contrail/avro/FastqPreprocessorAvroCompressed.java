@@ -9,7 +9,9 @@ import contrail.util.ByteUtil;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.List;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroWrapper;
@@ -267,11 +269,17 @@ public class FastqPreprocessorAvroCompressed extends Stage {
   /**
    * Get the options required by this stage.
    */
-  public List<ParameterDefinition> getParameterDefinitions() {
-    List<ParameterDefinition> defs = super.getParameterDefinitions();
-    defs.addAll(ContrailParameters.getInputOutputPathOptions());
+  protected Map<String, ParameterDefinition> createParameterDefinitions() {
+    HashMap<String, ParameterDefinition> defs =
+        new HashMap<String, ParameterDefinition>();
 
-    return defs;
+    defs.putAll(super.createParameterDefinitions());
+
+    for (ParameterDefinition def:
+      ContrailParameters.getInputOutputPathOptions()) {
+      defs.put(def.getName(), def);
+    }
+    return Collections.unmodifiableMap(defs);
   }
 
 

@@ -38,10 +38,6 @@ public class CompressChains extends Stage {
   long GLOBALNUMSTEPS = 0;
   long JOBSTARTTIME = 0;
 
-  public CompressChains() {
-    initialize(createParameterDefinitions());
-  }
-
   public void start(String desc) {
     sLogger.info(desc + ":\t");
 
@@ -90,7 +86,7 @@ public class CompressChains extends Stage {
     long compressible = 0;
 
     // The minimum number of nodes for doing parallel compressions
-    final long LOCALNODES = (Long) stage_options.get("localnodes");
+    final int LOCALNODES = (Integer) stage_options.get("localnodes");
 
     // When formatting the step as a string we want to zero pad it
     DecimalFormat sf = new DecimalFormat("00");
@@ -122,10 +118,16 @@ public class CompressChains extends Stage {
       // Mark compressible nodes
       start("Compressible");
 
-      // Make a shallow copy of the stage options so we can overwrite some
-      // of the options.
-      Map<String, Object> substage_options =
-          (HashMap<String, Object>) stage_options.clone();
+      // Make a shallow copy of the stage options required by the compress
+      // stage.
+      Map<String, Object> substage_options = new HashMap<String, Object> ();
+      for (ParameterDefinition def:
+           compress.getParameterDefinitions().values()) {
+        if (this.stage_options.containsKey(def.getName())) {
+          substage_options.put(
+              def.getName(), this.stage_options.get(def.getName()));
+        }
+      }
       substage_options.put("inputpath", input_path);
 
       latest_path =
@@ -241,8 +243,7 @@ public class CompressChains extends Stage {
   /**
    * Get the parameters used by this stage.
    */
-  protected static Map<String, ParameterDefinition>
-      createParameterDefinitions() {
+  protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> definitions =
         new HashMap<String, ParameterDefinition>();
 

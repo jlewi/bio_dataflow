@@ -4,10 +4,10 @@ import static org.junit.Assert.*;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.avro.mapred.Pair;
 import org.apache.hadoop.mapred.JobConf;
@@ -100,6 +100,7 @@ public class TestQuickMergeAvro {
     ReporterMock reporter_mock = new ReporterMock();
     Reporter reporter = reporter_mock;
 
+    QuickMergeAvro stage = new QuickMergeAvro();
     try {
       List<GraphNodeData> data = new ArrayList<GraphNodeData>();
       for (GraphNode node: graph.getAllNodes().values()) {
@@ -110,8 +111,8 @@ public class TestQuickMergeAvro {
           new QuickMergeAvro.QuickMergeReducer();
       JobConf job = new JobConf(QuickMergeAvro.QuickMergeMapper.class);
 
-      HashMap<String, ParameterDefinition> definitions =
-          QuickMergeAvro.createParameterDefinitions();
+      Map<String, ParameterDefinition> definitions =
+          stage.getParameterDefinitions();
       definitions.get("K").addToJobConf(job, new Integer(3));
 
       reducer.configure(job);
