@@ -68,10 +68,6 @@ public class BuildGraphAvro extends Stage
    */
   public static final Schema REDUCE_OUT_SCHEMA = graph_node_data_schema;
 
-
-  public BuildGraphAvro() {
-    initialize(createParameterDefinitions());
-  }
   /**
    * Construct the nodeId for a given sequence.
    *
@@ -86,12 +82,12 @@ public class BuildGraphAvro extends Stage
     return sequence.toString();
   }
 
-  protected static Map<String, ParameterDefinition>
+  protected Map<String, ParameterDefinition>
     createParameterDefinitions() {
       HashMap<String, ParameterDefinition> defs =
         new HashMap<String, ParameterDefinition>();
 
-    defs.putAll(Stage.createParameterDefinitions());
+    defs.putAll(super.createParameterDefinitions());
 
     // Add options specific to this stage.
     ParameterDefinition max_reads =
@@ -247,8 +243,9 @@ public class BuildGraphAvro extends Stage
     private KMerEdge node = new KMerEdge();
     public void configure(JobConf job)
     {
+      BuildGraphAvro stage = new BuildGraphAvro();
       Map<String, ParameterDefinition> definitions =
-          createParameterDefinitions();
+          stage.getParameterDefinitions();
       K = (Integer)(definitions.get("K").parseJobConf(job));
       if (K <= 0) {
         throw new RuntimeException("K must be a positive integer");
@@ -423,8 +420,9 @@ public class BuildGraphAvro extends Stage
     private static boolean RECORD_ALL_THREADS = false;
 
     public void configure(JobConf job) {
+      BuildGraphAvro stage = new BuildGraphAvro();
       Map<String, ParameterDefinition> definitions =
-          createParameterDefinitions();
+          stage.getParameterDefinitions();
       K = (Integer)(definitions.get("K").parseJobConf(job));
       MAXTHREADREADS = (Integer)
           (definitions.get("MAXTHREADREADS").parseJobConf(job));

@@ -161,8 +161,9 @@ public class TestBuildGraphAvro {
     int ntrials = 10;
     Alphabet alphabet = DNAAlphabetFactory.create();
 
+    BuildGraphAvro stage = new BuildGraphAvro();
     Map<String, ParameterDefinition> definitions =
-        BuildGraphAvro.createParameterDefinitions();
+        stage.getParameterDefinitions();
     for (int trial = 0; trial < ntrials; trial++) {
       MapTestData test_data = MapTestData.RandomTest();
 

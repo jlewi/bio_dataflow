@@ -40,13 +40,14 @@ import org.apache.log4j.Logger;
  * To create a new stage you should overload the following methods
  *   * createParameterDefinitions(): This function returns a map of parameter
  *      definitions which the stage can take. You should always start by calling
- *      the implementation in the base class and adding to the map returned..
+ *      the implementation in the base class and adding the result to
+ *      a new Map. Its good practice to return an unmodifiable map
+ *      by invokig Collections.unmodifiableMap();
+ *
  *   * runJob(): This function runs the actual job. You should initialize
  *      the job configuration using the configuration returned by getConf().
  *      This ensures the job uses any generic hadoop options set on the
  *      command line or by the caller depending on how it is run.
- *   * constructor: The constructor should invoke initialize with the output
- *      of createParameterDefinitions.
  *
  * This class is designed to accommodate running stages in two different ways
  *   1. Directly via the command line.
@@ -122,8 +123,7 @@ public abstract class Stage extends Configured implements Tool  {
    * Overload this function in your subclass to set the definitions for the
    * stage.
    */
-  protected static Map<String, ParameterDefinition>
-    createParameterDefinitions() {
+  protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> parameters =
         new HashMap<String, ParameterDefinition>();
 
@@ -192,13 +192,6 @@ public abstract class Stage extends Configured implements Tool  {
       printHelp();
       System.exit(0);
     }
-  }
-
-  /**
-   * Initialize the stage.
-   */
-  protected void initialize(Map<String, ParameterDefinition> defs) {
-    definitions = defs;
   }
 
   /**
