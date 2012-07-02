@@ -5,7 +5,7 @@ package contrail.avro;
  *
  * We use several mapreduce counters to control processing; e.g. CompressChains
  * uses counters in CompressibleAvro to determine how many nodes can be
- * compressed and whether compression is done. This case defines the names
+ * compressed and whether compression is done. This class defines the names
  * of different counters so we can be consistent across different jobs.
  */
 public class GraphCounters {
