@@ -7,9 +7,9 @@ import java.io.IOException;
 public class Driver {
 
 	public static void main(String[] args){
-		
+
 		System.out.println("Test");
-		
+
 		FileWriter fstream;
 		try {
 			fstream = new FileWriter("/home/deepak/randomtest.txt",true);
@@ -19,7 +19,7 @@ public class Driver {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-	
+
 	}
-	
+
 }

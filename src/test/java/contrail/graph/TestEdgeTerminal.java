@@ -17,20 +17,20 @@ public class TestEdgeTerminal {
 
   // Random number generator.
   private Random generator;
-  
-  @Before 
+
+  @Before
   public void setUp() {
     generator = new Random();
   }
-  
+
   public String randomString(int length) {
     // Generate random byte values and then convert them to a
     // string using ascii.
     byte[] bytes = new byte[length];
-        
+
     for (int pos = 0; pos < length; pos++) {
       int rnd_int = generator.nextInt(255);
-      bytes[pos] = ByteUtil.uintToByte(rnd_int);        
+      bytes[pos] = ByteUtil.uintToByte(rnd_int);
     }
     String random_string;
     try {
@@ -38,9 +38,9 @@ public class TestEdgeTerminal {
     } catch (UnsupportedEncodingException exception) {
       throw new RuntimeException("Could not encode the random string.");
     }
-    return random_string;      
+    return random_string;
   }
-  
+
   @Test
   public void testHashCode() {
     int ntrials = 10;
@@ -49,21 +49,21 @@ public class TestEdgeTerminal {
       // node id return the same hashcode.
       String terminalid = randomString(generator.nextInt(10) + 2);
       DNAStrand strand = DNAStrandUtil.random(generator);
-      
+
       {
         EdgeTerminal terminal1 = new EdgeTerminal(terminalid, strand);
         EdgeTerminal terminal2 = new EdgeTerminal(terminalid, strand);
         assertEquals(terminal1.hashCode(), terminal2.hashCode());
       }
-      
+
       {
         // Change the strand.
         EdgeTerminal terminal1 = new EdgeTerminal(terminalid, strand);
-        EdgeTerminal terminal2 = 
+        EdgeTerminal terminal2 =
             new EdgeTerminal(terminalid, DNAStrandUtil.flip(strand));
-        assertFalse(terminal1.hashCode() == terminal2.hashCode());        
+        assertFalse(terminal1.hashCode() == terminal2.hashCode());
       }
-      
+
       {
         // Change node id.
         String differentid = randomString(generator.nextInt(10) + 2);

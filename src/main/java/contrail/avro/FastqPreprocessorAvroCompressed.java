@@ -7,17 +7,15 @@ import contrail.sequences.Sequence;
 import contrail.util.ByteReplaceAll;
 import contrail.util.ByteUtil;
 
-import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.List;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
-import org.apache.avro.mapred.AvroJob; 
+import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroWrapper;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Option;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
@@ -41,25 +39,23 @@ import org.apache.hadoop.mapred.lib.NLineInputFormat;
 /**
  * Map reduce job to encode FastQ files in sequence files using AVRO.
  * DNA sequences are encoded as bytes arrays. The DNA sequence is packed into
- * an array of bytes using 2 bits per letter.  
- * 
+ * an array of bytes using 2 bits per letter.
+ *
  * We encode the data as byte arrays and try to avoid converting it to a String
  * because toString() is expensive.
  *
  */
-public class FastqPreprocessorAvroCompressed extends Stage {	
-  private static final Logger sLogger = 
+public class FastqPreprocessorAvroCompressed extends Stage {
+  private static final Logger sLogger =
       Logger.getLogger(FastqPreprocessorAvroCompressed.class);
 
   /**
    * Mapper.
    */
-  public static class FastqPreprocessorMapper extends MapReduceBase 
-  implements Mapper<LongWritable, Text, AvroWrapper<CompressedRead>, NullWritable> 
+  public static class FastqPreprocessorMapper extends MapReduceBase
+  implements Mapper<LongWritable, Text, AvroWrapper<CompressedRead>, NullWritable>
   {
     private int idx = 0;
-
-    private String name = null;
 
     private String filename = null;
 
@@ -72,15 +68,11 @@ public class FastqPreprocessorAvroCompressed extends Stage {
 
     private String counter = "pair_unknown";
 
-
-    // initial size for the buffer used to encode the dna sequence
-    private int START_CAPACITY = 200;
-
     private CompressedRead read = new CompressedRead();
-    private AvroWrapper<CompressedRead> out_wrapper = 
+    private AvroWrapper<CompressedRead> out_wrapper =
         new AvroWrapper<CompressedRead>(read);
 
-    private ByteReplaceAll replacer = null; 
+    private ByteReplaceAll replacer = null;
 
     // The byte value to replace multi-byte characters with
     // this an underscore.
@@ -88,16 +80,16 @@ public class FastqPreprocessorAvroCompressed extends Stage {
 
     // The sequence.
     private Sequence sequence;
-    
+
     // An array which can be used to tell if a UTF8 value
     // is whitespace
     private boolean[] utf8_whitespace;
-    
+
     // Store the utf8 byte values of various characters
     private byte utf8_at;
     private byte utf8_space;
-    
-    public void configure(JobConf job) 
+
+    public void configure(JobConf job)
     {
       filename = job.get("map.input.file");
 
@@ -106,53 +98,53 @@ public class FastqPreprocessorAvroCompressed extends Stage {
       String suffix = null;
       if (usesuffix)
       {
-        if  (filename.contains("_1.")) { 
+        if  (filename.contains("_1.")) {
           suffix = "_1";
-          mate_id = 0x1; 
-          counter = "pair_1"; 
+          mate_id = 0x1;
+          counter = "pair_1";
         }
-        else if (filename.contains("_2.")) { 
+        else if (filename.contains("_2.")) {
           suffix = "_2";
           mate_id = 0x2;
           counter = "pair_2";
         }
-        else { 
-          counter = "pair_unpaired"; 
+        else {
+          counter = "pair_unpaired";
         }
 
         System.err.println(filename + " suffix: \"" + suffix + "" + "\"");
-      }                  
+      }
       read.mate_pair_id = mate_id;
       replacer = new ByteReplaceAll(":#-.|/$%&'()*+,-./:","_");
 
       alphabet = DNAAlphabetFactory.create();
       sequence = new Sequence(alphabet);
-      
+
       // utf8_whitespace[x] = True for the utf8 charater with value
       // x, if x is a white space character. False otherwise.
       utf8_whitespace = new boolean[255];
       java.util.Arrays.fill(utf8_whitespace, false);
-      
+
       String white_space = " \n\t";
       byte[] white_space_bytes = ByteUtil.stringToBytes(white_space);
-      
+
       for (int pos = 0; pos < white_space_bytes.length; pos++) {
         utf8_whitespace[pos] = true;
       }
-    
+
       utf8_at = ByteUtil.stringToBytes("@")[0];
       utf8_space = ByteUtil.stringToBytes(" ")[0];
     }
 
     public void map(LongWritable lineid, Text line,
         OutputCollector<AvroWrapper<CompressedRead>, NullWritable> output, Reporter reporter)
-            throws IOException 
+            throws IOException
             {
-      if (idx == 0) 
-      { 
+      if (idx == 0)
+      {
         // We operate on the bytes instead of converting to a string.
         // The advantage is that we can use our more efficient implementation
-        // for replace all. 
+        // for replace all.
         byte[] data = line.getBytes();
 
         // Replace any multibyte characters with "_"
@@ -161,7 +153,7 @@ public class FastqPreprocessorAvroCompressed extends Stage {
 
         // make sure it starts with the @ symbol
         if (data[0] != utf8_at)
-        {					
+        {
           throw new IOException("ERROR: Invalid readname: " + line.toString() + " in " + filename);
         }
 
@@ -173,23 +165,23 @@ public class FastqPreprocessorAvroCompressed extends Stage {
             break;
           }
         }
-        
+
         // Remove any trailing whitespace.
         while (utf8_whitespace[ByteUtil.byteToUint(data[end_index])]) {
           end_index--;
         }
-        
+
         // Remove the leading '@' and chop everything after the first space.
         data = java.util.Arrays.copyOfRange(data, 1, end_index+1);
 
         // Replace any funny characters.
         replacer.replaceAll(data);
 
-        name = new String(data, ByteReplaceAll.encoding);				
+        read.setId(new String(data, ByteReplaceAll.encoding));
       }
-      else if (idx == 1) {			  
+      else if (idx == 1) {
         byte[] raw_bytes = line.getBytes();
-        // TODO(jeremy@lewi.us): We should really only be checking the bytes 
+        // TODO(jeremy@lewi.us): We should really only be checking the bytes
         // up to line.getLength()
         if (ByteUtil.hasMultiByteChars(raw_bytes)){
           throw new RuntimeException("DNA sequence contained illegal characters. Sequence is: " + line.toString());
@@ -197,15 +189,14 @@ public class FastqPreprocessorAvroCompressed extends Stage {
 
         sequence.readUTF8(raw_bytes, line.getLength());
         int num_bytes =  (int)Math.ceil((alphabet.bitsPerLetter() * sequence.size())/ 8.0);
-        
+
         read.setDna(ByteBuffer.wrap(sequence.toPackedBytes(), 0, num_bytes));
         read.setLength(line.getLength());
       }
-      else if (idx == 2) { 
+      else if (idx == 2) {
       }
       else if (idx == 3)
-      {						  
-        read.setId(name);				 			
+      {
         output.collect(out_wrapper, NullWritable.get());
 
         reporter.incrCounter("Contrail", "preprocessed_reads", 1);
@@ -224,10 +215,10 @@ public class FastqPreprocessorAvroCompressed extends Stage {
   }
 
   @Override
-  public int run() throws Exception { 
+  public RunningJob runJob() throws Exception {
     sLogger.info("Tool name: FastqPreprocessorAvroCompressed");
     String inputPath = (String) stage_options.get("inputpath");
-    String outputPath = (String) stage_options.get("outputpath");    
+    String outputPath = (String) stage_options.get("outputpath");
     sLogger.info(" - input: "  + inputPath);
     sLogger.info(" - output: " + outputPath);
 
@@ -256,45 +247,41 @@ public class FastqPreprocessorAvroCompressed extends Stage {
     conf.setInputFormat(NLineInputFormat.class);
     conf.setInt("mapred.line.input.format.linespermap", 2000000); // must be a multiple of 4
 
-    // TODO(jlewi): use setoutput codec to set the compression codec. 
+    // TODO(jlewi): use setoutput codec to set the compression codec.
     AvroJob.setOutputSchema(conf,new CompressedRead().getSchema());
 
     if (stage_options.containsKey("writeconfig")) {
       writeJobConfig(conf);
-      return 0;
     } else {
-
       //delete the output directory if it exists already
       FileSystem.get(conf).delete(new Path(outputPath), true);
-      
-      long start_time = System.currentTimeMillis();    
+
+      long start_time = System.currentTimeMillis();
       RunningJob result = JobClient.runJob(conf);
-      long end_time = System.currentTimeMillis();    
+      long end_time = System.currentTimeMillis();
       double nseconds = (end_time - start_time) / 1000.0;
       System.out.println("Job took: " + nseconds + " seconds");
-      return 0;
+      return result;
     }
+    return null;
   }
 
   /**
    * Get the options required by this stage.
    */
-  protected List<Option> getCommandLineOptions() {
-    List<Option> options = super.getCommandLineOptions();
-    options.addAll(ContrailOptions.getInputOutputPathOptions());
- 
-    return options;
-  }
-  
-  protected void parseCommandLine(CommandLine line) {
-    super.parseCommandLine(line);       
-    if (line.hasOption("inputpath")) { 
-      stage_options.put("inputpath", line.getOptionValue("inputpath")); 
+  protected Map<String, ParameterDefinition> createParameterDefinitions() {
+    HashMap<String, ParameterDefinition> defs =
+        new HashMap<String, ParameterDefinition>();
+
+    defs.putAll(super.createParameterDefinitions());
+
+    for (ParameterDefinition def:
+      ContrailParameters.getInputOutputPathOptions()) {
+      defs.put(def.getName(), def);
     }
-    if (line.hasOption("outputpath")) { 
-      stage_options.put("outputpath", line.getOptionValue("outputpath")); 
-    }
+    return Collections.unmodifiableMap(defs);
   }
+
 
   public static void main(String[] args) throws Exception {
     int res = ToolRunner.run(
