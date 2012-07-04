@@ -137,9 +137,9 @@ public class CompressibleAvro extends Stage {
             // Cycle so continue.
             continue;
           }
-          
+
           reporter.incrCounter("Contrail", "remotemark", 1);
-          
+
           // Send a message to the neighbor telling it this node is compressible.
           clearCompressibleMapOutput(map_output);
           out_pair.key(tail.terminal.nodeId);
