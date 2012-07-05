@@ -120,14 +120,10 @@ public class CompressChains extends Stage {
 
       // Make a shallow copy of the stage options required by the compress
       // stage.
-      Map<String, Object> substage_options = new HashMap<String, Object> ();
-      for (ParameterDefinition def:
-           compress.getParameterDefinitions().values()) {
-        if (this.stage_options.containsKey(def.getName())) {
-          substage_options.put(
-              def.getName(), this.stage_options.get(def.getName()));
-        }
-      }
+      Map<String, Object> substage_options = 
+          ContrailParameters.extractParameters(
+              this.stage_options, compress.getParameterDefinitions().values());
+
       substage_options.put("inputpath", input_path);
 
       latest_path =
