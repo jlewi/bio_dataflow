@@ -817,7 +817,7 @@ public class GraphNode {
    *
    * @return: True on success false otherwise.
    */
-  protected boolean removeNeighbor(
+  public boolean removeNeighbor(
       String neighborid) {
     for (int index = 0; index < data.getNeighbors().size(); index++) {
       if (data.getNeighbors().get(index).getNodeId().toString().equals(
