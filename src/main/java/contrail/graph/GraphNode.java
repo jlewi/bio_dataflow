@@ -50,6 +50,8 @@ public class GraphNode {
 		// references to the caller.
 
 		// For each strand we store a list of outgoing and incoming edges.
+		// TODO(jlewi): We should consider using HashSet's so that lookups
+		// for a particular terminal will be fast.
 		private List<EdgeTerminal> f_outgoing_edges;
 		private List<EdgeTerminal> r_outgoing_edges;
 		private List<EdgeTerminal> f_incoming_edges;
@@ -371,8 +373,7 @@ public class GraphNode {
 	 */
 	public void setSequence(Sequence seq) {
 		CompressedSequence compressed = new CompressedSequence();
-		compressed.setDna(
-		    ByteBuffer.wrap(seq.toPackedBytes(), 0, seq.numPackedBytes()));
+		compressed.setDna(ByteBuffer.wrap(seq.toPackedBytes(), 0, seq.numPackedBytes()));
 		compressed.setLength(seq.size());
 		data.setSequence(compressed);
 	}
@@ -417,6 +418,31 @@ public class GraphNode {
 		}
 		return null;
 	}
+
+  /**
+   * Find the strand of node that has an edge to terminal.
+   *
+   * @param terminal: The terminal to find the edge to.
+   * @param direction: The direction for the edge.
+   * @returns The strand or null if no edge exists.
+   */
+  public DNAStrand findStrandWithEdgeToTerminal(
+      EdgeTerminal terminal, EdgeDirection direction) {
+    // TODO(jlewi): We can optimize this by storing the edge terminals
+    // associated with each strands as hash sets so we can do faster lookups.
+    // TODO(jlewi): Add a unittest
+    for (DNAStrand strand : DNAStrand.values()) {
+      List<EdgeTerminal> terminals_for_strand =
+          getEdgeTerminals(strand, direction);
+
+      for (EdgeTerminal candidate: terminals_for_strand) {
+        if (terminal.equals(candidate)) {
+          return strand;
+        }
+      }
+    }
+    return null;
+  }
 
  /**
    * Add an outgoing edge to this node.
