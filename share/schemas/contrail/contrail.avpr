@@ -231,7 +231,6 @@
                 {"name": "node",
                  "type": "contrail.graph.GraphNodeData",
                  "doc": "The node data."}]
-<<<<<<< HEAD
     }, 
     {"name": "QuickMarkMessage",
      "type": "record",
@@ -246,8 +245,6 @@
                  }
                                       
                ]
-    }
-=======
     },
     {"name": "contrail.avro.EdgeUpdateForMerge",
      "type": "record",
