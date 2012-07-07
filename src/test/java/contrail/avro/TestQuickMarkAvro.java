@@ -3,13 +3,18 @@ package contrail.avro;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.avro.Schema;
+import org.apache.avro.file.DataFileWriter;
+import org.apache.avro.io.DatumWriter;
 import org.apache.avro.mapred.Pair;
+import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 import org.junit.Test;
@@ -269,8 +274,8 @@ public class TestQuickMarkAvro extends QuickMarkAvro{
       assertReduceOutput(case_data, collector_mock);
     }
   }
-  // TODO: test needs to be renabled once the changes to the parameter specification are updated.
-  /*
+
+  
 	@Test
 	public void testRun() {
 		SimpleGraphBuilder builder = new SimpleGraphBuilder();
@@ -292,30 +297,41 @@ public class TestQuickMarkAvro extends QuickMarkAvro{
 		}
 		File avro_file = new File(temp, "graph.avro");
 		// Write the data to the file.
-		Schema schema = (new GraphNodeData()).getSchema();
-		DatumWriter<GraphNodeData> datum_writer = new SpecificDatumWriter<GraphNodeData>(schema);
-		DataFileWriter<GraphNodeData> writer = new DataFileWriter<GraphNodeData>(datum_writer);
+		Schema schema = (new CompressibleNodeData()).getSchema();
+		DatumWriter<CompressibleNodeData> datum_writer = 
+		    new SpecificDatumWriter<CompressibleNodeData>(schema);
+		DataFileWriter<CompressibleNodeData> writer = 
+		    new DataFileWriter<CompressibleNodeData>(datum_writer);
 		try {
 			writer.create(schema, avro_file);
 			for (GraphNode node: builder.getAllNodes().values()) {
-				writer.append(node.getData());
+			  CompressibleNodeData compressible_node = new CompressibleNodeData();
+			  compressible_node.setNode(node.getData());
+			  if (node.getNodeId().equals("ACT")) {
+			    compressible_node.setCompressibleStrands(CompressibleStrands.FORWARD);
+			  } else if (node.getNodeId().equals("CCA")) {
+			    compressible_node.setCompressibleStrands(CompressibleStrands.FORWARD);
+			  } else {
+			    compressible_node.setCompressibleStrands(CompressibleStrands.BOTH);
+			  }
+				writer.append(compressible_node);
 			}
 			writer.close();
-		} catch (IOException exception) { fail("There was a problem writing the graph to an avro file. Exception:" +
-				exception.getMessage());
+		} catch (IOException exception) { 
+		    fail("There was a problem writing the graph to an avro file. " +
+		         "Exception:" + exception.getMessage());
 		}
 		// Run it.
 		QuickMarkAvro run_quickmark = new QuickMarkAvro();
 		File output_path = new File(temp, "output");
 		String[] args =
 			{"--inputpath=" + temp.toURI().toString(),
-				"--outputpath=" + output_path.toURI().toString(), 
+			 "--outputpath=" + output_path.toURI().toString(), 
 			};
 		try {
 			run_quickmark.run(args);
 		} catch (Exception exception) {
 			fail("Exception occured:" + exception.getMessage());
 		}
-
-	}*/
+	}
 }
