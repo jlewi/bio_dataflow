@@ -231,6 +231,20 @@
                 {"name": "node",
                  "type": "contrail.graph.GraphNodeData",
                  "doc": "The node data."}]
+    }, 
+    {"name": "QuickMarkMessage",
+     "type": "record",
+     "doc": "Message used in the remove tip stage.",
+     "fields": [
+                 {"name": "node", "type": ["null", "contrail.graph.GraphNodeData"],
+                  "doc": "A node in the graph or null if this is a message to another node in the graph"
+                 },
+                 {"name":"send_to_compressor",
+                 "type": "boolean",
+                 "doc": ["A boolean indicating the node should be sent to the reducer compressing chains in the QuickMerge phase"]
+                 }
+                                      
+               ]
     },
     {"name": "contrail.avro.EdgeUpdateForMerge",
      "type": "record",
