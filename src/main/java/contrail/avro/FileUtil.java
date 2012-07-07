@@ -19,7 +19,9 @@ public class FileUtil {
   public static void saveResult(
       JobConf conf, String old_path, String new_path)
           throws IOException {
-    FileSystem.get(conf).delete(new Path(new_path), true);
+    //FileSystem.get(conf).delete(new Path(new_path), true);
     FileSystem.get(conf).rename(new Path(old_path), new Path(new_path));
+    FileSystem fs = FileSystem.get(conf);
+    FileUtil util = new_path FileUtil(fs);
   }
 }

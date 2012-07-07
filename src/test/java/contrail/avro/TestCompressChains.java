@@ -12,28 +12,11 @@ import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.graph.SimpleGraphBuilder;
 
-//import java.io.File;
-//import java.io.IOException;
-//import java.util.ArrayList;
-//import java.util.List;
-//
+
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.io.DatumWriter;
-//import org.apache.avro.mapred.Pair;
 import org.apache.avro.specific.SpecificDatumWriter;
-//import org.apache.hadoop.mapred.JobConf;
-//import org.apache.hadoop.mapred.Reporter;
-//import org.junit.Test;
-//
-//import contrail.ReporterMock;
-//import contrail.graph.EdgeTerminal;
-//import contrail.graph.GraphNode;
-//import contrail.graph.SimpleGraphBuilder;
-//import contrail.sequences.DNAAlphabetFactory;
-//import contrail.sequences.DNAStrand;
-//import contrail.sequences.Sequence;
-
 
 public class TestCompressChains extends CompressChains {
   @Test

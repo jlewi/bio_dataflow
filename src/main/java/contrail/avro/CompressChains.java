@@ -9,6 +9,7 @@ import java.util.Map;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.RunningJob;
@@ -74,13 +75,6 @@ public class CompressChains extends Stage {
   private void compressChains(
       String input_path, String temp_path, String final_path) throws Exception {
     CompressibleAvro compress = new CompressibleAvro();
-
-    // TODO(jlewi) Need to add the code for QuickMarkAvro
-    // QuickMarkAvro qmark   = new QuickMarkAvro();
-    QuickMergeAvro qmerge = new QuickMergeAvro();
-
-    PairMarkAvro pmark   = new PairMarkAvro();
-    PairMergeAvro pmerge = new PairMergeAvro();
 
     int stage = 0;
     long compressible = 0;
@@ -158,25 +152,55 @@ public class CompressChains extends Stage {
       long remaining = 0;
 
       // TODO(jlewi): Should we make local nodes a stage variable?
-      if (lastremaining < LOCALNODES) {
-        throw new RuntimeException("This code needs to be updated");
-//        // Send all the compressible nodes to the same machine for serial processing
-//        start("  QMark " + stage);
-//        job = qmark.run(input, input0);
-//        end(job);
-//
-//        sLogger.info("  " + counter(job, "compressibleneighborhood") + " marked\n");
-//
-//        start("  QMerge " + stage);
-//        job = qmerge.run(input0, output);
-//        end(job);
-//
-//        remaining = counter(job, "needcompress");
+      if (lastremaining < LOCALNODES) {   
+        QuickMarkAvro qmark   = new QuickMarkAvro();
+        QuickMergeAvro qmerge = new QuickMergeAvro();
+
+        // Send all the compressible nodes and their neighbors to the same 
+        // machine so they can be compressed in one shot.
+        start("  QMark " + stage);
+        
+        Map<String, Object> substage_options = 
+            ContrailParameters.extractParameters(
+                this.stage_options, qmark.getParameterDefinitions().values());
+        
+        substage_options.put("inputpath", mark_input);
+        substage_options.put("outputpath", marked_graph_path);
+        qmark.setParameters(substage_options);
+        RunningJob qmark_job = qmark.runJob();
+        end(qmark_job);
+
+        sLogger.info(
+            String.format(
+                "Nodes to send to compressor: %d \n", 
+                counter(
+                    qmark_job, 
+                    GraphCounters.quick_mark_nodes_send_to_compressor)));
+
+        start("  QMerge " + stage);
+        
+        
+        Map<String, Object> qmerge_options = 
+            ContrailParameters.extractParameters(
+                this.stage_options, qmerge.getParameterDefinitions().values());
+        
+        qmerge_options.put("inputpath", marked_graph_path);
+        qmerge_options.put("outputpath", merged_graph_path);
+        qmerge.setParameters(qmerge_options);
+        RunningJob qmerge_job = qmerge.runJob();
+        end(qmerge_job);
+
+        // Set remaining to zero because all compressible nodes should
+        // be compressed.
+        remaining = 0;
       }
       else {
         // Use the randomized algorithm
         double rand = Math.random();
 
+        PairMarkAvro pmark   = new PairMarkAvro();
+        PairMergeAvro pmerge = new PairMergeAvro();
+        
         {
           start("Mark" + stage);
           Map<String, Object> mark_options = new HashMap<String, Object>();

@@ -164,7 +164,9 @@ public class QuickMarkAvro extends Stage     {
         KMerReadTag readtag = new KMerReadTag("compress", 0); 
         //when QuickMerge is run all nodes that need to be compressed or are connected to compressed nodes will be sent to the same reducer
         node.setMertag(readtag);
-        reporter.incrCounter("Contrail", "compressibleneighborhood", 1);
+        reporter.incrCounter(
+            GraphCounters.quick_mark_nodes_send_to_compressor.group, 
+            GraphCounters.quick_mark_nodes_send_to_compressor.tag, 1);
       }
       else	{
         KMerReadTag readtag = new KMerReadTag(node.getNodeId(), node.getNodeId().hashCode()); 
