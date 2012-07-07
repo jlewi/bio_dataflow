@@ -3,18 +3,28 @@ package contrail.avro;
 
 import java.io.IOException;
 import java.util.ArrayList;
+<<<<<<< HEAD
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+=======
+import java.util.Iterator;
+import java.util.List;
+>>>>>>> forge_master
 
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
-
+<<<<<<< HEAD
+=======
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.OptionBuilder;
+>>>>>>> forge_master
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -23,7 +33,10 @@ import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
+<<<<<<< HEAD
 import org.apache.hadoop.mapred.RunningJob;
+=======
+>>>>>>> forge_master
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -53,13 +66,21 @@ import contrail.sequences.StrandsUtil;
  * node is identifiable because its node id will match the reducer key and
  * strand_to_merge will be set to None. The nodes are merged such that
  * the forward strand of the down node always corresponds to the forward
+<<<<<<< HEAD
+ * strand of the down node.
+=======
  * strand of the merged node (see the javadoc for PairMarkAvro).
+>>>>>>> forge_master
  */
 public class PairMergeAvro extends Stage {
   private static final Logger sLogger = Logger.getLogger(PairMergeAvro.class);
 
   protected static class PairMergeMapper extends
+<<<<<<< HEAD
       AvroMapper<NodeInfoForMerge, Pair<CharSequence, NodeInfoForMerge>> {
+=======
+  AvroMapper<NodeInfoForMerge, Pair<CharSequence, NodeInfoForMerge>> {
+>>>>>>> forge_master
     private GraphNode node;
     private Pair<CharSequence, NodeInfoForMerge> out_pair;
     public void configure(JobConf job) {
@@ -95,10 +116,14 @@ public class PairMergeAvro extends Stage {
     private NodeReverser node_reverser;
     private CompressibleNodeData output;
     public void configure(JobConf job) {
+<<<<<<< HEAD
       PairMergeAvro stage = new PairMergeAvro();
       Map<String, ParameterDefinition> definitions =
           stage.getParameterDefinitions();
       K = (Integer)(definitions.get("K")).parseJobConf(job);
+=======
+      K = Integer.parseInt(job.get("K"));
+>>>>>>> forge_master
       node_reverser = new NodeReverser();
       output = new CompressibleNodeData();
     }
@@ -374,12 +399,16 @@ public class PairMergeAvro extends Stage {
       GraphNode merged_node = mergeChain(chain);
 
       CompressibleStrands compressible_strands = isCompressible(chain);
+<<<<<<< HEAD
       if (compressible_strands != CompressibleStrands.NONE) {
         reporter.incrCounter(
             GraphCounters.pair_merge_compressible_nodes.group,
             GraphCounters.pair_merge_compressible_nodes.tag, 1);
 
       }
+=======
+
+>>>>>>> forge_master
       output.setNode(merged_node.getData());
       output.setCompressibleStrands(compressible_strands);
       collector.collect(output);
@@ -387,6 +416,7 @@ public class PairMergeAvro extends Stage {
   }
 
   /**
+<<<<<<< HEAD
    * Get the parameters used by this stage.
    */
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
@@ -400,11 +430,39 @@ public class PairMergeAvro extends Stage {
       defs.put(def.getName(), def);
     }
     return Collections.unmodifiableMap(defs);
+=======
+   * Get the options required by this stage.
+   */
+  protected List<Option> getCommandLineOptions() {
+    List<Option> options = super.getCommandLineOptions();
+    options.addAll(ContrailOptions.getInputOutputPathOptions());
+
+    // Add options specific to this stage.
+    options.add(OptionBuilder.withArgName("K").hasArg().withDescription(
+        "KMer size [required]").create("K"));
+
+    return options;
+  }
+
+  @Override
+  protected void parseCommandLine(CommandLine line) {
+    super.parseCommandLine(line);
+    if (line.hasOption("inputpath")) {
+      stage_options.put("inputpath", line.getOptionValue("inputpath"));
+    }
+    if (line.hasOption("outputpath")) {
+      stage_options.put("outputpath", line.getOptionValue("outputpath"));
+    }
+    if (line.hasOption("K")) {
+      stage_options.put("K", Long.valueOf(line.getOptionValue("K")));
+    }
+>>>>>>> forge_master
   }
 
   public int run(String[] args) throws Exception {
     sLogger.info("Tool name: PairMergeAvro");
     parseCommandLine(args);
+<<<<<<< HEAD
     runJob();
     return 0;
   }
@@ -417,11 +475,25 @@ public class PairMergeAvro extends Stage {
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
     int K = (Integer) stage_options.get("K");
+=======
+    return run();
+  }
+
+  @Override
+  protected int run() throws Exception {
+    String[] required_args = {"inputpath", "outputpath", "K"};
+    checkHasOptionsOrDie(required_args);
+
+    String inputPath = (String) stage_options.get("inputpath");
+    String outputPath = (String) stage_options.get("outputpath");
+    long K = (Long)stage_options.get("K");
+>>>>>>> forge_master
 
     sLogger.info(" - input: "  + inputPath);
     sLogger.info(" - output: " + outputPath);
     sLogger.info(" - K: " + K);
 
+<<<<<<< HEAD
     Configuration base_conf = getConf();
     JobConf conf = null;
     if (base_conf != null) {
@@ -430,6 +502,9 @@ public class PairMergeAvro extends Stage {
       conf = new JobConf(PairMergeAvro.class);
     }
 
+=======
+    JobConf conf = new JobConf(PairMergeAvro.class);
+>>>>>>> forge_master
     conf.setJobName("PairMergeAvro " + inputPath + " " + K);
 
     initializeJobConfiguration(conf);
@@ -463,6 +538,7 @@ public class PairMergeAvro extends Stage {
       }
 
       long starttime = System.currentTimeMillis();
+<<<<<<< HEAD
       RunningJob job = JobClient.runJob(conf);
       long endtime = System.currentTimeMillis();
 
@@ -471,6 +547,16 @@ public class PairMergeAvro extends Stage {
       return job;
     }
     return null;
+=======
+      JobClient.runJob(conf);
+      long endtime = System.currentTimeMillis();
+
+      float diff = (float) ((endtime - starttime) / 1000.0);
+
+      System.out.println("Runtime: " + diff + " s");
+    }
+    return 0;
+>>>>>>> forge_master
   }
 
   public static void main(String[] args) throws Exception {

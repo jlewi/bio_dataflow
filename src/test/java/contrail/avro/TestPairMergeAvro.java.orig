@@ -7,7 +7,10 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+<<<<<<< HEAD
 import java.util.Map;
+=======
+>>>>>>> forge_master
 
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileWriter;
@@ -99,7 +102,10 @@ public class TestPairMergeAvro extends PairMergeAvro {
     PairMergeMapper mapper = new PairMergeMapper();
 
     JobConf job = new JobConf(PairMergeMapper.class);
-
+<<<<<<< HEAD
+=======
+    job.setLong("K", 3);
+>>>>>>> forge_master
 
     mapper.configure(job);
 
@@ -340,10 +346,14 @@ public class TestPairMergeAvro extends PairMergeAvro {
     JobConf job = new JobConf(PairMergeReducer.class);
 
     // TODO: Reduce test cases can only use this value.
+<<<<<<< HEAD
     PairMergeAvro stage = new PairMergeAvro();
     Map<String, ParameterDefinition> definitions =
         stage.getParameterDefinitions();
     definitions.get("K").addToJobConf(job, new Integer(3));
+=======
+    job.setLong("K", 3);
+>>>>>>> forge_master
 
     reducer.configure(job);
 
