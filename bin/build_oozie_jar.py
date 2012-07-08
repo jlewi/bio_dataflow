@@ -114,6 +114,7 @@ def main(argv):
     stage_options = {}
     stage_options["BuildGraphAvro"] = {"K": K}
     stage_options["QuickMergeAvro"] = {"K": K}
+    stage_options["CompressChains"] = {"K": K}
 
     for stage in stages:
       stage_name = stage.rsplit(".", 1)[-1]
