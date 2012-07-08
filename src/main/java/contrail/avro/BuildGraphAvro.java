@@ -509,7 +509,7 @@ public class BuildGraphAvro extends Stage
 
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
-    long K = (Long)stage_options.get("K");
+    int K = (Integer)stage_options.get("K");
 
     sLogger.info(" - input: "  + inputPath);
     sLogger.info(" - output: " + outputPath);
