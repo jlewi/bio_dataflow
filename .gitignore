@@ -12,7 +12,9 @@ target/*
 
 # Temporary files.
 .*~
-=======
+*~
+
+#=======
 #Ignore any log files
 *.log
 
