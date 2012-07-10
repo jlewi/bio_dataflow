@@ -219,7 +219,7 @@ public class QuickMarkAvro extends Stage     {
     AvroJob.setInputSchema(conf, compressible_node.getSchema());
     
     AvroJob.setMapOutputSchema(conf, map_output.getSchema());
-    AvroJob.setOutputSchema(conf, QuickMergeAvro.REDUCE_OUT_SCHEMA);
+    AvroJob.setOutputSchema(conf, QuickMarkAvro.REDUCE_OUT_SCHEMA);
 
     AvroJob.setMapperClass(conf, QuickMarkMapper.class);
     AvroJob.setReducerClass(conf, QuickMarkReducer.class);
@@ -249,7 +249,7 @@ public class QuickMarkAvro extends Stage     {
   }
 
   public static void main(String[] args) throws Exception {
-    int res = ToolRunner.run(new Configuration(), new QuickMergeAvro(), args);
+    int res = ToolRunner.run(new Configuration(), new QuickMarkAvro(), args);
     System.exit(res);
   }
 }
