@@ -3,8 +3,11 @@
  */
 package contrail.avro;
 import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.avro.Schema;
 import org.apache.avro.mapred.AvroCollector;
@@ -20,6 +23,7 @@ import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -67,22 +71,16 @@ import contrail.sequences.StrandsForEdge;
  */
 public class QuickMarkAvro extends Stage     {	
   private static final Logger sLogger = Logger.getLogger(QuickMarkAvro.class);
-  public static final Schema MAP_OUT_SCHEMA = 
-      Pair.getPairSchema(Schema.create(Schema.Type.STRING), 
-          (new QuickMarkMessage()).getSchema());
-
   public static final Schema REDUCE_OUT_SCHEMA = 
       new GraphNodeData().getSchema();
 
-  private static Pair<CharSequence, QuickMarkMessage> out_pair = 
-      new Pair<CharSequence, QuickMarkMessage>(MAP_OUT_SCHEMA);
-
+  
   public static class QuickMarkMapper extends 
   AvroMapper<CompressibleNodeData, Pair<CharSequence, QuickMarkMessage>> {
-
     public QuickMarkMessage msg= null;
     public GraphNode node= null;
 
+    private Pair<CharSequence, QuickMarkMessage> out_pair;
     public void configure(JobConf job) {
       node = new GraphNode();
       msg= new QuickMarkMessage();
@@ -176,14 +174,24 @@ public class QuickMarkAvro extends Stage     {
     }
   }
 
-  public int run(String[] args) throws Exception {
-    sLogger.info("Tool name: QuickMergeAvro");
-    parseCommandLine(args);   
-    return run();
-  }
+  /**
+   * Get the parameters used by this stage.
+   */
+  protected Map<String, ParameterDefinition> createParameterDefinitions() {
+      HashMap<String, ParameterDefinition> defs =
+        new HashMap<String, ParameterDefinition>();
 
+    defs.putAll(super.createParameterDefinitions());
+
+    for (ParameterDefinition def:
+      ContrailParameters.getInputOutputPathOptions()) {
+      defs.put(def.getName(), def);
+    }
+    return Collections.unmodifiableMap(defs);
+  }
+  
   @Override
-  protected int run() throws Exception {
+  public RunningJob runJob() throws Exception {
     // TODO: set stage options using new method
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
@@ -191,40 +199,53 @@ public class QuickMarkAvro extends Stage     {
     sLogger.info(" - input: "  + inputPath);
     sLogger.info(" - output: " + outputPath);
 
-    JobConf conf = new JobConf(QuickMarkAvro.class);
-    conf.setJobName("QuickMarkAvro " + inputPath);
-
+    Configuration base_conf = getConf();
+    JobConf conf = null;
+    if (base_conf != null) {
+      conf = new JobConf(getConf(), this.getClass());
+    } else {
+      conf = new JobConf(this.getClass());
+    }
+    
     initializeJobConfiguration(conf);
 
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
-    GraphNodeData graph_data = new GraphNodeData();
-    AvroJob.setInputSchema(conf, graph_data.getSchema());
-    AvroJob.setMapOutputSchema(conf, QuickMergeAvro.MAP_OUT_SCHEMA);
+    Pair<CharSequence, QuickMarkMessage> map_output = 
+        new Pair<CharSequence, QuickMarkMessage>("", new QuickMarkMessage());
+    
+    CompressibleNodeData compressible_node = new CompressibleNodeData();
+    AvroJob.setInputSchema(conf, compressible_node.getSchema());
+    
+    AvroJob.setMapOutputSchema(conf, map_output.getSchema());
     AvroJob.setOutputSchema(conf, QuickMergeAvro.REDUCE_OUT_SCHEMA);
 
     AvroJob.setMapperClass(conf, QuickMarkMapper.class);
     AvroJob.setReducerClass(conf, QuickMarkReducer.class);
 
-    // Delete the output directory if it exists already
-    Path out_path = new Path(outputPath);
-    if (FileSystem.get(conf).exists(out_path)) {
-      // TODO(jlewi): We should only delete an existing directory
-      // if explicitly told to do so.
-      sLogger.info("Deleting output path: " + out_path.toString() + " " + 
-          "because it already exists.");       
-      FileSystem.get(conf).delete(out_path, true);  
+    if (stage_options.containsKey("writeconfig")) {
+      writeJobConfig(conf);
+    } else {
+      // Delete the output directory if it exists already
+      Path out_path = new Path(outputPath);
+      if (FileSystem.get(conf).exists(out_path)) {
+        // TODO(jlewi): We should only delete an existing directory
+        // if explicitly told to do so.
+        sLogger.info("Deleting output path: " + out_path.toString() + " " +
+            "because it already exists.");
+        FileSystem.get(conf).delete(out_path, true);
+      }
+
+      long starttime = System.currentTimeMillis();
+      RunningJob job = JobClient.runJob(conf);
+      long endtime = System.currentTimeMillis();
+
+      float diff = (float) ((endtime - starttime) / 1000.0);
+      System.out.println("Runtime: " + diff + " s");
+      return job;
     }
-
-    long starttime = System.currentTimeMillis();    
-    JobClient.runJob(conf);
-    long endtime = System.currentTimeMillis();
-
-    float diff = (float) (((float) (endtime - starttime)) / 1000.0);
-
-    System.out.println("Runtime: " + diff + " s");
-    return 0;
+    return null;
   }
 
   public static void main(String[] args) throws Exception {

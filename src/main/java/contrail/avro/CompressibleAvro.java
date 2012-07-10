@@ -1,9 +1,11 @@
 package contrail.avro;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
+import java.util.Map;
 
 import org.apache.avro.Schema;
 import org.apache.avro.mapred.AvroCollector;
@@ -11,8 +13,6 @@ import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Option;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -21,6 +21,7 @@ import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -64,12 +65,19 @@ public class CompressibleAvro extends Stage {
       (new CompressibleNodeData()).getSchema();
 
   /**
-   * Get the options required by this stage.
+   * Get the parameters used by this stage.
    */
-  protected List<Option> getCommandLineOptions() {
-    List<Option> options = super.getCommandLineOptions();
-    options.addAll(ContrailOptions.getInputOutputPathOptions());
-     return options;
+  protected Map<String, ParameterDefinition> createParameterDefinitions() {
+    HashMap<String, ParameterDefinition> defs =
+      new HashMap<String, ParameterDefinition>();
+
+    defs.putAll(super.createParameterDefinitions());
+
+    for (ParameterDefinition def:
+      ContrailParameters.getInputOutputPathOptions()) {
+      defs.put(def.getName(), def);
+    }
+    return Collections.unmodifiableMap(defs);
   }
 
   public static class CompressibleMapper extends
@@ -301,7 +309,10 @@ public class CompressibleAvro extends Stage {
         if (strand == DNAStrand.REVERSE) {
           r_compressible = true;
         }
-        reporter.incrCounter("Contrail", "compressible", 1);
+
+        reporter.incrCounter(
+            GraphCounters.compressible_nodes.group,
+            GraphCounters.compressible_nodes.tag, 1);
       }
       annotated_node.setCompressibleStrands(CompressibleStrands.NONE);
       if (f_compressible && r_compressible) {
@@ -316,26 +327,9 @@ public class CompressibleAvro extends Stage {
   }
 
   @Override
-  protected void parseCommandLine(CommandLine line) {
-    super.parseCommandLine(line);
-    if (line.hasOption("inputpath")) {
-      stage_options.put("inputpath", line.getOptionValue("inputpath"));
-    }
-    if (line.hasOption("outputpath")) {
-      stage_options.put("outputpath", line.getOptionValue("outputpath"));
-    }
-  }
-
-  public int run(String[] args) throws Exception {
-    sLogger.info("Tool name: CompressibleMergeAvro");
-    parseCommandLine(args);
-    return run();
-  }
-
-  @Override
-  protected int run() throws Exception {
+  public RunningJob runJob() throws Exception {
     String[] required_args = {"inputpath", "outputpath"};
-    checkHasOptionsOrDie(required_args);
+    checkHasParametersOrDie(required_args);
 
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
@@ -343,7 +337,13 @@ public class CompressibleAvro extends Stage {
     sLogger.info(" - input: "  + inputPath);
     sLogger.info(" - output: " + outputPath);
 
-    JobConf conf = new JobConf(QuickMergeAvro.class);
+    Configuration base_conf = getConf();
+    JobConf conf = null;
+    if (base_conf != null) {
+      conf = new JobConf(getConf(), CompressibleAvro.class);
+    } else {
+      conf = new JobConf(CompressibleAvro.class);
+    }
     conf.setJobName("CompressibleAvro " + inputPath);
 
     initializeJobConfiguration(conf);
@@ -359,6 +359,7 @@ public class CompressibleAvro extends Stage {
     AvroJob.setMapperClass(conf, CompressibleMapper.class);
     AvroJob.setReducerClass(conf, CompressibleReducer.class);
 
+    RunningJob result = null;
     if (stage_options.containsKey("writeconfig")) {
       writeJobConfig(conf);
     } else {
@@ -373,14 +374,14 @@ public class CompressibleAvro extends Stage {
       }
 
       long starttime = System.currentTimeMillis();
-      JobClient.runJob(conf);
+      result = JobClient.runJob(conf);
       long endtime = System.currentTimeMillis();
 
       float diff = (float) ((endtime - starttime) / 1000.0);
 
       System.out.println("Runtime: " + diff + " s");
     }
-    return 0;
+    return result;
   }
 
   public static void main(String[] args) throws Exception {

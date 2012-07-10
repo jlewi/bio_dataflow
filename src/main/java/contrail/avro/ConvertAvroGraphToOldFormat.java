@@ -2,13 +2,13 @@
 package contrail.avro;
 
 import java.io.IOException;
-import java.util.List;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.avro.mapred.AvroInputFormat;
 import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroWrapper;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Option;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -62,28 +62,17 @@ public class ConvertAvroGraphToOldFormat extends Stage {
   /**
    * Get the options required by this stage.
    */
-  protected List<Option> getCommandLineOptions() {
-    List<Option> options = super.getCommandLineOptions();
+  protected Map<String, ParameterDefinition> createParameterDefinitions() {
+    HashMap<String, ParameterDefinition> defs =
+        new HashMap<String, ParameterDefinition>();
 
-    options.addAll(ContrailOptions.getInputOutputPathOptions());
-    return options;
-  }
+      defs.putAll(super.createParameterDefinitions());
 
-  protected void parseCommandLine(CommandLine line) {
-    super.parseCommandLine(line);
-    if (line.hasOption("inputpath")) {
-      stage_options.put("inputpath", line.getOptionValue("inputpath"));
-    }
-    if (line.hasOption("outputpath")) {
-      stage_options.put("outputpath", line.getOptionValue("outputpath"));
-    }
-  }
-
-  @Override
-  public int run(String[] args) throws Exception {
-    sLogger.info("Tool name: ConvertAvroGraphToOldFormat");
-    parseCommandLine(args);
-    return run();
+      for (ParameterDefinition def:
+        ContrailParameters.getInputOutputPathOptions()) {
+        defs.put(def.getName(), def);
+      }
+    return Collections.unmodifiableMap(defs);
   }
 
   @Override
@@ -129,7 +118,7 @@ public class ConvertAvroGraphToOldFormat extends Stage {
     JobClient.runJob(conf);
     long endtime = System.currentTimeMillis();
 
-    float diff = (float) (((float) (endtime - starttime)) / 1000.0);
+    float diff = (float) ((endtime - starttime) / 1000.0);
     System.out.println("Runtime: " + diff + " s");
     return 0;
   }

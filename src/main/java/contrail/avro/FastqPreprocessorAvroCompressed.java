@@ -9,12 +9,12 @@ import contrail.util.ByteUtil;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.List;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroWrapper;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Option;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -215,7 +215,7 @@ public class FastqPreprocessorAvroCompressed extends Stage {
   }
 
   @Override
-  public int run() throws Exception {
+  public RunningJob runJob() throws Exception {
     sLogger.info("Tool name: FastqPreprocessorAvroCompressed");
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
@@ -252,9 +252,7 @@ public class FastqPreprocessorAvroCompressed extends Stage {
 
     if (stage_options.containsKey("writeconfig")) {
       writeJobConfig(conf);
-      return 0;
     } else {
-
       //delete the output directory if it exists already
       FileSystem.get(conf).delete(new Path(outputPath), true);
 
@@ -263,29 +261,27 @@ public class FastqPreprocessorAvroCompressed extends Stage {
       long end_time = System.currentTimeMillis();
       double nseconds = (end_time - start_time) / 1000.0;
       System.out.println("Job took: " + nseconds + " seconds");
-      return 0;
+      return result;
     }
+    return null;
   }
 
   /**
    * Get the options required by this stage.
    */
-  protected List<Option> getCommandLineOptions() {
-    List<Option> options = super.getCommandLineOptions();
-    options.addAll(ContrailOptions.getInputOutputPathOptions());
+  protected Map<String, ParameterDefinition> createParameterDefinitions() {
+    HashMap<String, ParameterDefinition> defs =
+        new HashMap<String, ParameterDefinition>();
 
-    return options;
+    defs.putAll(super.createParameterDefinitions());
+
+    for (ParameterDefinition def:
+      ContrailParameters.getInputOutputPathOptions()) {
+      defs.put(def.getName(), def);
+    }
+    return Collections.unmodifiableMap(defs);
   }
 
-  protected void parseCommandLine(CommandLine line) {
-    super.parseCommandLine(line);
-    if (line.hasOption("inputpath")) {
-      stage_options.put("inputpath", line.getOptionValue("inputpath"));
-    }
-    if (line.hasOption("outputpath")) {
-      stage_options.put("outputpath", line.getOptionValue("outputpath"));
-    }
-  }
 
   public static void main(String[] args) throws Exception {
     int res = ToolRunner.run(
