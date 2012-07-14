@@ -114,7 +114,7 @@ public class CompressChains extends Stage {
 
       // Make a shallow copy of the stage options required by the compress
       // stage.
-      Map<String, Object> substage_options = 
+      Map<String, Object> substage_options =
           ContrailParameters.extractParameters(
               this.stage_options, compress.getParameterDefinitions().values());
 
@@ -152,18 +152,18 @@ public class CompressChains extends Stage {
       long remaining = 0;
 
       // TODO(jlewi): Should we make local nodes a stage variable?
-      if (lastremaining < LOCALNODES) {   
+      if (lastremaining < LOCALNODES) {
         QuickMarkAvro qmark   = new QuickMarkAvro();
         QuickMergeAvro qmerge = new QuickMergeAvro();
 
-        // Send all the compressible nodes aFile old_path_file = new File(old_path);nd their neighbors to the same 
+        // Send all the compressible nodes aFile old_path_file = new File(old_path);nd their neighbors to the same
         // machine so they can be compressed in one shot.
         start("  QMark " + stage);
-        
-        Map<String, Object> substage_options = 
+
+        Map<String, Object> substage_options =
             ContrailParameters.extractParameters(
                 this.stage_options, qmark.getParameterDefinitions().values());
-        
+
         substage_options.put("inputpath", mark_input);
         substage_options.put("outputpath", marked_graph_path);
         qmark.setParameters(substage_options);
@@ -172,18 +172,18 @@ public class CompressChains extends Stage {
 
         sLogger.info(
             String.format(
-                "Nodes to send to compressor: %d \n", 
+                "Nodes to send to compressor: %d \n",
                 counter(
-                    qmark_job, 
+                    qmark_job,
                     GraphCounters.quick_mark_nodes_send_to_compressor)));
 
         start("  QMerge " + stage);
-        
-        
-        Map<String, Object> qmerge_options = 
+
+
+        Map<String, Object> qmerge_options =
             ContrailParameters.extractParameters(
                 this.stage_options, qmerge.getParameterDefinitions().values());
-        
+
         qmerge_options.put("inputpath", marked_graph_path);
         qmerge_options.put("outputpath", merged_graph_path);
         qmerge.setParameters(qmerge_options);
@@ -200,7 +200,7 @@ public class CompressChains extends Stage {
 
         PairMarkAvro pmark   = new PairMarkAvro();
         PairMergeAvro pmerge = new PairMergeAvro();
-        
+
         {
           start("Mark" + stage);
           Map<String, Object> mark_options = new HashMap<String, Object>();
@@ -246,8 +246,8 @@ public class CompressChains extends Stage {
   }
 
   /**
-   * Function moves the contents of old_path into new_path. This is used 
-   * to save the final graph. 
+   * Function moves the contents of old_path into new_path. This is used
+   * to save the final graph.
    * @param old_path
    * @param new_path
    */
@@ -261,17 +261,17 @@ public class CompressChains extends Stage {
       throw new RuntimeException("Can't get filesystem: " + e.getMessage());
     }
     try {
-      Path old_path_object = new Path(old_path); 
-      for (FileStatus status : fs.listStatus(old_path_object)) {      
-        Path old_file = status.getPath();      
+      Path old_path_object = new Path(old_path);
+      for (FileStatus status : fs.listStatus(old_path_object)) {
+        Path old_file = status.getPath();
         Path new_file = new Path(new_path, old_file.getName());
         fs.rename(old_file, new_file);
       }
     } catch (IOException e) {
       throw new RuntimeException("Problem moving the files: " + e.getMessage());
-    }  
+    }
   }
-  
+
   /**
    * Return the value of the specified counter in the job.
    * @param job
@@ -358,7 +358,7 @@ public class CompressChains extends Stage {
   }
 
   public static void main(String[] args) throws Exception {
-    int res = ToolRunner.run(new Configuration(), new PairMergeAvro(), args);
+    int res = ToolRunner.run(new Configuration(), new CompressChains(), args);
     System.exit(res);
   }
 }

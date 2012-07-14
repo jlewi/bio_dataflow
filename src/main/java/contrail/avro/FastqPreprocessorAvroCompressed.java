@@ -222,8 +222,14 @@ public class FastqPreprocessorAvroCompressed extends Stage {
     sLogger.info(" - input: "  + inputPath);
     sLogger.info(" - output: " + outputPath);
 
-    JobConf conf = new JobConf(
-        getConf(), FastqPreprocessorAvroCompressed.class);
+    Configuration base_conf = getConf();
+    JobConf conf = null;
+    if (base_conf != null) {
+      conf = new JobConf(getConf(), this.getClass());
+    } else {
+      conf = new JobConf(this.getClass());
+    }
+
     conf.setJobName("FastqPreprocessorAvroCompressed " + inputPath);
 
     // Stage specific configuration options.
@@ -244,7 +250,7 @@ public class FastqPreprocessorAvroCompressed extends Stage {
 
     // This is a mapper only job.
     conf.setNumReduceTasks(0);
-    
+
     // TODO(jlewi): use setoutput codec to set the compression codec.
     AvroJob.setOutputSchema(conf,new CompressedRead().getSchema());
 
