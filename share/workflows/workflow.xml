@@ -35,7 +35,7 @@
             <configuration>
                 <property>
                     <name>mapred.input.dir</name>
-                    <value>${inputDir}</value>
+                    <value>${outputDir}/FastqPreProcessorAvro</value>
                 </property>
                 <property>
                     <name>mapred.output.dir</name>
@@ -58,7 +58,7 @@
             <configuration>
                 <property>
                     <name>mapred.input.dir</name>
-                    <value>${inputDir}</value>
+                    <value>${outputDir}/BuildGraph</value>
                 </property>
                 <property>
                     <name>mapred.output.dir</name>
