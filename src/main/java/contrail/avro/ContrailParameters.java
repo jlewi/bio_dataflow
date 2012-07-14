@@ -89,7 +89,7 @@ public class ContrailParameters {
       map.put(param.getName(), param);
     }
   }
-
+  
   /**
    * Returns a shallow copy of those parameters in options which stage takes.
    * @param options
@@ -97,7 +97,7 @@ public class ContrailParameters {
    * @return
    */
   public static Map<String, Object> extractParameters(
-      Map<String, Object> options,
+      Map<String, Object> options, 
       Collection<ParameterDefinition> definitions) {
     // Make a shallow copy of the stage options required by the compress
     // stage.

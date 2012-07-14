@@ -219,12 +219,20 @@ public class QuickMergeAvro extends Stage {
 
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
-    long K = (Long)stage_options.get("K");
+    int K = (Integer)stage_options.get("K");
 
     sLogger.info(" - input: "  + inputPath);
     sLogger.info(" - output: " + outputPath);
 
-    JobConf conf = new JobConf(getConf(), QuickMergeAvro.class);
+    Configuration base_conf = getConf();
+    JobConf conf = null;
+    if (base_conf == null) {
+      conf = new JobConf(QuickMergeAvro.class);    
+    } else {
+      conf = new JobConf(base_conf, QuickMergeAvro.class);  
+    }
+    this.setConf(conf);
+    
     conf.setJobName("QuickMergeAvro " + inputPath + " " + K);
 
     initializeJobConfiguration(conf);

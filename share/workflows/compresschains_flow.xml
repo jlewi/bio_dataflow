@@ -1,0 +1,23 @@
+<!--This workflow is only for testing compress chains.-->
+<workflow-app name='assemble-genome' xmlns="uri:oozie:workflow:0.1">
+    <start to='CompressChains'/>
+    <action name='CompressChains'>
+        <java>
+            <job-tracker>${jobTracker}</job-tracker>
+            <name-node>${nameNode}</name-node>
+            <prepare>
+	      <!-- Delete the output path otherwise hadoop won't proceed.-->
+	      <delete path="${outputDir}/CompressChains"/>
+	    </prepare>
+	    <job-xml>${stageConfigDir}/CompressChains.xml</job-xml>
+	    <arg>inputpath=${outputDir}/QuickMerge</arg>
+	    <arg>outputpath=${outputDir}/CompressChains</arg>
+        </java>
+        <ok to='end'/>
+        <error to='end'/>
+    </action>
+    <kill name="kill">
+        <message>Map/Reduce failed, error message[${wf:errorMessage()}]</message>
+    </kill>
+    <end name='end'/>
+</workflow-app>

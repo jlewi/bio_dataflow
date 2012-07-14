@@ -42,7 +42,12 @@ public class ParameterDefinition {
       description = description + "(default: " + default_value_.toString() +
           ")";
     }
-    return new Option(short_name_, name_, true, description_);
+    if (type_.equals(Boolean.class)) {
+      // Boolean arguments don't require an argument.
+      return new Option(short_name_, name_, false, description_);
+    } else {
+      return new Option(short_name_, name_, true, description_);
+    }
   }
 
   public String getName() {
