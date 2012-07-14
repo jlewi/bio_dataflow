@@ -230,6 +230,7 @@ public class FastqPreprocessorAvroCompressed extends Stage {
       conf = new JobConf(this.getClass());
     }
 
+    sLogger.info("mapred.map.tasks=" + conf.get("mapred.map.tasks", ""));
     conf.setJobName("FastqPreprocessorAvroCompressed " + inputPath);
 
     // Stage specific configuration options.
