@@ -100,7 +100,6 @@ public class TestPairMergeAvro extends PairMergeAvro {
 
     JobConf job = new JobConf(PairMergeMapper.class);
 
-
     mapper.configure(job);
 
     ReporterMock reporter_mock = new ReporterMock();
