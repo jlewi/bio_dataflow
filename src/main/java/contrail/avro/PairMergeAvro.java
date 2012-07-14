@@ -14,6 +14,7 @@ import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -52,7 +53,11 @@ import contrail.sequences.StrandsUtil;
  * node is identifiable because its node id will match the reducer key and
  * strand_to_merge will be set to None. The nodes are merged such that
  * the forward strand of the down node always corresponds to the forward
+<<<<<<< HEAD
  * strand of the down node.
+=======
+ * strand of the merged node (see the javadoc for PairMarkAvro).
+>>>>>>> forge_master
  */
 public class PairMergeAvro extends Stage {
   private static final Logger sLogger = Logger.getLogger(PairMergeAvro.class);

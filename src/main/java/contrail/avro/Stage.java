@@ -31,6 +31,7 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.RunningJob;
+import org.apache.hadoop.util.GenericOptionsParser;
 import org.apache.hadoop.util.Tool;
 import org.apache.log4j.Logger;
 
@@ -150,6 +151,9 @@ public abstract class Stage extends Configured implements Tool  {
    * TODO(jlewi): How should we inform the user of missing arguments?
    */
   protected void parseCommandLine(String[] args) {
+    // Parse any generic hadoop options and update the configuration.
+    String[] application_args = parseHadoopOptions(args);
+    
     Options options = new Options();
 
     for (Iterator<ParameterDefinition> it =
@@ -160,7 +164,7 @@ public abstract class Stage extends Configured implements Tool  {
     CommandLine line;
     try
     {
-      line = parser.parse(options, args );
+      line = parser.parse(options, application_args);
       parseCommandLine(line);
     }
     catch( ParseException exp )
@@ -223,6 +227,34 @@ public abstract class Stage extends Configured implements Tool  {
     }
   }
 
+  /**
+   * Parse out the generic hadoop options. The configuration stored
+   * inside this configured object is updated with the hadoop options.
+   * The remaining options are returned to the caller.
+   */
+  protected String[] parseHadoopOptions(String[] args) {
+    GenericOptionsParser parser = null;
+         
+    if (getConf() == null) {
+      // TODO(jlewi): Is it a good idea to initialize the configuration
+      // to an instance of JobConf which is used for MapReduce jobs as opposed
+      // to the more generic Configuration object?
+      JobConf conf = new JobConf(this.getClass());
+      this.setConf(conf);      
+    }
+    
+    try {
+      parser = new GenericOptionsParser(getConf(), args);
+    } catch (IOException e) {
+      throw new RuntimeException(
+          "Exception occurred trying to parse generic hadoop options:" +
+          e.getMessage());
+    }
+    
+    setConf(parser.getConfiguration());
+    return parser.getRemainingArgs();
+  }
+  
   /**
    * Print the help message.
    */
