@@ -308,8 +308,8 @@ public class GraphNode {
     CompressedSequence sequence = data.getSequence();
     data.setSequence(null);
 
-    GraphNodeData copy = (GraphNodeData)
-        SpecificData.get().deepCopy(data.getSchema(), data);
+    SpecificData specific_data = new SpecificData(GraphNodeData.class.getClassLoader());
+    GraphNodeData copy = (GraphNodeData) specific_data.deepCopy(data.getSchema(), data);
 
     CompressedSequence sequence_copy = new CompressedSequence();
     copy.setSequence(sequence_copy);

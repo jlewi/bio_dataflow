@@ -36,7 +36,8 @@
       <artifactId>hadoop-core</artifactId>
       <!-- hadoop's execution environment provides its own jars, usurping any others.
            So we should not include it here -->
-      <version>0.20.2-cdh3u1</version>
+      <!--old version-->
+      <version>2.0.0-mr1-cdh4.0.1</version>
       <!--running in net beans we need this b\c netbeans isn't haodop
       aware. We should uncomment for real runs.-->
       <!--<scope>-->
