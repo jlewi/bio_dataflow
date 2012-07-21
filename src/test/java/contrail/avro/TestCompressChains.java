@@ -17,6 +17,7 @@ import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.specific.SpecificDatumWriter;
+import org.apache.hadoop.conf.Configuration;
 
 public class TestCompressChains extends CompressChains {
   @Test
@@ -65,6 +66,10 @@ public class TestCompressChains extends CompressChains {
 
     // Run it.
     CompressChains compress_chains = new CompressChains();
+    // We need to initialize the configuration otherwise we will get an
+    // exception. Normally the initialization happens in main.
+    compress_chains.setConf(new Configuration());
+
     File output_path = new File(temp, "output");
 
     String[] args =
@@ -78,7 +83,7 @@ public class TestCompressChains extends CompressChains {
     } catch (Exception exception) {
       // TODO uncomment the following after debugging.
       exception.printStackTrace();
-      // fail("Exception occured:" + exception.getMessage());
+      fail("Exception occured:" + exception.getMessage());
     }
   }
 }

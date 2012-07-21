@@ -273,8 +273,17 @@ public abstract class Stage extends Configured implements Tool  {
    *
    * In general, this implementation should be sufficient and subclasses
    * shouldn't need to overload it.
+   *
+   * This function should almost never be called directly as it will probably
+   * cause problems with the configuration not being set for the configured
+   * object.
    */
   public int run(String[] args) throws Exception {
+    // TODO(jlewi): Should we check if getConf() returns null and if it does
+    // either initialize it or throw an exception. Normally the configuration
+    // should be initialized in the caller, e.g in main ToolRunner.run
+    // takes a configuration.
+    //
     // This function provides the entry point when running from the command
     // line; i.e. using ToolRunner.
     sLogger.info("Tool name: " + this.getClass().getName());

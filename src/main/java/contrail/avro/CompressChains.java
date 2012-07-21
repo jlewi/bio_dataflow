@@ -75,6 +75,7 @@ public class CompressChains extends Stage {
   private void compressChains(
       String input_path, String temp_path, String final_path) throws Exception {
     CompressibleAvro compress = new CompressibleAvro();
+    compress.setConf(this.getConf());
 
     int stage = 0;
     long compressible = 0;
@@ -155,6 +156,8 @@ public class CompressChains extends Stage {
       if (lastremaining < LOCALNODES) {
         QuickMarkAvro qmark   = new QuickMarkAvro();
         QuickMergeAvro qmerge = new QuickMergeAvro();
+        qmark.setConf(this.getConf());
+        qmerge.setConf(this.getConf());
 
         // Send all the compressible nodes aFile old_path_file = new File(old_path);nd their neighbors to the same
         // machine so they can be compressed in one shot.
@@ -200,6 +203,8 @@ public class CompressChains extends Stage {
 
         PairMarkAvro pmark   = new PairMarkAvro();
         PairMergeAvro pmerge = new PairMergeAvro();
+        pmark.setConf(this.getConf());
+        pmerge.setConf(this.getConf());
 
         {
           start("Mark" + stage);
