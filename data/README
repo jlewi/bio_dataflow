@@ -142,6 +142,16 @@ gi|49175990|ref|NC_000913.2|	9405	T	G	-
 ../src/preprocessor.pl Ec10k.sim2.fq | cut -f 12- -d'_' > Ec10k.sim2.sfa
 cat Ec10k.sim[12].sfa > Ec10k.sim.sfa
 
+## Ec5k
+###############################################################################
+
+wgsim -h -d 180 -s 10 -N 1250 -1 100 -2 100 -r 0 -e 0.001 Ecoli.5k.fa Ec5k.raw.1.fq Ec5k.raw.2.fq
+
+fastq_rename -renum -suffix '/1' Ec5k.raw.1.fq > Ec5k.1.fq
+fastq_rename -renum -suffix '/2' Ec5k.raw.2.fq > Ec5k.2.fq
+
+
+
 
 ## Ec100k.sim.sfa
 ###############################################################################

@@ -12,3 +12,11 @@ target/*
 
 # Temporary files.
 .*~
+*~
+
+#=======
+#Ignore any log files
+*.log
+
+#Ignore flash related stuff
+Flash*

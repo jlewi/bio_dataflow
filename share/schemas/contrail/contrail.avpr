@@ -32,7 +32,7 @@
        {"name": "dna", "type": "bytes", "doc": "The dna sequence for this read."},
        {"name": "length", "type": "int", "doc": "Length of the read."}
      ]
-    },        
+    },
     {"name": "DNAStrand",
      "type":  "enum",
      "namespace": "contrail.sequences",
@@ -42,7 +42,7 @@
     {"name": "ReadState",
      "type":  "enum",
      "symbols": ["END5", "END6", "END3", "MIDDLE", "I"]
-    },               
+    },
     {"name": "R5Tag",
      "namespace": "contrail.graph",
      "type": "record",
@@ -50,7 +50,7 @@
              "in a node. Tag identifies the read a subsequence came from. ",
              "DNAStrand tells us which strand of this node corresponds to ",
              "the read."],
-     "fields": [                  
+     "fields": [
                  {"name": "tag",
                   "type": "string"
                  },
@@ -59,13 +59,13 @@
                  },
                  {"name": "offset",
                   "type": "int"
-                 }  
-               ]       
+                 }
+               ]
     },
     {"name": "GraphNodeKMerTag",
      "namespace": "contrail.graph",
      "type": "record",
-     "doc": "Represent a tag assigned to nodes in the graph.",          
+     "doc": "Represent a tag assigned to nodes in the graph.",
      "fields": [
             {"name": "read_tag", "type":"string",
              "doc": "Tag for the read we came from."
@@ -79,17 +79,17 @@
      "name": "StrandsForEdge",
      "symbols": ["FF", "FR", "RF", "RR"],
      "namespace": "contrail.sequences"
-    }, 
+    },
     {"name": "KMerEdge",
      "type": "record",
      "namespace": "contrail.graph",
      "doc": "Represent an edge between two KMers. Used only by BuildGraph.",
      "fields": [
-        {"name": "strands", "type": "contrail.sequences.StrandsForEdge", 
+        {"name": "strands", "type": "contrail.sequences.StrandsForEdge",
          "doc": "Enum containing the strands for the edge",
          "order": "ignore"
         },
-        {"name": "last_base", "type": "bytes", 
+        {"name": "last_base", "type": "bytes",
          "doc": "Represent the compressed base that we need to append to kmer to get the sequence in the terminating node for this edge.",
          "order": "ignore"
         },
@@ -104,13 +104,13 @@
         {"name": "state", "type": "contrail.ReadState",
          "doc": "An enum identifying the state.",
          "order": "ignore"
-        }          
+        }
      ]
     },
     {"type": "enum",
      "name": "EdgeDirection",
      "namespace": "contrail.graph",
-     "symbols": ["INCOMING", "OUTGOING"]     
+     "symbols": ["INCOMING", "OUTGOING"]
     },
     {"name": "EdgeData",
      "namespace": "contrail.graph",
@@ -135,27 +135,27 @@
                   "type": "string",
                   "doc": "The id for the destination node."
                  },
-                 {"name": "edges", 
+                 {"name": "edges",
                   "type": {"type": "array", "items": "contrail.graph.EdgeData"},
                   "doc": "Describes the edges between these two nodes."
                  }
                ]
-    },    
+    },
     {"name": "GraphNodeData",
      "namespace": "contrail.graph",
      "type": "record",
      "doc": "Represent a node in the DeBruijn Graph.",
-     "fields": [ 
-     			 // TODO(jlewi): Should we continue to store this field
-     			 // after the QuickMerge stage or should we set it to null to
-     			 // save space?
-     		     {"name": "mertag", "type":"contrail.graph.GraphNodeKMerTag",
+     "fields": [
+     			       // TODO(jlewi): Should we continue to store this field
+     			       // after the QuickMerge stage or should we set it to null to
+     			       // save space?
+     		         {"name": "mertag", "type":"contrail.graph.GraphNodeKMerTag",
                   "doc": ["A tag for the node based on the read the sequence ",
                           "came from and the chunk within the read.",
                           "This field is primarily used by QuickMerge as a ",
                           "heuristic for guessing which nodes form chains."]
                  },
-                 {"name": "node_id", 
+                 {"name": "node_id",
                   "type": "string",
                   "doc": ["An id for this node. This must be consistent with ",
                           "the id used in neighbors to specify the terminal ",
@@ -165,51 +165,52 @@
                   "doc": ["Coverage is a float because when merging nodes it ",
                           "is set to a weighted average of the coverage of ",
                           "the nodes being merged."]
+                 },                 
+                 {"name": "sequence",
+                  "type":"contrail.sequences.CompressedSequence",
+                  "doc": ["Sequence of bytes representing the compressed ",
+                          "sequence of this node. The sequence could ",
+                          "correspond to either strand. The strands ",
+                          "associated with edges should always be relative ",
+                          "to the sequence stored here."]
                  },
-                 // TODO(jlewi): We should rename this canonical_source 
-                 // because it won't always be length K.
-                 {"name": "canonical_source_kmer", 
-                  "type":"contrail.sequences.CompressedSequence", 
-                  "doc": ["Sequence of bytes representing the compressed ", 
-                          "canonical sequence corresponding to the source."]
-                 },
-                 {"name": "neighbors", 
-                  "type": {"type": "array", 
+                 {"name": "neighbors",
+                  "type": {"type": "array",
                            "items":"contrail.graph.NeighborData"},
                   "doc": "An array of this node's neighbors."
                  },
-                 {"name": "r5_tags", 
+                 {"name": "r5_tags",
                   "type": {"type": "array", "items": "R5Tag",
                            "doc": ["The list of R5Tags keeps track of how the ",
                                    "reads align to this sequence."]
                           }
                  }
                ]
-    },        
-    {"name": "contrail.avro.CompressibleMessage", 
+    },
+    {"name": "contrail.avro.CompressibleMessage",
      "type": "record",
-     "doc": ["Record for the messages outputted by the mapper in the ", 
+     "doc": ["Record for the messages outputted by the mapper in the ",
              "Compressible stage."],
-     "fields": [{"name": "from_node_id", 
+     "fields": [{"name": "from_node_id",
                  "type": "string",
                  "doc":  "Id of the node the message is from."},
                 {"name": "strands",
                  "type": "contrail.sequences.StrandsForEdge",
                  "doc": ["The strands for the edge. The edge is always an ",
-                         "outgoing edge from from_node_id"]}]     
+                         "outgoing edge from from_node_id"]}]
     },
     {"name": "contrail.avro.CompressibleMapOutput",
      "type": "record",
      "doc": ["Record used for the output of mapper stage in the compressible ",
              "phase."],
-     "fields": [ {"name": "message", 
+     "fields": [ {"name": "message",
                   "type": ["null", "contrail.avro.CompressibleMessage"],
                   "doc": ["A message informing this node about which ",
                           "neighbors are part of linear chains."]
                  },
                  {"name": "node", "type": ["null", "contrail.graph.GraphNodeData"],
                   "doc": "The node the messages are sent to."
-                 }                 
+                 }
                ]
     },
     {"name": "contrail.avro.CompressibleStrands",
@@ -217,19 +218,93 @@
      "symbols": ["NONE", "FORWARD", "REVERSE", "BOTH"]
     },
     // Using an enum to store which strands are compressible should
-    // be slightly more space efficient then a list of strands.    
-    {"name": "contrail.avro.CompressibleNodeData", 
+    // be slightly more space efficient then a list of strands.
+    {"name": "contrail.avro.CompressibleNodeData",
      "type": "record",
-     "doc": ["Record for the data outputted by the CompressibleStage. ", 
+     "doc": ["Record for the data outputted by the CompressibleStage. ",
              "Each record contains a graph node and information about which ",
              "directions if any we can compress this node."],
-     "fields": [{"name":"compressible_strands", 
+     "fields": [{"name":"compressible_strands",
                  "type": "contrail.avro.CompressibleStrands",
                  "doc":  ["Which strands of the node are compressible with ",
                           "respect to outgoing edges."]},
                 {"name": "node",
                  "type": "contrail.graph.GraphNodeData",
-                 "doc": "The node data."}]     
+                 "doc": "The node data."}]
+    }, 
+    {"name": "QuickMarkMessage",
+     "type": "record",
+     "doc": "Message used in the remove tip stage.",
+     "fields": [
+                 {"name": "node", "type": ["null", "contrail.graph.GraphNodeData"],
+                  "doc": "A node in the graph or null if this is a message to another node in the graph"
+                 },
+                 {"name":"send_to_compressor",
+                 "type": "boolean",
+                 "doc": ["A boolean indicating the node should be sent to the reducer compressing chains in the QuickMerge phase"]
+                 }
+                                      
+               ]
+    },
+    {"name": "contrail.avro.EdgeUpdateForMerge",
+     "type": "record",
+     "doc": ["This message describes how an edge in a node needs to be ",
+             "updated to point to a merged node."],
+     "fields": [{"name": "old_id",
+                 "type": "string",
+                 "doc": "The id for the node which is being merged away."},
+                {"name": "old_strand",
+                 "type": "contrail.sequences.DNAStrand",
+                 "doc": "The strand of old_id that is being replaced."},
+                {"name": "new_id",
+                 "type": "string",
+                 "doc": "The id for the merged node."},
+                {"name": "new_strand",
+                 "type": "contrail.sequences.DNAStrand",
+                 "doc": ["The strand of the merged node that will correspond ",
+                        "to the edge."]}
+               ]
+    },
+    {"name": "contrail.avro.NodeInfoForMerge",
+     "type": "record",
+     "doc": ["Contains the information about nodes outputted by the pair mark ",
+             "stage."],
+     "fields": [{"name": "compressible_node",
+                 "type": "contrail.avro.CompressibleNodeData",
+                 "doc": "A node in the graph."},
+                {"name": "strand_to_merge",
+                 "type": "contrail.avro.CompressibleStrands",
+                 "doc": ["Which strand if any to merge. The value should not ",
+                         "be both. The node is compressed along the outgoing ",
+                         "edge for this strand."]
+                }
+               ]
+    },
+    {"name": "contrail.avro.PairMarkOutput",
+     "type": "record",
+     "doc": ["Contains the result of merging several nodes together. ",
+             "The result includes messages which need to be sent to other ",
+             "nodes to let them know the graph has changed."],
+     "fields": [{"name": "payload",
+                 "type": ["contrail.avro.EdgeUpdateForMerge",
+                          "contrail.avro.NodeInfoForMerge"],
+                 "doc": "The data for this message."
+                 }
+               ]
+     },
+     {"name": "RemoveTipMessage",
+     "type": "record",
+     "doc": "Message used in the removeTips stage.",
+     "fields": [
+		{"name": "edge_strands",
+		 "type": ["null", "contrail.sequences.StrandsForEdge"],
+		 "doc": "The enumeration for the edge strands we want to delete ."
+ 		},
+                 {"name": "node", 
+		  "type": "contrail.graph.GraphNodeData",
+                  "doc": "The GraphNodeData (may contain Tip or Non-Tip Node)"
+                 }                 
+               ]
     }
-	] // end types
+  ] // end types
 }

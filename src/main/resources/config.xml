@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+
+<!--Use this Configuration File to provide global settings -->
+
+<contrailconfig>
+
+	<!-- Setup Paths for Different Components-->
+	<setup>
+		<hadoop_home>/usr/lib/hadoop-0.20</hadoop_home>
+		<pig_home>/usr/local/pig-0.9.2/</pig_home>
+		<flash_home>/home/deepak/523/flash</flash_home>
+		<quake_home>/home/avijit/workspace/AvroTest/quake</quake_home>
+		<pig_script>/home/deepak/523/contrail-bio/share/pigscripts</pig_script>
+		<project_home>/home/hduser/workspace/contrailPlus</project_home>
+	</setup>
+
+	<!-- Local Data Paths -->
+	
+	<!--@deepak: To do - Move the manifest to resources, and remove hard path.  -->
+	<local_data>
+		<flash_input>/home/deepak/523/contrail-bio/target/FlashInputData</flash_input>
+		<flash_output>/home/deepak/FlashOutputData</flash_output>
+		<quake_data>/home/avijit/workspace/AvroTest/QuakeData</quake_data>
+		<manifest>/home/deepak/523/contrail-bio/src/main/resources/manifest</manifest>
+	</local_data>
+	
+	<!-- HDFS Input Data -->
+	<hdfs_in_data>
+	
+		<singles>singles</singles>				
+		<!-- Input Paths for Flattening FastQ Files-->
+		<flash_mate_1>flash_mate_1</flash_mate_1>
+		<flash_mate_2>flash_mate_2</flash_mate_2>
+		<quake_mate_1>quake_mate_1</quake_mate_1>
+		<quake_mate_2>quake_mate_2</quake_mate_2>
+		<!-- Contains single files and mate pair files on which flash cannot run. Flash's output is merged to this-->
+		<correctInputDirectory>ContrailPlus/Correct_In</correctInputDirectory>	
+	</hdfs_in_data>
+
+	<!-- Names of Output directories on HDFS for each Run Stage -->
+	<hdfs_out_data>
+		<singles_avro>ContrailPlus/Singles_Avro</singles_avro>
+		<flash_mate_1_avro>ContrailPlus/Flash_Mate_1_Avro</flash_mate_1_avro>
+		<flash_mate_2_avro>ContrailPlus/Flash_Mate_2_Avro</flash_mate_2_avro>
+		<flash_join_out>ContrailPlus/Flash_Join_Out</flash_join_out>	
+		<flash_final_out>ContrailPlus/FlashOut</flash_final_out>
+		<quake_preprocess>ContrailPlus/QuakePreprocess</quake_preprocess>
+		<quake_kmercount>ContrailPlus/quake_kmer_count</quake_kmercount>
+		<non_avro_count_part>ContrailPlus/non_avro_count_part</non_avro_count_part>
+		<quake_filtered_kmercount>ContrailPlus/QuakePrunedCounts</quake_filtered_kmercount>
+		<quake_join_out>ContrailPlus/Quake_Join_Out</quake_join_out>
+		<quake_mate_1_avro>ContrailPlus/Quake_Mate_1_Avro</quake_mate_1_avro>
+		<quake_mate_2_avro>ContrailPlus/Quake_Mate_2_Avro</quake_mate_2_avro>
+		<quake_singles_out>ContrailPlus/Quake_Singles_Out</quake_singles_out>
+		<quake_mates_out>ContrailPlus/Quake_Mates_Out</quake_mates_out>
+		<quake_final_out>ContrailPlus/Quake_Final_Out</quake_final_out>
+		<bithash_input>ContrailPlus/BitHashInput</bithash_input>
+		<bithash_output>ContrailPlus/BitHashOutput</bithash_output>
+		<bithash_local_temp>ContrailPlus/BitHashTemp</bithash_local_temp>
+		<junk>ContrailPlus/junk</junk>
+	</hdfs_out_data>
+</contrailconfig>

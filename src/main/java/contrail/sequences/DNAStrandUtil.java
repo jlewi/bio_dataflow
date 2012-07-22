@@ -6,7 +6,7 @@ import java.util.Random;
  * Enumeration which defines which strand a sequence comes from, the forward
  * or reverse strand. This usually refers to the canonical directions.
  */
-public class DNAStrandUtil {	
+public class DNAStrandUtil {
 	/**
 	 * @return Flip the direction
 	 */
@@ -17,14 +17,14 @@ public class DNAStrandUtil {
 			return DNAStrand.FORWARD;
 		}
 	}
-	
+
 	/**
 	 * Return a random strand.
 	 */
 	public static DNAStrand random() {
 		return Math.random() < .5 ? DNAStrand.FORWARD : DNAStrand.REVERSE;
 	}
-	
+
 	/**
 	 * Return a random strand using the supplied generator.
 	 */
@@ -40,5 +40,5 @@ public class DNAStrandUtil {
 		} else {
 			return "r";
 		}
-	}	
+	}
 }

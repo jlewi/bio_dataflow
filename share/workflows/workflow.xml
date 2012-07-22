@@ -1,6 +1,6 @@
 <workflow-app name='assemble-genome' xmlns="uri:oozie:workflow:0.1">
     <start to='FastqPreprocessor'/>
-    <action name='FastqPreprocessor'>	  
+    <action name='FastqPreprocessor'>
         <map-reduce>
             <job-tracker>${jobTracker}</job-tracker>
             <name-node>${nameNode}</name-node>
@@ -23,7 +23,7 @@
         <ok to='BuildGraph'/>
         <error to='end'/>
     </action>
-    <action name='BuildGraph'>	  
+    <action name='BuildGraph'>
         <map-reduce>
             <job-tracker>${jobTracker}</job-tracker>
             <name-node>${nameNode}</name-node>
@@ -35,7 +35,7 @@
             <configuration>
                 <property>
                     <name>mapred.input.dir</name>
-                    <value>${inputDir}</value>
+                    <value>${outputDir}/FastqPreProcessorAvro</value>
                 </property>
                 <property>
                     <name>mapred.output.dir</name>
@@ -46,7 +46,7 @@
         <ok to='QuickMerge'/>
         <error to='end'/>
     </action>
-    <action name='QuickMerge'>	  
+    <action name='QuickMerge'>
         <map-reduce>
             <job-tracker>${jobTracker}</job-tracker>
             <name-node>${nameNode}</name-node>
@@ -58,7 +58,7 @@
             <configuration>
                 <property>
                     <name>mapred.input.dir</name>
-                    <value>${inputDir}</value>
+                    <value>${outputDir}/BuildGraph</value>
                 </property>
                 <property>
                     <name>mapred.output.dir</name>

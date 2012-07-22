@@ -104,7 +104,8 @@ def main(argv):
     # Create job configuration XML files for each stage.
     stages = ["contrail.avro.FastqPreprocessorAvroCompressed",
               "contrail.avro.BuildGraphAvro",
-              "contrail.avro.QuickMergeAvro"]
+              "contrail.avro.QuickMergeAvro",
+              "contrail.avro.CompressChains"]
 
     # TODO(jlewi): We should really read the stage options from a file
     # such as a properties file or XML file. An XML file would probably
@@ -114,6 +115,7 @@ def main(argv):
     stage_options = {}
     stage_options["BuildGraphAvro"] = {"K": K}
     stage_options["QuickMergeAvro"] = {"K": K}
+    stage_options["CompressChains"] = {"K": K}
 
     for stage in stages:
       stage_name = stage.rsplit(".", 1)[-1]
