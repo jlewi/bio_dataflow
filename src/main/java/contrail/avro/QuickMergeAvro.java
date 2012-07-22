@@ -131,6 +131,10 @@ public class QuickMergeAvro extends Stage {
 			Set<String> nodes_to_process = new HashSet<String>();
 			nodes_to_process.addAll(nodes.keySet());
 
+			if (nodes_to_process.contains("AAAACCTGCC")) {
+			  System.out.println("This is the buggy node");
+			}
+
 			while (nodes_to_process.size() > 0) {
 			  String nodeid = nodes_to_process.iterator().next();
 			  nodes_to_process.remove(nodeid);
