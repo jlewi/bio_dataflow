@@ -29,4 +29,7 @@ public class GraphCounters {
   // runs.
   public static CounterName pair_merge_compressible_nodes =
       new CounterName("Contrail", "nodes_left_to_compress");
+  
+  public static CounterName quick_mark_nodes_send_to_compressor =
+      new CounterName("Contrail", "nodes_to_send_to_compressor");
 }

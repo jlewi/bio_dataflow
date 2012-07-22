@@ -222,13 +222,16 @@ public class FastqPreprocessorAvroCompressed extends Stage {
     sLogger.info(" - input: "  + inputPath);
     sLogger.info(" - output: " + outputPath);
 
+    Configuration base_conf = getConf();
+    JobConf conf = null;
+    if (base_conf != null) {
+      conf = new JobConf(getConf(), this.getClass());
+    } else {
+      conf = new JobConf(this.getClass());
+    }
 
-    JobConf conf = new JobConf(FastqPreprocessorAvroCompressed.class);
+    sLogger.info("mapred.map.tasks=" + conf.get("mapred.map.tasks", ""));
     conf.setJobName("FastqPreprocessorAvroCompressed " + inputPath);
-
-    // TODO(jlewi): Is there any processing in initializeConfiguration that
-    // is needed.
-    // ContrailConfig.initializeConfiguration(conf);
 
     // Stage specific configuration options.
     conf.setLong("PREPROCESS_SUFFIX", 1);
@@ -242,10 +245,12 @@ public class FastqPreprocessorAvroCompressed extends Stage {
     conf.setMapOutputValueClass(Text.class);
 
     conf.setMapperClass(FastqPreprocessorMapper.class);
-    conf.setNumReduceTasks(0);
 
     conf.setInputFormat(NLineInputFormat.class);
     conf.setInt("mapred.line.input.format.linespermap", 2000000); // must be a multiple of 4
+
+    // This is a mapper only job.
+    conf.setNumReduceTasks(0);
 
     // TODO(jlewi): use setoutput codec to set the compression codec.
     AvroJob.setOutputSchema(conf,new CompressedRead().getSchema());
