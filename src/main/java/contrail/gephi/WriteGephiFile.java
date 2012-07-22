@@ -51,6 +51,15 @@ public class WriteGephiFile extends Stage {
   private static final Logger sLogger =
       Logger.getLogger(WriteGephiFile.class);
 
+  // A mapping from node id's to integers used by gephi.
+  private HashMap<EdgeTerminal, Integer> node_id_map =
+      new HashMap<EdgeTerminal, Integer>();
+
+  // The next value to assign to a node;
+  private int next_id = 0;
+
+  private Document doc;
+
   protected Map<String, ParameterDefinition>
   createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs =
@@ -65,33 +74,61 @@ public class WriteGephiFile extends Stage {
 
   /**
    * Create an XML element to represent the edge.
-   * @param edge_id
    * @param node_id_map
    * @param node
    * @param terminal
    * @return
    */
-  private static Element createElementForEdge(
-      Document doc, int edge_id, HashMap<String, Integer> node_id_map,
-      GraphNode node, DNAStrand strand, EdgeTerminal terminal) {
+  private Element createElementForEdge(
+      Document doc, int edge_id, EdgeTerminal src, EdgeTerminal dest) {
     Element xml_edge = doc.createElement("edge");
-    Integer this_node_id = node_id_map.get(node.getNodeId());
+    Integer this_node_id = IdForTerminal(src);
 
     xml_edge.setAttribute("id", Integer.toString(edge_id));
     edge_id++;
 
     xml_edge.setAttribute("source", this_node_id.toString());
-    Integer target_id = node_id_map.get(terminal.nodeId);
+    Integer target_id = IdForTerminal(dest);
     xml_edge.setAttribute("target", target_id.toString());
 
     xml_edge.setAttribute("type", "directed");
     xml_edge.setAttribute(
         "label",
-        StrandsUtil.form(strand,  terminal.strand).toString());
+        StrandsUtil.form(src.strand,  dest.strand).toString());
     return xml_edge;
   }
 
-  public static void writeGraph(List<GraphNode> nodes, String xml_file) {
+  private void AddTerminalToIndex(EdgeTerminal terminal) {
+    node_id_map.put(terminal, next_id);
+    ++next_id;
+  }
+
+  private void AddNodesToIndex(List<GraphNode> nodes) {
+    // A node for both the forward and reverse strands.
+    EdgeTerminal terminal;
+    for (GraphNode node: nodes) {
+      terminal = new EdgeTerminal(node.getNodeId(), DNAStrand.FORWARD);
+      node_id_map.put(terminal, next_id);
+      ++next_id;
+      node_id_map.put(terminal.flip(), next_id);
+      ++next_id;
+    }
+  }
+
+  private Integer IdForTerminal(EdgeTerminal terminal) {
+    return node_id_map.get(terminal);
+  }
+
+  private Element CreateTerminal(EdgeTerminal terminal) {
+    Element xml_node = doc.createElement("node");
+    Integer this_node_id = IdForTerminal(terminal);
+
+    xml_node.setAttribute("id", this_node_id.toString());
+    xml_node.setAttribute("label", terminal.toString());
+    return xml_node;
+  }
+
+  public void writeGraph(List<GraphNode> nodes, String xml_file) {
     if (xml_file.startsWith("/tmp")) {
       throw new RuntimeException(
           "Don't write the file to '/tmp' gephi has problems with that.");
@@ -103,7 +140,7 @@ public class WriteGephiFile extends Stage {
     } catch (Exception exception) {
         sLogger.error("Exception:" + exception.toString());
     }
-    Document doc = dBuilder.newDocument();
+    doc = dBuilder.newDocument();
 
     Element gexf_root = doc.createElement("gexf");
     doc.appendChild(gexf_root);
@@ -123,39 +160,35 @@ public class WriteGephiFile extends Stage {
 
     // I think the id's in the gephi xml file need to be string representations
     // of integers so we assign each node an integer.
-    HashMap<String, Integer> node_id_map = new HashMap<String, Integer>();
-
-    // Create a lookup table so we can map nodeId's to their integers.
-    for (int index = 0; index < nodes.size(); ++index) {
-      node_id_map.put(nodes.get(index).getNodeId(), index);
-    }
+    AddNodesToIndex(nodes);
 
     for (GraphNode node: nodes) {
-      Element xml_node = doc.createElement("node");
-      xml_nodes.appendChild(xml_node);
+      for (DNAStrand strand : DNAStrand.values()) {
+        EdgeTerminal terminal = new EdgeTerminal(node.getNodeId(), strand);
 
-      Integer this_node_id = node_id_map.get(node.getNodeId());
+        Element xml_node = CreateTerminal(terminal);
+        xml_nodes.appendChild(xml_node);
 
-      xml_node.setAttribute("id", this_node_id.toString());
-      xml_node.setAttribute("label", node.getNodeId());
-      xml_nodes.appendChild(xml_node);
-
-      for (DNAStrand strand: DNAStrand.values()) {
         List<EdgeTerminal> edges =
             node.getEdgeTerminals(strand, EdgeDirection.OUTGOING);
-        for (EdgeTerminal terminal: edges){
+        for (EdgeTerminal other_terminal: edges){
           // If the node for the edge isn't provided skip it.
-          // TODO(jlewi): It would be nice to visually indicate that the
-          // node for the edge is missing.
-          if (!node_id_map.containsKey(terminal.nodeId)) {
-            continue;
+          // TODO(jlewi): It would be nice to visually indicate those
+          // terminals which are actually terminal's in the node (i.e
+          // we don't have GraphNode's for them.)
+          if (IdForTerminal(other_terminal) == null) {
+            AddTerminalToIndex(other_terminal);
+            Element new_node = CreateTerminal(other_terminal);
+            xml_nodes.appendChild(new_node);
           }
           Element xml_edge = createElementForEdge(
-              doc, ++edge_id, node_id_map, node, strand, terminal);
+              doc, ++edge_id, terminal, other_terminal);
           xml_edges.appendChild(xml_edge);
         }
-      }
 
+
+      }
+    }
       // write the content into xml file
       try {
         TransformerFactory transformerFactory = TransformerFactory.newInstance();
@@ -166,7 +199,7 @@ public class WriteGephiFile extends Stage {
       } catch (Exception exception) {
         sLogger.error("Exception:" + exception.toString());
       }
-    }
+
   }
 
   private List<GraphNode> readNodes() {
