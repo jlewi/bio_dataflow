@@ -313,6 +313,72 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
   }
 
   @Test
+  public void testfindNodesToMergeNoMerge() {
+    // We test the graph
+    // A-> C->D->E->F
+    // B->C
+    // E->G
+    // So in principle we can merge C-D-E. However, in this test case
+    // B and G won't be in memory so we can't do the merge because we can't
+    // move edges B->C and RC(G)->RC(E). We could still do a single merge
+    // (i.e C & D or D & E) provided we assigned the merged node an id and
+    // strand such that the edges wouldn't have to change. The code, however,
+    // opts for the simpler case of not doing any merges.
+    final int K = 3;
+    // Create a simple graph.
+    SimpleGraphBuilder graph = new SimpleGraphBuilder();
+    graph.addKMersForString("CGCAA", K);
+
+    // Add some wings to the edges.
+    graph.addEdge("TCG", "CGC", K - 1);
+    graph.addEdge("ACG", "CGC", K - 1);
+
+    graph.addEdge("CAA", "AAA", K - 1);
+    graph.addEdge("CAA", "AAT", K - 1);
+    {
+      // When the wings are in memory we can do the merge.
+      EdgeTerminal start_terminal = graph.findEdgeTerminalForSequence("GCA");
+      GraphNode start_node = graph.getNode(start_terminal.nodeId);
+      NodesToMerge info = findNodesToMerge(graph.getAllNodes(), start_node);
+
+      // Note: The merge always starts on the forward strand of the start
+      // terminal.
+      assertEquals(
+          info.start_terminal, graph.findEdgeTerminalForSequence("CGC"));
+      assertEquals(
+          info.end_terminal, graph.findEdgeTerminalForSequence("CAA"));
+
+      HashSet<String> expected_visited = new HashSet<String>();
+      expected_visited.add(graph.findEdgeTerminalForSequence("CGC").nodeId);
+      expected_visited.add(graph.findEdgeTerminalForSequence("GCA").nodeId);
+      expected_visited.add(graph.findEdgeTerminalForSequence("CAA").nodeId);
+      assertEquals(expected_visited, info.nodeids_visited);
+    }
+
+    {
+      // Repeat the test but this time remove the nodes ACG and AAA
+      // from memory. As a result, we shouldn't be able to include the last
+      // nodes in memory which means we can't do any merges..
+      Hashtable<String, GraphNode> nodes = new Hashtable<String, GraphNode>();
+      nodes.putAll(graph.getAllNodes());
+      nodes.remove(graph.findEdgeTerminalForSequence("ACG").nodeId);
+      nodes.remove(graph.findEdgeTerminalForSequence("AAA").nodeId);
+
+      EdgeTerminal start_terminal = graph.findEdgeTerminalForSequence("CGC");
+      GraphNode start_node = graph.getNode(start_terminal.nodeId);
+      NodesToMerge info = findNodesToMerge(nodes, start_node);
+
+      assertEquals(info.start_terminal, null);
+      assertEquals(info.end_terminal, null);
+
+      HashSet<String> expected_visited = new HashSet<String>();
+      expected_visited.add(graph.findEdgeTerminalForSequence("CGC").nodeId);
+      expected_visited.add(graph.findEdgeTerminalForSequence("GCA").nodeId);
+      expected_visited.add(graph.findEdgeTerminalForSequence("CAA").nodeId);
+      assertEquals(expected_visited, info.nodeids_visited);
+    }
+  }
+  @Test
   public void testMergeLinearChain() {
     for (int trial = 0; trial < 10; trial++) {
       // Even though we have repeats the merge still work, because

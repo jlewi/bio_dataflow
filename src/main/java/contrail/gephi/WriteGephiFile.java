@@ -186,7 +186,8 @@ public class WriteGephiFile extends Stage {
           xml_edges.appendChild(xml_edge);
         }
 
-
+        // TODO(jlewi): Should we also plot any incoming edges if the
+        // edge terminates on a node which isn't in nodes?
       }
     }
       // write the content into xml file
