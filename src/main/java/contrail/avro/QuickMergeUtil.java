@@ -194,6 +194,14 @@ public class QuickMergeUtil {
           full_tail.terminal.strand, EdgeDirection.INCOMING);
       result.end_terminal = tail.terminal;
     }
+
+    // If start_terminal == end_terminal then we can't do any merges.
+    // start_terminal might equal end_terminal because can_move_edges_to_start
+    // and can_move_edges_to_end are false.
+    if (result.start_terminal.equals(result.end_terminal)) {
+      result.start_terminal = null;
+      result.end_terminal = null;
+    }
     return result;
   }
 
