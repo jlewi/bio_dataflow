@@ -121,7 +121,19 @@ public class QuickMergeAvro extends Stage {
 			  // will reuse the same instance when next is called.
 			  GraphNodeData value = iter.next();
 			  GraphNode node = new GraphNode(value);
+
+	      // LEWI NOCOMMIT check that the output sequence is compressed.
+	      int max_bytes = (int) Math.ceil((value.getSequence().getLength() * 2)/8.0);
+	      if (max_bytes <value.getSequence().getDna().array().length) {
+	        throw new RuntimeException("DNA isn't compressed as much as it could be");
+	      }
 			  node = node.clone();
+
+	       // LEWI NOCOMMIT check that the output sequence is compressed.
+	      max_bytes = (int) Math.ceil((node.getData().getSequence().getLength() * 2)/8.0);
+        if (max_bytes < node.getData().getSequence().getDna().array().length) {
+          throw new RuntimeException("DNA isn't compressed as much as it could be");
+        }
 			  nodes.put(node.getNodeId().toString(), node);
 			}
 
@@ -131,6 +143,10 @@ public class QuickMergeAvro extends Stage {
 			Set<String> nodes_to_process = new HashSet<String>();
 			nodes_to_process.addAll(nodes.keySet());
 
+			// LEWI NOCOMMIT
+			if (mertag.toString().equals("gi_30260195_ref_NC_003997_3__1002_1218_1_0_0_1_0_0_f7f_2_0")) {
+			  System.out.println("DEBUG");
+			}
 			while (nodes_to_process.size() > 0) {
 			  String nodeid = nodes_to_process.iterator().next();
 			  nodes_to_process.remove(nodeid);

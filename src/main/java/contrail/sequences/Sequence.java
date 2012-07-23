@@ -3,10 +3,7 @@ package contrail.sequences;
 import contrail.sequences.Alphabet;
 import contrail.util.ByteUtil;
 
-import java.nio.ByteBuffer;
 import java.util.Arrays;
-
-import org.apache.commons.lang.ArrayUtils;
 
 /**
  * Provides a wrapper class for accessing the sequence compactly encoded in an array of integers.
@@ -57,7 +54,7 @@ public class Sequence implements Comparable {
     length = 0;
 
     int num_ints = (int)Math.ceil((alphabet.bitsPerLetter() * num_letters) /
-                                  BITSPERITEM);
+                                  ((float)BITSPERITEM));
 
     // Allocate a zero size array so that data is never null.
     data = new int[num_ints];
@@ -194,6 +191,9 @@ public class Sequence implements Comparable {
    *                 position
    * @param pos    - The position in the sequence [0,size) to set.
    *
+   * IMPORTANT: you must separatly adjust the length of the sequence.
+   * TODO(jlewi): Should we automatically increment the size of the sequence
+   *   if it is exapnded?
    * TODO (jeremy@lewi.us): What error checking should we do.
    */
   public void setAt(int pos, String letter) {
@@ -329,7 +329,17 @@ public class Sequence implements Comparable {
    */
   public void readPackedBytes(byte[] bytes, int length) {
     this.length = length;
-	// Allocate a large array if necessary.
+
+    // TODO(jlewi): The purpose of this check is to find PackedBytes
+    // which aren't really packed as much as they could be.
+    int max_bytes = (int)Math.ceil((length * alphabet.bitsPerLetter())/ 8.0);
+    if (max_bytes < bytes.length) {
+      throw new RuntimeException(
+          "The input byte buffer contains extra bytes; this indicates the " +
+          "input wasn't as commpressed as it could be.");
+    }
+
+   	// Allocate a large array if necessary.
     if (bytes.length > data.length*4) {
       data = new int[(int)Math.ceil(bytes.length/4.0)];
     }
