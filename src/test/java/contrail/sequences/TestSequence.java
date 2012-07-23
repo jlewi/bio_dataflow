@@ -367,19 +367,25 @@ public class TestSequence {
   }
 
   @Test
-  public void testAddSpecifc() {
-    // This particular test case covers a specific case that popped up when
-    // we started testing CompressChains.
-    Sequence src = new Sequence(DNAAlphabetFactory.create(), 18);
-    String src_string = "GAAAACACAC";
-    for (int i = 0; i < src_string.length(); ++i) {
-      src.setAt(i, src_string.charAt(i));
-    }
-    src.setSize(src_string.length());
+  public void testAddUnzeroed() {
+    // This function verifies that we properly zero out the data
+    // before doing the add. We do this as follows
+    // We create a byte that is filled with 1's. We then create a sequence
+    // of length from this byte buffer. We then add another sequence of length
+    // 1 to this character. If the bits aren't zeroed out correctly
+    // the result won't be correct.
+    byte[] input_bytes = new byte[1];
+    input_bytes[0] = 0xFFFFFFFF;
+    Sequence src = new Sequence(DNAAlphabetFactory.create(), 1);
+    src.readPackedBytes(input_bytes, 1);
+
     //new Sequence(, DNAAlphabetFactory.create());
-    Sequence dest = new Sequence("CTATAATA", DNAAlphabetFactory.create());
-    Sequence expected_sum = new Sequence(
-        "GAAAACACACCTATAATA", DNAAlphabetFactory.create());
+    Alphabet alphabet = DNAAlphabetFactory.create();
+    Sequence dest = new Sequence(alphabet, 1);
+    dest.setAt(0, 1);
+    dest.setSize(1);
+
+    Sequence expected_sum = new Sequence("TC", DNAAlphabetFactory.create());
 
     src.add(dest);
     assertEquals(expected_sum, src);

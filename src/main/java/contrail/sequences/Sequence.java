@@ -330,15 +330,6 @@ public class Sequence implements Comparable {
   public void readPackedBytes(byte[] bytes, int length) {
     this.length = length;
 
-    // TODO(jlewi): The purpose of this check is to find PackedBytes
-    // which aren't really packed as much as they could be.
-    int max_bytes = (int)Math.ceil((length * alphabet.bitsPerLetter())/ 8.0);
-    if (max_bytes < bytes.length) {
-      throw new RuntimeException(
-          "The input byte buffer contains extra bytes; this indicates the " +
-          "input wasn't as commpressed as it could be.");
-    }
-
    	// Allocate a large array if necessary.
     if (bytes.length > data.length*4) {
       data = new int[(int)Math.ceil(bytes.length/4.0)];
@@ -517,6 +508,11 @@ public class Sequence implements Comparable {
       this.length = other.length;
       return this.data;
     }
+
+    // Make sure all unset bits are set to zero because the processing
+    // depends on it.
+    zeroOutUnsetBits();
+
     growCapacity(this.size() + other.size());
 
     final int this_old_size = this.size();
@@ -633,5 +629,25 @@ public class Sequence implements Comparable {
       throw new RuntimeException("New length exceeds current capacity. Grow capacity first");
     }
     this.length = length;
+  }
+
+  /**
+   * Function forces all unset bits to zero. This is needed for some operations
+   * like add which depend on unset bits being 0.
+   */
+  private void zeroOutUnsetBits() {
+    // Get the last partially filled entry.
+    int num_items = numItemsForSize(length);
+
+    // How many bits in the last int need to be zeroed out.
+    int shift = num_items * BITSPERITEM - length * alphabet.bitsPerLetter();
+    if (shift > 0) {
+      int mask = 0xFFFFFFFF;
+      mask = mask >>> shift;
+      //mask = mask >> 1;
+      data[num_items -1] = data[num_items -1] & mask;
+    }
+    // Fill in the remaining items
+    Arrays.fill(data, num_items, data.length, 0);
   }
 }
