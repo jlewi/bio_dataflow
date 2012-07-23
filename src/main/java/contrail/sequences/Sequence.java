@@ -13,7 +13,7 @@ import java.util.Arrays;
  * (e.g the human genome has 2.9 bp) and inefficient coding schemes.
  * @author jlewi
  */
-public class Sequence implements Comparable {
+public class Sequence implements Comparable<Sequence> {
 
   final int BITSPERITEM = 32;
 
@@ -330,7 +330,7 @@ public class Sequence implements Comparable {
   public void readPackedBytes(byte[] bytes, int length) {
     this.length = length;
 
-   	// Allocate a large array if necessary.
+   	// Allocate a larger array if necessary.
     if (bytes.length > data.length*4) {
       data = new int[(int)Math.ceil(bytes.length/4.0)];
     }
@@ -416,14 +416,11 @@ public class Sequence implements Comparable {
    * @param seq
    * @return
    */
-  public int compareTo(Object other) {
-    if (!(other instanceof Sequence)) {
-      throw new RuntimeException("Can only compare sequences.");
-    }
-    Sequence seq = (Sequence)(other);
+  public int compareTo(Sequence other) {
+    Sequence seq = (other);
     if (!this.alphabet.equals(seq.alphabet)) {
-      throw new RuntimeException("Two sequences must use the same alphabet to be " +
-                                 "comparable");
+      throw new RuntimeException(
+          "Two sequences must use the same alphabet to be comparable");
     }
     // Determine which sequence is shorter.
     int min_length = this.size() < seq.size() ? this.size() : seq.size();
