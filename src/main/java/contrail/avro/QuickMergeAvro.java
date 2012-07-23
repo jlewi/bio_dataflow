@@ -121,7 +121,6 @@ public class QuickMergeAvro extends Stage {
 			  // will reuse the same instance when next is called.
 			  GraphNodeData value = iter.next();
 			  GraphNode node = new GraphNode(value);
-
 			  node = node.clone();
 			  nodes.put(node.getNodeId().toString(), node);
 			}

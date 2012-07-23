@@ -371,16 +371,6 @@ public class PairMergeAvro extends Stage {
       // Sort the nodes into a chain so that we just need to merge
       // each node with its neighbor.
       Chain chain = sortNodes(nodes_to_merge);
-
-      // LEWI NOCOMMIT
-      if (nodeid.toString().equals("AAAACACACC")) {
-        ArrayList<GraphNode> nodes = new ArrayList<GraphNode>();
-        for (ChainLink link: chain) {
-          GraphNode node =new GraphNode(link.node.getNode());
-          nodes.add(node);
-        }
-        System.out.println("DEBUG");
-      }
       GraphNode merged_node = mergeChain(chain);
 
       CompressibleStrands compressible_strands = isCompressible(chain);

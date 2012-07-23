@@ -446,7 +446,11 @@ public class Sequence implements Comparable<Sequence> {
    * Check if two alphabets are equal
    */
   public boolean equals(Object other) {
-    return this.compareTo(other) == 0 ? true : false;
+    if (!(other instanceof Sequence)) {
+      throw new RuntimeException(
+          "Can only compare Sequences to other sequences");
+    }
+    return this.compareTo((Sequence)other) == 0 ? true : false;
   }
   /**
    * Construct a string representing the sequence.

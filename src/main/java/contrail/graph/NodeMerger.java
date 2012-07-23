@@ -137,12 +137,6 @@ public class NodeMerger {
       src_sequence = null;
       Sequence dest_nonoverlap = dest_sequence.subSequence(
           overlap, dest_sequence.size());
-
-      // LEWI NOCOMMIT
-      if (merged.toString().equals("GAAAACACAC")) {
-        System.out.println("LEWI NOCOMMIT DEBUG");
-      }
-
       merged.add(dest_nonoverlap);
 
       info.merged_strand = DNAUtil.canonicaldir(merged);
@@ -302,13 +296,8 @@ public class NodeMerger {
     // 4. Remove Incoming edges to dest
     // 5. Add Incoming edges to src
     // 6. Add outgoing edges from dest
-    // LEWI NOCOMMIT
-    if (src.getNodeId().equals("GAAAACACAC")) {
-      System.out.println("DEBUG");
-    }
     Sequence src_sequence = src.getSequence();
     Sequence dest_sequence = dest.getSequence();
-
     MergeInfo merge_info = mergeSequences(
         src_sequence, dest_sequence, strands, overlap);
 
