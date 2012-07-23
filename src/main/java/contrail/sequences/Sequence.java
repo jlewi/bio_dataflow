@@ -3,10 +3,7 @@ package contrail.sequences;
 import contrail.sequences.Alphabet;
 import contrail.util.ByteUtil;
 
-import java.nio.ByteBuffer;
 import java.util.Arrays;
-
-import org.apache.commons.lang.ArrayUtils;
 
 /**
  * Provides a wrapper class for accessing the sequence compactly encoded in an array of integers.
@@ -16,7 +13,7 @@ import org.apache.commons.lang.ArrayUtils;
  * (e.g the human genome has 2.9 bp) and inefficient coding schemes.
  * @author jlewi
  */
-public class Sequence implements Comparable {
+public class Sequence implements Comparable<Sequence> {
 
   final int BITSPERITEM = 32;
 
@@ -57,7 +54,7 @@ public class Sequence implements Comparable {
     length = 0;
 
     int num_ints = (int)Math.ceil((alphabet.bitsPerLetter() * num_letters) /
-                                  BITSPERITEM);
+                                  ((float)BITSPERITEM));
 
     // Allocate a zero size array so that data is never null.
     data = new int[num_ints];
@@ -194,6 +191,9 @@ public class Sequence implements Comparable {
    *                 position
    * @param pos    - The position in the sequence [0,size) to set.
    *
+   * IMPORTANT: you must separatly adjust the length of the sequence.
+   * TODO(jlewi): Should we automatically increment the size of the sequence
+   *   if it is exapnded?
    * TODO (jeremy@lewi.us): What error checking should we do.
    */
   public void setAt(int pos, String letter) {
@@ -329,7 +329,8 @@ public class Sequence implements Comparable {
    */
   public void readPackedBytes(byte[] bytes, int length) {
     this.length = length;
-	// Allocate a large array if necessary.
+
+   	// Allocate a larger array if necessary.
     if (bytes.length > data.length*4) {
       data = new int[(int)Math.ceil(bytes.length/4.0)];
     }
@@ -415,14 +416,11 @@ public class Sequence implements Comparable {
    * @param seq
    * @return
    */
-  public int compareTo(Object other) {
-    if (!(other instanceof Sequence)) {
-      throw new RuntimeException("Can only compare sequences.");
-    }
-    Sequence seq = (Sequence)(other);
+  public int compareTo(Sequence other) {
+    Sequence seq = (other);
     if (!this.alphabet.equals(seq.alphabet)) {
-      throw new RuntimeException("Two sequences must use the same alphabet to be " +
-                                 "comparable");
+      throw new RuntimeException(
+          "Two sequences must use the same alphabet to be comparable");
     }
     // Determine which sequence is shorter.
     int min_length = this.size() < seq.size() ? this.size() : seq.size();
@@ -448,7 +446,11 @@ public class Sequence implements Comparable {
    * Check if two alphabets are equal
    */
   public boolean equals(Object other) {
-    return this.compareTo(other) == 0 ? true : false;
+    if (!(other instanceof Sequence)) {
+      throw new RuntimeException(
+          "Can only compare Sequences to other sequences");
+    }
+    return this.compareTo((Sequence)other) == 0 ? true : false;
   }
   /**
    * Construct a string representing the sequence.
@@ -507,6 +509,11 @@ public class Sequence implements Comparable {
       this.length = other.length;
       return this.data;
     }
+
+    // Make sure all unset bits are set to zero because the processing
+    // depends on it.
+    zeroOutUnsetBits();
+
     growCapacity(this.size() + other.size());
 
     final int this_old_size = this.size();
@@ -623,5 +630,25 @@ public class Sequence implements Comparable {
       throw new RuntimeException("New length exceeds current capacity. Grow capacity first");
     }
     this.length = length;
+  }
+
+  /**
+   * Function forces all unset bits to zero. This is needed for some operations
+   * like add which depend on unset bits being 0.
+   */
+  private void zeroOutUnsetBits() {
+    // Get the last partially filled entry.
+    int num_items = numItemsForSize(length);
+
+    // How many bits in the last int need to be zeroed out.
+    int shift = num_items * BITSPERITEM - length * alphabet.bitsPerLetter();
+    if (shift > 0) {
+      int mask = 0xFFFFFFFF;
+      mask = mask >>> shift;
+      //mask = mask >> 1;
+      data[num_items -1] = data[num_items -1] & mask;
+    }
+    // Fill in the remaining items
+    Arrays.fill(data, num_items, data.length, 0);
   }
 }
