@@ -23,34 +23,41 @@ import org.apache.log4j.Logger;
  *   1. Find nodes which can be compressed together.
  *   2. Compress all nodes together (requires several mapreduce jobs).
  *
- * Input: The input should be an AVRO file encoding the graph; e.g records
- * are GraphNodeData.
+ * If the number of nodes is above some threshold then we use a randomized
+ * algorithm (PairMark & PairMerge) to do several merges in parallel.
+ * When the number of compressible nodes drops below a threshold then
+ * we send all compressible nodes to a single machine to be serially compressed.
  *
- * Alternatively, its possible to resume compressing stages. In this
+ * Input: The input should be an AVRO file encoding the graph. The records
+ * should be GraphNodeData.
+ *
+ * Alternatively, it is possible to resume compressing stages. In this
  * case the input should be an AVRO file whose records are
  * CompressibleNodeData.
+ *
+ * Note: Resuming the compression hasn't been rigoursouly tested.
  */
 public class CompressChains extends Stage {
   // TODO(jlewi): Should we create a separate base class for jobs which
   // run several map reduce jobs.
   private static final Logger sLogger = Logger.getLogger(CompressChains.class);
-  private static DecimalFormat df = new DecimalFormat("0.00");
 
-  long GLOBALNUMSTEPS = 0;
-  long JOBSTARTTIME = 0;
+  private long job_start_time = 0;
 
-  public void start(String desc) {
+  /**
+   * Utility function for logging a message when starting a job.
+   * @param desc
+   */
+  private void logStartJob(String desc) {
     sLogger.info(desc + ":\t");
 
     // TODO(jlewi): What to do about the following variables.
-    JOBSTARTTIME = System.currentTimeMillis();
-    GLOBALNUMSTEPS++;
+    job_start_time = System.currentTimeMillis();
   }
 
-  public void end(RunningJob job) throws IOException
-  {
+  public void logEndJob(RunningJob job) throws IOException {
     long endtime = System.currentTimeMillis();
-    long diff = (endtime - JOBSTARTTIME) / 1000;
+    long diff = (endtime - job_start_time) / 1000;
 
     sLogger.info(job.getJobID() + " " + diff + " s");
 
@@ -79,8 +86,11 @@ public class CompressChains extends Stage {
 
     int stage = 0;
     long compressible = 0;
+    DecimalFormat df = new DecimalFormat("0.00");
 
-    // The minimum number of nodes for doing parallel compressions
+    // The minimum number of nodes for doing parallel compressions.
+    // When the number of nodes drops below this number we send
+    // all compressible nodes to a single reducer for compression.
     final int LOCALNODES = (Integer) stage_options.get("localnodes");
 
     // When formatting the step as a string we want to zero pad it
@@ -111,7 +121,7 @@ public class CompressChains extends Stage {
       latest_path = (String) stage_options.get("inputpath");
     } else {
       // Mark compressible nodes
-      start("Compressible");
+      logStartJob("Compressible");
 
       // Make a shallow copy of the stage options required by the compress
       // stage.
@@ -128,7 +138,7 @@ public class CompressChains extends Stage {
       compress.setParameters(substage_options);
       RunningJob job = compress.runJob();
       compressible = counter(job, GraphCounters.compressible_nodes);
-      end(job);
+      logEndJob(job);
     }
 
     sLogger.info("  " + compressible + " compressible\n");
@@ -161,7 +171,7 @@ public class CompressChains extends Stage {
 
         // Send all the compressible nodes aFile old_path_file = new File(old_path);nd their neighbors to the same
         // machine so they can be compressed in one shot.
-        start("  QMark " + stage);
+        logStartJob("  QMark " + stage);
 
         Map<String, Object> substage_options =
             ContrailParameters.extractParameters(
@@ -171,7 +181,7 @@ public class CompressChains extends Stage {
         substage_options.put("outputpath", marked_graph_path);
         qmark.setParameters(substage_options);
         RunningJob qmark_job = qmark.runJob();
-        end(qmark_job);
+        logEndJob(qmark_job);
 
         sLogger.info(
             String.format(
@@ -180,7 +190,7 @@ public class CompressChains extends Stage {
                     qmark_job,
                     GraphCounters.quick_mark_nodes_send_to_compressor)));
 
-        start("  QMerge " + stage);
+        logStartJob("  QMerge " + stage);
 
 
         Map<String, Object> qmerge_options =
@@ -191,7 +201,7 @@ public class CompressChains extends Stage {
         qmerge_options.put("outputpath", merged_graph_path);
         qmerge.setParameters(qmerge_options);
         RunningJob qmerge_job = qmerge.runJob();
-        end(qmerge_job);
+        logEndJob(qmerge_job);
 
         // Set remaining to zero because all compressible nodes should
         // be compressed.
@@ -207,7 +217,7 @@ public class CompressChains extends Stage {
         pmerge.setConf(this.getConf());
 
         {
-          start("Mark" + stage);
+          logStartJob("Mark" + stage);
           Map<String, Object> mark_options = new HashMap<String, Object>();
           mark_options.put("inputpath", mark_input);
           mark_options.put("outputpath", marked_graph_path);
@@ -216,20 +226,20 @@ public class CompressChains extends Stage {
           mark_options.put("randseed", seed);
           pmark.setParameters(mark_options);
           RunningJob job = pmark.runJob();
-          end(job);
+          logEndJob(job);
 
           sLogger.info("  " + counter(job, GraphCounters.num_nodes_to_merge) +
               " marked\n");
         }
         {
-          start("  Merge " + stage);
+          logStartJob("  Merge " + stage);
           Map<String, Object> mark_options = new HashMap<String, Object>();
           mark_options.put("inputpath", marked_graph_path);
           mark_options.put("outputpath", merged_graph_path);
           mark_options.put("K", stage_options.get("K"));
           pmerge.setParameters(mark_options);
           RunningJob job = pmerge.runJob();
-          end(job);
+          logEndJob(job);
           remaining = counter(job,GraphCounters.pair_merge_compressible_nodes);
         }
       }
