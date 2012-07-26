@@ -102,13 +102,9 @@ public class CompressChains extends Stage {
 
     final boolean RESUME = (Boolean) stage_options.get("resume");
 
-    // TODO(jlewi): How should RESTART_COMPRESS etc... be encoded.
-    // How about just adding a command line option resume?
-    // By default, we could always make the first iteration parallel
-    // if resuming the compression. We could add a second flag to allow
-    // this to be overwritten.
-    // To determine the step number we should probably parse the directory,
-    // or else make it a command line option.
+    // TODO(jlewi): To determine the step number we should probably parse the
+    // directory rather than just letting the user specify the directory
+    // to continue from.
     if (RESUME) {
       // We resume Mark/Merge iterations after some previous processing
       // Compressible nodes should already be marked so we don't
@@ -162,7 +158,6 @@ public class CompressChains extends Stage {
       latest_path = merged_graph_path;
       long remaining = 0;
 
-      // TODO(jlewi): Should we make local nodes a stage variable?
       if (lastremaining < LOCALNODES) {
         QuickMarkAvro qmark   = new QuickMarkAvro();
         QuickMergeAvro qmerge = new QuickMergeAvro();
