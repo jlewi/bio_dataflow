@@ -227,12 +227,12 @@ public class QuickMergeAvro extends Stage {
     Configuration base_conf = getConf();
     JobConf conf = null;
     if (base_conf == null) {
-      conf = new JobConf(QuickMergeAvro.class);    
+      conf = new JobConf(QuickMergeAvro.class);
     } else {
-      conf = new JobConf(base_conf, QuickMergeAvro.class);  
+      conf = new JobConf(base_conf, QuickMergeAvro.class);
     }
     this.setConf(conf);
-    
+
     conf.setJobName("QuickMergeAvro " + inputPath + " " + K);
 
     initializeJobConfiguration(conf);
