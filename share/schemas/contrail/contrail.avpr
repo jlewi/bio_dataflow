@@ -333,6 +333,25 @@
                   "doc": ["Information about an edge to validate."]
                  }
                 ]
+     },
+     {"name": "contrail.graph.GraphErrorCodes",
+      "type":  "enum",
+      "doc": "The different type of graph errors.",
+      "symbols": ["MISSING_NODE", "DUPLICATE_NODE", "OVERLAP", "MISSING_EDGE"]
+     },
+     {"name": "contrail.graph.GraphError",
+      "type": "record",
+      "doc": ["Represents an error in the graph. These are not sequencing ",
+              "errors but rather inconsistencies in the graph most likely due ",
+              "to bugs in the code."],
+      "fields": [{"name": "error_code",
+                  "type": "contrail.graph.GraphErrorCodes",
+                  "doc": "A node in the graph."},
+                 {"name": "message",
+                  "type": "string",
+                  "doc": "A message describing the error."
+                 }
+                ]
      }
   ] // end types
 }

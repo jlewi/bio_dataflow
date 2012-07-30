@@ -2,6 +2,8 @@ package contrail.avro;
 
 import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
+import contrail.graph.GraphError;
+import contrail.graph.GraphErrorCodes;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.graph.ValidateEdge;
@@ -23,7 +25,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.avro.Schema;
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroMapper;
@@ -135,7 +136,7 @@ public class ValidateGraph extends Stage {
    * outputs strings containing error messages.
    */
   public static class ValidateGraphReducer extends
-      AvroReducer<CharSequence, ValidateMessage, CharSequence> {
+      AvroReducer<CharSequence, ValidateMessage, GraphError> {
 
     private GraphNode node = null;
     private int nodeCount = 0;
@@ -144,7 +145,7 @@ public class ValidateGraph extends Stage {
     // on the strand of the node they are connected to.
     private HashMap<DNAStrand, List<EdgeInfo>> edges;
 
-    private List<String> edgeErrors;
+    private List<GraphError> edgeErrors;
 
     // Class to contain the information needed to validate edges.
     static private class EdgeInfo {
@@ -165,7 +166,7 @@ public class ValidateGraph extends Stage {
       edges = new HashMap<DNAStrand, List<EdgeInfo>> ();
       edges.put(DNAStrand.FORWARD, new ArrayList<EdgeInfo>());
       edges.put(DNAStrand.REVERSE, new ArrayList<EdgeInfo>());
-      edgeErrors = new ArrayList<String>();
+      edgeErrors = new ArrayList<GraphError>();
     }
 
     private void parseInputs(Iterable<ValidateMessage> iterable) {
@@ -194,7 +195,7 @@ public class ValidateGraph extends Stage {
     /**
      * Check if we have a single node for this id.
      */
-    private String checkHasNode(CharSequence nodeId) {
+    private GraphError checkHasNode(CharSequence nodeId) {
       StringBuilder builder = new StringBuilder();
       if (nodeCount == 0) {
         builder.append("Missing node for nodeId: " + nodeId + ".");
@@ -212,14 +213,20 @@ public class ValidateGraph extends Stage {
         }
         // Delete the last comma
         builder.deleteCharAt(builder.length() -1 );
-        return builder.toString();
+        GraphError error = new GraphError();
+        error.setErrorCode(GraphErrorCodes.MISSING_NODE);
+        error.setMessage(builder.toString());
+        return error;
       }
 
-      if (nodeCount > 0) {
+      if (nodeCount > 1) {
         builder.append("Multiple nodes for nodeId: " + nodeId + ".");
-        return builder.toString();
+        GraphError error = new GraphError();
+        error.setErrorCode(GraphErrorCodes.DUPLICATE_NODE);
+        error.setMessage(builder.toString());
+        return error;
       }
-      return "";
+      return null;
     }
 
     /**
@@ -251,7 +258,10 @@ public class ValidateGraph extends Stage {
             builder.append(
                 "The overlap for the edge from: " + edgeInfo.sourceId + " ");
             builder.append("to:" + node.getNodeId() + " is not valid.");
-            edgeErrors.add(builder.toString());
+            GraphError error = new GraphError();
+            error.setErrorCode(GraphErrorCodes.OVERLAP);
+            error.setMessage(builder.toString());
+            edgeErrors.add(error);
             continue;
           }
 
@@ -265,7 +275,10 @@ public class ValidateGraph extends Stage {
                  node.getNodeId() + " ");
             builder.append("but node:" + node.getNodeId() + " doesn't have ");
             builder.append("an incoming edge from:" + edgeInfo.sourceId);
-            edgeErrors.add(builder.toString());
+            GraphError error = new GraphError();
+            error.setErrorCode(GraphErrorCodes.MISSING_EDGE);
+            error.setMessage(builder.toString());
+            edgeErrors.add(error);
           }
         }
       }
@@ -274,18 +287,18 @@ public class ValidateGraph extends Stage {
 
     @Override
     public void reduce(CharSequence nodeId, Iterable<ValidateMessage> iterable,
-        AvroCollector<CharSequence> collector, Reporter reporter)
+        AvroCollector<GraphError> collector, Reporter reporter)
             throws IOException {
       parseInputs(iterable);
-      String nodeError = checkHasNode(nodeId);
-      if (nodeError.length() > 0) {
+      GraphError nodeError = checkHasNode(nodeId);
+      if (nodeError != null) {
         collector.collect(nodeError);
         reporter.incrCounter("Contrail", "errors-graph", 1);
         return;
       }
 
       if (!checkEdges()) {
-        for (String error: edgeErrors) {
+        for (GraphError error: edgeErrors) {
           reporter.incrCounter("Contrail", "errors-graph", 1);
           collector.collect(error);
         }
@@ -326,9 +339,11 @@ public class ValidateGraph extends Stage {
     Pair<CharSequence, ValidateMessage> mapPair = new Pair(
         "", new ValidateMessage());
 
+    GraphError graphError = new GraphError();
+
     AvroJob.setInputSchema(conf, nodeData.getSchema());
     AvroJob.setMapOutputSchema(conf, mapPair.getSchema());
-    AvroJob.setOutputSchema(conf, Schema.create(Schema.Type.STRING));
+    AvroJob.setOutputSchema(conf, graphError.getSchema());
 
     AvroJob.setMapperClass(conf, ValidateGraphMapper.class);
     AvroJob.setReducerClass(conf, ValidateGraphReducer.class);

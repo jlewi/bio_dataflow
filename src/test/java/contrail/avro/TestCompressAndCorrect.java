@@ -95,7 +95,6 @@ public class TestCompressAndCorrect extends CompressAndCorrect {
     try {
       stage.run(args);
     } catch (Exception exception) {
-      // TODO uncomment the following after debugging.
       exception.printStackTrace();
       fail("Exception occured:" + exception.getMessage());
     }
