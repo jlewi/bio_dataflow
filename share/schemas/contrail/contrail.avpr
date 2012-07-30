@@ -293,18 +293,65 @@
                ]
      },
      {"name": "RemoveTipMessage",
-     "type": "record",
-     "doc": "Message used in the removeTips stage.",
-     "fields": [
-		{"name": "edge_strands",
-		 "type": ["null", "contrail.sequences.StrandsForEdge"],
-		 "doc": "The enumeration for the edge strands we want to delete ."
- 		},
-                 {"name": "node", 
-		  "type": "contrail.graph.GraphNodeData",
-                  "doc": "The GraphNodeData (may contain Tip or Non-Tip Node)"
-                 }                 
-               ]
-    }
+      "type": "record",
+      "doc": "Message used in the removeTips stage.",
+      "fields": [ {"name": "edge_strands",
+		               "type": ["null", "contrail.sequences.StrandsForEdge"],
+		               "doc": ["The enumeration for the edge strands we want to ",
+		                       "delete ."]
+ 		              },
+                  {"name": "node", 
+		               "type": "contrail.graph.GraphNodeData",
+                   "doc": "The GraphNodeData (may contain Tip or Non-Tip Node)"
+                  }                 
+                ]
+     },
+     {"name": "contrail.graph.ValidateEdge",
+      "type": "record",
+      "doc": ["A message used to validate an edge in the graph."],
+      "fields": [{"name": "source_id",
+                  "type": "string",
+                  "doc": "The id for the source node."},
+                 {"name": "strands",
+                  "type": "contrail.sequences.StrandsForEdge",
+                  "doc": "The strands for the overlap"
+                 },
+                 {"name": "overlap",
+                  "type": "contrail.sequences.CompressedSequence",
+                  "doc": "The overlap between the sequences."
+                 }
+                ]
+     },
+     {"name": "contrail.graph.ValidateMessage",
+      "type": "record",
+      "doc": ["A message used to validate the graph."],
+      "fields": [{"name": "node",
+                  "type": ["null", "contrail.graph.GraphNodeData"],
+                  "doc": "A node in the graph."},
+                 {"name": "edge_info",
+                  "type": ["null", "contrail.graph.ValidateEdge"],
+                  "doc": ["Information about an edge to validate."]
+                 }
+                ]
+     },
+     {"name": "contrail.graph.GraphErrorCodes",
+      "type":  "enum",
+      "doc": "The different type of graph errors.",
+      "symbols": ["MISSING_NODE", "DUPLICATE_NODE", "OVERLAP", "MISSING_EDGE"]
+     },
+     {"name": "contrail.graph.GraphError",
+      "type": "record",
+      "doc": ["Represents an error in the graph. These are not sequencing ",
+              "errors but rather inconsistencies in the graph most likely due ",
+              "to bugs in the code."],
+      "fields": [{"name": "error_code",
+                  "type": "contrail.graph.GraphErrorCodes",
+                  "doc": "A node in the graph."},
+                 {"name": "message",
+                  "type": "string",
+                  "doc": "A message describing the error."
+                 }
+                ]
+     }
   ] // end types
 }
