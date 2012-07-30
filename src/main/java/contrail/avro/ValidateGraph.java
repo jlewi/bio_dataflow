@@ -73,9 +73,9 @@ public class ValidateGraph extends Stage {
     return Collections.unmodifiableMap(defs);
   }
 
-
   /**
-   *
+   * For each node, the mapper sends messages to all the neighbors on
+   * outgoing edges.
    */
   protected static class ValidateGraphMapper extends
   AvroMapper<GraphNodeData, Pair<CharSequence, ValidateMessage>> {
@@ -132,19 +132,18 @@ public class ValidateGraph extends Stage {
   }
 
   /**
-   * Reducer checks the edges and the nodes match up. If now the reducer
-   * outputs strings containing error messages.
+   * Reducer checks the edges and the nodes match up. For each error
+   * detected the reducer outputs an instance of GraphError describing the
+   * error.
    */
   public static class ValidateGraphReducer extends
       AvroReducer<CharSequence, ValidateMessage, GraphError> {
-
     private GraphNode node = null;
     private int nodeCount = 0;
 
     // Keep track of the incoming edges. We group the edges based
     // on the strand of the node they are connected to.
     private HashMap<DNAStrand, List<EdgeInfo>> edges;
-
     private List<GraphError> edgeErrors;
 
     // Class to contain the information needed to validate edges.
@@ -206,7 +205,7 @@ public class ValidateGraph extends Stage {
             sourceIds.add(edgeInfo.sourceId);
           }
         }
-        builder.append("Nodes with edges to this node: ");
+        builder.append(" Nodes with edges to this node: ");
         for (String sourceId: sourceIds) {
           builder.append(sourceId);
           builder.append(",");
