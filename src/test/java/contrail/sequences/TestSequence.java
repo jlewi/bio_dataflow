@@ -390,6 +390,7 @@ public class TestSequence {
     src.add(dest);
     assertEquals(expected_sum, src);
   }
+
   @Test
   public void testCompare() {
     int MAX_LENGTH = 130;
@@ -414,5 +415,16 @@ public class TestSequence {
         assertEquals(longer_seq.compareTo(shorter_seq), str_val);
       }
     }
+  }
+
+  @Test
+  public void testCompressedSequence() {
+    Sequence sequence = new Sequence("ACTGT", DNAAlphabetFactory.create());
+    CompressedSequence compressed = sequence.toCompressedSequence();
+    assertEquals(compressed.getLength().intValue(), sequence.size());
+
+    Sequence reconstructed = new Sequence(DNAAlphabetFactory.create());
+    reconstructed.readCompressedSequence(compressed);
+    assertEquals(sequence, reconstructed);
   }
 }
