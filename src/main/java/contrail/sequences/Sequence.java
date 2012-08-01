@@ -3,6 +3,7 @@ package contrail.sequences;
 import contrail.sequences.Alphabet;
 import contrail.util.ByteUtil;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 /**
@@ -290,6 +291,13 @@ public class Sequence implements Comparable<Sequence> {
   }
 
   /**
+   * Read a record containing the compressed sequence.
+   */
+  public void readCompressedSequence(CompressedSequence data) {
+    readPackedBytes(data.getDna().array(), data.getLength());
+  }
+
+  /**
    * Read the data in from an array of bytes encoding the data in UTF8 with one byte
    * per character in the alphabet.  We read the data into an existing object
    * to avoid overhead of allocating a new object.
@@ -376,6 +384,16 @@ public class Sequence implements Comparable<Sequence> {
     mask = mask >>> num_unset_bits;
     buffer[num_ints - 1] = buffer[num_ints - 1] & mask;
     return new Sequence(buffer, length, alphabet);
+  }
+
+  /**
+   * @return A compressed sequence representing this sequence.
+   */
+  public CompressedSequence toCompressedSequence() {
+    CompressedSequence output = new CompressedSequence();
+    output.setDna(ByteBuffer.wrap(toPackedBytes(), 0, numPackedBytes()));
+    output.setLength(size());
+    return output;
   }
 
   /**
