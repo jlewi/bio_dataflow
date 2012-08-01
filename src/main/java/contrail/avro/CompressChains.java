@@ -253,7 +253,38 @@ public class CompressChains extends Stage {
     }
 
     sLogger.info("Save result to " + final_path + "\n\n");
+<<<<<<< HEAD
     FileHelper.moveDirectoryContents(getConf(), latest_path, final_path);
+=======
+    moveDirectoryContents(latest_path, final_path);
+  }
+
+  /**
+   * Function moves the contents of old_path into new_path. This is used
+   * to save the final graph.
+   * @param old_path
+   * @param new_path
+   */
+  private void moveDirectoryContents(String old_path, String new_path) {
+    // We can't invoke rename directly on old path because it ends up
+    // making old_path a subdirectory of new_path.
+    FileSystem fs = null;
+    try{
+      fs = FileSystem.get(getConf());
+    } catch (IOException e) {
+      throw new RuntimeException("Can't get filesystem: " + e.getMessage());
+    }
+    try {
+      Path old_path_object = new Path(old_path);
+      for (FileStatus status : fs.listStatus(old_path_object)) {
+        Path old_file = status.getPath();
+        Path new_file = new Path(new_path, old_file.getName());
+        fs.rename(old_file, new_file);
+      }
+    } catch (IOException e) {
+      throw new RuntimeException("Problem moving the files: " + e.getMessage());
+    }
+>>>>>>> validate_cl
   }
 
   /**
