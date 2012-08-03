@@ -25,9 +25,7 @@ import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
-import contrail.ContrailConfig;
 import contrail.RemoveTipMessage;
-import contrail.Stats;
 import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
@@ -64,7 +62,7 @@ public class RemoveTipsAvro extends Stage {
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs = new HashMap<String, ParameterDefinition>();
     defs.putAll(super.createParameterDefinitions());
-    
+
     ParameterDefinition TIPLENGTH = new ParameterDefinition("TIPLENGTH", "minimum allowed value of Tip", Integer.class, new Integer(0));
 
     for (ParameterDefinition def: new ParameterDefinition[] {TIPLENGTH}) {
