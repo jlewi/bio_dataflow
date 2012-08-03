@@ -250,7 +250,7 @@ public class RemoveTipsAvro extends Stage {
             // keep the longest ones
             if ( !tip_node.getNodeId().equals(besttip_Id) )     {	
               // not the best tip
-              if( tip_node.getData().getSequence().getLength() < besttip_data.getSequence().getLength() )    { // check if its len < len of longest tip
+              if( tip_node.getData().getSequence().getLength() <= besttip_data.getSequence().getLength() )    { // check if its len < len of longest tip
                 result = actual_node.removeNeighbor(tip_node.getNodeId());
               }
             }
