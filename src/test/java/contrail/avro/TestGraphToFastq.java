@@ -51,6 +51,7 @@ public class TestGraphToFastq extends GraphToFastq {
     assertEquals("@" + nodeData.getNodeId(), fastaRecord[0]);
     assertEquals(nodeData.getSequence().toString(), fastaRecord[1]);
   }
+
   @Test
   public void testRun() {
     // Create a graph and write it to a file.
