@@ -1,0 +1,5 @@
+snappymodule.cc
+pip-egg-info/python_snappy.egg-info/PKG-INFO
+pip-egg-info/python_snappy.egg-info/SOURCES.txt
+pip-egg-info/python_snappy.egg-info/dependency_links.txt
+pip-egg-info/python_snappy.egg-info/top_level.txt

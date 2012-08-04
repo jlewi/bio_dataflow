@@ -2,52 +2,18 @@ package contrail.tools;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
-
 import org.apache.avro.Schema;
 import org.apache.avro.mapred.AvroCollector;
-import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.FileInputFormat;
-import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
-import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
-import contrail.CompressedRead;
-import contrail.ReadState;
-import contrail.avro.BuildGraphAvro;
-import contrail.avro.ContrailParameters;
 import contrail.avro.NotImplementedException;
-import contrail.avro.ParameterDefinition;
-import contrail.avro.BuildGraphAvro.BuildGraphMapper;
-import contrail.avro.BuildGraphAvro.BuildGraphReducer;
-import contrail.avro.BuildGraphAvro.SequencePreProcessor;
-import contrail.graph.EdgeTerminal;
-import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.graph.KMerEdge;
-import contrail.sequences.Alphabet;
-import contrail.sequences.DNAAlphabetFactory;
-import contrail.sequences.DNAStrand;
-import contrail.sequences.DNAUtil;
-import contrail.sequences.KMerReadTag;
-import contrail.sequences.Sequence;
-import contrail.sequences.StrandsForEdge;
-import contrail.sequences.StrandsUtil;
 
 // TOOD(jlewi): THIS IS ALL INCOMPLETE CODE
 /**
@@ -167,5 +133,5 @@ public class SortGraph {
 //  public static void main(String[] args) throws Exception {
 //    int res = ToolRunner.run(new Configuration(), new SortGraph(), args);
 //    System.exit(res);
-  }
+//  }
 }
