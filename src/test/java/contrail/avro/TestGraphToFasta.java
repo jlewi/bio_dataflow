@@ -25,17 +25,17 @@ public class TestGraphToFasta extends GraphToFasta {
       reader = new BufferedReader(new FileReader(file));
 
       String line = reader.readLine();
-      String[] fastaRecord = new String[4];
+      String[] fastaRecord = new String[2];
 
       int recordPos = 0;
       while (line != null) {
-        // Read 4 lines at a time.
+        // Read 2 lines at a time.
         fastaRecord[recordPos] = line;
         ++recordPos;
 
         if (recordPos >= fastaRecord.length) {
           records.add(fastaRecord);
-          fastaRecord = new String[4];
+          fastaRecord = new String[2];
           recordPos = 0;
         }
         line = reader.readLine();

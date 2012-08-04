@@ -65,8 +65,7 @@ public class GraphToFasta extends Stage {
       node = new GraphNode();
 
       // Each entry in the FASTA file is 4 lines of text.
-      lines = new String[4];
-      lines[2] = "+";
+      lines = new String[2];
     }
 
     public void map(AvroWrapper<GraphNodeData> nodeData, NullWritable inputValue,
@@ -75,9 +74,6 @@ public class GraphToFasta extends Stage {
       node.setData(nodeData.datum());
       lines[0] = "@" + node.getNodeId();
       lines[1] = node.getSequence().toString();
-      // For the quality score just output a string of length equal to the
-      // length of the sequence.
-      lines[3] = StringUtils.repeat("?", node.getSequence().size());
       textOutput.set(StringUtils.join(lines, "\n"));
       output.collect(textOutput, NullWritable.get());
     }
