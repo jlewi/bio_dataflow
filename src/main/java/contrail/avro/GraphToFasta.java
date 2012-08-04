@@ -31,8 +31,8 @@ import org.apache.hadoop.mapred.TextOutputFormat;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
-public class GraphToFastq extends Stage {
-  private static final Logger sLogger = Logger.getLogger(GraphToFastq.class);
+public class GraphToFasta extends Stage {
+  private static final Logger sLogger = Logger.getLogger(GraphToFasta.class);
 
   /**
    * Get the parameters used by this stage.
@@ -91,7 +91,7 @@ public class GraphToFastq extends Stage {
     sLogger.info(" - inputpath: "  + inputPath);
     sLogger.info(" - outputpath: " + outputPath);
 
-    JobConf conf = new JobConf(GraphToFastq.class);
+    JobConf conf = new JobConf(GraphToFasta.class);
 
     AvroJob.setInputSchema(conf, GraphNodeData.SCHEMA$);
 
@@ -138,7 +138,7 @@ public class GraphToFastq extends Stage {
   }
 
   public static void main(String[] args) throws Exception {
-    int res = ToolRunner.run(new Configuration(), new GraphToFastq(), args);
+    int res = ToolRunner.run(new Configuration(), new GraphToFasta(), args);
     System.exit(res);
   }
 }

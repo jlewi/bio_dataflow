@@ -16,7 +16,7 @@ import contrail.graph.GraphUtil;
 import contrail.graph.SimpleGraphBuilder;
 import contrail.util.FileHelper;
 
-public class TestGraphToFastq extends GraphToFastq {
+public class TestGraphToFasta extends GraphToFasta {
 
   private ArrayList<String[]> readFastq(File file) {
     BufferedReader reader;
@@ -70,7 +70,7 @@ public class TestGraphToFastq extends GraphToFastq {
     GraphUtil.writeGraph(avroFile, nodes);
 
     // Run it.
-    GraphToFastq stage = new GraphToFastq();
+    GraphToFasta stage = new GraphToFasta();
     // We need to initialize the configuration otherwise we will get an
     // exception. Normally the initialization happens in main.
     stage.setConf(new Configuration());
