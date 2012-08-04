@@ -35,8 +35,8 @@ public class GraphUtil {
       }
       writer.close();
     } catch (IOException exception) {
-      fail("There was a problem writing the graph to an avro file. Exception:" +
-          exception.getMessage());
+      fail("There was a problem writing the graph to an avro file. " +
+           "Exception: " + exception.getMessage());
     }
   }
 }

@@ -18,6 +18,31 @@ import org.apache.hadoop.fs.Path;
  */
 public class FileHelper {
   /**
+   * Create a local temporary directory.
+   * @return
+   */
+  static public File createLocalTempDir() {
+    // TODO(jlewi): Is there a java function we could use?
+    File temp = null;
+    try {
+      temp = File.createTempFile("temp", Long.toString(System.nanoTime()));
+    } catch (IOException exception) {
+      fail("Could not create temporary file. Exception:" +
+          exception.getMessage());
+    }
+    if(!(temp.delete())){
+      throw new RuntimeException(
+          "Could not delete temp file: " + temp.getAbsolutePath());
+    }
+
+    if(!(temp.mkdir())) {
+      throw new RuntimeException(
+          "Could not create temp directory: " + temp.getAbsolutePath());
+    }
+    return temp;
+  }
+
+  /**
    * Function moves the contents of old_path into new_path. This is used
    * to save the final graph.
    * @param old_path
@@ -43,30 +68,5 @@ public class FileHelper {
     } catch (IOException e) {
       throw new RuntimeException("Problem moving the files: " + e.getMessage());
     }
-  }
-
-  /**
-   * Create a local temporary directory.
-   * @return
-   */
-  static public File createLocalTempDir() {
-    // TODO(jlewi): Is there a java function we could use?
-    File temp = null;
-    try {
-      temp = File.createTempFile("temp", Long.toString(System.nanoTime()));
-    } catch (IOException exception) {
-      fail("Could not create temporary file. Exception:" +
-          exception.getMessage());
-    }
-    if(!(temp.delete())){
-      throw new RuntimeException(
-          "Could not delete temp file: " + temp.getAbsolutePath());
-    }
-
-    if(!(temp.mkdir())) {
-      throw new RuntimeException(
-          "Could not create temp directory: " + temp.getAbsolutePath());
-    }
-    return temp;
   }
 }

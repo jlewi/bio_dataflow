@@ -31,6 +31,9 @@ import org.apache.hadoop.mapred.TextOutputFormat;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
+/**
+ * Convert the graph to fasta files.
+ */
 public class GraphToFasta extends Stage {
   private static final Logger sLogger = Logger.getLogger(GraphToFasta.class);
 
