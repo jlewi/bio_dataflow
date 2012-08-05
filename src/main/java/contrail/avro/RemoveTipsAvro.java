@@ -165,7 +165,7 @@ public class RemoveTipsAvro extends Stage {
     }
 
     // identifies the best-tip (longest tip) for a particular kind of DNAStrands
-    GraphNodeData LongestTip(List<RemoveTipMessage> msg_list)	{
+    int LongestTip(List<RemoveTipMessage> msg_list)	{
       int bestlen = 0;
       RemoveTipMessage besttip_msg = null;
 
@@ -177,7 +177,7 @@ public class RemoveTipsAvro extends Stage {
           besttip_msg = message;
         }
       }
-      return besttip_msg.getNode();
+      return besttip_msg.getNode().getSequence().getLength();
     }
 
     @Override
@@ -199,8 +199,6 @@ public class RemoveTipsAvro extends Stage {
       tips.put(DNAStrand.REVERSE, r_msglist);
 
       int sawnode = 0;
-      String besttip_Id= "";
-      GraphNodeData besttip_data= null;
 
       while(iter.hasNext())	{
         RemoveTipMessage msg = iter.next();
@@ -228,37 +226,42 @@ public class RemoveTipsAvro extends Stage {
 
       for(DNAStrand strand: DNAStrand.values())	{
         int deg = 0;
-        int numtrim = 0;
+        int numTips = 0;
+        int besttip_len=0;
+        boolean result= false;
+        boolean keptTip= false;
 
         List<RemoveTipMessage> msg_list = tips.get(strand);
 
-        numtrim += msg_list.size();
-        if (numtrim == 0) { continue; }
-        deg = actual_node.degree(strand);
+        numTips += msg_list.size(); 
+        if (numTips == 0) { continue; }
+        deg = actual_node.degree(strand);   
 
-        if (numtrim == deg)	{
-          // All edges in this direction are tips, only keep the longest one
-          besttip_data= LongestTip(msg_list);       // getNodeID of Longest Tip
-          besttip_Id= besttip_data.getNodeId().toString();
-          output.collect(besttip_data);             // we output the one node that is a tip
-          reporter.incrCounter("Contrail", "tips_kept", 1);
-        }
+        if (numTips == deg)	{
+          // All edges in this direction are tips, only keep the longest one				
+          besttip_len= LongestTip(msg_list);       
+        }	
         /* if the number of tips is > 0 but not equal to the degree
 	of the non tip node;then we'll remove all the tips and
 	leave non-tips intact
-	the tips with same length are not removed
+	the tips with same length are removed
          */
-
         for (RemoveTipMessage message : msg_list)   {
-          boolean result= false;
-          tip_node= new GraphNode(message.getNode());
-          if(numtrim == deg)	{
-            // keep the longest ones
-            if ( !tip_node.getNodeId().equals(besttip_Id) )     {
-              // not the best tip
-              if( tip_node.getData().getSequence().getLength() < besttip_data.getSequence().getLength() )    { // check if its len < len of longest tip
+          tip_node.setData(message.getNode());
+          
+          if(numTips == deg)	{
+              if( tip_node.getData().getSequence().getLength() < besttip_len )    { // check if its len < len of longest tip
                 result = actual_node.removeNeighbor(tip_node.getNodeId());
               }
+              else  if(tip_node.getData().getSequence().getLength() == besttip_len) {
+                  if(!keptTip)  {
+                     output.collect(tip_node.getData());
+                     keptTip=true;
+                     reporter.incrCounter("Contrail", "tips_kept", 1);
+                  }
+                  else  {
+                    result = actual_node.removeNeighbor(tip_node.getNodeId());
+                  }
             }
           }
           else	{
