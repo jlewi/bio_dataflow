@@ -98,47 +98,17 @@ public class CompressAndCorrect extends Stage {
     // TODO(jlewi): Does this function really need to throw an exception?
     String outputPath = (String) stage_options.get("outputpath");
 
-    //CompressibleAvro compress = new CompressibleAvro();
-    //compress.setConf(this.getConf());
-
     // Create a subdirectory of the output path to contain the temporary
     // output from each substage.
     String tempPath = new Path(outputPath, "temp").toString();
 
       int step = 1;
-//    long compressible = 0;
-      //decimalFormat df = new DecimalFormat("0.00");
-//
-//    // The minimum number of nodes for doing parallel compressions.
-//    // When the number of nodes drops below this number we send
-//    // all compressible nodes to a single reducer for compression.
-//    final int LOCALNODES = (Integer) stage_options.get("localnodes");
-//
-//    // When formatting the step as a string we want to zero pad it
+
+      // When formatting the step as a string we want to zero pad it
       DecimalFormat sf = new DecimalFormat("00");
-//
-//    // Keep track of the latest input for the step.
+
+      // Keep track of the latest input for the step.
       String stepInputPath = (String) stage_options.get("inputpath");
-//
-//    final boolean RESUME = (Boolean) stage_options.get("resume");
-//
-//    // TODO(jlewi): To determine the step number we should probably parse the
-//    // directory rather than just letting the user specify the directory
-//    // to continue from.
-//    if (RESUME) {
-//      // We resume Mark/Merge iterations after some previous processing
-//      // Compressible nodes should already be marked so we don't
-//      // need to run compression.
-//      sLogger.info("Restarting compression after stage " + stage + ":");
-//
-//      // If specified we use the stage option to determine the output directory.
-//      stage = (Integer) stage_options.get("stage");
-//
-//      latest_path = (String) stage_options.get("inputpath");
-//    } else {
-//      // Mark compressible nodes
-//      logStartJob("Compressible");
-//
       boolean  done = false;
 
       // Keep track of the input for the current round.
@@ -166,16 +136,6 @@ public class CompressAndCorrect extends Stage {
         }
         stepInputPath = removeTipsPath;
       }
-
-//      JobConf job_conf = new JobConf(CompressChains.class);
-//      FileSystem.get(job_conf).delete(new Path(mark_input), true);
-//      FileSystem.get(job_conf).delete(new Path(marked_graph_path), true);
-//
-//      String percchange =
-//          df.format((lastremaining > 0) ? 100*(remaining - lastremaining) /
-//              lastremaining : 0);
-//      sLogger.info("  " + remaining + " remaining (" + percchange + "%)\n");
-
 
     sLogger.info("Save result to: " + outputPath + "\n\n");
     FileHelper.moveDirectoryContents(getConf(), stepInputPath, outputPath);
