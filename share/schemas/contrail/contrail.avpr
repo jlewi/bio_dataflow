@@ -352,6 +352,26 @@
                   "doc": "A message describing the error."
                  }
                 ]
+     },     
+     {"name": "contrail.graph.GraphStatsData",
+      "type": "record",
+      "doc": "This record contains statistics about the graph.",
+      "fields": [{"name": "count",
+                  "type": "long",
+                  "doc": "Number of sequences in this bin."
+                 },
+                 {"name": "length_sum",
+                  "type": "int",
+                  "doc": "Sum of the lengths of the sequences in the graph."},
+                 {"name": "degree_sum",
+                  "type": "int",
+                  "doc": "The total number of edges in the graph."
+                 },
+                 {"name": "coverage_sum",
+                  "type": "double",
+                  "doc": "The sum of the coverage in the graph."
+                 }
+                ]
      }
   ] // end types
 }
