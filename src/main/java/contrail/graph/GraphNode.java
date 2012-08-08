@@ -584,7 +584,7 @@ public class GraphNode {
     }
     return null;
   }
-
+  
   /**
    * Set the data manipulated by this node.
    */
@@ -593,7 +593,15 @@ public class GraphNode {
     // Clear the derived data
     this.derived_data = new DerivedData(data);
   }
-
+  
+  /**
+   * Compute the degree for this node.
+   * in a particular direction
+   **/
+  public int degree(DNAStrand strand, EdgeDirection direction)  {
+    return getEdgeTerminals(strand, direction).size();
+  }
+  
   /**
    * Compute the degree for this node.
    *
@@ -617,6 +625,7 @@ public class GraphNode {
 
     return retval;
   }
+
 
   public String getNodeId() {
     return data.getNodeId().toString();

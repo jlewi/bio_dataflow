@@ -8,9 +8,12 @@ import static org.junit.Assert.fail;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileWriter;
@@ -23,8 +26,6 @@ import org.junit.Test;
 
 import contrail.RemoveTipMessage;
 import contrail.ReporterMock;
-import contrail.avro.RemoveTipsAvro.RemoveTipsAvroMapper;
-import contrail.avro.RemoveTipsAvro.RemoveTipsAvroReducer;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.graph.SimpleGraphBuilder;
@@ -44,7 +45,7 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
 
     assertTrue(it.hasNext());
     Pair<CharSequence, RemoveTipMessage> actual_message = it.next();
-    assertEquals(expected_message, actual_message);
+    assertEquals(expected_message.value(), actual_message.value());
     assertFalse(it.hasNext());
   }
 
@@ -78,7 +79,7 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
       non_tip.expected_message= expected_non_tip;
       cases.add(non_tip);
     }
-    // TIPLENGTH is 4 for this case
+    // tiplength is 4 for this case
     // ADDING Non-Tip to casedata; AAATC gets identified as NON tip as its len is > 4	
     {
       MapTestCaseData non_tip= new MapTestCaseData();
@@ -105,7 +106,7 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
       String terminal_nodeId = graph.getNode(graph.findNodeIdForSequence("TCA")).getNodeId();
       RemoveTipMessage tip_msg = new RemoveTipMessage();
       tip_msg.setNode(tip_node.getData());
-      tip_msg.setEdgeStrands(StrandsForEdge.FR); 
+      tip_msg.setEdgeStrands(StrandsForEdge.FF); 
       expected_tip.set(terminal_nodeId, tip_msg);		// if tip then output nodeID of terminal
 
       tip.node= tip_node.getData();
@@ -115,8 +116,7 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
     }
     return cases;
   }
-
-
+  
   @Test
   public void testMap() {
 
@@ -124,14 +124,14 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
     Reporter reporter = reporter_mock;
 
     RemoveTipsAvro.RemoveTipsAvroMapper mapper = new RemoveTipsAvro.RemoveTipsAvroMapper();
-    
+
     RemoveTipsAvro stage= new RemoveTipsAvro();
     Map<String, ParameterDefinition> definitions = stage.getParameterDefinitions();
-    int TIPLENGTH= 4;
+    int tiplength= 4;
     JobConf job = new JobConf(RemoveTipsAvro.RemoveTipsAvroMapper.class);
-    definitions.get("TIPLENGTH").addToJobConf(job, new Integer(TIPLENGTH));
+    definitions.get("tiplength").addToJobConf(job, new Integer(tiplength));
     mapper.configure(job);
-    
+
     // Construct the different test cases.
     List <MapTestCaseData> test_cases = constructMapCases();
 
@@ -148,87 +148,162 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
 
       assertMapperOutput(case_data.node, case_data.expected_message, collector_mock);
     }
-
   }
 
   private static class ReduceTestCaseData {
-    List <RemoveTipMessage> map_out_list;
-    GraphNodeData expected_node_data;
+    List <RemoveTipMessage> mapOutList;
+    String reducer_input_key;
+    HashMap<String,GraphNodeData> expected_node_data;
   }
+  
   private void assertReduceOutput(
       ReduceTestCaseData case_data,
       AvroCollectorMock<GraphNodeData> collector_mock) {
-
-    assertEquals(1, collector_mock.data.size());
-    assertEquals(case_data.expected_node_data, collector_mock.data.get(0));
+    
+    assertEquals(collector_mock.data.size(), case_data.expected_node_data.size());
+    // check if all emitted nodeid's are in expected Key set
+    Set<String>outNodeIDList = new HashSet<String>();
+    for(GraphNodeData element: collector_mock.data) {
+      outNodeIDList.add(element.getNodeId().toString());
+    }
+    assertEquals(outNodeIDList, case_data.expected_node_data.keySet());
+    for(GraphNodeData element: collector_mock.data) {  
+      assertEquals(element, case_data.expected_node_data.get(element.getNodeId().toString()));
+    }
   }
-  private List<ReduceTestCaseData> constructReduceTips() {
+  
+  /*
+   * In this test case, we have a terminal with N tips where N=degree. Furthermore,
+   * there is more than 1 tip of length L where L is the longest length of the tips.
+   * In this case, all but one of the longest tips should be removed.   
+   */
+  ReduceTestCaseData createEqualLengthTipsTestData()
+  {
+    SimpleGraphBuilder graph = new SimpleGraphBuilder();
+    graph.addEdge("ATC", "TCA", 2);
+    graph.addEdge("GTC", "TCA", 2);
+
+    ReduceTestCaseData testData= new ReduceTestCaseData();
+    List <RemoveTipMessage> mapOutList= new ArrayList <RemoveTipMessage>();
+    {
+      GraphNode node = graph.getNode(graph.findNodeIdForSequence("TCA")).clone();
+      RemoveTipMessage msg = new RemoveTipMessage();
+      msg.setNode(node.getData());
+      mapOutList.add(msg);
+    } 
+    // nodeid(TCA), <ATC, FRStrand>
+    {
+      GraphNode node = graph.getNode(graph.findNodeIdForSequence("ATC")).clone();
+      RemoveTipMessage msg = new RemoveTipMessage();
+      msg.setNode(node.getData());
+      msg.setEdgeStrands(StrandsForEdge.FF);
+      mapOutList.add(msg);
+    }
+    // nodeid(TCA), <GTC, FRStrand>
+    {
+      GraphNode node = graph.getNode(graph.findNodeIdForSequence("GTC")).clone();
+      RemoveTipMessage msg = new RemoveTipMessage();
+      msg.setNode(node.getData());
+      msg.setEdgeStrands(StrandsForEdge.RF);
+      mapOutList.add(msg);
+    }
+
+    GraphNode temp= graph.getNode(graph.findNodeIdForSequence("TCA")).clone();
+    temp.removeNeighbor(graph.getNode(graph.findNodeIdForSequence("GTC")).getNodeId());
+
+    testData.expected_node_data = new HashMap<String,GraphNodeData>();
+    testData.expected_node_data.put(temp.getNodeId(), temp.getData());
+    testData.expected_node_data.put(graph.findNodeIdForSequence("ATC"), graph.getNode(graph.findNodeIdForSequence("ATC")).getData());
+
+    testData.mapOutList= mapOutList; 
+    testData.reducer_input_key = temp.getNodeId();
+
+    return testData;
+  }
+  
+  /*
+   *  If we have 2 tips with same terminal AND
+   *  terminal has numTips != degree then
+   *  we remove all Tips   
+   */
+  ReduceTestCaseData createNonEqualLenTipsTestData()
+  {
     SimpleGraphBuilder graph = new SimpleGraphBuilder();
     graph.addEdge("AAATC", "TCA", 2);
     graph.addEdge("ATC", "TCA", 2);
-
-    List<ReduceTestCaseData> test_data_list= new ArrayList<ReduceTestCaseData> ();	
-    List <RemoveTipMessage> map_out_list= new ArrayList <RemoveTipMessage>();
-    ReduceTestCaseData test_data= new ReduceTestCaseData();
-
-    List <RemoveTipMessage> map_out_list2= new ArrayList <RemoveTipMessage>();
-    ReduceTestCaseData test_data2= new ReduceTestCaseData();
-    // Output of the Mapper is in the form {Key, Message <id,Strand>}; mapper outputs are as follows
-    // nodeid(TCA), <TCA,null>
+    graph.addEdge("GTC", "TCA", 2);    
+    /* AAATC is not a tip because it is larger than presumed Tiplength 
+     * for this test case that is 4
+     * hence it won't be output as tips in mapper
+    */
+    ReduceTestCaseData testData= new ReduceTestCaseData();
+    List <RemoveTipMessage> mapOutList= new ArrayList <RemoveTipMessage>();
     {
-      GraphNode node = graph.getNode(graph.findNodeIdForSequence("TCA"));
+      GraphNode node = graph.getNode(graph.findNodeIdForSequence("TCA")).clone();
       RemoveTipMessage msg = new RemoveTipMessage();
       msg.setNode(node.getData());
-      map_out_list.add(msg);
-    }	
+      mapOutList.add(msg);
+    } 
     // nodeid(TCA), <ATC, FRStrand>
     {
-      GraphNode node = graph.getNode(graph.findNodeIdForSequence("ATC"));
+      GraphNode node = graph.getNode(graph.findNodeIdForSequence("ATC")).clone();
       RemoveTipMessage msg = new RemoveTipMessage();
       msg.setNode(node.getData());
       msg.setEdgeStrands(StrandsForEdge.FR);
-      map_out_list.add(msg);
+      mapOutList.add(msg);
     }
-
-    // both messages are now in a List; we now set the expected node/ key for those msg
-    GraphNode temp= graph.getNode(graph.findNodeIdForSequence("TCA"));
-    // update the node; edge will be removed in reducer
-    temp.removeNeighbor(graph.getNode(graph.findNodeIdForSequence("ATC")).getNodeId());
-    test_data.expected_node_data= temp.getData();
-    test_data.map_out_list= map_out_list; 
-
-    // add key/msg list to Object List
-    test_data_list.add(test_data);
-
-    // nodeid(AAATC), <AAATC,null>
+    // nodeid(TCA), <GTC, FRStrand>
     {
-      GraphNode node = graph.getNode(graph.findNodeIdForSequence("AAATC"));
+      GraphNode node = graph.getNode(graph.findNodeIdForSequence("GTC")).clone();
       RemoveTipMessage msg = new RemoveTipMessage();
       msg.setNode(node.getData());
-      map_out_list2.add(msg);
-    } 
-    test_data2.expected_node_data= graph.getNode(graph.findNodeIdForSequence("AAATC")).getData();
-    test_data2.map_out_list= map_out_list2; 
+      msg.setEdgeStrands(StrandsForEdge.FR);
+      mapOutList.add(msg);
+    }
+    // both messages are now in a List; we now set the expected node/ key for those msg
+    GraphNode temp= graph.getNode(graph.findNodeIdForSequence("TCA")).clone();
+    temp.removeNeighbor(graph.getNode(graph.findNodeIdForSequence("GTC")).getNodeId());
+    temp.removeNeighbor(graph.getNode(graph.findNodeIdForSequence("ATC")).getNodeId());
 
-    // add key/msg list to Object List
-    test_data_list.add(test_data2);
-    return test_data_list;
+    testData.expected_node_data = new HashMap<String,GraphNodeData>();
+    testData.expected_node_data.put(temp.getNodeId(), temp.getData());
+    testData.mapOutList= mapOutList; 
+    testData.reducer_input_key = temp.getNodeId();
+
+    return testData;
   }
+
+  private List<ReduceTestCaseData> constructReduceTips() {
+    List<ReduceTestCaseData> testData_list = new ArrayList<ReduceTestCaseData> ();	
+
+    ReduceTestCaseData equaLenTestData = createEqualLengthTipsTestData();
+    ReduceTestCaseData nonEqualLenTestData = createNonEqualLenTipsTestData();
+    // add key/msg list to Object List
+    testData_list.add(equaLenTestData);
+    testData_list.add(nonEqualLenTestData);
+    return testData_list;
+  }
+  
   @Test
   public void testReduce() {
     List <ReduceTestCaseData> case_data_list= constructReduceTips();
     ReporterMock reporter_mock = new ReporterMock();
     Reporter reporter = reporter_mock;
+
     JobConf job = new JobConf(RemoveTipsAvro.RemoveTipsAvroReducer.class);
     RemoveTipsAvro.RemoveTipsAvroReducer reducer = new RemoveTipsAvro.RemoveTipsAvroReducer();
+    RemoveTipsAvro stage= new RemoveTipsAvro();
+    Map<String, ParameterDefinition> definitions = stage.getParameterDefinitions();
+    int tiplength= 4;
+    definitions.get("tiplength").addToJobConf(job, new Integer(tiplength));
     reducer.configure(job);
 
     for (ReduceTestCaseData case_data : case_data_list) {
 
       AvroCollectorMock<GraphNodeData> collector_mock = new AvroCollectorMock<GraphNodeData>();
       try {
-        CharSequence key = case_data.expected_node_data.getNodeId();
-        reducer.reduce(key, case_data.map_out_list, collector_mock, reporter);
+        CharSequence key = case_data.reducer_input_key;
+        reducer.reduce(key, case_data.mapOutList, collector_mock, reporter);
       }
       catch (IOException exception){
         fail("IOException occured in reduce: " + exception.getMessage());
@@ -236,6 +311,7 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
       assertReduceOutput(case_data, collector_mock);
     }
   }
+  
   @Test
   public void testRun() {
     SimpleGraphBuilder builder = new SimpleGraphBuilder();
@@ -269,15 +345,15 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
       }
       writer.close();
     } catch (IOException exception) { 
-        fail("There was a problem writing the graph to an avro file. " +
-             "Exception:" + exception.getMessage());
+      fail("There was a problem writing the graph to an avro file. " +
+          "Exception:" + exception.getMessage());
     }
     // Run it.
     RemoveTipsAvro run_tips = new RemoveTipsAvro();
     File output_path = new File(temp, "output");
     String[] args =
       {"--inputpath=" + temp.toURI().toString(),
-       "--outputpath=" + output_path.toURI().toString(), 
+        "--outputpath=" + output_path.toURI().toString(), 
       };
     try {
       run_tips.run(args);
