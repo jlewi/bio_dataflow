@@ -233,14 +233,14 @@ public class RemoveTipsAvro extends Stage {
 
         List<RemoveTipMessage> msg_list = tips.get(strand);
 
-        numTips += msg_list.size(); 
+        numTips += msg_list.size();
         if (numTips == 0) { continue; }
-        deg = actual_node.degree(strand);   
+        deg = actual_node.degree(strand);
 
         if (numTips == deg)	{
-          // All edges in this direction are tips, only keep the longest one				
-          besttip_len= LongestTip(msg_list);       
-        }	
+          // All edges in this direction are tips, only keep the longest one
+          besttip_len= LongestTip(msg_list);
+        }
         /* if the number of tips is > 0 but not equal to the degree
 	of the non tip node;then we'll remove all the tips and
 	leave non-tips intact
@@ -248,7 +248,7 @@ public class RemoveTipsAvro extends Stage {
          */
         for (RemoveTipMessage message : msg_list)   {
           tip_node.setData(message.getNode());
-          
+
           if(numTips == deg)	{
               if( tip_node.getData().getSequence().getLength() < besttip_len )    { // check if its len < len of longest tip
                 result = actual_node.removeNeighbor(tip_node.getNodeId());
@@ -316,7 +316,6 @@ public class RemoveTipsAvro extends Stage {
 
     AvroJob.setMapperClass(conf, RemoveTipsAvroMapper.class);
     AvroJob.setReducerClass(conf, RemoveTipsAvroReducer.class);
-
     AvroJob.setOutputSchema(conf, graph_data.getSchema());
 
     RunningJob job = null;

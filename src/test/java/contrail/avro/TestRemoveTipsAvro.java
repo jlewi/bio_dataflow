@@ -42,6 +42,10 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
 
     assertTrue(it.hasNext());
     Pair<CharSequence, RemoveTipMessage> actual_message = it.next();
+
+    if (actual_message.value().getNode().getNodeId().toString().equals("ATC")) {
+      System.out.println("Hello");
+    }
     assertEquals(expected_message, actual_message);
     assertFalse(it.hasNext());
   }

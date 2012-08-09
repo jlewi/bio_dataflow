@@ -175,6 +175,8 @@ public class GraphStats extends Stage {
     //        mOutput.collect(new Text("Cutoff"), new Text("Cnt\tSum\tMean\tN50\tN50Cnt\tDeg\tCov"));
     //
     //        long n50sum = 0;
+
+              // I think n50candidates is the number of contigs in this bin.
     //        int n50candidates = n50sizes.size();
     //
     //        // find the largest cutoff with at least 1 contig
@@ -374,6 +376,10 @@ public class GraphStats extends Stage {
     AvroJob.setMapperClass(conf, GraphStatsMapper.class);
     AvroJob.setCombinerClass(conf, GraphStatsReducer.class);
     AvroJob.setReducerClass(conf, GraphStatsReducer.class);
+
+    // Use a single reducer task that we accumulate all the stats in one
+    // reducer.
+    conf.setNumReduceTasks(1);
 
     if (stage_options.containsKey("writeconfig")) {
       writeJobConfig(conf);
