@@ -1,9 +1,11 @@
 package contrail.avro;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroJob;
@@ -32,9 +34,21 @@ import contrail.sequences.DNAStrand;
 /**
  * Compute statistics of the contigs.
  *
- * We bin the nodes based on the length of the sequences. For each bin
- * we compute statistics such as a weighted sum of the number of edges,
- * number of sequences, the weighted coverage, etc...
+ * We divde the contigs into bins where each bin contains all contigs whose
+ * length is [Li, Li+1). For each cutoff, Li we compute  various statistics the
+ * most important one being the N50 length.
+ * The N50 length is the length such that the sum of all congtigs less than
+ * the N50 length is 50% of the sum of the lengths of all contigs.
+ *
+ * The stage works as follows.
+ * 1. The mapper assigns each contig to a bin.
+ * 2. The combiner and reducer computes some sufficient statistics for each
+ *    bin; e.g. the sum of the lengths of the sequences in that bin. The
+ *    result also stores the lengths of the actual contigs in sorted order.
+ * 3. The outputs are sorted in descending order with respect to the bin
+ *    cutoffs. This facilitates step 4.
+ * 4. After the stage completes, we read the outputs and compute the statistics
+ *    for each bin.
  */
 public class GraphStats extends Stage {
   private static final Logger sLogger = Logger.getLogger(GraphStats.class);
@@ -105,6 +119,7 @@ public class GraphStats extends Stage {
       graphStats = new GraphStatsData();
       node = new GraphNode();
       outPair = new Pair<Integer, GraphStatsData>(-1, graphStats);
+      graphStats.setLengths(new ArrayList<Integer>());
     }
 
 
@@ -122,18 +137,47 @@ public class GraphStats extends Stage {
       int bin = binLength(len);
 
       graphStats.setCount(1L);
+      graphStats.getLengths().set(0, len);
       graphStats.setLengthSum(len);
       graphStats.setDegreeSum((fdegree + rdegree) * len);
       graphStats.setCoverageSum((double) (cov * len));
 
-      outPair.key(bin);
+      // The output key is the negative of the bin index so that we
+      // sort the bins in descending order.
+      outPair.key(-1 * bin);
       collector.collect(outPair);
     }
   }
 
+  protected static ArrayList<Integer> mergeSortedLists(
+      List<Integer> left, List<Integer> right) {
+    ArrayList<Integer> merged = new ArrayList<Integer>();
+    int left_index = 0;
+    int right_index = 0;
+    while ((left_index < left.size()) && (right_index < right.size())) {
+      if (left.get(left_index) < right.get(right_index)) {
+        merged.add(left.get(left_index));
+        ++left_index;
+      } else {
+        merged.add(right.get(right_index));
+        ++right_index;
+      }
+    }
+    if (left_index < left.size()) {
+      for (; left_index < left.size(); ++left_index) {
+        merged.add(left.get(left_index));
+      }
+    }
+    if (right_index < right.size()){
+      for (; right_index < right.size(); ++right_index) {
+        merged.add(right.get(right_index));
+      }
+    }
+    return merged;
+  }
 
   public static class GraphStatsReducer
-  extends AvroReducer<Integer, GraphStatsData, GraphStatsData>   {
+    extends AvroReducer<Integer, GraphStatsData, GraphStatsData>   {
 
     private GraphStatsData total;
     public void configure(JobConf job) {
@@ -148,11 +192,16 @@ public class GraphStats extends Stage {
       total.setCoverageSum(0.0);
       total.setDegreeSum(0);
       total.setLengthSum(0);
-
+      total.setLengths(new ArrayList<Integer>());
       Iterator<GraphStatsData> iter = iterable.iterator();
       while (iter.hasNext()) {
         GraphStatsData item = iter.next();
         total.setCount(total.getCount() + item.getCount());
+
+        ArrayList<Integer> merged = mergeSortedLists(
+            total.getLengths(), item.getLengths());
+
+        total.setLengths(merged);
         total.setCoverageSum(total.getCoverageSum() + item.getCoverageSum());
         total.setDegreeSum(total.getDegreeSum() + item.getDegreeSum());
         total.setLengthSum(total.getLengthSum() + item.getLengthSum());

@@ -362,7 +362,11 @@
                  },
                  {"name": "length_sum",
                   "type": "int",
-                  "doc": "Sum of the lengths of the sequences in the graph."},
+                  "doc": "Sum of the lengths of the sequences in this bin."},
+                 {"name": "lengths",
+                  "type": {"type": "array", "items": "int"},
+                  "doc": "Lengths of the contigs in this bin."
+                 },
                  {"name": "degree_sum",
                   "type": "int",
                   "doc": "The total number of edges in the graph."
