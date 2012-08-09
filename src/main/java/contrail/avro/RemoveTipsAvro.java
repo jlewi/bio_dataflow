@@ -22,6 +22,7 @@ import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -36,11 +37,11 @@ import contrail.sequences.StrandsUtil;
 
 /*
 removeTips Phase  identifies the 'tips' in the graphdata;
-These tips are identified by 
+These tips are identified by
 1. Sum of inDegree and outDegree is at most 1
 2. their sequence length being less than a particular limit (tiplength)
 
-We can have lots of tips along one strand; and sometimes all the edges in a particular Strand direction are tips, 
+We can have lots of tips along one strand; and sometimes all the edges in a particular Strand direction are tips,
 In that case we only keep the longest one and remove all other shorter tips.
 
 Mapper:
@@ -53,14 +54,15 @@ Reducer:
 -- delete rest of the tips for both kind of DNAStrands
  */
 
-public class RemoveTipsAvro extends Stage {	
+public class RemoveTipsAvro extends Stage {
   private static final Logger sLogger = Logger.getLogger(RemoveTipsAvro.class);
 
   public static final Schema MAP_OUT_SCHEMA = Pair.getPairSchema(Schema.create(Schema.Type.STRING), (new RemoveTipMessage()).getSchema());
   private static Pair<CharSequence, RemoveTipMessage> out_pair = new Pair<CharSequence, RemoveTipMessage>(MAP_OUT_SCHEMA);
 
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
-    HashMap<String, ParameterDefinition> defs = new HashMap<String, ParameterDefinition>();
+    HashMap<String, ParameterDefinition> defs =
+        new HashMap<String, ParameterDefinition>();
     defs.putAll(super.createParameterDefinitions());
 
     ParameterDefinition tiplength = new ParameterDefinition("tiplength", "any" +
@@ -80,7 +82,7 @@ public class RemoveTipsAvro extends Stage {
   // RemoveTipsMapper
   ///////////////////////////////////////////////////////////////////////////
 
-  public static class RemoveTipsAvroMapper extends 
+  public static class RemoveTipsAvroMapper extends
   AvroMapper<GraphNodeData, Pair<CharSequence, RemoveTipMessage>>  {
 
     public int tiplength = 0;
@@ -88,7 +90,7 @@ public class RemoveTipsAvro extends Stage {
     public static boolean VERBOSE = false;
     public static RemoveTipMessage msg= null;
 
-    public void configure(JobConf job) {	
+    public void configure(JobConf job) {
       RemoveTipsAvro stage = new RemoveTipsAvro();
       Map<String, ParameterDefinition> definitions = stage.getParameterDefinitions();
       tiplength = (Integer)(definitions.get("tiplength").parseJobConf(job));
@@ -98,7 +100,7 @@ public class RemoveTipsAvro extends Stage {
 
     @Override
     public void map(GraphNodeData graph_data,
-        AvroCollector<Pair<CharSequence, RemoveTipMessage>> output, 
+        AvroCollector<Pair<CharSequence, RemoveTipMessage>> output,
         Reporter reporter) throws IOException  {
       node = new GraphNode(graph_data);
       int fdegree = node.degree(DNAStrand.FORWARD);
@@ -116,11 +118,11 @@ public class RemoveTipsAvro extends Stage {
           sLogger.info("Removing tip " + node.getNodeId() + " len=" + len);
         }
 
-        // Tell the one neighbor that I'm a tip	
+        // Tell the one neighbor that I'm a tip
         DNAStrand strand;
         if (fdegree == 1) {
-          strand = DNAStrand.FORWARD; 
-        } 
+          strand = DNAStrand.FORWARD;
+        }
         else {
           strand = DNAStrand.REVERSE;
         }
@@ -128,17 +130,17 @@ public class RemoveTipsAvro extends Stage {
         StrandsForEdge key = StrandsUtil.form(strand, terminals.get(0).strand);
 
         msg.setNode(graph_data);
-        msg.setEdgeStrands(key);			
+        msg.setEdgeStrands(key);
         out_pair.set( terminals.get(0).nodeId, msg);
         output.collect(out_pair);
       }
       else	{
         msg.setNode(graph_data);
-        msg.setEdgeStrands(null); /*setEdgeStrands is set null to indicate 
+        msg.setEdgeStrands(null); /*setEdgeStrands is set null to indicate
 							  that this node is normal, not a tip*/
         out_pair.set(node.getNodeId(), msg);
         output.collect(out_pair);
-        reporter.incrCounter("Contrail", "nodes", 1);   	
+        reporter.incrCounter("Contrail", "nodes", 1);
       }
     }
   }
@@ -146,7 +148,7 @@ public class RemoveTipsAvro extends Stage {
   // RemoveTipsReducer
   ///////////////////////////////////////////////////////////////////////
 
-  public static class RemoveTipsAvroReducer 
+  public static class RemoveTipsAvroReducer
   extends AvroReducer<CharSequence, RemoveTipMessage, GraphNodeData>   {
     GraphNode temp_node = null;
     GraphNode actual_node= null;
@@ -183,7 +185,7 @@ public class RemoveTipsAvro extends Stage {
 
       //-- set-up 2 lists in a HashMap keyed by DNAStrand and its corresponding message from mapper
       //-- Thus HashMap has 2 entries as lists; one list corresponds to Forward EdgeStrands generated from mapper; and other corresponds to Reverse Edgestrands
-      //-- populate the 2 lists using the output from the mapper sent to reducer for a particular terminal (whose nodeID is sent as key); 
+      //-- populate the 2 lists using the output from the mapper sent to reducer for a particular terminal (whose nodeID is sent as key);
 
       Map<DNAStrand, List<RemoveTipMessage>> tips = new HashMap<DNAStrand, List<RemoveTipMessage>>();
 
@@ -195,7 +197,7 @@ public class RemoveTipsAvro extends Stage {
       int sawnode = 0;
 
       while(iter.hasNext())	{
-        RemoveTipMessage msg = iter.next();	
+        RemoveTipMessage msg = iter.next();
         if (msg.getEdgeStrands() == null)    {  // non tip , normal node
           actual_node.setData(msg.getNode());
           actual_node = actual_node.clone();
@@ -211,7 +213,7 @@ public class RemoveTipsAvro extends Stage {
           DNAStrand dnastrand= StrandsUtil.dest(copy.getEdgeStrands() );
           tips.get(dnastrand).add(copy);
         }
-      } 
+      }
 
       if (sawnode != 1)	{
         throw new IOException("ERROR: Didn't see exactly 1 NON-tip node (" + sawnode + ") for " + nodeid.toString());
@@ -224,13 +226,13 @@ public class RemoveTipsAvro extends Stage {
         boolean keptTip= false;
 
         List<RemoveTipMessage> msg_list = tips.get(strand);
-        numTips += msg_list.size(); 
+        numTips += msg_list.size();
         if (numTips == 0) { continue; }
         deg = actual_node.degree(strand, EdgeDirection.INCOMING);
         if (numTips == deg)	{
-          // All edges in this direction are tips, only keep the longest one				
-          besttip_len = LongestTip(msg_list);       
-        }	
+          // All edges in this direction are tips, only keep the longest one
+          besttip_len = LongestTip(msg_list);
+        }
         /* if the number of tips is > 0 but not equal to the degree
 	of the non tip node;then we'll remove all the tips and
 	leave non-tips intact
@@ -256,13 +258,15 @@ public class RemoveTipsAvro extends Stage {
           }
           else	{
             // remove all
-            result = actual_node.removeNeighbor(tip_node.getNodeId()); 
+            result = actual_node.removeNeighbor(tip_node.getNodeId());
           }
 
           if(result)    {
-            reporter.incrCounter("Contrail", "tips_clipped", 1);
+            reporter.incrCounter(
+                GraphCounters.remove_tips_tips_removed.group,
+                GraphCounters.remove_tips_tips_removed.tag, 1);
           }
-        }	
+        }
       }
       output.collect(actual_node.getData());
     }
@@ -270,9 +274,7 @@ public class RemoveTipsAvro extends Stage {
 
   // Run
   //////////////////////////////////////////////////////////////////////////
-
-  protected int run() throws Exception	{
-
+  public RunningJob runJob() throws Exception {
     String[] required_args = {"inputpath", "outputpath", "tiplength"};
     checkHasParametersOrDie(required_args);
 
@@ -288,7 +290,7 @@ public class RemoveTipsAvro extends Stage {
     JobConf conf = null;
     if (base_conf != null) {
       conf = new JobConf(getConf(), this.getClass());
-    } 
+    }
     else {
       conf = new JobConf(this.getClass());
     }
@@ -306,18 +308,24 @@ public class RemoveTipsAvro extends Stage {
     AvroJob.setReducerClass(conf, RemoveTipsAvroReducer.class);
     AvroJob.setOutputSchema(conf, graph_data.getSchema());
 
-    //delete the output directory if it exists already
-    FileSystem.get(conf).delete(new Path(outputPath), true);
+    RunningJob job = null;
+    if (stage_options.containsKey("writeconfig")) {
+      writeJobConfig(conf);
+    } else {
+      // Delete the output directory if it exists already
+      Path outPath = new Path(outputPath);
+      if (FileSystem.get(conf).exists(outPath)) {
+        // TODO(jlewi): We should only delete an existing directory
+        // if explicitly told to do so.
+        sLogger.info("Deleting output path: " + outPath.toString() + " " +
+            "because it already exists.");
+        FileSystem.get(conf).delete(outPath, true);
+      }
 
-    JobClient.runJob(conf);
-    return 0;
+      job = JobClient.runJob(conf);
+    }
+    return job;
   }
-
-  public int run(String[] args) throws Exception {
-    sLogger.info("Tool name: RemoveTips");
-    parseCommandLine(args);   
-    return run();
-  }	
 
   public static void main(String[] args) throws Exception {
     int res = ToolRunner.run(new Configuration(), new RemoveTipsAvro(), args);

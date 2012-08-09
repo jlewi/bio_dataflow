@@ -315,7 +315,7 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
   @Test
   public void testRun() {
     SimpleGraphBuilder builder = new SimpleGraphBuilder();
-    builder.addKMersForString("ACTGG", 3); 
+    builder.addKMersForString("ACTGG", 3);
     File temp = null;
     try {
       temp = File.createTempFile("temp", Long.toString(System.nanoTime()));
@@ -334,14 +334,14 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
     File avro_file = new File(temp, "graph.avro");
     // Write the data to the file.
     Schema schema = (new GraphNodeData()).getSchema();
-    DatumWriter<GraphNodeData> datum_writer = 
+    DatumWriter<GraphNodeData> datum_writer =
         new SpecificDatumWriter<GraphNodeData>(schema);
-    DataFileWriter<GraphNodeData> writer = 
+    DataFileWriter<GraphNodeData> writer =
         new DataFileWriter<GraphNodeData>(datum_writer);
     try {
       writer.create(schema, avro_file);
       for (GraphNode node: builder.getAllNodes().values()) {
-        writer.append(node.getData()); 
+        writer.append(node.getData());
       }
       writer.close();
     } catch (IOException exception) { 
@@ -353,7 +353,7 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
     File output_path = new File(temp, "output");
     String[] args =
       {"--inputpath=" + temp.toURI().toString(),
-        "--outputpath=" + output_path.toURI().toString(), 
+       "--outputpath=" + output_path.toURI().toString(), 
       };
     try {
       run_tips.run(args);
