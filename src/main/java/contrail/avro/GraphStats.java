@@ -387,6 +387,41 @@ public class GraphStats extends Stage {
   //  }
   //
 
+  /**
+   * Compute the statistics given the data for each bin.
+   *
+   * This function runs after the mapreduce stage has completed. It takes
+   * as input the sufficient statistics for each bin and computes the final
+   * statistics.
+   *
+   * @param iterators: A list of iterators to iterate over the GraphStats for
+   *   each bin. The iterators should iterate over the data in descending order
+   *   with respect to the bin cutoffs.
+   */
+  protected void processStats(
+      List<Iterator<Pair<Integer, GraphStatsData>>> iterators) {
+    Integer lastBin = null;
+
+    // Keep a running sum of the lengths across bins.
+    long lengthSum = 0;
+
+    for (Iterator<Pair<Integer, GraphStatsData>> iterator: iterators) {
+      while (iterator.hasNext()) {
+        Pair<Integer, GraphStatsData> pair = iterator.next();
+        GraphStatsData binData = pair.value();
+        if (lastBin != null) {
+          // Make sure we are sorted in descending order.
+          if (lastBin < pair.key()) {
+            throw new RuntimeException(
+                "The bins aren't sorted in descending order");
+          }
+          lastBin = pair.key();
+        }
+
+        lengthSum += binData.getLengthSum();
+      }
+    }
+  }
   @Override
   public RunningJob runJob() throws Exception {
     String[] required_args = {"inputpath", "outputpath"};
