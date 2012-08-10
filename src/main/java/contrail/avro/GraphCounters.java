@@ -32,4 +32,9 @@ public class GraphCounters {
   
   public static CounterName quick_mark_nodes_send_to_compressor =
       new CounterName("Contrail", "nodes_to_send_to_compressor");
+
+  // the low coverage nodes
+  public static CounterName num_low_coverage_nodes =
+      new CounterName("Contrail", "number of low coverage nodes");
+
 }
