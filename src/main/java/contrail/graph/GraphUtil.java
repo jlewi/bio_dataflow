@@ -20,7 +20,8 @@ public class GraphUtil {
    * @param avroFile
    * @param nodes
    */
-  public static void writeGraph(File avroFile, Collection<GraphNode> nodes) {
+  public static void writeGraphToFile(
+      File avroFile, Collection<GraphNode> nodes) {
     // Write the data to the file.
     Schema schema = (new GraphNodeData()).getSchema();
     DatumWriter<GraphNodeData> datumWriter =

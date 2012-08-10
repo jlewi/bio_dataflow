@@ -7,13 +7,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-
-import org.apache.avro.Schema;
-import org.apache.avro.file.DataFileWriter;
-import org.apache.avro.io.DatumWriter;
 import org.apache.avro.mapred.Pair;
-import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
@@ -25,6 +19,7 @@ import contrail.graph.GraphError;
 import contrail.graph.GraphErrorCodes;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
+import contrail.graph.GraphUtil;
 import contrail.graph.SimpleGraphBuilder;
 import contrail.graph.ValidateEdge;
 import contrail.graph.ValidateMessage;
@@ -332,26 +327,6 @@ public class TestValidateGraph extends ValidateGraph {
     return temp;
   }
 
-  private void writeGraph(File avroFile, Map<String, GraphNode> nodes) {
-    // Write the data to the file.
-    Schema schema = (new GraphNodeData()).getSchema();
-    DatumWriter<GraphNodeData> datumWriter =
-        new SpecificDatumWriter<GraphNodeData>(schema);
-    DataFileWriter<GraphNodeData> writer =
-        new DataFileWriter<GraphNodeData>(datumWriter);
-
-    try {
-      writer.create(schema, avroFile);
-      for (GraphNode node: nodes.values()) {
-        writer.append(node.getData());
-      }
-      writer.close();
-    } catch (IOException exception) {
-      fail("There was a problem writing the graph to an avro file. Exception:" +
-          exception.getMessage());
-    }
-  }
-
   @Test
   public void testRun() {
     // Create a graph and write it to a file.
@@ -365,7 +340,8 @@ public class TestValidateGraph extends ValidateGraph {
     File temp = createTempDir();
     File avroFile = new File(temp, "graph.avro");
 
-    writeGraph(avroFile, builder.getAllNodes());
+    GraphUtil.writeGraphToFile(
+        avroFile, builder.getAllNodes().values());
 
     // Run it.
     ValidateGraph stage = new ValidateGraph();

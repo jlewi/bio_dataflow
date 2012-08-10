@@ -67,7 +67,7 @@ public class TestGraphToFasta extends GraphToFasta {
 
     ArrayList<GraphNode> nodes = new ArrayList<GraphNode>();
     nodes.addAll(builder.getAllNodes().values());
-    GraphUtil.writeGraph(avroFile, nodes);
+    GraphUtil.writeGraphToFile(avroFile, nodes);
 
     // Run it.
     GraphToFasta stage = new GraphToFasta();
