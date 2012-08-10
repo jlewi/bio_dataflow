@@ -171,7 +171,7 @@ public class RemoveLowCoverageAvro extends Stage {
       for(CharSequence neighbor : neighbors) {
         boolean result= node.removeNeighbor(neighbor.toString());
         if(!result) {
-          throw new IOException("ERROR: Edge could not be removed from " + nodeid.toString()+
+          throw new RuntimeException("ERROR: Edge could not be removed from " + nodeid.toString()+
               " to low coverage node "+neighbor.toString());
         }
         reporter.incrCounter("Contrail", "links-removed", 1);
