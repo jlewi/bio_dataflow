@@ -25,6 +25,7 @@ import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 import contrail.graph.EdgeDirection;
+import contrail.graph.GraphN50StatsData;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.graph.GraphStatsData;
@@ -398,12 +399,26 @@ public class GraphStats extends Stage {
    *   each bin. The iterators should iterate over the data in descending order
    *   with respect to the bin cutoffs.
    */
-  protected void processStats(
+  protected ArrayList<GraphN50StatsData> computeN50Stats(
       List<Iterator<Pair<Integer, GraphStatsData>>> iterators) {
+    // The output is an array of GraphN50StatsData. Each record gives the
+    // N50 stats for a different bin.
+    ArrayList<GraphN50StatsData> outputs = new ArrayList<GraphN50StatsData>();
+
     Integer lastBin = null;
 
     // Keep a running sum of the lengths across bins.
-    long lengthSum = 0;
+    long binLengthsSum = 0;
+
+    // A list of the lengths of the contigs in descending order.
+    // This allows us to find the N50 length.
+    ArrayList<Integer> contigLengths = new ArrayList<Integer>();
+
+    // This is the index into contigLengths where we continue summing.
+    Integer contigIndex = -1;
+
+    // Keep track of  sum(contigLengths[0],..., contigLengths[contigIndex]).
+    long contigSum = 0;
 
     for (Iterator<Pair<Integer, GraphStatsData>> iterator: iterators) {
       while (iterator.hasNext()) {
@@ -418,10 +433,47 @@ public class GraphStats extends Stage {
           lastBin = pair.key();
         }
 
-        lengthSum += binData.getLengthSum();
+        contigLengths.addAll(binData.getLengths());
+        binLengthsSum += binData.getLengthSum();
+
+        // Compute the N50 length for this value.
+        Long N50Length = binLengthsSum / 2;
+
+        // Continue iterating over the sequences in descending order until
+        // we reach a sequence such that the running sum is >= N50Length.
+        while (contigSum < N50Length) {
+          ++contigIndex;
+          contigSum += contigLengths.get(contigIndex);
+        }
+
+        // So at this point contigIndex corresponds to the index of the N50
+        // cutoff.
+        GraphN50StatsData n50Data = new GraphN50StatsData();
+        n50Data.setN50Length(contigLengths.get(contigIndex));
+        n50Data.setMaxLength(contigLengths.get(0));
+        n50Data.setMinLength(contigLengths.get(contigLengths.size() - 1));
+        n50Data.setLengthSum(binLengthsSum);
+        n50Data.setNumContigs(contigLengths.size());
+        n50Data.setN50Index(contigIndex);
+
+        outputs.add(n50Data);
       }
     }
+    return outputs;
   }
+
+  /**
+   * Create a list of iterators to iterate over the outputs of the MR job.
+   *
+   * There is one iterator for each output file.
+   *
+   * @return
+   */
+  protected List<Iterator<Pair<Integer, GraphStatsData>>>
+    createOutputIterators() {
+
+  }
+
   @Override
   public RunningJob runJob() throws Exception {
     String[] required_args = {"inputpath", "outputpath"};
@@ -484,6 +536,18 @@ public class GraphStats extends Stage {
 
       float diff = (float) ((endtime - starttime) / 1000.0);
       System.out.println("Runtime: " + diff + " s");
+
+
+      // Create iterators to read the output
+      List<Iterator<Pair<Integer, GraphStatsData>>> iterators =
+          createOutputIterators();
+
+      // Compute the N50 stats for each bin.
+      ArrayList<GraphN50StatsData> N50Stats = computeN50Stats(iterators);
+
+      // Write the N50 stats to a file.
+      writeN50StatsToFile(N50Stats);
+
       return job;
     }
     return null;

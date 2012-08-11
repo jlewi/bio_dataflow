@@ -365,8 +365,8 @@
                   "doc": "Sum of the lengths of the sequences in this bin."},
                  {"name": "lengths",
                   "type": {"type": "array", "items": "int"},
-                  "doc": "Lengths of the contigs in this bin. These should be "
-                         "sorted in descending order."
+                  "doc": ["Lengths of the contigs in this bin. These should ",
+                          "be sorted in descending order."]
                  },
                  {"name": "degree_sum",
                   "type": "int",
@@ -375,6 +375,39 @@
                  {"name": "coverage_sum",
                   "type": "double",
                   "doc": "The sum of the coverage in the graph."
+                 }
+                ]
+     },
+     {"name": "contrail.graph.GraphN50StatsData",
+      "type": "record",
+      "doc": ["This record contains the N50 statistics. The statistics are ",
+              "computed with respect to all contigs with lengths in the ",
+              "range [minLength, maxLength]."], 
+      "fields": [{"name": "num_contigs",
+                  "type": "long",
+                  "doc": "Number of sequences in this range."
+                 },
+                 {"name": "min_length",
+                  "type": "int",
+                  "doc": "Smallest length considered."
+                 },
+                 {"name": "max_length",
+                  "type": "int",
+                  "doc": "Maximum length considered."
+                 },
+                 {"name": "n50_length",
+                  "type": "int",
+                  "doc": ["The length of the N50 value. This is the length ",
+                          "such that the sum of all contigs with length >= ",
+                          "to this value is >= 50% of the length_sum"]
+                 },
+                 {"name": "length_sum",
+                  "type": "long",
+                  "doc": "The sum of the lengths of all contigs in this range."
+                 }
+                 {"name": "n50_index",
+                  "type": "int",
+                  "doc": "The number of contigs with length >= n50_length"
                  }
                 ]
      }
