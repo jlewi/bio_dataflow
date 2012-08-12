@@ -35,4 +35,8 @@ public class GraphCounters {
 
   public static CounterName remove_tips_tips_removed =
       new CounterName("Contrail", "remove_tips_tips_clipped");
+
+  // the low coverage nodes
+  public static CounterName num_low_coverage_nodes =
+      new CounterName("Contrail", "number of low coverage nodes");
 }
