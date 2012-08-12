@@ -183,37 +183,72 @@ public class GraphStats extends Stage {
     return merged;
   }
 
+  /**
+   * Sum the data in graphstats data.
+   *
+   * @param iter: Iterator over the graphstats data.
+   * @param total: Result. This is zeroed out before summing the data
+   */
+  protected static void sumGraphStats(
+      Iterator<GraphStatsData> iter, GraphStatsData total) {
+    total.setCount(0L);
+    total.setCoverageSum(0.0);
+    total.setDegreeSum(0);
+    total.setLengthSum(0);
+    total.getLengths().clear();
+
+    while (iter.hasNext()) {
+      GraphStatsData item = iter.next();
+      total.setCount(total.getCount() + item.getCount());
+
+      ArrayList<Integer> merged = mergeSortedListsDescending(
+          total.getLengths(), item.getLengths());
+
+      total.setLengths(merged);
+      total.setCoverageSum(total.getCoverageSum() + item.getCoverageSum());
+      total.setDegreeSum(total.getDegreeSum() + item.getDegreeSum());
+      total.setLengthSum(total.getLengthSum() + item.getLengthSum());
+    }
+  }
+
+  public static class GraphStatsCombiner
+    extends AvroReducer<Integer, GraphStatsData,
+                        Pair<Integer, GraphStatsData>> {
+
+    private Pair<Integer, GraphStatsData> outPair;
+    private GraphStatsData total;
+    public void configure(JobConf job) {
+      total = new GraphStatsData();
+      total.setLengths(new ArrayList<Integer>());
+      outPair = new Pair<Integer, GraphStatsData>(0, total);
+    }
+
+    @Override
+    public void reduce(
+        Integer bin, Iterable<GraphStatsData> iterable,
+        AvroCollector<Pair<Integer, GraphStatsData>> output, Reporter reporter)
+            throws IOException   {
+      Iterator<GraphStatsData> iter = iterable.iterator();
+      sumGraphStats(iter, total);
+      outPair.key(bin);
+      output.collect(outPair);
+    }
+  }
+
   public static class GraphStatsReducer
       extends AvroReducer<Integer, GraphStatsData, GraphStatsData> {
 
     private GraphStatsData total;
     public void configure(JobConf job) {
       total = new GraphStatsData();
+      total.setLengths(new ArrayList<Integer>());
     }
 
     @Override
     public void reduce(Integer bin, Iterable<GraphStatsData> iterable,
         AvroCollector<GraphStatsData> output, Reporter reporter)
             throws IOException   {
-
-      total.setCount(0L);
-      total.setCoverageSum(0.0);
-      total.setDegreeSum(0);
-      total.setLengthSum(0);
-      total.setLengths(new ArrayList<Integer>());
-      Iterator<GraphStatsData> iter = iterable.iterator();
-      while (iter.hasNext()) {
-        GraphStatsData item = iter.next();
-        total.setCount(total.getCount() + item.getCount());
-
-        ArrayList<Integer> merged = mergeSortedListsDescending(
-            total.getLengths(), item.getLengths());
-
-        total.setLengths(merged);
-        total.setCoverageSum(total.getCoverageSum() + item.getCoverageSum());
-        total.setDegreeSum(total.getDegreeSum() + item.getDegreeSum());
-        total.setLengthSum(total.getLengthSum() + item.getLengthSum());
-      }
+      sumGraphStats(iterable.iterator(), total);
       output.collect(total);
     }
   }
@@ -451,7 +486,7 @@ public class GraphStats extends Stage {
     AvroJob.setOutputSchema(conf, mapOutput.value().getSchema());
 
     AvroJob.setMapperClass(conf, GraphStatsMapper.class);
-    //AvroJob.setCombinerClass(conf, GraphStatsReducer.class);
+    AvroJob.setCombinerClass(conf, GraphStatsCombiner.class);
     AvroJob.setReducerClass(conf, GraphStatsReducer.class);
 
     // Use a single reducer task that we accumulate all the stats in one
