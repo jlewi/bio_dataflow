@@ -352,7 +352,7 @@ public class TestGraphStats extends GraphStats {
     File temp = FileHelper.createLocalTempDir();
     File avroFile = new File(temp, "graph.avro");
 
-    GraphUtil.writeGraph(avroFile, builder.getAllNodes().values());
+    GraphUtil.writeGraphToFile(avroFile, builder.getAllNodes().values());
 
     // Run it.
     GraphStats stage = new GraphStats();

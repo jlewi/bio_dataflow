@@ -226,13 +226,13 @@ public class RemoveTipsAvro extends Stage {
         boolean keptTip= false;
 
         List<RemoveTipMessage> msg_list = tips.get(strand);
-        numTips += msg_list.size();
+        numTips += msg_list.size(); 
         if (numTips == 0) { continue; }
         deg = actual_node.degree(strand, EdgeDirection.INCOMING);
         if (numTips == deg)	{
-          // All edges in this direction are tips, only keep the longest one
-          besttip_len = LongestTip(msg_list);
-        }
+          // All edges in this direction are tips, only keep the longest one				
+          besttip_len = LongestTip(msg_list);       
+        }	
         /* if the number of tips is > 0 but not equal to the degree
 	of the non tip node;then we'll remove all the tips and
 	leave non-tips intact
@@ -266,7 +266,7 @@ public class RemoveTipsAvro extends Stage {
                 GraphCounters.remove_tips_tips_removed.group,
                 GraphCounters.remove_tips_tips_removed.tag, 1);
           }
-        }
+        }	
       }
       output.collect(actual_node.getData());
     }
