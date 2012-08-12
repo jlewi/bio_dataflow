@@ -239,6 +239,7 @@ public class TestGraphStats extends GraphStats {
   }
 
   private N50StatsTestData createN50StatsTest() {
+    Random generator = new Random();
     N50StatsTestData testData = new N50StatsTestData();
 
     int numRecords = 10;
@@ -255,10 +256,15 @@ public class TestGraphStats extends GraphStats {
       stats.setLengthSum(sumList(stats.getLengths()));
       stats.setCount((long) numContigsPerRecord);
 
+      stats.setDegreeSum(generator.nextInt(100));
+      stats.setCoverageSum(generator.nextDouble()*100);
       testData.inputStats.add(stats);
     }
 
     // Compute the result data for each contig.
+    long degreeSum = 0;
+    double coverageSum = 0;
+
     for (int i = 0; i < numRecords; ++i) {
       GraphN50StatsData n50stats = new GraphN50StatsData();
       List<Integer> contigs =
@@ -269,13 +275,21 @@ public class TestGraphStats extends GraphStats {
       n50stats.setMinLength(contigs.get(contigs.size() - 1));
       n50stats.setNumContigs((long) contigs.size());
 
+      degreeSum += testData.inputStats.get(i).getDegreeSum();
+      coverageSum += testData.inputStats.get(i).getCoverageSum();
+
+      n50stats.setMeanDegree(
+          (double) degreeSum / (double) n50stats.getLengthSum());
+      n50stats.setMeanCoverage(
+          coverageSum / (double) n50stats.getLengthSum());
+
       // Compute the N50 length.
       double n50cutoff = n50stats.getLengthSum() / 2.0;
 
       int runningSum = 0;
       for (int j = 0; j < contigs.size(); ++j) {
         runningSum += contigs.get(j);
-        if (runningSum > n50cutoff) {
+        if (runningSum >= n50cutoff) {
           n50stats.setN50Index(j);
           n50stats.setN50Length(contigs.get(j));
           break;
@@ -288,10 +302,30 @@ public class TestGraphStats extends GraphStats {
 
   @Test
   public void testComputeN50Stats() {
-    N50StatsTestData testData = createN50StatsTest();
-    ArrayList<GraphN50StatsData> outputs =
-        computeN50Stats(testData.inputStats.iterator());
+    for (int trial = 0; trial < 10;  ++trial) {
+      N50StatsTestData testData = createN50StatsTest();
+      ArrayList<GraphN50StatsData> outputs =
+          computeN50Stats(testData.inputStats.iterator());
 
-    assertEquals(testData.outputStats, outputs);
+      // Test the averages are almost equal and then zero them out.
+      assertEquals(testData.outputStats.size(), outputs.size());
+      for (int i = 0; i < outputs.size(); ++i) {
+        assertEquals(
+            testData.outputStats.get(i).getMeanCoverage(),
+            outputs.get(i).getMeanCoverage(), 0);
+
+        assertEquals(
+            testData.outputStats.get(i).getMeanDegree(),
+            outputs.get(i).getMeanDegree(), 0);
+        testData.outputStats.get(i).setMeanDegree(0.0);
+        testData.outputStats.get(i).setMeanCoverage(0.0);
+        outputs.get(i).setMeanDegree(0.0);
+        outputs.get(i).setMeanCoverage(0.0);
+
+        // Checking individual items as opposed to the arrays makes it
+        // easier to understand discrepencies if they occur.
+        assertEquals(testData.outputStats.get(i), outputs.get(i));
+      }
+    }
   }
 }

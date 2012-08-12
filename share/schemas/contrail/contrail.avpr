@@ -408,6 +408,16 @@
                  {"name": "n50_index",
                   "type": "int",
                   "doc": "The number of contigs with length >= n50_length"
+                 },
+                 {"name": "mean_coverage",
+                  "type": "double",
+                  "doc": ["The weighted average of the coverage. The average ",
+                          "is weighted by the lengths of the contigs"]
+                 },
+                 {"name": "mean_degree",
+                  "type": "double",
+                  "doc": ["The weighted average of the degree. The average ",
+                          "is weighted by the lengths of the contigs"]
                  }
                 ]
      }

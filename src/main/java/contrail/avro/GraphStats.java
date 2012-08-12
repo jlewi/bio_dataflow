@@ -249,6 +249,10 @@ public class GraphStats extends Stage {
     // Keep a running sum of the lengths across bins.
     long binLengthsSum = 0;
 
+    // Keep a running total of the weighted coverage and degree.
+    double binCoverageSum = 0;
+    double binDegreeSum = 0;
+
     // A list of the lengths of the contigs in descending order.
     // This allows us to find the N50 length.
     ArrayList<Integer> contigLengths = new ArrayList<Integer>();
@@ -275,8 +279,11 @@ public class GraphStats extends Stage {
       contigLengths.addAll(binData.getLengths());
       binLengthsSum += binData.getLengthSum();
 
+      binCoverageSum += binData.getCoverageSum();
+      binDegreeSum += (double) binData.getDegreeSum();
+
       // Compute the N50 length for this value.
-      Long N50Length = binLengthsSum / 2;
+      double N50Length = binLengthsSum / 2.0;
 
       // Continue iterating over the sequences in descending order until
       // we reach a sequence such that the running sum is >= N50Length.
@@ -294,7 +301,8 @@ public class GraphStats extends Stage {
       n50Data.setLengthSum(binLengthsSum);
       n50Data.setNumContigs((long) contigLengths.size());
       n50Data.setN50Index(contigIndex);
-
+      n50Data.setMeanCoverage(binCoverageSum / binLengthsSum);
+      n50Data.setMeanDegree(binDegreeSum / binLengthsSum);
       outputs.add(n50Data);
     }
 
