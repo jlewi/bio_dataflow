@@ -221,7 +221,7 @@ public abstract class Stage extends Configured implements Tool  {
       if (!getParameterDefinitions().containsKey(key)) {
         throw new RuntimeException(
             "Stage:" + this.getClass().getName() + " Doesn't take parameter:" +
-            "key");
+            key);
       }
       ParameterDefinition def = getParameterDefinitions().get(key);
       def.addToJobConf(conf, stage_options.get(key));

@@ -45,21 +45,32 @@ import contrail.util.AvroFileContentsIterator;
 /**
  * Compute statistics of the contigs.
  *
- * We divde the contigs into bins where each bin contains all contigs whose
- * length is [Li, Li+1). For each cutoff, Li we compute  various statistics the
- * most important one being the N50 length.
- * The N50 length is the length such that the sum of all congtigs less than
- * the N50 length is 50% of the sum of the lengths of all contigs.
+ * We divide the contigs into bins based on the contig lengths such that
+ * each bin contains the contigs with length [L_i, L_i+1) where L_i are spaced
+ * logarithmically. For each bin we construct a list of the contig lengths
+ * sorted in descending order. We also keep track of some sufficient statistics
+ * such as the sum of all the lengths in that bin.
  *
- * The stage works as follows.
- * 1. The mapper assigns each contig to a bin.
- * 2. The combiner and reducer computes some sufficient statistics for each
- *    bin; e.g. the sum of the lengths of the sequences in that bin. The
- *    result also stores the lengths of the actual contigs in sorted order.
- * 3. The outputs are sorted in descending order with respect to the bin
- *    cutoffs. This facilitates step 4.
- * 4. After the stage completes, we read the outputs and compute the statistics
- *    for each bin.
+ * The map reduce job is used to organize the contig lengths into bins and
+ * to sort the bins into descending order with respect to contig lengths.
+ *
+ * After the map reduce job completes we process the map reduce output and
+ * compute various statistics. The most important statistic being the N50
+ * length. The N50 length is the length such that the sum of all contigs
+ * greater than or equal to the N50 length is 50% of the sum of the lengths of
+ * all contigs.
+ *
+ * We compute the N50 statistics for each bin. For each bin, the N50 statistics
+ * are computed with respect to all contigs in that bin and the bins containing
+ * longer contigs. In other words, for each bin i, we compute the N50
+ * statistics using all contigs longer than L_i.
+ *
+ * The N50 stats are written to a separate avro file named "n50stats.avro"
+ * in the output directory.
+ *
+ * If the option "topn_contigs" is given, then the lengths of the N largest
+ * contigs will be outputted to the file "topn_contigs.avro" in the output
+ * directory as well.
  */
 public class GraphStats extends Stage {
   private static final Logger sLogger = Logger.getLogger(GraphStats.class);
@@ -70,36 +81,19 @@ public class GraphStats extends Stage {
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> definitions =
         new HashMap<String, ParameterDefinition>();
+    ParameterDefinition topN =
+        new ParameterDefinition("topn_contigs",
+            "If set to an integer greater than zero then the lengths of the  " +
+            "top N contigs will be outputted. ",
+            Integer.class, new Integer(0));
+    definitions.put(topN.getName(), topN);
 
-    // We add all the options for the stages we depend on.
-    Stage[] substages =
-      {new CompressChains(), new RemoveTipsAvro()};
-
-    for (Stage stage: substages) {
-      definitions.putAll(stage.getParameterDefinitions());
+    for (ParameterDefinition def:
+      ContrailParameters.getInputOutputPathOptions()) {
+      definitions.put(def.getName(), def);
     }
-
     return Collections.unmodifiableMap(definitions);
   }
-
-  private static final int n50contigthreshold = 100;
-
-  // Sequences less than this length are considered really short reads.
-  private static final int shortCutoff = 50;
-
-  // These are they keys to use with the records corresponding to really short
-  // and short reads.
-  //  private static final String SHORT_KEY = "SHORT";
-  //  private static final String MEDIUM_KEY = "MEDIUM";
-
-  //
-  //  // These are the cutoffs to use when binning the nodes.
-  //  private static int [] cutoffs =
-  //    {        1,      50,    100,    250,    500,
-  //        1000,    5000,  10000,  15000,  20000,
-  //       25000,   30000,  35000,  40000,  50000,
-  //       75000,  100000, 125000, 150000, 200000,
-  //      250000,  500000, 750000, 1000000 };
 
   /**
    * Assign sequences to bins.
@@ -119,21 +113,16 @@ public class GraphStats extends Stage {
     private GraphStatsData graphStats;
     private GraphNode node;
     Pair<Integer, GraphStatsData> outPair;
-    //
-    //    OutputCollector<Text,Text> mOutput = null;
-    //
-    //    private static Set<String> fields = new HashSet<String>();
-    //
-    //    private static Node node = new Node();
-    //
+
     public void configure(JobConf job) {
       graphStats = new GraphStatsData();
       node = new GraphNode();
       outPair = new Pair<Integer, GraphStatsData>(-1, graphStats);
       graphStats.setLengths(new ArrayList<Integer>());
+
+      // Add a single item. Each call to map will overwrite this value.
+      graphStats.getLengths().add(0);
     }
-
-
 
     public void map(GraphNodeData nodeData,
         AvroCollector<Pair<Integer, GraphStatsData>> collector,
@@ -195,14 +184,15 @@ public class GraphStats extends Stage {
   }
 
   public static class GraphStatsReducer
-  extends AvroReducer<Integer, GraphStatsData, GraphStatsData>   {
+      extends AvroReducer<Integer, GraphStatsData, GraphStatsData> {
 
     private GraphStatsData total;
     public void configure(JobConf job) {
       total = new GraphStatsData();
     }
 
-    public void reduce(int bin, Iterable<GraphStatsData> iterable,
+    @Override
+    public void reduce(Integer bin, Iterable<GraphStatsData> iterable,
         AvroCollector<GraphStatsData> output, Reporter reporter)
             throws IOException   {
 
@@ -332,6 +322,37 @@ public class GraphStats extends Stage {
     return new AvroFileContentsIterator<GraphStatsData>(files, getConf());
   }
 
+  /**
+   * Get the lengths of the top N contigs.
+   *
+   * @param iterator: An iterator over the GraphStatsData where each
+   *   GraphStatsData contains the data for a different bin. The bins
+   *   should be sorted in descending order with respect to the lengths
+   *   of the contigs.
+   * @param topN: number of sequences to return.
+   */
+  protected List<Integer> topNContigs(
+      Iterator<GraphStatsData> binsIterator, int topN) {
+    ArrayList<Integer> outputs = new ArrayList<Integer>();
+
+    while (binsIterator.hasNext() && (outputs.size() < topN)) {
+      GraphStatsData binData = binsIterator.next();
+      Iterator<Integer> contigIterator = binData.getLengths().iterator();
+      int lastLength = Integer.MAX_VALUE;
+      while (contigIterator.hasNext() && (outputs.size() < topN)) {
+        int length = contigIterator.next();
+        if (length > lastLength) {
+          throw new RuntimeException(
+              "The bins aren't sorted in descending order with respect to " +
+              "the contig lengths.");
+        }
+        outputs.add(length);
+        lastLength = length;
+      }
+    }
+    return outputs;
+  }
+
   protected void writeN50StatsToFile(ArrayList<GraphN50StatsData> records) {
     String outputDir = (String) stage_options.get("outputpath");
     Path outputPath = new Path(outputDir, "n50stats.avro");
@@ -359,6 +380,37 @@ public class GraphStats extends Stage {
       writer.close();
     } catch (IOException exception) {
       fail("There was a problem writing the N50 stats to an avro file. " +
+          "Exception: " + exception.getMessage());
+    }
+  }
+
+  protected void writeTopNContigs(List<Integer> lengths) {
+    String outputDir = (String) stage_options.get("outputpath");
+    Path outputPath = new Path(outputDir, "topn_contigs.avro");
+
+    FileSystem fs = null;
+    try{
+      fs = FileSystem.get(getConf());
+    } catch (IOException e) {
+      throw new RuntimeException("Can't get filesystem: " + e.getMessage());
+    }
+
+    // Write the data to the file.
+    Schema schema = Schema.create(Schema.Type.INT);
+    DatumWriter<Integer> datumWriter =
+        new SpecificDatumWriter<Integer>(schema);
+    DataFileWriter<Integer> writer =
+        new DataFileWriter<Integer>(datumWriter);
+
+    try {
+      FSDataOutputStream outputStream = fs.create(outputPath);
+      writer.create(schema, outputStream);
+      for (Integer record: lengths) {
+        writer.append(record);
+      }
+      writer.close();
+    } catch (IOException exception) {
+      fail("There was a problem writing the top N lengths to an avro file. " +
           "Exception: " + exception.getMessage());
     }
   }
@@ -399,7 +451,7 @@ public class GraphStats extends Stage {
     AvroJob.setOutputSchema(conf, mapOutput.value().getSchema());
 
     AvroJob.setMapperClass(conf, GraphStatsMapper.class);
-    AvroJob.setCombinerClass(conf, GraphStatsReducer.class);
+    //AvroJob.setCombinerClass(conf, GraphStatsReducer.class);
     AvroJob.setReducerClass(conf, GraphStatsReducer.class);
 
     // Use a single reducer task that we accumulate all the stats in one
@@ -436,6 +488,13 @@ public class GraphStats extends Stage {
       // Write the N50 stats to a file.
       writeN50StatsToFile(N50Stats);
 
+      Integer topn_contigs = (Integer) stage_options.get("topn_contigs");
+      if (topn_contigs > 0) {
+        // Get the lengths of the n contigs.
+        binsIterator = createOutputIterator();
+        List<Integer> topN = topNContigs(binsIterator, topn_contigs);
+        writeTopNContigs(topN);
+      }
       return job;
     }
     return null;

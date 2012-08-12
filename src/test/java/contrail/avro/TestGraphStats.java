@@ -3,13 +3,16 @@ package contrail.avro;
 import static org.junit.Assert.fail;
 import static org.junit.Assert.*;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
 
 import org.apache.avro.mapred.Pair;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 import org.junit.Test;
@@ -20,9 +23,12 @@ import contrail.graph.GraphN50StatsData;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.graph.GraphStatsData;
+import contrail.graph.GraphUtil;
+import contrail.graph.SimpleGraphBuilder;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.Sequence;
+import contrail.util.FileHelper;
 
 public class TestGraphStats extends GraphStats {
   private static class MapTestData {
@@ -50,6 +56,8 @@ public class TestGraphStats extends GraphStats {
     test.expectedStats.setLengthSum(4);
     test.expectedStats.setDegreeSum(4 * 1);
     test.expectedStats.setCoverageSum(5.0 * 4);
+    test.expectedStats.setLengths(new ArrayList<Integer>());
+    test.expectedStats.getLengths().add(node.getSequence().size());
     return test;
   }
 
@@ -59,7 +67,9 @@ public class TestGraphStats extends GraphStats {
     assertEquals(1, collector.data.size());
     Pair<Integer, GraphStatsData> pair = collector.data.get(0);
 
-    assertEquals(test.expectedBin, pair.key().intValue());
+    // We need to negate the bin because that is what the mapper does
+    // to sort the bins in descending order.
+    assertEquals(test.expectedBin, -1 * pair.key().intValue());
     assertEquals(test.expectedStats, pair.value());
   }
 
@@ -326,6 +336,45 @@ public class TestGraphStats extends GraphStats {
         // easier to understand discrepencies if they occur.
         assertEquals(testData.outputStats.get(i), outputs.get(i));
       }
+    }
+  }
+
+  @Test
+  public void testRun() {
+    // Create a graph and write it to a file.
+    SimpleGraphBuilder builder = new SimpleGraphBuilder();
+    builder.addKMersForString("ACTGGATT", 3);
+
+    // Add some tips.
+    builder.addEdge("ATT", "TTG", 2);
+    builder.addEdge("ATT", "TTC", 2);
+
+    File temp = FileHelper.createLocalTempDir();
+    File avroFile = new File(temp, "graph.avro");
+
+    GraphUtil.writeGraph(avroFile, builder.getAllNodes().values());
+
+    // Run it.
+    GraphStats stage = new GraphStats();
+
+    // We need to initialize the configuration otherwise we will get an
+    // exception. Normally the initialization happens in main.
+    stage.setConf(new Configuration());
+    HashMap<String, Object> params = new HashMap<String, Object>();
+    params.put("topn_contigs", new Integer(5));
+    params.put("inputpath", avroFile.toString());
+
+    File outputPath = new File(temp, "output");
+    params.put("outputpath", outputPath.toString());
+
+    stage.setParameters(params);
+
+    // Catch the following after debugging.
+    try {
+      stage.runJob();
+    } catch (Exception exception) {
+      exception.printStackTrace();
+      fail("Exception occured:" + exception.getMessage());
     }
   }
 }
