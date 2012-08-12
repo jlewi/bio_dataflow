@@ -16,6 +16,7 @@ import org.junit.Test;
 
 import contrail.ReporterMock;
 import contrail.graph.EdgeTerminal;
+import contrail.graph.GraphN50StatsData;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.graph.GraphStatsData;
@@ -217,5 +218,80 @@ public class TestGraphStats extends GraphStats {
 
       assertReducerTestCase(test, collector);
     }
+  }
+
+  private class N50StatsTestData {
+    ArrayList<GraphStatsData> inputStats;
+    ArrayList<GraphN50StatsData> outputStats;
+
+    public N50StatsTestData() {
+      inputStats = new ArrayList<GraphStatsData>();
+      outputStats = new ArrayList<GraphN50StatsData>();
+    }
+  }
+
+  private int sumList(List<Integer> data) {
+    int result = 0;
+    for (Integer num: data) {
+      result += num;
+    }
+    return result;
+  }
+
+  private N50StatsTestData createN50StatsTest() {
+    N50StatsTestData testData = new N50StatsTestData();
+
+    int numRecords = 10;
+    int numContigsPerRecord = 20;
+    // Create the contig lengths
+    ArrayList<Integer> contigLengths = randomDescendingList(
+        numRecords * numContigsPerRecord);
+
+    // Divide the contigs into records.
+    for (int i = 0;  i < numRecords; ++i) {
+      GraphStatsData stats = new GraphStatsData();
+      stats.setLengths(contigLengths.subList(
+          i * numContigsPerRecord, (i + 1) * numContigsPerRecord));
+      stats.setLengthSum(sumList(stats.getLengths()));
+      stats.setCount((long) numContigsPerRecord);
+
+      testData.inputStats.add(stats);
+    }
+
+    // Compute the result data for each contig.
+    for (int i = 0; i < numRecords; ++i) {
+      GraphN50StatsData n50stats = new GraphN50StatsData();
+      List<Integer> contigs =
+          contigLengths.subList(0, (i + 1) * numContigsPerRecord);
+
+      n50stats.setLengthSum((long) sumList(contigs));
+      n50stats.setMaxLength(contigs.get(0));
+      n50stats.setMinLength(contigs.get(contigs.size() - 1));
+      n50stats.setNumContigs((long) contigs.size());
+
+      // Compute the N50 length.
+      double n50cutoff = n50stats.getLengthSum() / 2.0;
+
+      int runningSum = 0;
+      for (int j = 0; j < contigs.size(); ++j) {
+        runningSum += contigs.get(j);
+        if (runningSum > n50cutoff) {
+          n50stats.setN50Index(j);
+          n50stats.setN50Length(contigs.get(j));
+          break;
+        }
+      }
+      testData.outputStats.add(n50stats);
+    }
+    return testData;
+  }
+
+  @Test
+  public void testComputeN50Stats() {
+    N50StatsTestData testData = createN50StatsTest();
+    ArrayList<GraphN50StatsData> outputs =
+        computeN50Stats(testData.inputStats.iterator());
+
+    assertEquals(testData.outputStats, outputs);
   }
 }

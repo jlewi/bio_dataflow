@@ -115,7 +115,7 @@ public class GraphStats extends Stage {
   }
 
   protected static class GraphStatsMapper extends
-      AvroMapper<GraphNodeData, Pair<Integer, GraphStatsData>> {
+  AvroMapper<GraphNodeData, Pair<Integer, GraphStatsData>> {
     private GraphStatsData graphStats;
     private GraphNode node;
     Pair<Integer, GraphStatsData> outPair;
@@ -195,7 +195,7 @@ public class GraphStats extends Stage {
   }
 
   public static class GraphStatsReducer
-    extends AvroReducer<Integer, GraphStatsData, GraphStatsData>   {
+  extends AvroReducer<Integer, GraphStatsData, GraphStatsData>   {
 
     private GraphStatsData total;
     public void configure(JobConf job) {
@@ -226,6 +226,7 @@ public class GraphStats extends Stage {
       }
       output.collect(total);
     }
+  }
 
   /**
    * Compute the statistics given the data for each bin.
@@ -239,7 +240,7 @@ public class GraphStats extends Stage {
    *   should be sorted in descending order with respect to the lengths
    *   of the contigs.
    */
-  protected ArrayList<GraphN50StatsData> computeN50Stats(
+  protected static ArrayList<GraphN50StatsData> computeN50Stats(
       Iterator<GraphStatsData> binsIterator) {
     // The output is an array of GraphN50StatsData. Each record gives the
     // N50 stats for a different bin.
@@ -350,7 +351,7 @@ public class GraphStats extends Stage {
       writer.close();
     } catch (IOException exception) {
       fail("There was a problem writing the N50 stats to an avro file. " +
-           "Exception: " + exception.getMessage());
+          "Exception: " + exception.getMessage());
     }
   }
 
