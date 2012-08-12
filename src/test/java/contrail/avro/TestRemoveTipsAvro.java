@@ -353,7 +353,7 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
     File output_path = new File(temp, "output");
     String[] args =
       {"--inputpath=" + temp.toURI().toString(),
-        "--outputpath=" + output_path.toURI().toString(), 
+       "--outputpath=" + output_path.toURI().toString(), 
       };
     try {
       run_tips.run(args);

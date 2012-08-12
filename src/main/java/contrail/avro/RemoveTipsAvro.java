@@ -35,25 +35,24 @@ import contrail.sequences.DNAStrand;
 import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
 
-/*
-removeTips Phase  identifies the 'tips' in the graphdata;
-These tips are identified by
-1. Sum of inDegree and outDegree is at most 1
-2. their sequence length being less than a particular limit (tiplength)
+/**
+ * removeTips Phase  identifies the 'tips' in the graphdata;
+ * These tips are identified by
+ * 1. Sum of inDegree and outDegree is at most 1
+ * 2. their sequence length being less than a particular limit (tiplength)
+ *
+ * We can have lots of tips along one strand; and sometimes all the edges in a particular Strand direction are tips,
+ * In that case we only keep the longest one and remove all other shorter tips.
 
-We can have lots of tips along one strand; and sometimes all the edges in a particular Strand direction are tips,
-In that case we only keep the longest one and remove all other shorter tips.
+ * Mapper:
+ *   -- Identify the tips
+ *   -- Tell the corresponding neighbor that I am the tip by sending Removetip Message
+ *   -- collect nodeID of terminal and Removetip Message (contains complement of Strand to neighbor, nodeID of tip)
 
-Mapper:
--- Identify the tips
--- Tell the corresponding neighbor that I am the tip by sending Removetip Message
--- collect nodeID of terminal and Removetip Message (contains complement of Strand to neighbor, nodeID of tip)
-
-Reducer:
--- we identify the best-tip (longest tip) in both kind of DNAStrands
--- delete rest of the tips for both kind of DNAStrands
+ * Reducer:
+ *  -- we identify the best-tip (longest tip) in both kind of DNAStrands
+ *  -- delete rest of the tips for both kind of DNAStrands
  */
-
 public class RemoveTipsAvro extends Stage {
   private static final Logger sLogger = Logger.getLogger(RemoveTipsAvro.class);
 
@@ -226,13 +225,13 @@ public class RemoveTipsAvro extends Stage {
         boolean keptTip= false;
 
         List<RemoveTipMessage> msg_list = tips.get(strand);
-        numTips += msg_list.size(); 
+        numTips += msg_list.size();
         if (numTips == 0) { continue; }
         deg = actual_node.degree(strand, EdgeDirection.INCOMING);
         if (numTips == deg)	{
-          // All edges in this direction are tips, only keep the longest one				
-          besttip_len = LongestTip(msg_list);       
-        }	
+          // All edges in this direction are tips, only keep the longest one
+          besttip_len = LongestTip(msg_list);
+        }
         /* if the number of tips is > 0 but not equal to the degree
 	of the non tip node;then we'll remove all the tips and
 	leave non-tips intact
@@ -263,10 +262,10 @@ public class RemoveTipsAvro extends Stage {
 
           if(result)    {
             reporter.incrCounter(
-                GraphCounters.remove_tips_tips_removed.group,
-                GraphCounters.remove_tips_tips_removed.tag, 1);
+                GraphCounters.remove_tips_num_removed.group,
+                GraphCounters.remove_tips_num_removed.tag, 1);
           }
-        }	
+        }
       }
       output.collect(actual_node.getData());
     }
