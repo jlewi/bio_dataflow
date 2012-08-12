@@ -1,3 +1,20 @@
+/**
+ * Copyright 2012 Google Inc. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+// Author: Jeremy Lewi (jeremy@lewi.us)
+
 package contrail.avro;
 
 /**
@@ -33,8 +50,8 @@ public class GraphCounters {
   public static CounterName quick_mark_nodes_send_to_compressor =
       new CounterName("Contrail", "nodes_to_send_to_compressor");
 
-  public static CounterName remove_tips_tips_removed =
-      new CounterName("Contrail", "remove_tips_tips_clipped");
+  public static CounterName remove_tips_num_removed =
+      new CounterName("Contrail", "remove_tips_num_clipped");
 
   // the low coverage nodes
   public static CounterName num_low_coverage_nodes =
