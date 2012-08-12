@@ -1,5 +1,7 @@
 package contrail.avro;
 
+import static org.junit.Assert.fail;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -7,12 +9,19 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+
+import org.apache.avro.Schema;
+import org.apache.avro.file.DataFileWriter;
+import org.apache.avro.io.DatumWriter;
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
+import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
@@ -30,6 +39,7 @@ import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.graph.GraphStatsData;
 import contrail.sequences.DNAStrand;
+import contrail.util.AvroFileContentsIterator;
 
 
 /**
@@ -150,13 +160,18 @@ public class GraphStats extends Stage {
     }
   }
 
-  protected static ArrayList<Integer> mergeSortedLists(
+  /**
+   * Merge two lists sorted in descending order. The result is in descending
+   * order.
+   *
+   */
+  protected static ArrayList<Integer> mergeSortedListsDescending(
       List<Integer> left, List<Integer> right) {
     ArrayList<Integer> merged = new ArrayList<Integer>();
     int left_index = 0;
     int right_index = 0;
     while ((left_index < left.size()) && (right_index < right.size())) {
-      if (left.get(left_index) < right.get(right_index)) {
+      if (left.get(left_index) > right.get(right_index)) {
         merged.add(left.get(left_index));
         ++left_index;
       } else {
@@ -164,11 +179,13 @@ public class GraphStats extends Stage {
         ++right_index;
       }
     }
+
     if (left_index < left.size()) {
       for (; left_index < left.size(); ++left_index) {
         merged.add(left.get(left_index));
       }
     }
+
     if (right_index < right.size()){
       for (; right_index < right.size(); ++right_index) {
         merged.add(right.get(right_index));
@@ -199,7 +216,7 @@ public class GraphStats extends Stage {
         GraphStatsData item = iter.next();
         total.setCount(total.getCount() + item.getCount());
 
-        ArrayList<Integer> merged = mergeSortedLists(
+        ArrayList<Integer> merged = mergeSortedListsDescending(
             total.getLengths(), item.getLengths());
 
         total.setLengths(merged);
@@ -209,184 +226,6 @@ public class GraphStats extends Stage {
       }
       output.collect(total);
     }
-    //
-    //    public void close() throws IOException
-    //    {
-    //      if (mOutput != null)
-    //      {
-    //        if (cnts[0] == 0) { throw new IOException("No contigs"); }
-    //
-    //        Collections.sort(n50sizes); // ascending sort
-    //
-    //        //mOutput.collect(new Text(),
-    //        //    new Text(String.format("%-11s% 10s% 10s% 13s% 10s% 10s% 10s% 10s\n",
-    //        //        "Threshold", "Cnt", "Sum", "Mean", "N50", "N50Cnt", "Deg", "Cov")));
-    //
-    //        mOutput.collect(new Text("Cutoff"), new Text("Cnt\tSum\tMean\tN50\tN50Cnt\tDeg\tCov"));
-    //
-    //        long n50sum = 0;
-
-              // I think n50candidates is the number of contigs in this bin.
-    //        int n50candidates = n50sizes.size();
-    //
-    //        // find the largest cutoff with at least 1 contig
-    //        int curcutoff = -1;
-    //
-    //        for (int i = cutoffs.length - 1; i >= 0; i--)
-    //        {
-    //          if (cnts[i] > 0)
-    //          {
-    //            curcutoff = i;
-    //            break;
-    //          }
-    //        }
-    //
-    //        // compute the n50 for each cutoff in descending order
-    //        long n50cutoff = sums[curcutoff] / 2;
-    //
-    //        for (int i = 0; (i < n50candidates) && (curcutoff >= 0); i++)
-    //        {
-    //          int val = n50sizes.get(n50candidates - 1 - i);
-    //          n50sum += val;
-    //
-    //          if (n50sum >= n50cutoff)
-    //          {
-    //            n50s[curcutoff]  = val;
-    //            n50is[curcutoff] = i+1;
-    //
-    //            curcutoff--;
-    //
-    //            while (curcutoff >= 0)
-    //            {
-    //              n50cutoff = sums[curcutoff] / 2;
-    //
-    //              if (n50sum >= n50cutoff)
-    //              {
-    //                n50s[curcutoff]  = val;
-    //                n50is[curcutoff] = i+1;
-    //
-    //                curcutoff--;
-    //              }
-    //              else
-    //              {
-    //                break;
-    //              }
-    //            }
-    //          }
-    //        }
-    //
-    //        DecimalFormat df = new DecimalFormat("0.00");
-    //
-    //        // print stats at each cutoff
-    //        for (int i = cutoffs.length - 1; i >= 0; i--)
-    //        {
-    //          int  t      = cutoffs[i];
-    //          long c      = cnts[i];
-    //
-    //          if (c > 0)
-    //          {
-    //            long s      = sums[i];
-    //            long n50    = n50s[i];
-    //            long n50cnt = n50is[i];;
-    //
-    //            double degree = (double) degs[i] / (double) s;
-    //            double cov    = (double) covs[i] / (double) s;
-    //
-    //            //mOutput.collect(new Text(),
-    //            //    new Text(String.format(">%-10s% 10d% 10d%13.02f%10d%10d%10.02f%10.02f",
-    //            //        t, c, s, (c > 0 ? s/c : 0.0), n50, n50cnt, degree, cov)));
-    //            mOutput.collect(new Text(">" + t),
-    //                new Text(c + "\t" + s + "\t" + df.format(c > 0 ? (float) s/ (float) c : 0.0) + "\t" +
-    //                    n50 + "\t" + n50cnt + "\t" + df.format(degree) + "\t" + df.format(cov)));
-    //          }
-    //        }
-    //
-    //        // print the top N contig sizes
-    //        if (n50candidates > 0)
-    //        {
-    //          mOutput.collect(new Text(""), new Text(""));
-    //
-    //          long topsum = 0;
-    //          for (int i = 0; (i < TOPCNT) && (i < n50candidates); i++)
-    //          {
-    //            int val = n50sizes.get(n50candidates - 1 - i);
-    //            topsum += val;
-    //            int j = i+1;
-    //
-    //            mOutput.collect(new Text("max_" + j + ":"), new Text(val + "\t" + topsum));
-    //          }
-    //        }
-    //
-    //        // compute the N50 with respect to user specified genome size
-    //        if (N50_TARGET > 0)
-    //        {
-    //          mOutput.collect(new Text(""), new Text(""));
-    //          mOutput.collect(new Text("global_n50target:"), new Text(Long.toString(N50_TARGET)));
-    //
-    //          n50sum = 0;
-    //          n50cutoff = N50_TARGET/2;
-    //          boolean n50found = false;
-    //
-    //          for (int i = 0; i < n50candidates; i++)
-    //          {
-    //            int val = n50sizes.get(n50candidates - 1 - i);
-    //            n50sum += val;
-    //
-    //            if (n50sum >= n50cutoff)
-    //            {
-    //              int n50cnt = i + 1;
-    //              n50found = true;
-    //
-    //              mOutput.collect(new Text("global_n50:"),    new Text(Integer.toString(val)));
-    //              mOutput.collect(new Text("global_n50cnt:"), new Text(Integer.toString(n50cnt)));
-    //
-    //              break;
-    //            }
-    //          }
-    //
-    //          if (!n50found)
-    //          {
-    //            mOutput.collect(new Text("global_n50:"),    new Text("<" + n50contigthreshold));
-    //            mOutput.collect(new Text("global_n50cnt:"), new Text(">" + n50candidates));
-    //          }
-    //        }
-    //      }
-    //    }
-  }
-
-  //  public RunningJob run(String inputPath, String outputPath) throws Exception
-  //  {
-  //    sLogger.info("Tool name: Stats");
-  //    sLogger.info(" - input: "  + inputPath);
-  //    sLogger.info(" - output: " + outputPath);
-  //
-  //    JobConf conf = new JobConf(Stats.class);
-  //    conf.setJobName("Stats " + inputPath);
-  //
-  //    ContrailConfig.initializeConfiguration(conf);
-  //    conf.setNumReduceTasks(1);
-  //
-  //    FileInputFormat.addInputPath(conf, new Path(inputPath));
-  //    FileOutputFormat.setOutputPath(conf, new Path(outputPath));
-  //
-  //    conf.setInputFormat(TextInputFormat.class);
-  //    conf.setOutputFormat(TextOutputFormat.class);
-  //
-  //    conf.setMapOutputKeyClass(Text.class);
-  //    conf.setMapOutputValueClass(Text.class);
-  //
-  //    conf.setOutputKeyClass(Text.class);
-  //    conf.setOutputValueClass(Text.class);
-  //
-  //    conf.setMapperClass(StatsMapper.class);
-  //    conf.setReducerClass(StatsReducer.class);
-  //
-  //    //delete the output directory if it exists already
-  //    FileSystem.get(conf).delete(new Path(outputPath), true);
-  //
-  //    return JobClient.runJob(conf);
-  //  }
-  //
 
   /**
    * Compute the statistics given the data for each bin.
@@ -395,17 +234,16 @@ public class GraphStats extends Stage {
    * as input the sufficient statistics for each bin and computes the final
    * statistics.
    *
-   * @param iterators: A list of iterators to iterate over the GraphStats for
-   *   each bin. The iterators should iterate over the data in descending order
-   *   with respect to the bin cutoffs.
+   * @param iterator: An iterator over the GraphStatsData where each
+   *   GraphStatsData contains the data for a different bin. The bins
+   *   should be sorted in descending order with respect to the lengths
+   *   of the contigs.
    */
   protected ArrayList<GraphN50StatsData> computeN50Stats(
-      List<Iterator<Pair<Integer, GraphStatsData>>> iterators) {
+      Iterator<GraphStatsData> binsIterator) {
     // The output is an array of GraphN50StatsData. Each record gives the
     // N50 stats for a different bin.
     ArrayList<GraphN50StatsData> outputs = new ArrayList<GraphN50StatsData>();
-
-    Integer lastBin = null;
 
     // Keep a running sum of the lengths across bins.
     long binLengthsSum = 0;
@@ -420,58 +258,100 @@ public class GraphStats extends Stage {
     // Keep track of  sum(contigLengths[0],..., contigLengths[contigIndex]).
     long contigSum = 0;
 
-    for (Iterator<Pair<Integer, GraphStatsData>> iterator: iterators) {
-      while (iterator.hasNext()) {
-        Pair<Integer, GraphStatsData> pair = iterator.next();
-        GraphStatsData binData = pair.value();
-        if (lastBin != null) {
-          // Make sure we are sorted in descending order.
-          if (lastBin < pair.key()) {
-            throw new RuntimeException(
-                "The bins aren't sorted in descending order");
-          }
-          lastBin = pair.key();
+    while (binsIterator.hasNext()) {
+      GraphStatsData binData = binsIterator.next();
+      if (outputs.size() > 0) {
+        // Make sure we are sorted in descending order.
+        GraphN50StatsData lastBin = outputs.get(outputs.size() - 1);
+
+        if (binData.getLengths().get(0) > lastBin.getMinLength()) {
+          throw new RuntimeException(
+              "The bins aren't sorted in descending order with respect to " +
+              "the contig lengths.");
         }
-
-        contigLengths.addAll(binData.getLengths());
-        binLengthsSum += binData.getLengthSum();
-
-        // Compute the N50 length for this value.
-        Long N50Length = binLengthsSum / 2;
-
-        // Continue iterating over the sequences in descending order until
-        // we reach a sequence such that the running sum is >= N50Length.
-        while (contigSum < N50Length) {
-          ++contigIndex;
-          contigSum += contigLengths.get(contigIndex);
-        }
-
-        // So at this point contigIndex corresponds to the index of the N50
-        // cutoff.
-        GraphN50StatsData n50Data = new GraphN50StatsData();
-        n50Data.setN50Length(contigLengths.get(contigIndex));
-        n50Data.setMaxLength(contigLengths.get(0));
-        n50Data.setMinLength(contigLengths.get(contigLengths.size() - 1));
-        n50Data.setLengthSum(binLengthsSum);
-        n50Data.setNumContigs(contigLengths.size());
-        n50Data.setN50Index(contigIndex);
-
-        outputs.add(n50Data);
       }
+
+      contigLengths.addAll(binData.getLengths());
+      binLengthsSum += binData.getLengthSum();
+
+      // Compute the N50 length for this value.
+      Long N50Length = binLengthsSum / 2;
+
+      // Continue iterating over the sequences in descending order until
+      // we reach a sequence such that the running sum is >= N50Length.
+      while (contigSum < N50Length) {
+        ++contigIndex;
+        contigSum += contigLengths.get(contigIndex);
+      }
+
+      // So at this point contigIndex corresponds to the index of the N50
+      // cutoff.
+      GraphN50StatsData n50Data = new GraphN50StatsData();
+      n50Data.setN50Length(contigLengths.get(contigIndex));
+      n50Data.setMaxLength(contigLengths.get(0));
+      n50Data.setMinLength(contigLengths.get(contigLengths.size() - 1));
+      n50Data.setLengthSum(binLengthsSum);
+      n50Data.setNumContigs((long) contigLengths.size());
+      n50Data.setN50Index(contigIndex);
+
+      outputs.add(n50Data);
     }
+
     return outputs;
   }
 
   /**
-   * Create a list of iterators to iterate over the outputs of the MR job.
-   *
-   * There is one iterator for each output file.
-   *
+   * Create an iterator to iterate over the output of the MR job.
    * @return
    */
-  protected List<Iterator<Pair<Integer, GraphStatsData>>>
-    createOutputIterators() {
+  protected AvroFileContentsIterator<GraphStatsData> createOutputIterator() {
+    String outputDir = (String) stage_options.get("outputpath");
+    ArrayList<String> files = new ArrayList<String>();
+    FileSystem fs = null;
+    try{
+      Path outputPath = new Path(outputDir);
+      fs = FileSystem.get(this.getConf());
+      for (FileStatus status : fs.listStatus(outputPath)) {
+        String fileName = status.getPath().getName();
+        if (fileName.startsWith("part-") && fileName.endsWith("avro")) {
+          files.add(status.getPath().toString());
+        }
+      }
+    } catch (IOException e) {
+      throw new RuntimeException("Can't get filesystem: " + e.getMessage());
+    }
+    return new AvroFileContentsIterator<GraphStatsData>(files, getConf());
+  }
 
+  protected void writeN50StatsToFile(ArrayList<GraphN50StatsData> records) {
+    String outputDir = (String) stage_options.get("outputpath");
+    Path outputPath = new Path(outputDir, "n50stats.avro");
+
+    FileSystem fs = null;
+    try{
+      fs = FileSystem.get(getConf());
+    } catch (IOException e) {
+      throw new RuntimeException("Can't get filesystem: " + e.getMessage());
+    }
+
+    // Write the data to the file.
+    Schema schema = records.get(0).getSchema();
+    DatumWriter<GraphN50StatsData> datumWriter =
+        new SpecificDatumWriter<GraphN50StatsData>(schema);
+    DataFileWriter<GraphN50StatsData> writer =
+        new DataFileWriter<GraphN50StatsData>(datumWriter);
+
+    try {
+      FSDataOutputStream outputStream = fs.create(outputPath);
+      writer.create(schema, outputStream);
+      for (GraphN50StatsData stats: records) {
+        writer.append(stats);
+      }
+      writer.close();
+    } catch (IOException exception) {
+      fail("There was a problem writing the N50 stats to an avro file. " +
+           "Exception: " + exception.getMessage());
+    }
   }
 
   @Override
@@ -539,11 +419,10 @@ public class GraphStats extends Stage {
 
 
       // Create iterators to read the output
-      List<Iterator<Pair<Integer, GraphStatsData>>> iterators =
-          createOutputIterators();
+      Iterator<GraphStatsData> binsIterator = createOutputIterator();
 
       // Compute the N50 stats for each bin.
-      ArrayList<GraphN50StatsData> N50Stats = computeN50Stats(iterators);
+      ArrayList<GraphN50StatsData> N50Stats = computeN50Stats(binsIterator);
 
       // Write the N50 stats to a file.
       writeN50StatsToFile(N50Stats);

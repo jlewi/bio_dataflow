@@ -5,6 +5,7 @@ import static org.junit.Assert.*;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -93,6 +94,44 @@ public class TestGraphStats extends GraphStats {
     }
   }
 
+  /**
+   * Create a list of random integers in descending order.
+   * @param size
+   * @return
+   */
+  private ArrayList<Integer> randomDescendingList(int size) {
+    Random generator = new Random();
+    ArrayList<Integer> result = new ArrayList<Integer>();
+    for (int l = 0; l < size; ++l) {
+      int length = generator.nextInt(100) + 1;
+      result.add(length);
+    }
+    // Sort the lengths in descending order.
+    Collections.sort(result);
+    Collections.reverse(result);
+    return result;
+  }
+
+  @Test
+  public void testMergeSortedListsDescending() {
+    Random generator = new Random();
+    int numTrials = 10;
+    for (int trial = 0; trial < numTrials; ++trial) {
+      // Create two lists
+      ArrayList<Integer> left = randomDescendingList(generator.nextInt(100));
+      ArrayList<Integer> right = randomDescendingList(generator.nextInt(100));
+      ArrayList<Integer> sorted =
+          GraphStats.mergeSortedListsDescending(left, right);
+
+      ArrayList<Integer> expected = new ArrayList<Integer>();
+      expected.addAll(left);
+      expected.addAll(right);
+      Collections.sort(expected);
+      Collections.reverse(expected);
+      assertEquals(expected, sorted);
+    }
+  }
+
   private class ReducerTestCase {
     public List<GraphStatsData> inputs;
     public GraphStatsData expectedOutput;
@@ -104,15 +143,28 @@ public class TestGraphStats extends GraphStats {
 
     int num = 5;
     GraphStatsData total = new GraphStatsData();
+    total.setLengths(new ArrayList<Integer>());
 
     Random generator = new Random();
 
     for (int i = 0; i < num; ++i) {
       GraphStatsData stats = new GraphStatsData();
       stats.setCount((long) generator.nextInt(100) + 1);
+
+      int lengthSum = 0;
+      stats.setLengths(new ArrayList<Integer>());
+      for (int l = 0; l < stats.getCount(); ++l) {
+        int length = generator.nextInt(100);
+        stats.getLengths().add(length);
+        lengthSum += length;
+      }
+      // Sort the lengths in descending order.
+      Collections.sort(stats.getLengths());
+      Collections.reverse(stats.getLengths());
+
       stats.setCoverageSum(generator.nextDouble());
       stats.setDegreeSum(generator.nextInt(100) + 1);
-      stats.setLengthSum(generator.nextInt(100) + 1);
+      stats.setLengthSum(lengthSum);
 
       test.inputs.add(stats);
 
@@ -120,7 +172,13 @@ public class TestGraphStats extends GraphStats {
       total.setCoverageSum(total.getCoverageSum() + stats.getCoverageSum());
       total.setDegreeSum(total.getDegreeSum() + stats.getDegreeSum());
       total.setLengthSum(total.getLengthSum() + stats.getLengthSum());
+      total.getLengths().addAll(stats.getLengths());
     }
+
+    // Sort the lengths for the result in descending order.
+    Collections.sort(total.getLengths());
+    Collections.reverse(total.getLengths());
+
     test.expectedOutput = total;
     return test;
   }

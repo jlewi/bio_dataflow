@@ -1,12 +1,15 @@
 package contrail.util;
 
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 
 import org.apache.avro.file.DataFileStream;
 import org.apache.avro.specific.SpecificDatumReader;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 
 /**
  * This class iterates over the contents in a series of avro files.
@@ -19,6 +22,8 @@ import org.apache.avro.specific.SpecificDatumReader;
  * @param <T>: The record type for the records we are iterating over.
  */
 public class AvroFileContentsIterator<T> implements Iterator<T>{
+  private Configuration conf;
+
   // The list of files.
   private List<String> files;
 
@@ -29,10 +34,18 @@ public class AvroFileContentsIterator<T> implements Iterator<T>{
   private Iterator<String> fileIterator;
 
   // Keep track of whether we have more values.
-  Boolean hasMoreRecords;
+  private Boolean hasMoreRecords;
 
-  public AvroFileContentsIterator (List<String> files) {
+  /**
+   * Construct the iterator.
+   * @param files: List of files to iterate over. These can either be on the
+   *   local filesystem or an HDFS.
+   * @param conf: The configuration used to resolve file paths and construct
+   *   the filesystem.
+   */
+  public AvroFileContentsIterator (List<String> files, Configuration conf) {
     this.files = files;
+    this.conf = conf;
     fileIterator = this.files.iterator();
 
     currentIterator = openFile(fileIterator.next());
@@ -77,8 +90,15 @@ public class AvroFileContentsIterator<T> implements Iterator<T>{
   private Iterator<T> openFile(String path) {
     DataFileStream<T> avroStream = null;
 
+    FileSystem fs = null;
+    try{
+      fs = FileSystem.get(conf);
+    } catch (IOException e) {
+      throw new RuntimeException("Can't get filesystem: " + e.getMessage());
+    }
+
     try {
-      FileInputStream inStream = new FileInputStream(path);
+      FSDataInputStream inStream = fs.open(new Path(path));
       SpecificDatumReader<T> reader = new SpecificDatumReader<T>();
       avroStream = new DataFileStream<T>(inStream, reader);
     } catch (IOException exception) {

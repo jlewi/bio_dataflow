@@ -404,7 +404,7 @@
                  {"name": "length_sum",
                   "type": "long",
                   "doc": "The sum of the lengths of all contigs in this range."
-                 }
+                 },
                  {"name": "n50_index",
                   "type": "int",
                   "doc": "The number of contigs with length >= n50_length"

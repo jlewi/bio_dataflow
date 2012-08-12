@@ -14,6 +14,7 @@ import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.specific.SpecificDatumWriter;
+import org.apache.hadoop.conf.Configuration;
 import org.junit.Test;
 
 public class TestAvroFileContentsIterator {
@@ -78,7 +79,7 @@ public class TestAvroFileContentsIterator {
     List<String> files = writeToFiles(numFiles, expectedItems);
 
     AvroFileContentsIterator<Integer> iterator =
-        new AvroFileContentsIterator<Integer>(files);
+        new AvroFileContentsIterator<Integer>(files, new Configuration());
 
     ArrayList<Integer> actualItems = new ArrayList<Integer>();
 
