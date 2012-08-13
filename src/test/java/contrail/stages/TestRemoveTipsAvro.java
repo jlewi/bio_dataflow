@@ -1,4 +1,4 @@
-package contrail.avro;
+package contrail.stages;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -80,7 +80,7 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
       cases.add(non_tip);
     }
     // tiplength is 4 for this case
-    // ADDING Non-Tip to casedata; AAATC gets identified as NON tip as its len is > 4	
+    // ADDING Non-Tip to casedata; AAATC gets identified as NON tip as its len is > 4
     {
       MapTestCaseData non_tip= new MapTestCaseData();
       Pair<String, RemoveTipMessage> expected_non_tip= new Pair<String, RemoveTipMessage>(MAP_OUT_SCHEMA);
@@ -106,7 +106,7 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
       String terminal_nodeId = graph.getNode(graph.findNodeIdForSequence("TCA")).getNodeId();
       RemoveTipMessage tip_msg = new RemoveTipMessage();
       tip_msg.setNode(tip_node.getData());
-      tip_msg.setEdgeStrands(StrandsForEdge.FF); 
+      tip_msg.setEdgeStrands(StrandsForEdge.FF);
       expected_tip.set(terminal_nodeId, tip_msg);		// if tip then output nodeID of terminal
 
       tip.node= tip_node.getData();
@@ -116,7 +116,7 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
     }
     return cases;
   }
-  
+
   @Test
   public void testMap() {
 
@@ -155,11 +155,11 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
     String reducer_input_key;
     HashMap<String,GraphNodeData> expected_node_data;
   }
-  
+
   private void assertReduceOutput(
       ReduceTestCaseData case_data,
       AvroCollectorMock<GraphNodeData> collector_mock) {
-    
+
     assertEquals(collector_mock.data.size(), case_data.expected_node_data.size());
     // check if all emitted nodeid's are in expected Key set
     Set<String>outNodeIDList = new HashSet<String>();
@@ -167,15 +167,15 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
       outNodeIDList.add(element.getNodeId().toString());
     }
     assertEquals(outNodeIDList, case_data.expected_node_data.keySet());
-    for(GraphNodeData element: collector_mock.data) {  
+    for(GraphNodeData element: collector_mock.data) {
       assertEquals(element, case_data.expected_node_data.get(element.getNodeId().toString()));
     }
   }
-  
+
   /*
    * In this test case, we have a terminal with N tips where N=degree. Furthermore,
    * there is more than 1 tip of length L where L is the longest length of the tips.
-   * In this case, all but one of the longest tips should be removed.   
+   * In this case, all but one of the longest tips should be removed.
    */
   ReduceTestCaseData createEqualLengthTipsTestData()
   {
@@ -190,7 +190,7 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
       RemoveTipMessage msg = new RemoveTipMessage();
       msg.setNode(node.getData());
       mapOutList.add(msg);
-    } 
+    }
     // nodeid(TCA), <ATC, FRStrand>
     {
       GraphNode node = graph.getNode(graph.findNodeIdForSequence("ATC")).clone();
@@ -215,24 +215,24 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
     testData.expected_node_data.put(temp.getNodeId(), temp.getData());
     testData.expected_node_data.put(graph.findNodeIdForSequence("ATC"), graph.getNode(graph.findNodeIdForSequence("ATC")).getData());
 
-    testData.mapOutList= mapOutList; 
+    testData.mapOutList= mapOutList;
     testData.reducer_input_key = temp.getNodeId();
 
     return testData;
   }
-  
+
   /*
    *  If we have 2 tips with same terminal AND
    *  terminal has numTips != degree then
-   *  we remove all Tips   
+   *  we remove all Tips
    */
   ReduceTestCaseData createNonEqualLenTipsTestData()
   {
     SimpleGraphBuilder graph = new SimpleGraphBuilder();
     graph.addEdge("AAATC", "TCA", 2);
     graph.addEdge("ATC", "TCA", 2);
-    graph.addEdge("GTC", "TCA", 2);    
-    /* AAATC is not a tip because it is larger than presumed Tiplength 
+    graph.addEdge("GTC", "TCA", 2);
+    /* AAATC is not a tip because it is larger than presumed Tiplength
      * for this test case that is 4
      * hence it won't be output as tips in mapper
     */
@@ -243,7 +243,7 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
       RemoveTipMessage msg = new RemoveTipMessage();
       msg.setNode(node.getData());
       mapOutList.add(msg);
-    } 
+    }
     // nodeid(TCA), <ATC, FRStrand>
     {
       GraphNode node = graph.getNode(graph.findNodeIdForSequence("ATC")).clone();
@@ -267,14 +267,14 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
 
     testData.expected_node_data = new HashMap<String,GraphNodeData>();
     testData.expected_node_data.put(temp.getNodeId(), temp.getData());
-    testData.mapOutList= mapOutList; 
+    testData.mapOutList= mapOutList;
     testData.reducer_input_key = temp.getNodeId();
 
     return testData;
   }
 
   private List<ReduceTestCaseData> constructReduceTips() {
-    List<ReduceTestCaseData> testData_list = new ArrayList<ReduceTestCaseData> ();	
+    List<ReduceTestCaseData> testData_list = new ArrayList<ReduceTestCaseData> ();
 
     ReduceTestCaseData equaLenTestData = createEqualLengthTipsTestData();
     ReduceTestCaseData nonEqualLenTestData = createNonEqualLenTipsTestData();
@@ -283,7 +283,7 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
     testData_list.add(nonEqualLenTestData);
     return testData_list;
   }
-  
+
   @Test
   public void testReduce() {
     List <ReduceTestCaseData> case_data_list= constructReduceTips();
@@ -311,7 +311,7 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
       assertReduceOutput(case_data, collector_mock);
     }
   }
-  
+
   @Test
   public void testRun() {
     SimpleGraphBuilder builder = new SimpleGraphBuilder();
@@ -344,7 +344,7 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
         writer.append(node.getData());
       }
       writer.close();
-    } catch (IOException exception) { 
+    } catch (IOException exception) {
       fail("There was a problem writing the graph to an avro file. " +
           "Exception:" + exception.getMessage());
     }
@@ -353,7 +353,7 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
     File output_path = new File(temp, "output");
     String[] args =
       {"--inputpath=" + temp.toURI().toString(),
-       "--outputpath=" + output_path.toURI().toString(), 
+       "--outputpath=" + output_path.toURI().toString(),
       };
     try {
       run_tips.run(args);

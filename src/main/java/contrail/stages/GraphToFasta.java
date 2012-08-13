@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 // Author: Jeremy Lewi (jeremy@lewi.us)
-package contrail.avro;
+package contrail.stages;
 
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;

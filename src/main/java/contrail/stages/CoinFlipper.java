@@ -1,4 +1,4 @@
-package contrail.avro;
+package contrail.stages;
 
 import java.util.Random;
 

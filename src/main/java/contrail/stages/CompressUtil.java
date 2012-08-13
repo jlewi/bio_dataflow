@@ -1,4 +1,4 @@
-package contrail.avro;
+package contrail.stages;
 
 import contrail.graph.GraphNode;
 import contrail.sequences.DNAStrand;

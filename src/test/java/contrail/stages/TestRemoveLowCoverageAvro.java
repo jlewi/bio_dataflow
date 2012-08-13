@@ -1,4 +1,4 @@
-package contrail.avro;
+package contrail.stages;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
@@ -24,7 +24,7 @@ import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.Sequence;
 
 public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
-  
+
   /*
    * Check the output of the map is correct.
    */
@@ -40,7 +40,7 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
       assertEquals(expected_messages.get(key), pair.value());
     }
   }
-  
+
   // Store the data for a particular test case for the map phase.
   private static class MapTestCaseData {
     public GraphNodeData node;
@@ -66,7 +66,7 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
     high_cov.expected_messages= expected_high_cov;
     return high_cov;
   }
-  
+
   //short sequence (less than threshold) and also low coverage; hence classified Low coverage node
   MapTestCaseData constructLowCoverageNode()  {
     MapTestCaseData test_data = new MapTestCaseData();
@@ -106,14 +106,14 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
     cases.add(low_cov);
     return cases;
   }
-  
+
   @Test
   public void testMap() {
     ReporterMock reporter_mock = new ReporterMock();
     Reporter reporter = reporter_mock;
 
-    RemoveLowCoverageAvro.RemoveLowCoverageAvroMapper mapper = 
-        new RemoveLowCoverageAvro.RemoveLowCoverageAvroMapper();	    
+    RemoveLowCoverageAvro.RemoveLowCoverageAvroMapper mapper =
+        new RemoveLowCoverageAvro.RemoveLowCoverageAvroMapper();
     RemoveLowCoverageAvro stage= new RemoveLowCoverageAvro();
     Map<String, ParameterDefinition> definitions = stage.getParameterDefinitions();
 
@@ -142,7 +142,7 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
     List <RemoveNeighborMessage> map_out_list;
     GraphNodeData expected_node_data;
   }
-  
+
   private void assertReduceOutput(
       ReduceTestCaseData case_data,
       AvroCollectorMock<GraphNodeData> collector_mock) {
@@ -150,7 +150,7 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
     //assertEquals(1, collector_mock.data.size());
     assertEquals(case_data.expected_node_data, collector_mock.data.get(0));
   }
-  
+
   private ReduceTestCaseData constructHighCoverageData() {
     SimpleGraphBuilder graph = new SimpleGraphBuilder();
     graph.addEdge("AAATC", "TCA", 2);// this is to make sure the isolated node doesn't get removed in reducer
@@ -164,7 +164,7 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
 
     ReduceTestCaseData test_data= new ReduceTestCaseData();
     test_data.expected_node_data = graph.getNode(graph.findNodeIdForSequence("TCA")).clone().getData();
-    test_data.map_out_list = map_out_list; 
+    test_data.map_out_list = map_out_list;
     return test_data;
   }
 
@@ -194,10 +194,10 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
     node_temp.removeNeighbor(graph.findNodeIdForSequence("TCA"));
 
     test_data.expected_node_data = node_temp.getData();
-    test_data.map_out_list = map_out_list; 
-    return test_data;    
+    test_data.map_out_list = map_out_list;
+    return test_data;
   }
-  
+
   private List<ReduceTestCaseData> constructReduceData() {
       List<ReduceTestCaseData> test_data_list= new ArrayList<ReduceTestCaseData> ();
       ReduceTestCaseData high_cov = constructHighCoverageData();
@@ -206,14 +206,14 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
       test_data_list.add(high_cov);
       return test_data_list;
   }
-  
+
   @Test
   public void testReduce() {
     List <ReduceTestCaseData> case_data_list= constructReduceData();
     ReporterMock reporter_mock = new ReporterMock();
     Reporter reporter = reporter_mock;
     JobConf job = new JobConf(RemoveLowCoverageAvro.RemoveLowCoverageAvroReducer.class);
-    RemoveLowCoverageAvro.RemoveLowCoverageAvroReducer reducer = 
+    RemoveLowCoverageAvro.RemoveLowCoverageAvroReducer reducer =
         new RemoveLowCoverageAvro.RemoveLowCoverageAvroReducer();
     reducer.configure(job);
     for (ReduceTestCaseData case_data : case_data_list) {

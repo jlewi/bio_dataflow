@@ -1,4 +1,4 @@
-package contrail.avro;
+package contrail.stages;
 
 public class NotImplementedException extends RuntimeException {
 

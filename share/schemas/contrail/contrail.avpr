@@ -187,7 +187,7 @@
                  }
                ]
     },
-    {"name": "contrail.avro.CompressibleMessage",
+    {"name": "contrail.stages.CompressibleMessage",
      "type": "record",
      "doc": ["Record for the messages outputted by the mapper in the ",
              "Compressible stage."],
@@ -199,12 +199,12 @@
                  "doc": ["The strands for the edge. The edge is always an ",
                          "outgoing edge from from_node_id"]}]
     },
-    {"name": "contrail.avro.CompressibleMapOutput",
+    {"name": "contrail.stages.CompressibleMapOutput",
      "type": "record",
      "doc": ["Record used for the output of mapper stage in the compressible ",
              "phase."],
      "fields": [ {"name": "message",
-                  "type": ["null", "contrail.avro.CompressibleMessage"],
+                  "type": ["null", "contrail.stages.CompressibleMessage"],
                   "doc": ["A message informing this node about which ",
                           "neighbors are part of linear chains."]
                  },
@@ -213,19 +213,19 @@
                  }
                ]
     },
-    {"name": "contrail.avro.CompressibleStrands",
+    {"name": "contrail.stages.CompressibleStrands",
      "type": "enum",
      "symbols": ["NONE", "FORWARD", "REVERSE", "BOTH"]
     },
     // Using an enum to store which strands are compressible should
     // be slightly more space efficient then a list of strands.
-    {"name": "contrail.avro.CompressibleNodeData",
+    {"name": "contrail.stages.CompressibleNodeData",
      "type": "record",
      "doc": ["Record for the data outputted by the CompressibleStage. ",
              "Each record contains a graph node and information about which ",
              "directions if any we can compress this node."],
      "fields": [{"name":"compressible_strands",
-                 "type": "contrail.avro.CompressibleStrands",
+                 "type": "contrail.stages.CompressibleStrands",
                  "doc":  ["Which strands of the node are compressible with ",
                           "respect to outgoing edges."]},
                 {"name": "node",
@@ -246,7 +246,7 @@
                                       
                ]
     },
-    {"name": "contrail.avro.EdgeUpdateForMerge",
+    {"name": "contrail.stages.EdgeUpdateForMerge",
      "type": "record",
      "doc": ["This message describes how an edge in a node needs to be ",
              "updated to point to a merged node."],
@@ -265,29 +265,29 @@
                         "to the edge."]}
                ]
     },
-    {"name": "contrail.avro.NodeInfoForMerge",
+    {"name": "contrail.stages.NodeInfoForMerge",
      "type": "record",
      "doc": ["Contains the information about nodes outputted by the pair mark ",
              "stage."],
      "fields": [{"name": "compressible_node",
-                 "type": "contrail.avro.CompressibleNodeData",
+                 "type": "contrail.stages.CompressibleNodeData",
                  "doc": "A node in the graph."},
                 {"name": "strand_to_merge",
-                 "type": "contrail.avro.CompressibleStrands",
+                 "type": "contrail.stages.CompressibleStrands",
                  "doc": ["Which strand if any to merge. The value should not ",
                          "be both. The node is compressed along the outgoing ",
                          "edge for this strand."]
                 }
                ]
     },
-    {"name": "contrail.avro.PairMarkOutput",
+    {"name": "contrail.stages.PairMarkOutput",
      "type": "record",
      "doc": ["Contains the result of merging several nodes together. ",
              "The result includes messages which need to be sent to other ",
              "nodes to let them know the graph has changed."],
      "fields": [{"name": "payload",
-                 "type": ["contrail.avro.EdgeUpdateForMerge",
-                          "contrail.avro.NodeInfoForMerge"],
+                 "type": ["contrail.stages.EdgeUpdateForMerge",
+                          "contrail.stages.NodeInfoForMerge"],
                  "doc": "The data for this message."
                  }
                ]

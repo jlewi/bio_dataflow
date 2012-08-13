@@ -1,5 +1,5 @@
 // Author: Michael Schatz, Jeremy Lewi
-package contrail.avro;
+package contrail.stages;
 
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;

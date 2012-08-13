@@ -1,5 +1,5 @@
 //Author: Jeremy Lewi (jeremy@lewi.us)
-package contrail.avro;
+package contrail.stages;
 
 import static org.junit.Assert.*;
 

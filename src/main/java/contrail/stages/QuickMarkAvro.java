@@ -1,7 +1,7 @@
 /**
- * 
+ *
  */
-package contrail.avro;
+package contrail.stages;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -69,13 +69,13 @@ import contrail.sequences.StrandsForEdge;
  *	    if there are Compressible strands (message is null)
  *		then it sets MerTag as 0 for that node
  */
-public class QuickMarkAvro extends Stage     {	
+public class QuickMarkAvro extends Stage     {
   private static final Logger sLogger = Logger.getLogger(QuickMarkAvro.class);
-  public static final Schema REDUCE_OUT_SCHEMA = 
+  public static final Schema REDUCE_OUT_SCHEMA =
       new GraphNodeData().getSchema();
 
-  
-  public static class QuickMarkMapper extends 
+
+  public static class QuickMarkMapper extends
   AvroMapper<CompressibleNodeData, Pair<CharSequence, QuickMarkMessage>> {
     public QuickMarkMessage msg= null;
     public GraphNode node= null;
@@ -88,11 +88,11 @@ public class QuickMarkAvro extends Stage     {
     }
 
     public void map(CompressibleNodeData compressible_graph_data,
-        AvroCollector<Pair<CharSequence, QuickMarkMessage>> output, 
-        Reporter reporter) throws IOException {	
+        AvroCollector<Pair<CharSequence, QuickMarkMessage>> output,
+        Reporter reporter) throws IOException {
 
       node.setData(compressible_graph_data.getNode());
-      CompressibleStrands node_compression_dir = compressible_graph_data.getCompressibleStrands(); 
+      CompressibleStrands node_compression_dir = compressible_graph_data.getCompressibleStrands();
 
       if (node_compression_dir!= CompressibleStrands.NONE)	   {
 
@@ -103,7 +103,7 @@ public class QuickMarkAvro extends Stage     {
           if(edges!=null)		{
             for(CharSequence nodeId: edges)	   {
               msg.setNode(null);
-              msg.setSendToCompressor(true); 
+              msg.setSendToCompressor(true);
               out_pair.set(nodeId, msg); // A null node value in msg is used in the following stage
               output.collect(out_pair);
             }
@@ -116,17 +116,17 @@ public class QuickMarkAvro extends Stage     {
 
       }
       else	{
-        // if compressible strands== NONE; then we only need to send this node to the compressor in the reducer if it recieves messages in the reducer with send_to_compressor = true indicating its neighbors will be compressed					
+        // if compressible strands== NONE; then we only need to send this node to the compressor in the reducer if it recieves messages in the reducer with send_to_compressor = true indicating its neighbors will be compressed
         msg.setNode(node.getData());
         msg.setSendToCompressor(false);
         out_pair.set(node.getNodeId(), msg);
         output.collect(out_pair);
-      }	
-      reporter.incrCounter("Contrail", "nodes", 1);	
+      }
+      reporter.incrCounter("Contrail", "nodes", 1);
     }
   }
 
-  public static class QuickMarkReducer extends 
+  public static class QuickMarkReducer extends
   AvroReducer<CharSequence, QuickMarkMessage, GraphNodeData> {
 
     GraphNode node = null;
@@ -151,7 +151,7 @@ public class QuickMarkAvro extends Stage     {
           node= node.clone();
           sawnode++;
         }
-        if (msg.getSendToCompressor() == true)	{ 
+        if (msg.getSendToCompressor() == true)	{
           // This must be a message of compression i.e. whose CompressibleStrands were not NONE
           compresspair = true;
         }
@@ -159,17 +159,17 @@ public class QuickMarkAvro extends Stage     {
 
       if (sawnode != 1)	{
         throw new IOException("ERROR: Didn't see exactly 1 nodemsg (" + sawnode + ") for " + nodeid.toString());
-      }	
+      }
       if (compresspair)     {
-        KMerReadTag readtag = new KMerReadTag("compress", 0); 
+        KMerReadTag readtag = new KMerReadTag("compress", 0);
         //when QuickMerge is run all nodes that need to be compressed or are connected to compressed nodes will be sent to the same reducer
         node.setMertag(readtag);
         reporter.incrCounter(
-            GraphCounters.quick_mark_nodes_send_to_compressor.group, 
+            GraphCounters.quick_mark_nodes_send_to_compressor.group,
             GraphCounters.quick_mark_nodes_send_to_compressor.tag, 1);
       }
       else	{
-        KMerReadTag readtag = new KMerReadTag(node.getNodeId(), node.getNodeId().hashCode()); 
+        KMerReadTag readtag = new KMerReadTag(node.getNodeId(), node.getNodeId().hashCode());
         node.setMertag(readtag);
       }
       collector.collect(node.getData());
@@ -191,7 +191,7 @@ public class QuickMarkAvro extends Stage     {
     }
     return Collections.unmodifiableMap(defs);
   }
-  
+
   @Override
   public RunningJob runJob() throws Exception {
     // TODO: set stage options using new method
@@ -208,18 +208,18 @@ public class QuickMarkAvro extends Stage     {
     } else {
       conf = new JobConf(this.getClass());
     }
-    
+
     initializeJobConfiguration(conf);
 
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
-    Pair<CharSequence, QuickMarkMessage> map_output = 
+    Pair<CharSequence, QuickMarkMessage> map_output =
         new Pair<CharSequence, QuickMarkMessage>("", new QuickMarkMessage());
-    
+
     CompressibleNodeData compressible_node = new CompressibleNodeData();
     AvroJob.setInputSchema(conf, compressible_node.getSchema());
-    
+
     AvroJob.setMapOutputSchema(conf, map_output.getSchema());
     AvroJob.setOutputSchema(conf, QuickMarkAvro.REDUCE_OUT_SCHEMA);
 

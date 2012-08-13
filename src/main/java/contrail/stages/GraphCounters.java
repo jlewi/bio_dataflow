@@ -15,7 +15,7 @@
  */
 // Author: Jeremy Lewi (jeremy@lewi.us)
 
-package contrail.avro;
+package contrail.stages;
 
 /**
  * A list of mapreduce counters used to communicate between jobs.

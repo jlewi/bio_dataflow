@@ -1,4 +1,4 @@
-package contrail.avro;
+package contrail.stages;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;

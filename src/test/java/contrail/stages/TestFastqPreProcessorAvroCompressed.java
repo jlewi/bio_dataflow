@@ -1,4 +1,4 @@
-package contrail.avro;
+package contrail.stages;
 
 import contrail.CompressedRead;
 import contrail.ContrailConfig;
@@ -10,11 +10,7 @@ import contrail.sequences.Sequence;
 import contrail.util.ByteUtil;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-
-import java.io.UnsupportedEncodingException;
 
 import org.apache.avro.mapred.AvroWrapper;
 import org.apache.hadoop.io.LongWritable;
@@ -26,8 +22,6 @@ import org.apache.hadoop.mapred.Reporter;
 
 import org.junit.Test;
 
-import contrail.sequences.DNAAlphabetFactory;
-
 public class TestFastqPreProcessorAvroCompressed {
 
 
@@ -38,7 +32,7 @@ public class TestFastqPreProcessorAvroCompressed {
                            OutputCollectorMock<AvroWrapper<CompressedRead>, NullWritable> collector_mock,
                            Reporter reporter,
                            String[] lines) {
-    OutputCollector<AvroWrapper<CompressedRead>, NullWritable> collector = (OutputCollector<AvroWrapper<CompressedRead>, NullWritable>) collector_mock;
+    OutputCollector<AvroWrapper<CompressedRead>, NullWritable> collector = collector_mock;
     Text map_value = new Text();
     LongWritable key = new LongWritable();
     Alphabet dnaalphabet = DNAAlphabetFactory.create();
@@ -65,7 +59,7 @@ public class TestFastqPreProcessorAvroCompressed {
 
     // Make sure the array of packed bytes has the correct size.
     int buffer_size = read.dna.limit() - read.dna.arrayOffset();
-    int expected_buffer_size = (int)Math.ceil((double)(lines[1].length()* dnaalphabet.bitsPerLetter())/8.0);
+    int expected_buffer_size = (int)Math.ceil((lines[1].length()* dnaalphabet.bitsPerLetter())/8.0);
     assertEquals(buffer_size, expected_buffer_size);
 
     Sequence sequence = new Sequence(dnaalphabet);
@@ -84,7 +78,7 @@ public class TestFastqPreProcessorAvroCompressed {
 
 
     ReporterMock reporter_mock = new ReporterMock();
-    Reporter reporter = (Reporter) reporter_mock;
+    Reporter reporter = reporter_mock;
 
     FastqPreprocessorAvroCompressed.FastqPreprocessorMapper mapper = new FastqPreprocessorAvroCompressed.FastqPreprocessorMapper();
 

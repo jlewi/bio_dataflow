@@ -1,4 +1,4 @@
-package contrail.avro;
+package contrail.stages;
 
 import java.io.File;
 import java.io.IOException;

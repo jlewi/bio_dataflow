@@ -1,4 +1,4 @@
-package contrail.avro;
+package contrail.stages;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
@@ -58,7 +58,7 @@ public class TestQuickMarkAvro extends QuickMarkAvro{
   private List<MapTestCaseData> constructMapCases() {
 
     SimpleGraphBuilder graph = new SimpleGraphBuilder();
-    graph.addEdge("AAATC", "TCA", 2); 	
+    graph.addEdge("AAATC", "TCA", 2);
 
     // Construct the list of test cases
     List <MapTestCaseData> cases= new ArrayList<MapTestCaseData>();
@@ -75,7 +75,7 @@ public class TestQuickMarkAvro extends QuickMarkAvro{
       String neighbor_node_Id = graph.getNode(graph.findNodeIdForSequence("AAATC")).getNodeId();
 
       CompressibleNodeData node_data = new CompressibleNodeData();
-      node_data.setNode(node.clone().getData());	
+      node_data.setNode(node.clone().getData());
       node_data.setCompressibleStrands(CompressibleStrands.REVERSE);
 
       QuickMarkMessage msg1 = new QuickMarkMessage();
@@ -106,11 +106,11 @@ public class TestQuickMarkAvro extends QuickMarkAvro{
       String neighbor_node_Id = graph.getNode(graph.findNodeIdForSequence("TCA")).getNodeId();
 
       CompressibleNodeData node_data = new CompressibleNodeData();
-      node_data.setNode(node.clone().getData());	
+      node_data.setNode(node.clone().getData());
       node_data.setCompressibleStrands(CompressibleStrands.FORWARD);
 
       GraphNode temp_node= new GraphNode();
-      temp_node.setData(node_data.getNode());		
+      temp_node.setData(node_data.getNode());
 
       QuickMarkMessage msg1 = new QuickMarkMessage();
       msg1.setNode(temp_node.getData());
@@ -178,7 +178,7 @@ public class TestQuickMarkAvro extends QuickMarkAvro{
     SimpleGraphBuilder graph = new SimpleGraphBuilder();
     graph.addEdge("AAATC", "TCA", 2);
 
-    List<ReduceTestCaseData> test_data_list= new ArrayList<ReduceTestCaseData> ();	
+    List<ReduceTestCaseData> test_data_list= new ArrayList<ReduceTestCaseData> ();
     List <QuickMarkMessage> map_out_list= new ArrayList <QuickMarkMessage>();
     ReduceTestCaseData test_data= new ReduceTestCaseData();
 
@@ -195,11 +195,11 @@ public class TestQuickMarkAvro extends QuickMarkAvro{
       QuickMarkMessage msg2 = new QuickMarkMessage();
 
       CompressibleNodeData node_data = new CompressibleNodeData();
-      node_data.setNode(node.clone().getData());	
+      node_data.setNode(node.clone().getData());
       node_data.setCompressibleStrands(CompressibleStrands.REVERSE);
 
       temp_node= new GraphNode();
-      temp_node.setData(node_data.getNode());		
+      temp_node.setData(node_data.getNode());
 
       msg1.setNode(temp_node.getData());
       msg1.setSendToCompressor(true);
@@ -208,13 +208,13 @@ public class TestQuickMarkAvro extends QuickMarkAvro{
 
       map_out_list.add(msg1);
       map_out_list.add(msg2);
-    }	
+    }
 
-    KMerReadTag readtag = new KMerReadTag("compress", 0); 
+    KMerReadTag readtag = new KMerReadTag("compress", 0);
     temp_node.setMertag(readtag);
     // both messages are now in a List; we now set the expected node/ key for those msg
     test_data.expected_node_data= temp_node.getData();
-    test_data.map_out_list= map_out_list; 
+    test_data.map_out_list= map_out_list;
 
     // add key/msg list to Object List
     test_data_list.add(test_data);
@@ -228,11 +228,11 @@ public class TestQuickMarkAvro extends QuickMarkAvro{
       QuickMarkMessage msg2 = new QuickMarkMessage();
 
       CompressibleNodeData node_data = new CompressibleNodeData();
-      node_data.setNode(node.clone().getData());	
+      node_data.setNode(node.clone().getData());
       node_data.setCompressibleStrands(CompressibleStrands.FORWARD);
 
       temp_node2= new GraphNode();
-      temp_node2.setData(node_data.getNode());		
+      temp_node2.setData(node_data.getNode());
 
       msg1.setNode(temp_node2.getData());
       msg1.setSendToCompressor(true);
@@ -242,11 +242,11 @@ public class TestQuickMarkAvro extends QuickMarkAvro{
       map_out_list2.add(msg1);
       map_out_list2.add(msg2);
 
-      KMerReadTag readtag2 = new KMerReadTag("compress", 0);  
+      KMerReadTag readtag2 = new KMerReadTag("compress", 0);
       temp_node2.setMertag(readtag2);
     }
     test_data2.expected_node_data= temp_node2.getData();
-    test_data2.map_out_list= map_out_list2; 
+    test_data2.map_out_list= map_out_list2;
 
     // add key/msg list to Object List
     test_data_list.add(test_data2);
@@ -275,11 +275,11 @@ public class TestQuickMarkAvro extends QuickMarkAvro{
     }
   }
 
-  
+
 	@Test
 	public void testRun() {
 		SimpleGraphBuilder builder = new SimpleGraphBuilder();
-		builder.addKMersForString("ACTGG", 3); 
+		builder.addKMersForString("ACTGG", 3);
 		File temp = null;
 		try {
 			temp = File.createTempFile("temp", Long.toString(System.nanoTime()));
@@ -298,9 +298,9 @@ public class TestQuickMarkAvro extends QuickMarkAvro{
 		File avro_file = new File(temp, "graph.avro");
 		// Write the data to the file.
 		Schema schema = (new CompressibleNodeData()).getSchema();
-		DatumWriter<CompressibleNodeData> datum_writer = 
+		DatumWriter<CompressibleNodeData> datum_writer =
 		    new SpecificDatumWriter<CompressibleNodeData>(schema);
-		DataFileWriter<CompressibleNodeData> writer = 
+		DataFileWriter<CompressibleNodeData> writer =
 		    new DataFileWriter<CompressibleNodeData>(datum_writer);
 		try {
 			writer.create(schema, avro_file);
@@ -317,7 +317,7 @@ public class TestQuickMarkAvro extends QuickMarkAvro{
 				writer.append(compressible_node);
 			}
 			writer.close();
-		} catch (IOException exception) { 
+		} catch (IOException exception) {
 		    fail("There was a problem writing the graph to an avro file. " +
 		         "Exception:" + exception.getMessage());
 		}
@@ -326,7 +326,7 @@ public class TestQuickMarkAvro extends QuickMarkAvro{
 		File output_path = new File(temp, "output");
 		String[] args =
 			{"--inputpath=" + temp.toURI().toString(),
-			 "--outputpath=" + output_path.toURI().toString(), 
+			 "--outputpath=" + output_path.toURI().toString(),
 			};
 		try {
 			run_quickmark.run(args);

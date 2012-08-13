@@ -1,4 +1,4 @@
-package contrail.avro;
+package contrail.stages;
 
 
 import java.io.IOException;
@@ -35,38 +35,38 @@ import contrail.graph.GraphNodeData;
 import contrail.sequences.DNAStrand;
 
 /**
- * RemoveLowCoverage is the last phase in correcting errors; 
- * In mapper we look over the lengths of the Sequences and 
- * their respective coverage; and check if they are above a threshold; 
+ * RemoveLowCoverage is the last phase in correcting errors;
+ * In mapper we look over the lengths of the Sequences and
+ * their respective coverage; and check if they are above a threshold;
  * if found below then we remove the particular node.
- * 
+ *
  * Mapper:-- check if Sequence length and coverage are > than the min threshold
- *        -- if true, output node data 
- *        -- otherwise, we send messages to the node's neighbors telling them 
+ *        -- if true, output node data
+ *        -- otherwise, we send messages to the node's neighbors telling them
  *            to delete their edges to the low coverage node
- *        
+ *
  * Reducer:-- Check if RemoveLowCoverage node field is set
  *         -- if yes; then its the normal node data
  *         -- else, we have the neighbors we want to node(s) to disconnect from
- *         -- remove the neighbors from the node  
+ *         -- remove the neighbors from the node
  */
 
-public class RemoveLowCoverageAvro extends Stage {	
+public class RemoveLowCoverageAvro extends Stage {
 
   private static final Logger sLogger = Logger.getLogger(RemoveLowCoverageAvro.class);
-  public static final Schema MAP_OUT_SCHEMA = 
-      Pair.getPairSchema(Schema.create(Schema.Type.STRING), 
+  public static final Schema MAP_OUT_SCHEMA =
+      Pair.getPairSchema(Schema.create(Schema.Type.STRING),
           (new RemoveNeighborMessage()).getSchema());
-  
+
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs = new HashMap<String, ParameterDefinition>();
     defs.putAll(super.createParameterDefinitions());
 
-    ParameterDefinition lengthThresh = new ParameterDefinition("length_thresh", 
+    ParameterDefinition lengthThresh = new ParameterDefinition("length_thresh",
         "A threshold for sequence lengths. Only sequence's with lengths less " +
-        "than this value will be removed if the coverage is low", 
+        "than this value will be removed if the coverage is low",
           Integer.class, new Integer(0));
-    ParameterDefinition lowCovThresh = new ParameterDefinition("low_cov_thresh", 
+    ParameterDefinition lowCovThresh = new ParameterDefinition("low_cov_thresh",
         "A threshold for node coverage. Only nodes with coverage less " +
             "than this value will be removed ",  Float.class, new Float(0));
 
@@ -79,11 +79,11 @@ public class RemoveLowCoverageAvro extends Stage {
     }
     return Collections.unmodifiableMap(defs);
   }
-  
-  private static Pair<CharSequence, RemoveNeighborMessage> out_pair = 
+
+  private static Pair<CharSequence, RemoveNeighborMessage> out_pair =
       new Pair<CharSequence, RemoveNeighborMessage>(MAP_OUT_SCHEMA);
 
-  public static class RemoveLowCoverageAvroMapper extends 
+  public static class RemoveLowCoverageAvroMapper extends
   AvroMapper<GraphNodeData, Pair<CharSequence, RemoveNeighborMessage>>  {
     int lengthThresh;
     float lowCovThresh;
@@ -102,7 +102,7 @@ public class RemoveLowCoverageAvro extends Stage {
     public void map(GraphNodeData graph_data,
         AvroCollector<Pair<CharSequence, RemoveNeighborMessage>> output, Reporter reporter) throws IOException  {
       node.setData(graph_data);
-      int len = graph_data.getSequence().getLength(); 
+      int len = graph_data.getSequence().getLength();
       float cov = node.getCoverage();
       // normal node
       if ((len > lengthThresh) || (cov >= lowCovThresh)) {
@@ -135,30 +135,30 @@ public class RemoveLowCoverageAvro extends Stage {
     }
   }
 
-  public static class RemoveLowCoverageAvroReducer extends 
+  public static class RemoveLowCoverageAvroReducer extends
   AvroReducer<CharSequence, RemoveNeighborMessage,  GraphNodeData> {
     GraphNode node = null;
     List<CharSequence> neighbors = null;
-    
+
     public void configure(JobConf job) {
       node = new GraphNode();
       neighbors = new ArrayList<CharSequence>();
     }
-    
+
     public void reduce(CharSequence nodeid, Iterable<RemoveNeighborMessage> iterable,
         AvroCollector< GraphNodeData> output, Reporter reporter) throws IOException {
       Iterator<RemoveNeighborMessage> iter = iterable.iterator();
       neighbors.clear();
       int degree = 0;
       int sawnode = 0;
-      
+
       while(iter.hasNext())  {
         RemoveNeighborMessage msg= iter.next();
         // normal node
         if (msg.getNode() != null)  {
-          node.setData(msg.getNode()); 
+          node.setData(msg.getNode());
           node = node.clone();
-          sawnode++;  
+          sawnode++;
         }
         // low coverage nodeID
         else  {
@@ -177,7 +177,7 @@ public class RemoveLowCoverageAvro extends Stage {
         reporter.incrCounter("Contrail", "links-removed", 1);
       }
       for(DNAStrand strand : DNAStrand.values())  {
-        degree = node.degree(strand);  
+        degree = node.degree(strand);
       }
       // all the neighbors got disconnected
       if(degree == 0)  {
@@ -247,7 +247,7 @@ public class RemoveLowCoverageAvro extends Stage {
     }
     return null;
   }
-  
+
   public static void main(String[] args) throws Exception {
     int res = ToolRunner.run(new Configuration(), new RemoveLowCoverageAvro(), args);
     System.exit(res);
