@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-// Author: Jeremy Lewi (jeremy@lewi.us)
+// Author: Michael Schatz, Jeremy Lewi (jeremy@lewi.us)
 
 package contrail.stages;
 
@@ -57,7 +57,6 @@ import contrail.graph.GraphStatsData;
 import contrail.graph.GraphN50StatsData;
 import contrail.sequences.DNAStrand;
 import contrail.util.AvroFileContentsIterator;
-
 
 /**
  * Compute statistics of the contigs.
