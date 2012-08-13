@@ -11,7 +11,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.log4j.Logger;
 
-import contrail.avro.NotImplementedException;
+import contrail.stages.NotImplementedException;
 import contrail.graph.GraphNodeData;
 import contrail.graph.KMerEdge;
 

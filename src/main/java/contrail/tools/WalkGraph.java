@@ -6,14 +6,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
-import org.apache.avro.hadoop.file.SortedKeyValueFile;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 
-import contrail.avro.ContrailParameters;
-import contrail.avro.ParameterDefinition;
-import contrail.avro.Stage;
+import contrail.stages.ContrailParameters;
+import contrail.stages.ParameterDefinition;
+import contrail.stages.Stage;
 import contrail.graph.GraphNodeData;
 
 /**
