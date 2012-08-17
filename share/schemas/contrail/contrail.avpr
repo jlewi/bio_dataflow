@@ -365,41 +365,42 @@
                  } 
                ]
     },
-{"name": "contrail.stages.BubbleInfo",
+    {"name": "contrail.stages.BubbleMinorMessage",
      "type": "record",
-     "doc": "Message that stores info about a bubble",
+     "doc": "Message that is sent to the minor node to pop bubbles.",
      "fields": [
-                 {"name": "TargetID", 
-		          "type": "string",
-                  "doc": "Minor Node ID"
-                 },
-                 {"name": "NodetoRemoveID", 
-		          "type": "string",
-                  "doc": "The node that is a Bubble"
-                 },
-                  {"name": "AliveNodeID", 
-		          "type": "string",
+               {"name": "NodetoRemoveID", 
+		            "type": "string",
+                "doc": "The node that is a Bubble"
+               },
+               {"name": "AliveNodeID", 
+		            "type": "string",
                   "doc": "The node that is not a Bubble"
-                 },
-                 {"name": "extraCoverage", 
-		          "type": "float",
-                  "doc": "modified coverage"
-                 }                 
+               },
+               {"name": "extraCoverage", 
+		            "type": "float",
+                "doc": "modified coverage"
+               }                 
                ]
     },
     {"name": "contrail.stages.FindBubblesOutput",
      "type": "record",
      "doc": [ "Message used to transfer info from FindBubbles to PopBubbles. ",
-              "The output is either a node or a message which will get routed ",
-              "to the minor node telling it to remove an edge to a popped ",
-              "bubble."],
+              "The output is either a node or messages which will get routed ",
+              "to the minor node telling it to remove edges to popped ",
+              "bubbles."],
      "fields": [
-    			{"name": "node", 
-		          "type": ["null", "contrail.graph.GraphNodeData"],
+    		      	{"name": "node", 
+		             "type": ["null", "contrail.graph.GraphNodeData"],
                   "doc": "The GraphNodeData"
                 },
-                {"name": "nodeBubbleinfo",
-                  "type": {"type": "array", "items": "BubbleInfo"},
+                { "name": "minorNodeId",
+                  "type": "string",
+                  "doc": "The id of the minor node to send the messages to."  
+                },
+                {"name": "minor_messages",
+                  "type": {"type": "array", 
+                          "items": "contrail.stages.BubbleMinorMessage"},
                   "doc": ["We use a list because of cases like ",
                           "X->{A, B, C}->Y in which we need to tell Y to remove ",
                           "edges from B and C."] 

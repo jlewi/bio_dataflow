@@ -191,7 +191,7 @@ public class FindBubblesAvro extends Stage   {
       actual_node = new GraphNode();
       bubble_node = new GraphNode();
       output = new FindBubblesOutput();
-      output.setNodeBubbleinfo(new ArrayList<BubbleInfo>());
+      output.setMinorMessages(new ArrayList<BubbleMinorMessage>());
     }
 
     /**
@@ -299,18 +299,18 @@ public class FindBubblesAvro extends Stage   {
         AvroCollector<FindBubblesOutput> collector) throws IOException {
 
       output.setNode(null);
-      output.getNodeBubbleinfo().clear();
+      output.setMinorNodeId("");
+      output.getMinorMessages().clear();
 
-      ArrayList<BubbleInfo> minorMessages = new ArrayList<BubbleInfo>();
+      ArrayList<BubbleMinorMessage> minorMessages = new ArrayList<BubbleMinorMessage>();
 
       for(BubbleMetaData bubbleMetaData : minor_list) {
-        BubbleInfo bubble = new BubbleInfo();
+        BubbleMinorMessage bubble = new BubbleMinorMessage();
         //GraphNodeData nodeData = null;
 
         if(bubbleMetaData.popped) {
           bubble.setNodetoRemoveID(bubbleMetaData.node.getNodeId());
           bubble.setExtraCoverage(bubbleMetaData.extraCoverage);
-          bubble.setTargetID(minor);
           bubble.setAliveNodeID(bubbleMetaData.aliveNodeID);
           minorMessages.add(bubble);
         } else {
@@ -321,7 +321,8 @@ public class FindBubblesAvro extends Stage   {
       }
       // Output the messages to the minor node.
       output.setNode(null);
-      output.setNodeBubbleinfo(minorMessages);
+      output.setMinorNodeId(minor);
+      output.setMinorMessages(minorMessages);
       collector.collect(output);
     }
 
@@ -332,7 +333,7 @@ public class FindBubblesAvro extends Stage   {
       Map<String, List<BubbleMetaData>> bubblelinks = new HashMap<String, List<BubbleMetaData>>();
       int sawnode = 0;
       Iterator<GraphNodeData> iter = iterable.iterator();
-      ArrayList<BubbleInfo> bubble_info_list = new ArrayList<BubbleInfo>();
+      ArrayList<BubbleMinorMessage> bubble_info_list = new ArrayList<BubbleMinorMessage>();
 
       while(iter.hasNext())   {
         GraphNodeData msg = iter.next();
@@ -377,7 +378,8 @@ public class FindBubblesAvro extends Stage   {
 
       // Output the major node.
       output.setNode(actual_node.getData());
-      output.getNodeBubbleinfo().clear();
+      output.setMinorNodeId("");
+      output.getMinorMessages().clear();
       collector.collect(output);
       if (sawnode != 1)    {
         throw new IOException("ERROR: Saw multiple nodemsg (" + sawnode + ") for " + nodeid.toString());
