@@ -93,11 +93,15 @@ public class FindBubblesAvro extends Stage   {
     // Add options specific to this stage.
     ParameterDefinition bubble_edit_rate =
         new ParameterDefinition("bubble_edit_rate",
-            "bubble editing rate", Integer.class, new Integer(0));
+            "We consider two sequences to be the same if their edit distance " +
+            "is less then or equal to length * bubble_edit_rate.",
+            Integer.class, new Float(0));
+
     ParameterDefinition bubble_length_threshold =
         new ParameterDefinition("bubble_length_threshold",
-            "A threshold for sequence lengths. Only sequence's with lengths less " +
-                "than this value will be detected as potential bubble", Integer.class, new Integer(0));
+            "A threshold for sequence lengths. Only sequence's with lengths " +
+            "less than this value will be detected as potential bubble.",
+            Integer.class, new Integer(0));
 
     for (ParameterDefinition def:
       new ParameterDefinition[] {
@@ -217,6 +221,9 @@ public class FindBubblesAvro extends Stage   {
 
        // strand type from Major Node
         DNAStrand strandFromMajor;
+        EdgeTerminal terminal =
+            node.getEdgeTerminals(
+                DNAStrand.FORWARD, EdgeDirection.INCOMING).get(0);
         if (node.getEdgeTerminals(DNAStrand.FORWARD, EdgeDirection.INCOMING).
             get(0).nodeId.toString().equals(major.toString())){
           strandFromMajor = DNAStrand.FORWARD;
@@ -310,18 +317,6 @@ public class FindBubblesAvro extends Stage   {
           // This is a non-popped node so output the node.
           output.setNode(bubbleMetaData.node.getData());
           collector.collect(output);
-//          // initialize non null values
-//          ArrayList<BubbleInfo> empty_list = new ArrayList<BubbleInfo>();
-//          bubble.setNodetoRemoveID("");
-//          bubble.setExtraCoverage((float) 0);
-//          bubble.setTargetID("");
-//          bubble.setAliveNodeID("");
-//          empty_list.add(bubble);
-//
-//          nodeData = bubbleMetaData.node.getData();
-//          reducer_msg.setNode(nodeData);
-//          reducer_msg.setNodeBubbleinfo(empty_list);
-//          output.collect(reducer_msg);
         }
       }
       // Output the messages to the minor node.
@@ -358,7 +353,7 @@ public class FindBubblesAvro extends Stage   {
           // see if the hashmap has that particular ID of edge terminal; if not then add it
           if (!bubblelinks.containsKey(bubble_message.minor.toString()))    {
             List<BubbleMetaData> blist = new ArrayList<BubbleMetaData>();
-            bubblelinks.put((String) bubble_message.minor.toString(), blist);
+            bubblelinks.put(bubble_message.minor.toString(), blist);
           }
           bubblelinks.get(bubble_message.minor.toString()).add(bubble_message);
         }

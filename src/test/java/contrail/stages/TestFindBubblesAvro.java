@@ -136,15 +136,19 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
       AvroCollectorMock<FindBubblesOutput> collector_mock) {
     assertEquals(case_data.expected_node_data.size(), collector_mock.data.size());
     // check if all expected out puts exist
-    Set<String>outNodeIDList = new HashSet<String>();
+    Set<String> outNodeIDList = new HashSet<String>();
     for(FindBubblesOutput element: collector_mock.data) {
-      outNodeIDList.add(element.getNode().getNodeId().toString());
+      String key = null;
+      if (element.getNode() != null) {
+        key = element.getNode().getNodeId().toString();
+      } else {
+        key = element.getNodeBubbleinfo().get(0).getTargetID().toString();
+      }
+
+      outNodeIDList.add(key);
+      assertEquals(case_data.expected_node_data.get(key), element);
     }
     assertEquals(outNodeIDList, case_data.expected_node_data.keySet());
-    // check if each reducer output is identical to expected output
-    for(FindBubblesOutput data: collector_mock.data)  {
-      assertEquals(case_data.expected_node_data.get(data.getNode().getNodeId().toString()), data);
-    }
   }
 
   // this function creates a test-case for a Non Bubble node
@@ -181,18 +185,16 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
     graph.addEdge("ATTTC", "TCA", 2);
     graph.addEdge("ATATC", "TCA", 2);
 
-    // Construct the list of test cases
-    // Output of the Mapper is in the form {Key, Message <GraphNodeData>}; mapper outputs are as follows
-    {
-      GraphNode dead_node = new GraphNode();
-      dead_node.setData(graph.getNode(graph.findNodeIdForSequence("ATATC")).getData());  // this will be removed
-      dead_node.setCoverage(2);
-    }
-    {
-      GraphNode alive_node = new GraphNode();
-      alive_node.setData(graph.getNode(graph.findNodeIdForSequence("ATTTC")).getData());   // this will be left as it has higher coverage
-      alive_node.setCoverage(4);
-    }
+    GraphNode majorNode = graph.getNode(graph.findNodeIdForSequence("TCA"));
+    // Nodes to keep and remove
+    GraphNode aliveNode = graph.getNode(graph.findNodeIdForSequence("ATTTC"));
+    GraphNode deadNode = graph.getNode(graph.findNodeIdForSequence("ATATC"));
+    GraphNode minorNode = graph.getNode(graph.findNodeIdForSequence("AAT"));
+
+    // We need to set the coverage for nodes ATATC, and ATTTC respectively so
+    // that the node ATTTC will be kept and ATATC will be removed.
+    aliveNode.setCoverage(4);
+    deadNode.setCoverage(2);
 
     // 3 input mapper msgs
     // nodeid(TCA), <TCA nodedata>
@@ -201,57 +203,53 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
     List <GraphNodeData> map_out_list = new ArrayList <GraphNodeData>();
     ReduceTestCaseData test_data = new ReduceTestCaseData();
 
-    GraphNodeData msg = new GraphNodeData();
-    msg = graph.getNode(graph.findNodeIdForSequence("TCA")).getData();
-    map_out_list.add(msg);
+    map_out_list.add(majorNode.clone().getData());
+    map_out_list.add(aliveNode.clone().getData());
+    map_out_list.add(deadNode.clone().getData());
 
-    GraphNodeData msg2 = new GraphNodeData();
-    msg2 = graph.getNode(graph.findNodeIdForSequence("ATTTC")).getData();
-    map_out_list.add(msg2);
-
-    GraphNodeData msg3 = new GraphNodeData();
-    msg3 = graph.getNode(graph.findNodeIdForSequence("ATATC")).getData();
-    map_out_list.add(msg3);
-
-    // FindBubblesOutput = GraphNodeData+BubbleInfo
-    // Major Node, GraphNodeData+BubbleInfo
+    // Construct the expected outputs. There are three outputs.
     test_data.expected_node_data = new HashMap<String, FindBubblesOutput>();
-    {
-      FindBubblesOutput expected_node_data = new FindBubblesOutput();
-      List<BubbleInfo> info_list = new ArrayList<BubbleInfo>();
 
-      GraphNode node = graph.getNode(graph.findNodeIdForSequence("TCA")).clone();
-      node.removeNeighbor("ATATC");
+    // For the major node (TCA) we just output the node after removing
+    // the edge to ATATC.
+    {
+      FindBubblesOutput expectedOutput= new FindBubblesOutput();
+
+      GraphNode node = majorNode.clone();
+      node.removeNeighbor(deadNode.getNodeId());
+
+      expectedOutput.setNode(node.getData());
+      expectedOutput.setNodeBubbleinfo(new ArrayList<BubbleInfo>());
+      test_data.expected_node_data.put(node.getNodeId(), expectedOutput);
+    }
+    {
+      // For node ATTTC we just output the node.
+      FindBubblesOutput expectedOutput= new FindBubblesOutput();
+      GraphNode node = aliveNode.clone();
+      expectedOutput.setNode(node.clone().getData());
+      expectedOutput.setNodeBubbleinfo(new ArrayList<BubbleInfo>());
+      test_data.expected_node_data.put(node.getNodeId(), expectedOutput);
+
+    }
+
+    {
+      // For node ATATC we output a message to AAT to remove the edge
+      // to ATATC.
       BubbleInfo info = new BubbleInfo();
-      info.setAliveNodeID(graph.findNodeIdForSequence("ATTTC"));
-      info.setNodetoRemoveID(graph.getNode(graph.findNodeIdForSequence("ATATC")).getNodeId());
+      info.setAliveNodeID(aliveNode.getNodeId());
+      info.setNodetoRemoveID(deadNode.getNodeId());
       info.setExtraCoverage((float) 8);
-      info.setTargetID(graph.findNodeIdForSequence("AAT"));
+      info.setTargetID(minorNode.getNodeId());
 
-      info_list.add(info);
-      expected_node_data.setNode(node.getData());
-      expected_node_data.setNodeBubbleinfo(info_list);
-      test_data.expected_node_data.put(
-          expected_node_data.getNode().getNodeId().toString(),expected_node_data);
-    }
-    // Alive escaped node, GraphNodeData+empty BubbleInfo
-    {
-      FindBubblesOutput expected_node_data = new FindBubblesOutput();
-      List<BubbleInfo> info_list = new ArrayList<BubbleInfo>();
-      BubbleInfo info = new BubbleInfo();
-      info.setAliveNodeID("");
-      info.setNodetoRemoveID("");
-      info.setExtraCoverage((float) 0);
-      info.setTargetID("");
-      info_list.add(info);
-      expected_node_data.setNode(graph.getNode(graph.findNodeIdForSequence("ATTTC")).getData());
-      expected_node_data.setNodeBubbleinfo(info_list);
+      FindBubblesOutput expectedOutput = new FindBubblesOutput();
+      expectedOutput.setNodeBubbleinfo(new ArrayList<BubbleInfo>());
+      expectedOutput.getNodeBubbleinfo().add(info);
 
       test_data.expected_node_data.put(
-          graph.findNodeIdForSequence("ATTTC").toString(),
-          expected_node_data);
+          info.getTargetID().toString(), expectedOutput);
     }
-    test_data.key =  graph.findNodeIdForSequence("TCA");
+
+    test_data.key =  majorNode.getNodeId();
     test_data.map_out_list= map_out_list;
     return test_data;
   }
@@ -262,130 +260,90 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
   private ReduceTestCaseData constructReverseBubblesCaseData()  {
     // The reducer takes as input nodes X, A, B. So we don't construct
     // node Y.
-    GraphNode nodeX = new GraphNode();
-    nodeX.setCoverage(0);
-    Sequence seq1  = new Sequence("ACT", DNAAlphabetFactory.create());
+    GraphNode majorNode = new GraphNode();
+    majorNode.setCoverage(0);
+    majorNode.setSequence(new Sequence("ACT", DNAAlphabetFactory.create()));
 
     // We set the id's such that nodeX is the major id.
-    nodeX.setNodeId("bmajorId");
-    nodeX.setSequence(seq1);
+    majorNode.setNodeId("bmajorId");
 
-//    GraphNode nodeY = new GraphNode();
-//    nodeY.setCoverage(0);
-//    Sequence seq2  = new Sequence("ATT", DNAAlphabetFactory.create());
-//    nodeY.setNodeId("ATT");
-//    nodeY.setSequence(seq2);
+    GraphNode highNode = new GraphNode();    // higher coverage
+    highNode.setCoverage(4);
+    highNode.setNodeId("CTGAT");
+    highNode.setSequence(new Sequence("CTGAT", DNAAlphabetFactory.create()));
 
-    GraphNode nodeA = new GraphNode();    // higher coverage
-    nodeA.setCoverage(4);
-    Sequence seq3  = new Sequence("CTGAT", DNAAlphabetFactory.create());
-    nodeA.setNodeId("CTGAT");
-    nodeA.setSequence(seq3);
+    GraphNode lowNode = new GraphNode();
+    lowNode.setCoverage(2);
+    Sequence lowSequence = new Sequence("CTTAT", DNAAlphabetFactory.create());
+    lowNode.setSequence(DNAUtil.reverseComplement(lowSequence));
+    lowNode.setNodeId("ATAAG");
 
-    GraphNode nodeB = new GraphNode();
-    nodeB.setCoverage(2);
-    Sequence seq4  = new Sequence("CTTAT", DNAAlphabetFactory.create());
-    nodeB.setNodeId("ATAAG");
-    nodeB.setSequence(DNAUtil.reverseComplement(seq4));
+    String minorID = "aminorId";
 
-    String nodeYID = "aminorId";
+    EdgeTerminal majorTerminal = new EdgeTerminal(
+        majorNode.getNodeId(), DNAStrand.FORWARD);
+    EdgeTerminal minorTerminal = new EdgeTerminal(minorID, DNAStrand.FORWARD);
+    EdgeTerminal highTerminal = new EdgeTerminal(
+        highNode.getNodeId(), DNAStrand.FORWARD);
+    EdgeTerminal lowTerminal = new EdgeTerminal(
+        lowNode.getNodeId(), DNAStrand.REVERSE);
 
-    EdgeTerminal nodeXTerminal = new EdgeTerminal(nodeX.getNodeId(), DNAStrand.FORWARD);
-    EdgeTerminal nodeYTerminal = new EdgeTerminal(nodeYID, DNAStrand.FORWARD);
+    majorNode.addOutgoingEdge(DNAStrand.FORWARD, highTerminal);
+    highNode.addIncomingEdge(highTerminal.strand, majorTerminal);
 
-    {
-      // ACT->CTGAT
-      EdgeTerminal nodeATerminal = new EdgeTerminal(nodeA.getNodeId(), DNAStrand.FORWARD);
+    majorNode.addOutgoingEdge(DNAStrand.FORWARD, lowTerminal);
+    lowNode.addIncomingEdge(lowTerminal.strand, majorTerminal);
 
+    highNode.addOutgoingEdge(highTerminal.strand, minorTerminal);
+    lowNode.addOutgoingEdge(lowTerminal.strand, minorTerminal);
 
-      nodeX.addOutgoingEdge(DNAStrand.FORWARD, nodeATerminal);
-      nodeA.addIncomingEdge(DNAStrand.FORWARD, nodeXTerminal);
-
-      // CTGAT->ATT
-
-
-
-      nodeA.addOutgoingEdge(DNAStrand.FORWARD, nodeYTerminal);
-      //nodeY.addIncomingEdge(DNAStrand.FORWARD, nodeXTerminal);
-    }
-
-
-    {
-      // ACT->R(ATAAG)
-      EdgeTerminal nodeBTerminal = new EdgeTerminal(nodeB.getNodeId().toString(), DNAStrand.REVERSE);
-      nodeX.addOutgoingEdge(DNAStrand.FORWARD, nodeBTerminal);
-      nodeB.addIncomingEdge(DNAStrand.FORWARD, nodeXTerminal);
-
-      // R(ATAAG)->AAT
-      //EdgeTerminal nodeYTerminal = new EdgeTerminal(nodeY.getNodeId().toString(), DNAStrand.FORWARD);
-
-      nodeB.addOutgoingEdge(DNAStrand.FORWARD, nodeYTerminal);
-      //nodeY.addIncomingEdge(DNAStrand.FORWARD, nodeBTerminal);
-    }
-
-
-    // Construct the list of test cases
-    // Output of the Mapper is in the form {Key, Message <GraphNodeData>}; mapper outputs are as follows
-
-    // 3 input mapper msgs
-    // nodeid(ACT), <ACT nodedata>
-    // nodeid(ACT), <CTGAT nodedata>
-    // nodeid(ACT), <ATAAG nodedata>
-    List <GraphNodeData> map_out_list = new ArrayList <GraphNodeData>();
+    // Construct the test case
     ReduceTestCaseData test_data = new ReduceTestCaseData();
-
-    GraphNodeData msg = new GraphNodeData();
-    msg = nodeX.getData();
-    map_out_list.add(msg);
-
-    GraphNodeData msg2 = new GraphNodeData();
-    msg2 = nodeA.clone().getData();
-    map_out_list.add(msg2);
-
-    GraphNodeData msg3 = new GraphNodeData();
-    msg3 = nodeB.clone().getData();
-    map_out_list.add(msg3);
+    test_data.key = majorNode.getNodeId();
+    test_data.map_out_list = new ArrayList<GraphNodeData>();
+    test_data.map_out_list.add(majorNode.clone().getData());
+    test_data.map_out_list.add(highNode.clone().getData());
+    test_data.map_out_list.add(lowNode.clone().getData());
 
     test_data.expected_node_data = new HashMap<String, FindBubblesOutput>();
+
+    // For the major node we just output the node after removing
+    // the edge to the bubble.
     {
-      // For nodeX we should output nodeX but with the edge to nodeB removed.
-      FindBubblesOutput expected_node_data = new FindBubblesOutput();
-      List<BubbleInfo> info_list = new ArrayList<BubbleInfo>();
+      FindBubblesOutput expectedOutput= new FindBubblesOutput();
+      GraphNode node = majorNode.clone();
+      node.removeNeighbor(lowNode.getNodeId());
 
-      // nodeX is major node.
-      nodeX.removeNeighbor(nodeB.getNodeId());
+      expectedOutput.setNode(node.getData());
+      expectedOutput.setNodeBubbleinfo(new ArrayList<BubbleInfo>());
+      test_data.expected_node_data.put(node.getNodeId(), expectedOutput);
+    }
+    {
+      FindBubblesOutput expectedOutput= new FindBubblesOutput();
+      GraphNode node = highNode.clone();
+      expectedOutput.setNode(node.clone().getData());
+      expectedOutput.setNodeBubbleinfo(new ArrayList<BubbleInfo>());
+      test_data.expected_node_data.put(node.getNodeId(), expectedOutput);
+
+    }
+
+    {
+      // For node ATATC we output a message to AAT to remove the edge
+      // to ATATC.
       BubbleInfo info = new BubbleInfo();
-      info.setAliveNodeID(nodeA.getNodeId());
-
-      info.setNodetoRemoveID(nodeB.getNodeId());
+      info.setAliveNodeID(highNode.getNodeId());
+      info.setNodetoRemoveID(lowNode.getNodeId());
       info.setExtraCoverage((float) 8);
-      info.setTargetID(nodeYID);
+      info.setTargetID(minorID);
 
-      info_list.add(info);
-      expected_node_data.setNode(nodeX.getData());
-      expected_node_data.setNodeBubbleinfo(info_list);
-      test_data.expected_node_data.put(
-          expected_node_data.getNode().getNodeId().toString(),expected_node_data);
-    }
-    // Alive escaped node, GraphNodeData+empty BubbleInfo
-    {
-      FindBubblesOutput expected_node_data = new FindBubblesOutput();
-      List<BubbleInfo> info_list = new ArrayList<BubbleInfo>();
-      BubbleInfo info = new BubbleInfo();
-      info.setAliveNodeID("");
-      info.setNodetoRemoveID("");
-      info.setExtraCoverage((float) 0);
-      info.setTargetID("");
-      info_list.add(info);
-      expected_node_data.setNode(nodeA.getData());
-      expected_node_data.setNodeBubbleinfo(info_list);
+      FindBubblesOutput expectedOutput = new FindBubblesOutput();
+      expectedOutput.setNodeBubbleinfo(new ArrayList<BubbleInfo>());
+      expectedOutput.getNodeBubbleinfo().add(info);
 
       test_data.expected_node_data.put(
-          nodeA.getNodeId().toString(),
-          expected_node_data);
+          info.getTargetID().toString(), expectedOutput);
     }
-    test_data.key =  nodeX.getNodeId();
-    test_data.map_out_list= map_out_list;
+
     return test_data;
   }
 
@@ -393,8 +351,8 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
   public void testReduce() {
     List <ReduceTestCaseData> case_data_list =
         new ArrayList<ReduceTestCaseData>();
-    //case_data_list.add(constructReverseBubblesCaseData());
-    //case_data_list.add(constructNonBubblesCaseData());
+    case_data_list.add(constructReverseBubblesCaseData());
+    case_data_list.add(constructNonBubblesCaseData());
     case_data_list.add(constructBubblesCaseData());
     ReporterMock reporter_mock = new ReporterMock();
     Reporter reporter = reporter_mock;
