@@ -364,7 +364,74 @@
                   "doc": "The id of a neighbor to remove from the target of this message. This will be the empty string in the case where the message represents a node in the graph."
                  } 
                ]
+    },
+{"name": "contrail.stages.BubbleInfo",
+     "type": "record",
+     "doc": "Message that stores info about a bubble",
+     "fields": [
+                 {"name": "TargetID", 
+		          "type": "string",
+                  "doc": "Minor Node ID"
+                 },
+                 {"name": "NodetoRemoveID", 
+		          "type": "string",
+                  "doc": "The node that is a Bubble"
+                 },
+                  {"name": "AliveNodeID", 
+		          "type": "string",
+                  "doc": "The node that is not a Bubble"
+                 },
+                 {"name": "extraCoverage", 
+		          "type": "float",
+                  "doc": "modified coverage"
+                 }                 
+               ]
+    },
+    {"name": "contrail.stages.FindBubblesOutput",
+     "type": "record",
+     "doc": [ "Message used to transfer info from FindBubbles to PopBubbles. ",
+              "The output is either a node or a message which will get routed ",
+              "to the minor node telling it to remove an edge to a popped ",
+              "bubble."],
+     "fields": [
+    			{"name": "node", 
+		          "type": ["null", "contrail.graph.GraphNodeData"],
+                  "doc": "The GraphNodeData"
+                },
+                {"name": "nodeBubbleinfo",
+                  "type": {"type": "array", "items": "BubbleInfo"},
+                  "doc": ["We use a list because of cases like ",
+                          "X->{A, B, C}->Y in which we need to tell Y to remove ",
+                          "edges from B and C."] 
+                }             
+               ]
+    },
+    {"name": "PopBubblesMessage",
+     "type": "record",
+     "doc": "Message used in the PopBubbles stage.",
+     "fields": [
+     		{"name": "node", "type": ["null", "contrail.graph.GraphNodeData"],
+                  "doc": "The node data containing bubble info"
+                 },
+                 {"name": "NodeMessage", 
+                  "type": "string",
+                  "doc": "Message for Reducer"
+                 },
+                 {"name": "DeadNodeID", 
+                  "type": "string",
+                  "doc": "ID of Non bubble node"
+                 },
+                 {"name": "AliveNodeID", 
+                  "type": "string",
+                  "doc": "ID of Non bubble node"
+                 },
+                 {"name": "NewCoverage", 
+                 "type":  "float",
+                  "doc": ["Updated coverage"]
+                 } 
+               ]
     }
+ 
  
   ] // end types
 }

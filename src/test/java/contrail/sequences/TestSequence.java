@@ -147,6 +147,29 @@ public class TestSequence {
       }
     }
   }
+
+  @Test
+  public void testcomputeEditDistance()  {
+    {
+      Alphabet alphabet = DNAAlphabetFactory.create();
+      Sequence s1=  new Sequence("AATG", alphabet);
+      Sequence s2= new Sequence("AATG", alphabet);
+
+      int retval= s1.computeEditDistance(s2);
+      int expected_val= new Integer(0);
+      assertEquals(retval, expected_val);
+    }
+    {
+      Alphabet alphabet = DNAAlphabetFactory.create();
+      Sequence s1=  new Sequence("AAT", alphabet);
+      Sequence s2= new Sequence("ACGC", alphabet);
+
+      int retval= s1.computeEditDistance(s2);
+      int expected_val= new Integer(3);
+      assertEquals(retval, expected_val);
+    }
+  }
+
   @Test
   public void testDNASequenceReadUTF8(){
 
@@ -277,11 +300,11 @@ public class TestSequence {
           assertTrue(num_unset < 32);
           if (num_unset > 0) {
             int val_unset = buffer[buffer.length -1 ] >>> (32-num_unset);
-            assertEquals(val_unset, 0);
+      assertEquals(val_unset, 0);
           }
         }
       }
-   }
+    }
   }
 
   @Test

@@ -32,6 +32,35 @@ import org.apache.avro.specific.SpecificDatumWriter;
  */
 public class GraphUtil {
   /**
+   * MinorID and MajorID is a convention to follow lexicographic ordering of 2 nodeIDs
+   * if id1 is lexicographically greater than id2
+   * Major is id1 and Minor is id2
+   * computeMajorID and computeMinorID functions compute the same
+   */
+  public static CharSequence computeMajorID(CharSequence id1, 
+      CharSequence id2) {
+    CharSequence major = "";
+    if (id1.toString().compareTo(id2.toString()) > 0)   {
+      major = id1;
+    }
+    else  {
+      major = id2;
+    }
+    return major;
+  }
+  
+  public static CharSequence computeMinorID(CharSequence id1, 
+      CharSequence id2) {
+    CharSequence minor = "";
+    if (id1.toString().compareTo(id2.toString()) > 0)   {
+      minor = id2;
+    }
+    else  {
+      minor = id1;
+    }
+    return minor;
+  }
+  /**
    * Write a list of a graph nodes to an avro.
    * @param avroFile
    * @param nodes
