@@ -254,11 +254,7 @@ public class PopBubblesAvro extends Stage  {
     return job;
   }
 
-  // Main
-  ///////////////////////////////////////////////////////////////////////////
-
-  public static void main(String[] args) throws Exception
-  {
+  public static void main(String[] args) throws Exception {
     int res = ToolRunner.run(new Configuration(), new PopBubblesAvro(), args);
     System.exit(res);
   }
