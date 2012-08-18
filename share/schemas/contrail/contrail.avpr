@@ -370,15 +370,11 @@
      "doc": "Message that is sent to the minor node to pop bubbles.",
      "fields": [
                {"name": "NodetoRemoveID", 
-		            "type": "string",
-                "doc": "The node that is a Bubble"
-               },
-               {"name": "AliveNodeID", 
-		            "type": "string",
-                  "doc": "The node that is not a Bubble"
+		        "type": "string",
+                "doc": "The id of a node that was removed."
                },
                {"name": "extraCoverage", 
-		            "type": "float",
+		        "type": "float",
                 "doc": "modified coverage"
                }                 
                ]
@@ -390,8 +386,8 @@
               "to the minor node telling it to remove edges to popped ",
               "bubbles."],
      "fields": [
-    		      	{"name": "node", 
-		             "type": ["null", "contrail.graph.GraphNodeData"],
+    		    {"name": "node", 
+		         "type": ["null", "contrail.graph.GraphNodeData"],
                   "doc": "The GraphNodeData"
                 },
                 { "name": "minorNodeId",
@@ -406,33 +402,6 @@
                           "edges from B and C."] 
                 }             
                ]
-    },
-    {"name": "PopBubblesMessage",
-     "type": "record",
-     "doc": "Message used in the PopBubbles stage.",
-     "fields": [
-     		{"name": "node", "type": ["null", "contrail.graph.GraphNodeData"],
-                  "doc": "The node data containing bubble info"
-                 },
-                 {"name": "NodeMessage", 
-                  "type": "string",
-                  "doc": "Message for Reducer"
-                 },
-                 {"name": "DeadNodeID", 
-                  "type": "string",
-                  "doc": "ID of Non bubble node"
-                 },
-                 {"name": "AliveNodeID", 
-                  "type": "string",
-                  "doc": "ID of Non bubble node"
-                 },
-                 {"name": "NewCoverage", 
-                 "type":  "float",
-                  "doc": ["Updated coverage"]
-                 } 
-               ]
     }
- 
- 
   ] // end types
 }

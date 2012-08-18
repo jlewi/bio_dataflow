@@ -4,10 +4,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 
-import org.apache.avro.Schema;
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroMapper;
@@ -24,29 +22,27 @@ import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
-import contrail.FindBubblesOutput;
-import contrail.PopBubbles;
-import contrail.PopBubblesMessage;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 
 /**
- * Popbubbles is the continued phase of removing bubbles from graph. 
- * Consider the graph X->{A,B}->Y 
- * FindBubbles gathers information about the potential pubbles at the major node (in this case Y). 
- * The node with * higher coverage (A) is preserved and the edge from the major node to the node to
+ * Popbubbles is the second phase of removing bubbles from the graph.
+ * Consider the graph X->{A,B}->Y
+ * FindBubbles gathers information about the potential bubbles at the major node
+ * (in this case Y).
+ * The node with higher coverage (A) is preserved and the edge from the major node to the node to
  * be popped (B) is removed.
  * hence the resultant graph is reduced to X->A->Y and X->B
  * we now want to reduce it to X->A->Y
  * We know that in earlier stage node B was marked to be removed as its sequence was similar to A
  * it was disconnected from Y; but not from X; Hence B is the dead node.
- * 
+ *
  * Mapper: The basic function of mapper is to send 4 types of messages to reducer of PopBubbles
- *  --It takes input of graph_data and then extracts the BubbleInfo that was populated in FindBubbles Reducer stage 
+ *  --It takes input of graph_data and then extracts the BubbleInfo that was populated in FindBubbles Reducer stage
  *  Mapper sends 4 types of messages:
  *  Kill link (L), Kill Message (M), Extra Coverage (C), Normal (N)
  *  to disconnect B from X we send Reducer nodes according to their minor Nodes; {minor(A)== minor(B)= node X}
- *  
+ *
  * Reducer: based on the type of message it receives from the Mapper; Reducer performs the following function
  *  N: Normal; set sawnode flag and set Node
  *  C: update the coverage of the node after popping bubbles
@@ -54,15 +50,14 @@ import contrail.graph.GraphNodeData;
  *  L: this causes Reducer to disconnect dead node from Minor node (B is disconnected from X)
  */
 public class PopBubblesAvro extends Stage  {
-
   private static final Logger sLogger = Logger.getLogger(PopBubblesAvro.class);
 
-  public static final Schema MAP_OUT_SCHEMA = 
-      Pair.getPairSchema(Schema.create(Schema.Type.STRING), 
-          (new PopBubblesMessage()).getSchema());
-
-  private static Pair<CharSequence, PopBubblesMessage> out_pair = 
-      new Pair<CharSequence, PopBubblesMessage>(MAP_OUT_SCHEMA);
+//  public static final Schema MAP_OUT_SCHEMA =
+//      Pair.getPairSchema(Schema.create(Schema.Type.STRING),
+//          (new PopBubblesMessage()).getSchema());
+//
+//  private static Pair<CharSequence, PopBubblesMessage> out_pair =
+//      new Pair<CharSequence, PopBubblesMessage>(MAP_OUT_SCHEMA);
 
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs =
@@ -78,141 +73,108 @@ public class PopBubblesAvro extends Stage  {
   }
   // PopBubblesMapper
   ///////////////////////////////////////////////////////////////////////////
-  public static class PopBubblesAvroMapper 
-  extends AvroMapper<FindBubblesOutput, Pair<CharSequence,PopBubblesMessage>>   {
-
-    PopBubblesMessage msg = null;
+  public static class PopBubblesAvroMapper
+    extends AvroMapper<FindBubblesOutput, Pair<CharSequence, FindBubblesOutput>> {
+    Pair<CharSequence, FindBubblesOutput> outPair = null;
     GraphNode node= null;
 
     public void configure(JobConf job)   {
       node= new GraphNode();
-      msg= new PopBubblesMessage();
+      outPair = new Pair<CharSequence, FindBubblesOutput> (
+          "", new FindBubblesOutput());
     }
-    public void map(FindBubblesOutput reducer_msg,
-        AvroCollector<Pair<CharSequence, PopBubblesMessage>> output, 
-        Reporter reporter) throws IOException   {
 
-      node.setData(reducer_msg.getNode());
-      List<contrail.BubbleInfo> bubbles = reducer_msg.getNodeBubbleinfo();  // we saved this list in FindBubble
-
-      if (bubbles != null)    {
-        for(contrail.BubbleInfo bubble : bubbles)  {
-          {
-            //Message:  Kill Link
-            msg.setNodeMessage("L");		
-            msg.setDeadNodeID(bubble.getNodetoRemoveID());
-           
-            msg.setAliveNodeID(bubble.getAliveNodeID());
-            msg.setNewCoverage((float) 0);
-            msg.setNode(null);
-
-            out_pair.set(bubble.getTargetID(), msg);
-            output.collect(out_pair);
-          }
-          /*{ 
-            // Message:  Kill Msg
-            msg.setNodeMessage("M");
-            msg.setAliveNodeID(null);
-            msg.setDeadNode(null);
-            msg.setNewCoverage(null);
-            msg.setNode(null);
-
-            out_pair.set(bubble.getNodetoRemove().getNodeId(), msg);
-            output.collect(out_pair);
-          }*/
-          // TODO: i guess there is no need to send msg to bubble node 
-          {
-            // Message: EXTRACOV
-            msg.setNodeMessage("C");		
-            msg.setNewCoverage(bubble.getExtraCoverage());
-            msg.setAliveNodeID("");
-            msg.setDeadNodeID("");
-            msg.setNode(null);
-            
-            out_pair.set(bubble.getAliveNodeID(), msg);
-            output.collect(out_pair);
-          }
-          reporter.incrCounter("Contrail", "bubblespopped", 1);
-        }
+    public void map(FindBubblesOutput input,
+        AvroCollector<Pair<CharSequence, FindBubblesOutput>> collector,
+        Reporter reporter) throws IOException {
+      if (input.getNode() != null) {
+        outPair.key(input.getNode().getNodeId());
+      } else {
+        outPair.key(input.getMinorNodeId());
       }
-      // Message: normal node
-      msg.setNodeMessage("N");		
-      msg.setNode(node.getData());
-      msg.setAliveNodeID("");
-      msg.setDeadNodeID("");
-      msg.setNewCoverage((float) 0);
-      
-      out_pair.set(node.getNodeId(), msg);
-      output.collect(out_pair);
-
-      reporter.incrCounter("Contrail", "nodes", 1);
+      collector.collect(outPair);
     }
   }
 
   // PopBubblesReducer
   ///////////////////////////////////////////////////////////////////////////
-  public static class PopBubblesAvroReducer 
-  extends AvroReducer<CharSequence, PopBubblesMessage, Pair<CharSequence, GraphNodeData>>	
+  public static class PopBubblesAvroReducer
+    extends AvroReducer<CharSequence, FindBubblesOutput, Pair<CharSequence, GraphNodeData>>
   {
     private static int K = 0;
     GraphNode node = null;
-    PopBubblesMessage msg= null;
+    // FindBubblesOutput msg= null;
+    //GraphNodeData outputNode
+    ArrayList<String> idsToRemove;
 
     public void configure(JobConf job) {
-      PopBubblesAvro stage= new PopBubblesAvro();
+      PopBubblesAvro stage = new PopBubblesAvro();
       Map<String, ParameterDefinition> definitions = stage.getParameterDefinitions();
       K = (Integer)(definitions.get("K").parseJobConf(job));
 
       node= new GraphNode();
-      msg= new PopBubblesMessage();
+      //msg= new PopBubblesMessage();
+      idsToRemove = new ArrayList<String>();
     }
 
-    public void reduce(CharSequence nodeid, Iterable<PopBubblesMessage> iterable,
+    public void reduce(CharSequence nodeid, Iterable<FindBubblesOutput> iterable,
         AvroCollector<GraphNodeData> output, Reporter reporter)
-            throws IOException  
+            throws IOException
             {
       int sawnode = 0;
-      Iterator<PopBubblesMessage> iter = iterable.iterator();
-      ArrayList<String>Nodes_to_Remove = new ArrayList<String>();
+      Iterator<FindBubblesOutput> iter = iterable.iterator();
+      //ArrayList<String> Nodes_to_Remove = new ArrayList<String>();
+      idsToRemove.clear();
 
       //boolean killnode = false;
       float extracov = 0;
-      
+
       while(iter.hasNext())
       {
-        msg = iter.next();
-        PopBubblesMessage copy= new PopBubblesMessage();
+        FindBubblesOutput input = iter.next();
 
-        copy.setNode(msg.getNode());
-        copy.setNewCoverage(msg.getNewCoverage());
-        copy.setAliveNodeID(msg.getAliveNodeID());
-        copy.setDeadNodeID(msg.getDeadNodeID());
-        copy.setNodeMessage(msg.getNodeMessage());
-        CharSequence Node_msg= copy.getNodeMessage();
-
-        if(Node_msg.equals("N"))
-        {
-          node.setData(msg.getNode());
-          node= node.clone();
+        if (input.getNode() != null) {
+          node.setData(input.getNode());
+          node = node.clone();
           sawnode++;
+        } else {
+          for (BubbleMinorMessage  bubbleInfo : input.getMinorMessages()) {
+            idsToRemove.add(bubbleInfo.getNodetoRemoveID().toString());
+            extracov += bubbleInfo.getExtraCoverage();
+          }
         }
-        else if (Node_msg.equals("L"))
-        {
-          String node_to_remove = (String) copy.getDeadNodeID();
-          Nodes_to_Remove.add(node_to_remove);
-        }
-        /*else if (Node_msg.equals("M"))
-        {
-          killnode = true;
-        }*/
-        else if (Node_msg.equals("C"))
-        {
-          extracov += copy.getNewCoverage();
-        }
-        else
-        {
-          throw new IOException("Unknown msgtype: " + msg);
-        }
+//        PopBubblesMessage copy= new PopBubblesMessage();
+//
+//        copy.setNode(msg.getNode());
+//        copy.setNewCoverage(msg.getNewCoverage());
+//        copy.setAliveNodeID(msg.getAliveNodeID());
+//        copy.setDeadNodeID(msg.getDeadNodeID());
+//        copy.setNodeMessage(msg.getNodeMessage());
+//        CharSequence Node_msg= copy.getNodeMessage();
+//
+//        if(Node_msg.equals("N"))
+//        {
+//          node.setData(msg.getNode());
+//          node= node.clone();
+//          sawnode++;
+//        }
+//        else if (Node_msg.equals("L"))
+//        {
+//          String node_to_remove = (String) copy.getDeadNodeID();
+//          Nodes_to_Remove.add(node_to_remove);
+//        }
+//        /*else if (Node_msg.equals("M"))
+//        {
+//          killnode = true;
+//        }*/
+//        else if (Node_msg.equals("C"))
+//        {
+//          extracov += copy.getNewCoverage();
+//        }
+//        else
+//        {
+//          throw new IOException("Unknown msgtype: " + msg);
+//        }
       }
 
       if (sawnode != 1)
@@ -226,27 +188,22 @@ public class PopBubblesAvro extends Stage  {
         return;
       }*/
 
-      if (extracov > 0)
-      {
+      if (extracov > 0) {
         int merlen = node.getData().getSequence().getLength() - K + 1;
         float support = node.getCoverage() * merlen + extracov;
         node.setCoverage((float) support /  (float) merlen);
       }
 
-      if (Nodes_to_Remove.size() > 0)
-      {
-        for(String node_to_remove : Nodes_to_Remove)
-        {
-          node.removeNeighbor(node_to_remove);
-          reporter.incrCounter("Contrail", "linksremoved", 1);
-        }
+      for(String neighborID : idsToRemove) {
+        node.removeNeighbor(neighborID);
+        reporter.incrCounter("Contrail", "linksremoved", 1);
       }
       output.collect(node.getData());
     }
   }
 
   // Run Tool
-  ///////////////////////////////////////////////////////////////////////////	
+  ///////////////////////////////////////////////////////////////////////////
 
   protected int run() throws Exception
   {
@@ -266,7 +223,7 @@ public class PopBubblesAvro extends Stage  {
     JobConf conf = null;
     if (base_conf != null) {
       conf = new JobConf(getConf(), this.getClass());
-    } 
+    }
     else {
       conf = new JobConf(this.getClass());
     }
@@ -278,8 +235,12 @@ public class PopBubblesAvro extends Stage  {
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
     GraphNodeData graph_data = new GraphNodeData();
-    AvroJob.setInputSchema(conf, new FindBubblesOutput().getSchema());  
-    AvroJob.setMapOutputSchema(conf, PopBubblesAvro.MAP_OUT_SCHEMA);
+    AvroJob.setInputSchema(conf, new FindBubblesOutput().getSchema());
+
+    Pair<CharSequence, FindBubblesOutput> mapOutput =
+        new Pair<CharSequence, FindBubblesOutput> ("", new FindBubblesOutput());
+
+    AvroJob.setMapOutputSchema(conf, mapOutput.getSchema());
 
     AvroJob.setMapperClass(conf, PopBubblesAvroMapper.class);
     AvroJob.setReducerClass(conf, PopBubblesAvroReducer.class);
@@ -294,11 +255,11 @@ public class PopBubblesAvro extends Stage  {
   }
 
   // Main
-  ///////////////////////////////////////////////////////////////////////////	
+  ///////////////////////////////////////////////////////////////////////////
 
-  public static void main(String[] args) throws Exception 
+  public static void main(String[] args) throws Exception
   {
-    int res = ToolRunner.run(new Configuration(), new PopBubbles(), args);
+    int res = ToolRunner.run(new Configuration(), new PopBubblesAvro(), args);
     System.exit(res);
   }
 }
