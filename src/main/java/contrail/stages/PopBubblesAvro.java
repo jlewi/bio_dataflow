@@ -19,6 +19,7 @@ import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -92,6 +93,7 @@ public class PopBubblesAvro extends Stage  {
       } else {
         outPair.key(input.getMinorNodeId());
       }
+      outPair.value(input);
       collector.collect(outPair);
     }
   }
@@ -99,7 +101,7 @@ public class PopBubblesAvro extends Stage  {
   // PopBubblesReducer
   ///////////////////////////////////////////////////////////////////////////
   public static class PopBubblesAvroReducer
-    extends AvroReducer<CharSequence, FindBubblesOutput, Pair<CharSequence, GraphNodeData>>
+    extends AvroReducer<CharSequence, FindBubblesOutput, GraphNodeData>
   {
     private static int K = 0;
     GraphNode node = null;
@@ -189,9 +191,11 @@ public class PopBubblesAvro extends Stage  {
       }*/
 
       if (extracov > 0) {
+        // We increase the coverage based on the edges the edges to the deleted
+        // nodes because those edges are assumed to  result from errors.
         int merlen = node.getData().getSequence().getLength() - K + 1;
         float support = node.getCoverage() * merlen + extracov;
-        node.setCoverage((float) support /  (float) merlen);
+        node.setCoverage(support /  merlen);
       }
 
       for(String neighborID : idsToRemove) {
@@ -202,12 +206,8 @@ public class PopBubblesAvro extends Stage  {
     }
   }
 
-  // Run Tool
-  ///////////////////////////////////////////////////////////////////////////
-
-  protected int run() throws Exception
-  {
-
+  @Override
+  public RunningJob runJob() throws Exception {
     String[] required_args = {"inputpath", "outputpath", "K"};
     checkHasParametersOrDie(required_args);
 
@@ -234,7 +234,7 @@ public class PopBubblesAvro extends Stage  {
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
-    GraphNodeData graph_data = new GraphNodeData();
+    GraphNodeData graphData = new GraphNodeData();
     AvroJob.setInputSchema(conf, new FindBubblesOutput().getSchema());
 
     Pair<CharSequence, FindBubblesOutput> mapOutput =
@@ -245,13 +245,13 @@ public class PopBubblesAvro extends Stage  {
     AvroJob.setMapperClass(conf, PopBubblesAvroMapper.class);
     AvroJob.setReducerClass(conf, PopBubblesAvroReducer.class);
 
-    AvroJob.setOutputSchema(conf, graph_data.getSchema());
+    AvroJob.setOutputSchema(conf, graphData.getSchema());
 
     //delete the output directory if it exists already
     FileSystem.get(conf).delete(new Path(outputPath), true);
 
-    JobClient.runJob(conf);
-    return 0;
+    RunningJob job = JobClient.runJob(conf);
+    return job;
   }
 
   // Main

@@ -392,7 +392,7 @@
                 },
                 { "name": "minorNodeId",
                   "type": "string",
-                  "doc": "The id of the minor node to send the messages to."  
+                  "doc": "The id of the minor node to send the messages to."
                 },
                 {"name": "minor_messages",
                   "type": {"type": "array", 
