@@ -3,6 +3,7 @@ package contrail.stages;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Formatter;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -70,6 +71,9 @@ import contrail.sequences.Sequence;
  *      -- disconnect them from major Node (and delete major strand)
  *         (here suppose B gets disconnected from Y then,
  *         B is the dead node and A is alive node)
+ *
+ *  Important: The graph must be maximally be compressed otherwise this code
+ *  won't work.
  */
 
 public class FindBubblesAvro extends Stage   {
@@ -141,12 +145,14 @@ public class FindBubblesAvro extends Stage   {
       int outDegree = node.degree(DNAStrand.FORWARD, EdgeDirection.OUTGOING);
       int inDegree = node.degree(DNAStrand.FORWARD, EdgeDirection.INCOMING);
       // check if node can't be a bubble
-      if(  (nodeLength >= bubbleLenThresh) || ((outDegree != 1) || (inDegree != 1)) )  {
+      if ((nodeLength >= bubbleLenThresh) || (outDegree != 1) ||
+          (inDegree != 1))  {
         msg = node.getData();
         out_pair.set(node.getNodeId(), msg);
         output.collect(out_pair);
         return;
       }
+
       /**
        *  Here we just work with one strand of DNA that is, the FORWARD strand
        *  we get the degrees of FORWARD DNAStrand with respect to to Incoming and Outgoing edges and
@@ -311,7 +317,6 @@ public class FindBubblesAvro extends Stage   {
         if(bubbleMetaData.popped) {
           bubble.setNodetoRemoveID(bubbleMetaData.node.getNodeId());
           bubble.setExtraCoverage(bubbleMetaData.extraCoverage);
-          bubble.setAliveNodeID(bubbleMetaData.aliveNodeID);
           minorMessages.add(bubble);
         } else {
           // This is a non-popped node so output the node.
@@ -339,7 +344,7 @@ public class FindBubblesAvro extends Stage   {
         GraphNodeData msg = iter.next();
 
         // this is a normal node: only node data is set in schema
-        if (msg.getNodeId().equals(nodeid))    {
+        if (msg.getNodeId().toString().equals(nodeid.toString()))    {
           actual_node.setData(msg);
           actual_node= actual_node.clone();
           sawnode++;
@@ -358,6 +363,22 @@ public class FindBubblesAvro extends Stage   {
           }
           bubblelinks.get(bubble_message.minor.toString()).add(bubble_message);
         }
+      }
+
+      if (sawnode == 0)    {
+        Formatter formatter = new Formatter(new StringBuilder());
+        formatter.format(
+            "ERROR: No node was provided for nodeId %s. This can happen if " +
+            "the graph isn't maximally compressed before calling FindBubbles",
+            nodeid);
+        throw new IOException(formatter.toString());
+      }
+
+      if (sawnode > 1) {
+        Formatter formatter = new Formatter(new StringBuilder());
+        formatter.format("ERROR: nodeId %s, %d nodes were provided",
+            nodeid, sawnode);
+        throw new IOException(formatter.toString());
       }
 
       if (bubblelinks.size() > 0)   {
@@ -381,19 +402,17 @@ public class FindBubblesAvro extends Stage   {
       output.setMinorNodeId("");
       output.getMinorMessages().clear();
       collector.collect(output);
-      if (sawnode != 1)    {
-        throw new IOException("ERROR: Saw multiple nodemsg (" + sawnode + ") for " + nodeid.toString());
-      }
     }
   }
 
   // Run Tool
   ///////////////////////////////////////////////////////////////////////////
 
-  public RunningJob runJob() throws Exception
-  {
-    String[] required_args = {"inputpath", "outputpath","bubble_edit_rate","bubble_length_threshold"};
-    checkHasParametersOrDie(required_args);
+  public RunningJob runJob() throws Exception {
+    String[] requiredArgs = {
+        "inputpath", "outputpath", "bubble_edit_rate",
+        "bubble_length_threshold"};
+    checkHasParametersOrDie(requiredArgs);
 
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");

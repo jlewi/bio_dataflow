@@ -3,6 +3,7 @@ package contrail.stages;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -21,11 +22,13 @@ import contrail.ReporterMock;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
+import contrail.graph.GraphUtil;
 import contrail.graph.SimpleGraphBuilder;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
+import contrail.util.FileHelper;
 
 public class TestFindBubblesAvro extends FindBubblesAvro{
   //Check the output of the map is correct.
@@ -239,7 +242,6 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
       // For node ATATC we output a message to AAT to remove the edge
       // to ATATC.
       BubbleMinorMessage info = new BubbleMinorMessage();
-      info.setAliveNodeID(aliveNode.getNodeId());
       info.setNodetoRemoveID(deadNode.getNodeId());
       info.setExtraCoverage((float) 8);
 
@@ -335,7 +337,6 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
       // For node ATATC we output a message to AAT to remove the edge
       // to ATATC.
       BubbleMinorMessage info = new BubbleMinorMessage();
-      info.setAliveNodeID(highNode.getNodeId());
       info.setNodetoRemoveID(lowNode.getNodeId());
       info.setExtraCoverage((float) 8);
 
@@ -385,57 +386,35 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
       assertReduceOutput(case_data, collector_mock);
     }
   }
-  /*
+
+
   @Test
   public void testRun() {
     SimpleGraphBuilder builder = new SimpleGraphBuilder();
-    builder.addKMersForString("ACTGG", 3);
-    File temp = null;
-    try {
-      temp = File.createTempFile("temp", Long.toString(System.nanoTime()));
-    } catch (IOException exception) {
-      fail("Could not create temporary file. Exception:" +exception.getMessage());
-    }
+    // Create a graph with some bubbles.
+    int K = 3;
+    builder.addEdge("ACT", "CTATG", K - 1);
+    builder.addEdge("ACT", "CTTTG", K - 1);
+    builder.addEdge("CTATG", "TGA", K - 1);
+    builder.addEdge("CTTTG", "TGA", K - 1);
 
-    if(!(temp.delete())){
-      throw new RuntimeException(
-          "Could not delete temp file: " + temp.getAbsolutePath());
-    }
-    if(!(temp.mkdir())) {
-      throw new RuntimeException(
-          "Could not create temp directory: " + temp.getAbsolutePath());
-    }
-    File avro_file = new File(temp, "graph.avro");
-    // Write the data to the file.
-    Schema schema = (new GraphNodeData()).getSchema();
-    DatumWriter<GraphNodeData> datum_writer =
-        new SpecificDatumWriter<GraphNodeData>(schema);
-    DataFileWriter<GraphNodeData> writer =
-        new DataFileWriter<GraphNodeData>(datum_writer);
-    try {
-      writer.create(schema, avro_file);
-      for (GraphNode node: builder.getAllNodes().values()) {
-        writer.append(node.getData());
-      }
-      writer.close();
-    } catch (IOException exception) {
-      fail("There was a problem writing the graph to an avro file. " +
-          "Exception:" + exception.getMessage());
-    }
+    File tempDir = FileHelper.createLocalTempDir();
+    File avroFile = new File(tempDir, "graph.avro");
+
+    GraphUtil.writeGraphToFile(avroFile, builder.getAllNodes().values());
+
     // Run it.
-    FindBubblesAvro run_bubbles = new FindBubblesAvro();
-    File output_path = new File(temp, "output");
+    FindBubblesAvro stage = new FindBubblesAvro();
+    File outputPath = new File(tempDir, "output");
     String[] args =
-      {"--inputpath=" + temp.toURI().toString(),
-        "--outputpath=" + output_path.toURI().toString(),
-        // TODO: we use 3 more parameters in findBubbles BubbleEditRate, BubbleLenThresh and K
-        // do we pass them here
+      {"--inputpath=" + tempDir.toURI().toString(),
+       "--outputpath=" + outputPath.toURI().toString(),
+       "--K=" + K, "--bubble_edit_rate=1", "--bubble_length_threshold=10"
       };
     try {
-      run_bubbles.run(args);
+      stage.run(args);
     } catch (Exception exception) {
       fail("Exception occured:" + exception.getMessage());
     }
   }
-   */
 }
