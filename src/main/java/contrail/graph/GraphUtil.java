@@ -32,6 +32,42 @@ import org.apache.avro.specific.SpecificDatumWriter;
  */
 public class GraphUtil {
   /**
+   * Order strings lexicographically and return the largest id.
+   *
+   * @param id1
+   * @param id2
+   * @return: The largest id.
+   */
+  public static CharSequence computeMajorID(
+      CharSequence id1, CharSequence id2) {
+    CharSequence major = "";
+    if (id1.toString().compareTo(id2.toString()) > 0) {
+      major = id1;
+    } else  {
+      major = id2;
+    }
+    return major;
+  }
+
+  /**
+   * Order strings lexicographically and return the smallest id.
+   *
+   * @param id1
+   * @param id2
+   * @return: The smaller id.
+   */
+  public static CharSequence computeMinorID(
+      CharSequence id1, CharSequence id2) {
+    CharSequence minor = "";
+    if (id1.toString().compareTo(id2.toString()) > 0) {
+      minor = id2;
+    } else  {
+      minor = id1;
+    }
+    return minor;
+  }
+
+  /**
    * Write a list of a graph nodes to an avro.
    * @param avroFile
    * @param nodes

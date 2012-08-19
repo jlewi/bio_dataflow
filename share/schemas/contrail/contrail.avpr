@@ -432,6 +432,31 @@
                   "doc": "The id of a neighbor to remove from the target of this message. This will be the empty string in the case where the message represents a node in the graph."
                  } 
                ]
+    },
+    {"name": "contrail.stages.FindBubblesOutput",
+     "type": "record",
+     "doc": [ "Message used to transfer info from FindBubbles to PopBubbles. ",
+              "The output is either a node or messages which will get routed ",
+              "to the minor node telling it to remove edges to popped ",
+              "bubbles."],
+     "fields": [
+    		    {"name": "node", 
+		         "type": ["null", "contrail.graph.GraphNodeData"],
+                  "doc": "The GraphNodeData"
+                },
+                { "name": "minorNodeId",
+                  "type": "string",
+                  "doc": "The id of the minor node to send the messages to."
+                },
+                {"name": "deleted_neighbors",
+                  "type": {"type": "array", 
+                          "items": "string"},
+                  "doc": ["A list of neighbors which have been deleted. We ",
+                          "use a list because of cases like ",
+                          "X->{A, B, C}->Y in which we need to tell Y to ",
+                          "remove edges from B and C."] 
+                }             
+               ]
     }
   ] // end types
 }
