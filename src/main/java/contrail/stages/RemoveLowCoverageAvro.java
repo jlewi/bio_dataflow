@@ -110,6 +110,7 @@ public class RemoveLowCoverageAvro extends Stage {
       node.setData(graph_data);
       int len = graph_data.getSequence().getLength();
       float cov = node.getCoverage();
+
       // normal node
       if ((len > lengthThresh) || (cov >= lowCovThresh)) {
         RemoveNeighborMessage msg = new RemoveNeighborMessage();
@@ -124,7 +125,7 @@ public class RemoveLowCoverageAvro extends Stage {
       // We are sending messages to all nodes with edges to this node telling them that this node has low coverage
       int degree = 0;
       for(DNAStrand strand : DNAStrand.values())  {
-        degree+= node.degree(strand);
+        degree += node.degree(strand);
         List<EdgeTerminal> terminals = node.getEdgeTerminals(strand, EdgeDirection.INCOMING);
         for(EdgeTerminal terminal : terminals) {
           msg.setNode(null);
@@ -142,11 +143,11 @@ public class RemoveLowCoverageAvro extends Stage {
   public static class RemoveLowCoverageAvroReducer extends
   AvroReducer<CharSequence, RemoveNeighborMessage,  GraphNodeData> {
     GraphNode node = null;
-    List<CharSequence> neighbors = null;
+    List<String> neighbors = null;
 
     public void configure(JobConf job) {
       node = new GraphNode();
-      neighbors = new ArrayList<CharSequence>();
+      neighbors = new ArrayList<String>();
     }
 
     public void reduce(CharSequence nodeid, Iterable<RemoveNeighborMessage> iterable,
@@ -166,7 +167,10 @@ public class RemoveLowCoverageAvro extends Stage {
         }
         // low coverage nodeID
         else  {
-          neighbors.add(msg.getNodeIDtoRemove());
+          // Important we need to make a copy of the id before adding it to
+          // the list otherwise it will be overwritten on the call to
+          // iter.nex(). Calling toString has the effect of making a copy.
+          neighbors.add(msg.getNodeIDtoRemove().toString());
         }
       }
       if (sawnode > 1) {
@@ -180,11 +184,11 @@ public class RemoveLowCoverageAvro extends Stage {
         }
         reporter.incrCounter("Contrail", "links-removed", 1);
       }
-      for(DNAStrand strand : DNAStrand.values())  {
-        degree = node.degree(strand);
-      }
+
+      degree = node.degree(DNAStrand.FORWARD) + node.degree(DNAStrand.REVERSE);
+
       // all the neighbors got disconnected
-      if(degree == 0)  {
+      if (degree == 0)  {
         reporter.incrCounter("Contrail", "isolated-nodes-removed", 1);
         reporter.incrCounter(NUM_REMOVED.group, NUM_REMOVED.tag, 1);
         return;
@@ -207,7 +211,8 @@ public class RemoveLowCoverageAvro extends Stage {
     sLogger.info(" - output: " + outputPath);
 
     float coverageThreshold = (Float) stage_options.get("low_cov_thresh");
-    int lengthThreshold = (Integer) stage_options.get("length_threshold");
+    int lengthThreshold = (Integer) stage_options.get("length_thresh");
+
     if (coverageThreshold <= 0) {
       sLogger.warn(
           "RemoveLowCoverage will not run because "+
