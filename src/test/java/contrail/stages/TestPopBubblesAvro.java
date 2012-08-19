@@ -41,15 +41,6 @@ public class TestPopBubblesAvro {
   private void assertReducerOutput(
       ReduceTestCase testCase, AvroCollectorMock<GraphNodeData> collector ) {
     assertEquals(1, collector.data.size());
-
-    GraphNode actual = new GraphNode(collector.data.get(0));
-    GraphNode expected = new GraphNode(testCase.expectedOutput);
-    // Check the coverage using floating point comparisons and then zero it
-    // out.
-    assertEquals(actual.getCoverage(), expected.getCoverage(), 0);
-    actual.setCoverage(0.0f);
-    expected.setCoverage(0.0f);
-
     assertEquals(testCase.expectedOutput, collector.data.get(0));
   }
 
@@ -72,13 +63,9 @@ public class TestPopBubblesAvro {
       FindBubblesOutput input = new FindBubblesOutput();
       input.setMinorNodeId(node.getNodeId());
 
-      BubbleMinorMessage message = new BubbleMinorMessage();
-      message.setNodetoRemoveID(terminal.nodeId);
-      message.setExtraCoverage(10.0f * (i+1));
-      input.setMinorMessages(new ArrayList<BubbleMinorMessage>());
-      input.getMinorMessages().add(message);
+      input.setDeletedNeighbors(new ArrayList<CharSequence>());
+      input.getDeletedNeighbors().add(terminal.nodeId);
 
-      extraCoverage += message.getExtraCoverage();
       testCase.inputs.add(input);
     }
 
@@ -90,7 +77,7 @@ public class TestPopBubblesAvro {
     FindBubblesOutput nodeInput = new FindBubblesOutput();
     nodeInput.setNode(node.getData());
     nodeInput.setMinorNodeId("");
-    nodeInput.setMinorMessages(new ArrayList<BubbleMinorMessage>());
+    nodeInput.setDeletedNeighbors(new ArrayList<CharSequence>());
     testCase.inputs.add(nodeInput);
 
     return testCase;

@@ -2,6 +2,7 @@ package contrail.stages;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Formatter;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -28,37 +29,18 @@ import contrail.graph.GraphNodeData;
 
 /**
  * Popbubbles is the second phase of removing bubbles from the graph.
- * Consider the graph X->{A,B}->Y
- * FindBubbles gathers information about the potential bubbles at the major node
- * (in this case Y).
- * The node with higher coverage (A) is preserved and the edge from the major node to the node to
- * be popped (B) is removed.
- * hence the resultant graph is reduced to X->A->Y and X->B
- * we now want to reduce it to X->A->Y
- * We know that in earlier stage node B was marked to be removed as its sequence was similar to A
- * it was disconnected from Y; but not from X; Hence B is the dead node.
  *
- * Mapper: The basic function of mapper is to send 4 types of messages to reducer of PopBubbles
- *  --It takes input of graph_data and then extracts the BubbleInfo that was populated in FindBubbles Reducer stage
- *  Mapper sends 4 types of messages:
- *  Kill link (L), Kill Message (M), Extra Coverage (C), Normal (N)
- *  to disconnect B from X we send Reducer nodes according to their minor Nodes; {minor(A)== minor(B)= node X}
+ * In the first phase, FindBubbles, bubbles were identified and the node with
+ * lower coverage was deleted. In this stage, we update nodes which had edges
+ * to the deleted nodes.
  *
- * Reducer: based on the type of message it receives from the Mapper; Reducer performs the following function
- *  N: Normal; set sawnode flag and set Node
- *  C: update the coverage of the node after popping bubbles
- *  M: this sets the kill node flag; it'll increment the counter that keeps track of the bubbles removed
- *  L: this causes Reducer to disconnect dead node from Minor node (B is disconnected from X)
+ * The mapper simply routes the messages outputted by FindBubbles to the
+ * appropriate target.
+ *
+ * The reducer applies the delete edge messages to nodes and outputs the graph.
  */
 public class PopBubblesAvro extends Stage  {
   private static final Logger sLogger = Logger.getLogger(PopBubblesAvro.class);
-
-//  public static final Schema MAP_OUT_SCHEMA =
-//      Pair.getPairSchema(Schema.create(Schema.Type.STRING),
-//          (new PopBubblesMessage()).getSchema());
-//
-//  private static Pair<CharSequence, PopBubblesMessage> out_pair =
-//      new Pair<CharSequence, PopBubblesMessage>(MAP_OUT_SCHEMA);
 
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs =
@@ -72,15 +54,13 @@ public class PopBubblesAvro extends Stage  {
     }
     return defs;
   }
-  // PopBubblesMapper
-  ///////////////////////////////////////////////////////////////////////////
+
   public static class PopBubblesAvroMapper
-    extends AvroMapper<FindBubblesOutput, Pair<CharSequence, FindBubblesOutput>> {
+    extends AvroMapper<FindBubblesOutput,
+                       Pair<CharSequence, FindBubblesOutput>> {
     Pair<CharSequence, FindBubblesOutput> outPair = null;
-    GraphNode node= null;
 
     public void configure(JobConf job)   {
-      node= new GraphNode();
       outPair = new Pair<CharSequence, FindBubblesOutput> (
           "", new FindBubblesOutput());
     }
@@ -98,107 +78,59 @@ public class PopBubblesAvro extends Stage  {
     }
   }
 
-  // PopBubblesReducer
-  ///////////////////////////////////////////////////////////////////////////
   public static class PopBubblesAvroReducer
-    extends AvroReducer<CharSequence, FindBubblesOutput, GraphNodeData>
-  {
-    private static int K = 0;
+    extends AvroReducer<CharSequence, FindBubblesOutput, GraphNodeData> {
     GraphNode node = null;
-    // FindBubblesOutput msg= null;
-    //GraphNodeData outputNode
-    ArrayList<String> idsToRemove;
+    ArrayList<String> neighborsToRemove;
 
     public void configure(JobConf job) {
       PopBubblesAvro stage = new PopBubblesAvro();
-      Map<String, ParameterDefinition> definitions = stage.getParameterDefinitions();
-      K = (Integer)(definitions.get("K").parseJobConf(job));
+      Map<String, ParameterDefinition> definitions =
+          stage.getParameterDefinitions();
 
-      node= new GraphNode();
-      //msg= new PopBubblesMessage();
-      idsToRemove = new ArrayList<String>();
+      node = new GraphNode();
+      neighborsToRemove = new ArrayList<String>();
     }
 
-    public void reduce(CharSequence nodeid, Iterable<FindBubblesOutput> iterable,
+    public void reduce(
+        CharSequence nodeid, Iterable<FindBubblesOutput> iterable,
         AvroCollector<GraphNodeData> output, Reporter reporter)
-            throws IOException
-            {
-      int sawnode = 0;
+            throws IOException {
+      int sawNode = 0;
       Iterator<FindBubblesOutput> iter = iterable.iterator();
-      //ArrayList<String> Nodes_to_Remove = new ArrayList<String>();
-      idsToRemove.clear();
+      neighborsToRemove.clear();
 
-      //boolean killnode = false;
-      float extracov = 0;
-
-      while(iter.hasNext())
-      {
+      while(iter.hasNext()) {
         FindBubblesOutput input = iter.next();
 
         if (input.getNode() != null) {
           node.setData(input.getNode());
           node = node.clone();
-          sawnode++;
+          sawNode++;
         } else {
-          for (BubbleMinorMessage  bubbleInfo : input.getMinorMessages()) {
-            idsToRemove.add(bubbleInfo.getNodetoRemoveID().toString());
-            extracov += bubbleInfo.getExtraCoverage();
+          for (CharSequence  neighbor : input.getDeletedNeighbors()) {
+            neighborsToRemove.add(neighbor.toString());
           }
         }
-//        PopBubblesMessage copy= new PopBubblesMessage();
-//
-//        copy.setNode(msg.getNode());
-//        copy.setNewCoverage(msg.getNewCoverage());
-//        copy.setAliveNodeID(msg.getAliveNodeID());
-//        copy.setDeadNodeID(msg.getDeadNodeID());
-//        copy.setNodeMessage(msg.getNodeMessage());
-//        CharSequence Node_msg= copy.getNodeMessage();
-//
-//        if(Node_msg.equals("N"))
-//        {
-//          node.setData(msg.getNode());
-//          node= node.clone();
-//          sawnode++;
-//        }
-//        else if (Node_msg.equals("L"))
-//        {
-//          String node_to_remove = (String) copy.getDeadNodeID();
-//          Nodes_to_Remove.add(node_to_remove);
-//        }
-//        /*else if (Node_msg.equals("M"))
-//        {
-//          killnode = true;
-//        }*/
-//        else if (Node_msg.equals("C"))
-//        {
-//          extracov += copy.getNewCoverage();
-//        }
-//        else
-//        {
-//          throw new IOException("Unknown msgtype: " + msg);
-//        }
       }
 
-      if (sawnode != 1)
-      {
-        throw new IOException("ERROR: Didn't see exactly 1 nodemsg (" + sawnode + ") for " + nodeid.toString());
-      }
-      /*
-      if (killnode)
-      {
-        reporter.incrCounter("Contrail", "bubblenodes_removed", 1);
-        return;
-      }*/
-
-      if (extracov > 0) {
-        // We increase the coverage based on the edges the edges to the deleted
-        // nodes because those edges are assumed to  result from errors.
-        int merlen = node.getData().getSequence().getLength() - K + 1;
-        float support = node.getCoverage() * merlen + extracov;
-        node.setCoverage(support /  merlen);
+      if (sawNode == 0)    {
+        Formatter formatter = new Formatter(new StringBuilder());
+        formatter.format(
+            "ERROR: No node was provided for nodeId %s. This can happen if " +
+            "the graph isn't maximally compressed before calling FindBubbles",
+            nodeid);
+        throw new IOException(formatter.toString());
       }
 
-      for(String neighborID : idsToRemove) {
+      if (sawNode > 1) {
+        Formatter formatter = new Formatter(new StringBuilder());
+        formatter.format("ERROR: nodeId %s, %d nodes were provided",
+            nodeid, sawNode);
+        throw new IOException(formatter.toString());
+      }
+
+      for(String neighborID : neighborsToRemove) {
         node.removeNeighbor(neighborID);
         reporter.incrCounter("Contrail", "linksremoved", 1);
       }
@@ -208,7 +140,7 @@ public class PopBubblesAvro extends Stage  {
 
   @Override
   public RunningJob runJob() throws Exception {
-    String[] required_args = {"inputpath", "outputpath", "K"};
+    String[] required_args = {"inputpath", "outputpath"};
     checkHasParametersOrDie(required_args);
 
     String inputPath = (String) stage_options.get("inputpath");
@@ -227,7 +159,7 @@ public class PopBubblesAvro extends Stage  {
     else {
       conf = new JobConf(this.getClass());
     }
-    conf.setJobName("PopBubbles " + inputPath + " " + K);
+    conf.setJobName("PopBubbles " + inputPath);
 
     initializeJobConfiguration(conf);
 
