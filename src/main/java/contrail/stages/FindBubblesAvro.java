@@ -94,7 +94,7 @@ public class FindBubblesAvro extends Stage   {
         new ParameterDefinition("bubble_edit_rate",
             "We consider two sequences to be the same if their edit distance " +
             "is less then or equal to length * bubble_edit_rate.",
-            Integer.class, new Float(0));
+            Float.class, new Float(0));
 
     ParameterDefinition bubble_length_threshold =
         new ParameterDefinition("bubble_length_threshold",
@@ -184,7 +184,7 @@ public class FindBubblesAvro extends Stage   {
       Map<String, ParameterDefinition> definitions =
           stage.getParameterDefinitions();
 
-      bubbleEditRate= (Integer)(
+      bubbleEditRate= (Float)(
           definitions.get("bubble_edit_rate").parseJobConf(job));
       K = (Integer)(definitions.get("K").parseJobConf(job));
       majorNode = new GraphNode();

@@ -48,6 +48,7 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
   private static class MapTestCaseData {
     public GraphNodeData node;
     public HashMap<String, GraphNodeData> expectedMessages;
+    public int bubbleLenghThreshold = 100;
   }
 
   // In this test case, we build a node with indegree=outdegree=1 but whose
@@ -61,6 +62,7 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
     MapTestCaseData testCase = new MapTestCaseData();
     testCase.expectedMessages =
         new HashMap<String, GraphNodeData>();
+    testCase.bubbleLenghThreshold = 2;
 
     GraphNode nonBubbleNode = graph.getNode(
         graph.findNodeIdForSequence("ATTC"));
@@ -71,70 +73,74 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
     return testCase;
   }
 
-  //In this test case, we build a node with indegree=outdegree=1 but whose
-  // sequence length is < bubble length threshold so it can be a potential bubble.
+  // In this test case, we build a node with indegree=outdegree=1 and whose
+  // sequence length is < bubble length threshold so it is a potential
+  // bubble.
   private MapTestCaseData createBubbleData()  {
     SimpleGraphBuilder graph = new SimpleGraphBuilder();
     graph.addEdge("AAT", "ATC", 2);
     graph.addEdge("ATC", "TCA", 2);
 
-    MapTestCaseData bubble= new MapTestCaseData();
-    HashMap<String, GraphNodeData> expected_bubble = new HashMap<String, GraphNodeData>();
+    MapTestCaseData testCase = new MapTestCaseData();
+    testCase.expectedMessages = new HashMap<String, GraphNodeData>();
 
-    GraphNode bubble_node = graph.getNode(graph.findNodeIdForSequence("ATC"));
-    expected_bubble.put(graph.findNodeIdForSequence("TCA"), bubble_node.getData());
-    bubble.node = bubble_node.getData();
-    bubble.expectedMessages = expected_bubble;
-    return bubble;
-  }
-
-  private List<MapTestCaseData> constructMapCases() {
-    List <MapTestCaseData> cases = new ArrayList<MapTestCaseData>();
-    cases.add(createBubbleData());
-    cases.add(createNonBubbleData());
-    return cases;
+    GraphNode bubbleNode = graph.findNodeForSequence("ATC");
+    testCase.expectedMessages.put(
+        graph.findNodeIdForSequence("TCA"), bubbleNode.clone().getData());
+    testCase.node = bubbleNode.clone().getData();
+    return testCase;
   }
 
   @Test
   public void testMap() {
-    ReporterMock reporter_mock = new ReporterMock();
-    Reporter reporter = reporter_mock;
+    List <MapTestCaseData> cases = new ArrayList<MapTestCaseData>();
+    cases.add(createBubbleData());
+    cases.add(createNonBubbleData());
 
-    FindBubblesAvro.FindBubblesAvroMapper mapper = new FindBubblesAvro.FindBubblesAvroMapper();
+    ReporterMock reporter = new ReporterMock();
+
+    FindBubblesAvro.FindBubblesAvroMapper mapper =
+        new FindBubblesAvro.FindBubblesAvroMapper();
     FindBubblesAvro stage= new FindBubblesAvro();
 
-    Map<String, ParameterDefinition> definitions = stage.getParameterDefinitions();
-    int BubbleLenThresh= 4;
+    Map<String, ParameterDefinition> definitions =
+        stage.getParameterDefinitions();
     JobConf job = new JobConf(FindBubblesAvro.FindBubblesAvroMapper.class);
-    definitions.get("bubble_length_threshold").addToJobConf(job, new Integer(BubbleLenThresh));
-    mapper.configure(job);
 
-    // Construct the different test cases.
-    List <MapTestCaseData> test_cases = constructMapCases();
-    for (MapTestCaseData case_data : test_cases) {
+    for (MapTestCaseData testCase : cases) {
+      definitions.get("bubble_length_threshold").addToJobConf(
+          job, new Integer(testCase.bubbleLenghThreshold));
+      mapper.configure(job);
       AvroCollectorMock<Pair<CharSequence, GraphNodeData>>
-      collectorMock =  new AvroCollectorMock<Pair<CharSequence, GraphNodeData>>();
+      collectorMock =
+        new AvroCollectorMock<Pair<CharSequence, GraphNodeData>>();
       try {
-        mapper.map(case_data.node, collectorMock, reporter);
+        mapper.map(testCase.node, collectorMock, reporter);
       }
       catch (IOException exception){
         fail("IOException occured in map: " + exception.getMessage());
       }
-      assertMapperOutput(case_data.node, case_data.expectedMessages, collectorMock);
+      assertMapperOutput(
+          testCase.node, testCase.expectedMessages, collectorMock);
     }
   }
 
   private static class ReduceTestCaseData {
-    List <GraphNodeData> map_out_list;
-    HashMap<String,FindBubblesOutput> expected_node_data;
+    List<GraphNodeData> mapOutputs;
+    HashMap<String, FindBubblesOutput> expectedOutputs;
     CharSequence key;
     int K;
+    Float bubbleEditRate;
+    public ReduceTestCaseData() {
+      mapOutputs = new ArrayList<GraphNodeData>();
+      expectedOutputs = new HashMap<String, FindBubblesOutput>();
+      bubbleEditRate = 2.0f;
+    }
   }
 
-  private void assertReduceOutput(ReduceTestCaseData case_data,
+  private void assertReduceOutput(ReduceTestCaseData caseData,
       AvroCollectorMock<FindBubblesOutput> collectorMock) {
-    assertEquals(case_data.expected_node_data.size(), collectorMock.data.size());
-    // check if all expected out puts exist
+    assertEquals(caseData.expectedOutputs.size(), collectorMock.data.size());
     Set<String> outNodeIDList = new HashSet<String>();
     for(FindBubblesOutput element: collectorMock.data) {
       String key = null;
@@ -145,40 +151,37 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
       }
 
       outNodeIDList.add(key);
-      FindBubblesOutput expected = case_data.expected_node_data.get(key);
+      FindBubblesOutput expected = caseData.expectedOutputs.get(key);
       assertEquals(expected, element);
     }
-    assertEquals(outNodeIDList, case_data.expected_node_data.keySet());
+    assertEquals(outNodeIDList, caseData.expectedOutputs.keySet());
   }
 
-  // this function creates a test-case for a Non Bubble node
+  // This function creates a test-case for a non bubble node.
   private ReduceTestCaseData constructNonBubblesCaseData()  {
     SimpleGraphBuilder graph = new SimpleGraphBuilder();
     graph.addEdge("AAT", "ATATC", 2);
-    List <GraphNodeData> map_out_list = new ArrayList <GraphNodeData>();
     ReduceTestCaseData testData = new ReduceTestCaseData();
-    FindBubblesOutput expected_node_data = new FindBubblesOutput();
 
-
+    FindBubblesOutput output = new FindBubblesOutput();
     GraphNode node = graph.findNodeForSequence("AAT");
-    expected_node_data.setNode(node.getData());
-    expected_node_data.setMinorNodeId("");
-    expected_node_data.setDeletedNeighbors(new ArrayList<CharSequence>());
+    output.setNode(node.getData());
+    output.setMinorNodeId("");
+    output.setDeletedNeighbors(new ArrayList<CharSequence>());
 
-    GraphNodeData msg = new GraphNodeData();
-    msg = graph.getNode(graph.findNodeIdForSequence("AAT")).getData();
-    map_out_list.add(msg);
+    testData.mapOutputs.add(
+        graph.findNodeForSequence("AAT").clone().getData());
 
-    testData.expected_node_data = new HashMap<String, FindBubblesOutput>();
+    testData.expectedOutputs = new HashMap<String, FindBubblesOutput>();
     testData.key = graph.findNodeIdForSequence("AAT");
-    testData.expected_node_data.put(
-        expected_node_data.getNode().getNodeId().toString(),expected_node_data);
-    testData.map_out_list = map_out_list;
+    testData.expectedOutputs.put(
+        output.getNode().getNodeId().toString(), output);
+
     return testData;
   }
 
-  // this function creates a Bubble scenario where potential bubbles have been
-  // shipped to the major node
+  // This function creates a Bubble scenario where potential bubbles have been
+  // shipped to the major node.
   private ReduceTestCaseData constructBubblesCaseData()  {
     SimpleGraphBuilder graph = new SimpleGraphBuilder();
     graph.addEdge("AAT", "ATATC", 2);
@@ -201,16 +204,16 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
     // nodeid(TCA), <TCA nodedata>
     // nodeid(TCA), <ATTTC nodedata>
     // nodeid(TCA), <ATATC nodedata>
-    List <GraphNodeData> map_out_list = new ArrayList <GraphNodeData>();
+    List <GraphNodeData> mapOutputs = new ArrayList <GraphNodeData>();
     ReduceTestCaseData testData = new ReduceTestCaseData();
     testData.K = 3;
 
-    map_out_list.add(majorNode.clone().getData());
-    map_out_list.add(aliveNode.clone().getData());
-    map_out_list.add(deadNode.clone().getData());
+    mapOutputs.add(majorNode.clone().getData());
+    mapOutputs.add(aliveNode.clone().getData());
+    mapOutputs.add(deadNode.clone().getData());
 
     // Construct the expected outputs. There are three outputs.
-    testData.expected_node_data = new HashMap<String, FindBubblesOutput>();
+    testData.expectedOutputs = new HashMap<String, FindBubblesOutput>();
 
     // For the major node (TCA) we just output the node after removing
     // the edge to ATATC.
@@ -223,7 +226,7 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
       expectedOutput.setNode(node.getData());
       expectedOutput.setDeletedNeighbors(new ArrayList<CharSequence>());
       expectedOutput.setMinorNodeId("");
-      testData.expected_node_data.put(node.getNodeId(), expectedOutput);
+      testData.expectedOutputs.put(node.getNodeId(), expectedOutput);
     }
     {
       // For node ATTTC we just output the node after updating the coverage.
@@ -240,8 +243,7 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
       expectedOutput.setNode(node.clone().getData());
       expectedOutput.setDeletedNeighbors(new ArrayList<CharSequence>());
       expectedOutput.setMinorNodeId("");
-      testData.expected_node_data.put(node.getNodeId(), expectedOutput);
-
+      testData.expectedOutputs.put(node.getNodeId(), expectedOutput);
     }
 
     {
@@ -252,17 +254,19 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
       expectedOutput.getDeletedNeighbors().add(deadNode.getNodeId());
 
       expectedOutput.setMinorNodeId(minorNode.getNodeId());
-      testData.expected_node_data.put(minorNode.getNodeId(), expectedOutput);
+      testData.expectedOutputs.put(minorNode.getNodeId(), expectedOutput);
     }
 
     testData.key =  majorNode.getNodeId();
-    testData.map_out_list= map_out_list;
+    testData.mapOutputs= mapOutputs;
     return testData;
   }
 
-  // this function creates a Bubble scenario where we test the proper alignment
-  // and edit distance condition
-  // This bubble test the case of X->{A,R(B)}->Y
+  // This function creates a bubble and tests that sequences are properly
+  // aligned before computing the edit distance.
+  // The graph in this case is  X->{A,R(B)}->Y. If the sequences aren't
+  // properly aligned (e.g. if we end up computing the edit distance of A & B
+  // then the result should be two large for the nodes to be merges.
   private ReduceTestCaseData constructReverseBubblesCaseData()  {
     // The reducer takes as input nodes X, A, B. So we don't construct
     // node Y.
@@ -305,13 +309,17 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
 
     // Construct the test case
     ReduceTestCaseData testData = new ReduceTestCaseData();
-    testData.key = majorNode.getNodeId();
-    testData.map_out_list = new ArrayList<GraphNodeData>();
-    testData.map_out_list.add(majorNode.clone().getData());
-    testData.map_out_list.add(highNode.clone().getData());
-    testData.map_out_list.add(lowNode.clone().getData());
 
-    testData.expected_node_data = new HashMap<String, FindBubblesOutput>();
+    // Set the bubbleEditRate to 2/5 so that distance(CTGAT, CTTAT)
+    // < length * bubbleEditRate.
+    testData.bubbleEditRate = 2.0f/5.0f;
+    testData.key = majorNode.getNodeId();
+    testData.mapOutputs = new ArrayList<GraphNodeData>();
+    testData.mapOutputs.add(majorNode.clone().getData());
+    testData.mapOutputs.add(highNode.clone().getData());
+    testData.mapOutputs.add(lowNode.clone().getData());
+
+    testData.expectedOutputs = new HashMap<String, FindBubblesOutput>();
 
     // For the major node we just output the node after removing
     // the edge to the bubble.
@@ -323,7 +331,7 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
       expectedOutput.setNode(node.getData());
       expectedOutput.setDeletedNeighbors(new ArrayList<CharSequence>());
       expectedOutput.setMinorNodeId("");
-      testData.expected_node_data.put(node.getNodeId(), expectedOutput);
+      testData.expectedOutputs.put(node.getNodeId(), expectedOutput);
     }
     {
       FindBubblesOutput expectedOutput= new FindBubblesOutput();
@@ -339,8 +347,7 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
       expectedOutput.setNode(node.clone().getData());
       expectedOutput.setDeletedNeighbors(new ArrayList<CharSequence>());
       expectedOutput.setMinorNodeId("");
-      testData.expected_node_data.put(node.getNodeId(), expectedOutput);
-
+      testData.expectedOutputs.put(node.getNodeId(), expectedOutput);
     }
 
     {
@@ -351,7 +358,7 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
       expectedOutput.getDeletedNeighbors().add(lowNode.getNodeId());
       expectedOutput.setMinorNodeId(minorID.toString());
 
-      testData.expected_node_data.put(
+      testData.expectedOutputs.put(
           minorID.toString(), expectedOutput);
     }
 
@@ -360,39 +367,40 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
 
   @Test
   public void testReduce() {
-    List <ReduceTestCaseData> case_data_list =
+    List <ReduceTestCaseData> caseData_list =
         new ArrayList<ReduceTestCaseData>();
-    case_data_list.add(constructNonBubblesCaseData());
-    case_data_list.add(constructBubblesCaseData());
-    case_data_list.add(constructReverseBubblesCaseData());
+    caseData_list.add(constructNonBubblesCaseData());
+    caseData_list.add(constructBubblesCaseData());
+    caseData_list.add(constructReverseBubblesCaseData());
 
     ReporterMock reporter_mock = new ReporterMock();
     Reporter reporter = reporter_mock;
 
     FindBubblesAvro stage= new FindBubblesAvro();
-    Map<String, ParameterDefinition> definitions = stage.getParameterDefinitions();
-    int BubbleEditRate = 2;
+    Map<String, ParameterDefinition> definitions =
+        stage.getParameterDefinitions();
+
     JobConf job = new JobConf(FindBubblesAvro.FindBubblesAvroReducer.class);
-    definitions.get("bubble_edit_rate").addToJobConf(job, new Integer(BubbleEditRate));
+    FindBubblesAvro.FindBubblesAvroReducer reducer =
+        new FindBubblesAvro.FindBubblesAvroReducer();
 
-    FindBubblesAvro.FindBubblesAvroReducer reducer = new FindBubblesAvro.FindBubblesAvroReducer();
-
-    for (ReduceTestCaseData case_data : case_data_list) {
-      definitions.get("K").addToJobConf(job, case_data.K);
+    for (ReduceTestCaseData caseData : caseData_list) {
+      definitions.get("bubble_edit_rate").addToJobConf(
+          job, caseData.bubbleEditRate);
+      definitions.get("K").addToJobConf(job, caseData.K);
       reducer.configure(job);
       AvroCollectorMock<FindBubblesOutput> collectorMock =
           new AvroCollectorMock<FindBubblesOutput>();
       try {
-        CharSequence key = case_data.key;
-        reducer.reduce(key, case_data.map_out_list, collectorMock, reporter);
+        CharSequence key = caseData.key;
+        reducer.reduce(key, caseData.mapOutputs, collectorMock, reporter);
       }
       catch (IOException exception){
         fail("IOException occured in reduce: " + exception.getMessage());
       }
-      assertReduceOutput(case_data, collectorMock);
+      assertReduceOutput(caseData, collectorMock);
     }
   }
-
 
   @Test
   public void testRun() {
