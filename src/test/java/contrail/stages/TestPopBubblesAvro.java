@@ -31,7 +31,6 @@ public class TestPopBubblesAvro {
   class ReduceTestCase {
     public List<FindBubblesOutput> inputs;
     public GraphNodeData expectedOutput;
-    public int K;
 
     public ReduceTestCase () {
       inputs = new ArrayList<FindBubblesOutput>();
@@ -46,7 +45,6 @@ public class TestPopBubblesAvro {
 
   private ReduceTestCase createReduceTest () {
     ReduceTestCase testCase = new ReduceTestCase();
-    testCase.K = 3;
     // Create a test case in which a node has several edges removed.
     GraphNode node = new GraphNode();
     node.setNodeId("minor");
@@ -68,11 +66,6 @@ public class TestPopBubblesAvro {
 
       testCase.inputs.add(input);
     }
-
-    int merlen = node.getSequence().size() - testCase.K + 1;
-    float expectedCoverage = node.getCoverage() * merlen + extraCoverage;
-    expectedCoverage = expectedCoverage / merlen;
-    testCase.expectedOutput.setCoverage(expectedCoverage);
 
     FindBubblesOutput nodeInput = new FindBubblesOutput();
     nodeInput.setNode(node.getData());
@@ -158,8 +151,7 @@ public class TestPopBubblesAvro {
 
     String[] args =
       {"--inputpath=" + tempDir.toURI().toString(),
-       "--outputpath=" + outputPath.toURI().toString(),
-       "--K=" + testCase.K};
+       "--outputpath=" + outputPath.toURI().toString()};
 
     try {
       stage.run(args);

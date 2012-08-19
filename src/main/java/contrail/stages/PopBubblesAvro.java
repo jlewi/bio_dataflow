@@ -145,7 +145,6 @@ public class PopBubblesAvro extends Stage  {
 
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
-    int K = (Integer)stage_options.get("K");
 
     sLogger.info("Tool name: PopBubbles");
     sLogger.info(" - input: "  + inputPath);
