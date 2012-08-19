@@ -37,8 +37,8 @@ public class GraphUtil {
    * Major is id1 and Minor is id2
    * computeMajorID and computeMinorID functions compute the same
    */
-  public static CharSequence computeMajorID(CharSequence id1, 
-      CharSequence id2) {
+  public static CharSequence computeMajorID(
+      CharSequence id1, CharSequence id2) {
     CharSequence major = "";
     if (id1.toString().compareTo(id2.toString()) > 0)   {
       major = id1;
@@ -48,8 +48,8 @@ public class GraphUtil {
     }
     return major;
   }
-  
-  public static CharSequence computeMinorID(CharSequence id1, 
+
+  public static CharSequence computeMinorID(CharSequence id1,
       CharSequence id2) {
     CharSequence minor = "";
     if (id1.toString().compareTo(id2.toString()) > 0)   {

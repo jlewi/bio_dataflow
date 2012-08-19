@@ -32,48 +32,46 @@ import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.graph.GraphUtil;
-import contrail.graph.TailData;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
 
 /**
- *   Sequencing errors in the middle of reads creates "Bubbles"
- *   After removing Tips we look for the Bubble formations in the graph;
- *   This is done in 2 steps:
- *   1. FindBubblesAvro finds these potential bubbles
- *   2. PopBubblesAvro removes (or degenerates) a bubble into a linear chain
+ * This stage finds bubbles created by sequencing errors.
  *
- *   Nomenclature: X->{A,B}->Y refers to graph X->A; X->B; B->Y; A->Y
- *   this is the formation of the simplest Bubble
- *   If the sequences for A and B are sufficiently similar, these sequences are merged together into node A forming a chain X->A->Y.
- *   FindBubbles looks for the bubbles in the graph; i.e. those nodes
- *   1. that have indegree and outdegree exactly 1
- *   2. their Sequence length is less than some threshold (let this threshold value be bubbleLenThresh)
- *   3. Sequences in A and B are sufficiently similar if their edit distance is under some THRESHOLD
+ * Sequencing errors in the middle of reads creates "bubbles". A bubble
+ * is the graph X->{A,B}->Y where X->{A,B} mean X has an edge to each node
+ * in the set {A,B}. Similarly, {A,B}-> Y means each node in the set {A, B}
+ * has an edge to node Y.
  *
- *   The Mapper does the following:
- *      -- If the forward degree and reverse degree is = 1, then we may have a potential bubble in the node.
- *         (in example X->{A,B}->Y; A,B are identified as potential bubbles as they have indegree==outdegree=1)
- *      -- We find out terminal nodes of the Incoming and Outgoing edge direction of such nodes (referred to as major and minor nodes);
- *      -- We keep major's ID to be strictly (lexicographically) more than the minor's ID.
- *         (assume here major(A) == major(B) that is node Y and minor(A) == minor(B) = node X)
- *      -- Finally we emit majorID of node as key; and bubble NodeData as value
+ * If the sequences for A and B are sufficiently similar, then we can pop the
+ * bubble by only keeping the node with higher coverage.
  *
- *   the Reducer
- *      -- collects node with same majorID
- *	       (therefore node A and node B are sent to same reducer)
- *      -- stores the emitted details in a stage-specific helper class (BubbleMetaData)
- *      -- characterizes BubbleMetaData of nodes according to a List; (as minor(A) == minor(B) they are in same list)
- *      -- recognize if potential Bubble can be removed by calculating the edit distances among two nodes with same minorID
- *         (i.e. how similar sequences of A and B are; can we afford to remove one of them ?)
- *      -- add Node-to-be-Removed ID, Node-to-be-saved ID and updated-Coverage to node_data for PopBubbles stage
- *      -- disconnect them from major Node (and delete major strand)
- *         (here suppose B gets disconnected from Y then,
- *         B is the dead node and A is alive node)
+ * Popping bubbles is done in two stages.
+ *  1. FindBubblesAvro finds these potential bubbles.
+ *  2. PopBubblesAvro removes edges in the graph to the deleted nodes.
  *
- *  Important: The graph must be maximally be compressed otherwise this code
- *  won't work.
+ * FindBubbles looks for the bubbles in the graph; i.e. those nodes
+ *  1. that have indegree=1 and outdegree=1,
+ *  2. their Sequence length is less than some threshold,
+ *  3. the edit distance between the sequences for nodes A and B are less than
+ *     some THRESHOLD.
+ *
+ * The Mapper finds potential bubbles (e.g nodes A & B) by looking for nodes
+ * which satisfy criterion #1 & #2 above. These nodes are then shipped to
+ * the major neighbor for that node. By convention, for any node we define
+ * its major neighbor to be the neighbor with the largest node id
+ * (lexicographically).
+ *
+ * In the Reducer nodes which could be bubbles are grouped with their major
+ * neighbor. For example, nodes A & B would be grouped with node Y in the
+ * reducer. If nodes A & B can be merged then the node with lower coverage is
+ * deleted and the edges of node Y are updated. The reducer then outputs
+ * messages that are used in PopBubblesAvro to tell node X to delete its
+ * edges to node B which was deleted.
+ *
+ * Important: The graph must be maximally be compressed otherwise this code
+ * won't work.
  */
 
 public class FindBubblesAvro extends Stage   {
@@ -82,9 +80,6 @@ public class FindBubblesAvro extends Stage   {
   public static final Schema MAP_OUT_SCHEMA =
       Pair.getPairSchema(Schema.create(Schema.Type.STRING),
           (new GraphNodeData()).getSchema());
-
-  private static Pair<CharSequence, GraphNodeData> out_pair =
-      new Pair<CharSequence, GraphNodeData>(MAP_OUT_SCHEMA);
 
   public static final Schema REDUCE_OUT_SCHEMA =
       new FindBubblesOutput().getSchema();
@@ -119,153 +114,153 @@ public class FindBubblesAvro extends Stage   {
     return Collections.unmodifiableMap(defs);
   }
 
-  //FindBubblesMapper
-  ///////////////////////////////////////////////////////////////////////////
+
+  /**
+   * The mapper identifies potential bubbles.
+   */
   public static class FindBubblesAvroMapper extends
   AvroMapper<GraphNodeData, Pair<CharSequence,GraphNodeData>>    {
     int bubbleLenThresh = 0;
     GraphNode node = null;
-    GraphNodeData msg = null;
+
+    private Pair<CharSequence, GraphNodeData> outPair;
 
     public void configure(JobConf job)    {
       FindBubblesAvro stage= new FindBubblesAvro();
-      Map<String, ParameterDefinition> definitions = stage.getParameterDefinitions();
-      bubbleLenThresh = (Integer)(definitions.get("bubble_length_threshold").parseJobConf(job));
-      // the mapper message
-      msg= new GraphNodeData();
-      node= new GraphNode();
+      Map<String, ParameterDefinition> definitions =
+          stage.getParameterDefinitions();
+      bubbleLenThresh =
+          (Integer) (definitions.get(
+              "bubble_length_threshold").parseJobConf(job));
+
+      node = new GraphNode();
+      outPair = new Pair<CharSequence, GraphNodeData>("", new GraphNodeData());
     }
 
-    public void map(GraphNodeData graph_data,
+    public void map(GraphNodeData graphData,
         AvroCollector<Pair<CharSequence, GraphNodeData>> output,
         Reporter reporter) throws IOException   {
-      node.setData(graph_data);
+      node.setData(graphData);
 
-      int nodeLength = graph_data.getSequence().getLength();
+      int sequenceLength = graphData.getSequence().getLength();
       int outDegree = node.degree(DNAStrand.FORWARD, EdgeDirection.OUTGOING);
       int inDegree = node.degree(DNAStrand.FORWARD, EdgeDirection.INCOMING);
       // check if node can't be a bubble
-      if ((nodeLength >= bubbleLenThresh) || (outDegree != 1) ||
+      if ((sequenceLength >= bubbleLenThresh) || (outDegree != 1) ||
           (inDegree != 1))  {
-        msg = node.getData();
-        out_pair.set(node.getNodeId(), msg);
-        output.collect(out_pair);
+        outPair.set(node.getNodeId(), graphData);
+        output.collect(outPair);
         return;
       }
 
-      /**
-       *  Here we just work with one strand of DNA that is, the FORWARD strand
-       *  we get the degrees of FORWARD DNAStrand with respect to to Incoming and Outgoing edges and
-       *  try to identify if it is a bubble
-       *  then we get terminal IDs of both directions of the Forward Strand
-       *  and determine minorID and majorID on the basis of their lexicographic ordering
-       */
-      EdgeTerminal in = null;
-      EdgeTerminal out = null;
-      reporter.incrCounter("Contrail", "potential-bubbles", 1);
-      TailData out_tail = node.getTail(DNAStrand.FORWARD, EdgeDirection.OUTGOING);
-      TailData in_tail = node.getTail(DNAStrand.FORWARD, EdgeDirection.INCOMING);
-      out = out_tail.terminal;
-      in = in_tail.terminal;
-      CharSequence major = "";
+      // Identify the major neighbor.
+      EdgeTerminal in =
+          node.getEdgeTerminals(
+              DNAStrand.FORWARD, EdgeDirection.INCOMING).get(0);
+      EdgeTerminal out =
+          node.getEdgeTerminals(
+              DNAStrand.FORWARD, EdgeDirection.OUTGOING).get(0);
 
-      // we ship the potential bubble to its neighbor with the lexicographically larger id (majorId).
-      // This ensures the nodes forming a bubble get shipped to the same node.
-      major = GraphUtil.computeMajorID(in.nodeId, out.nodeId);
-      GraphNodeData msg = node.getData();
-      out_pair.set(major, msg);
-      output.collect(out_pair);
+      CharSequence majorID = GraphUtil.computeMajorID(in.nodeId, out.nodeId);
+      outPair.set(majorID, graphData);
+      output.collect(outPair);
     }
   }
 
-  // FindBubblesReducer
-  ///////////////////////////////////////////////////////////////////////////
+
+  /**
+   * The reducer.
+   */
   public static class FindBubblesAvroReducer
   extends AvroReducer<CharSequence, GraphNodeData, FindBubblesOutput> {
     private int K;
     public float bubbleEditRate;
-    private GraphNode actual_node = null;
-    private GraphNode bubble_node = null;
+    private GraphNode majorNode = null;
+    private GraphNode bubbleNode = null;
     private FindBubblesOutput output = null;
 
     public void configure(JobConf job) {
       FindBubblesAvro stage = new FindBubblesAvro();
-      Map<String, ParameterDefinition> definitions = stage.getParameterDefinitions();
+      Map<String, ParameterDefinition> definitions =
+          stage.getParameterDefinitions();
 
-      bubbleEditRate= (Integer)(definitions.get("bubble_edit_rate").parseJobConf(job));
+      bubbleEditRate= (Integer)(
+          definitions.get("bubble_edit_rate").parseJobConf(job));
       K = (Integer)(definitions.get("K").parseJobConf(job));
-      actual_node = new GraphNode();
-      bubble_node = new GraphNode();
+      majorNode = new GraphNode();
+      bubbleNode = new GraphNode();
       output = new FindBubblesOutput();
-      output.setMinorMessages(new ArrayList<BubbleMinorMessage>());
+      output.setDeletedNeighbors(new ArrayList<CharSequence>());
     }
 
     /**
-     * This class is used to store and compare Potential bubbles emitted from the mapper
-     * on the base of their coverage values
+     * This class is used for processing nodes which could be bubbles.
+     *
+     * For any node which might be a bubble, we identify the strand such
+     * that there is an outgoing edge from the forward strand of its major
+     * neighbor. We use this strand when computing the edit distance.
      */
     private class BubbleMetaData implements Comparable<BubbleMetaData>   {
-      // The Bubble node
       GraphNode node;
-      // extraCoverage needed to be updated; once a bubble gets popped
-      float extraCoverage;
-      // a boolean variable used for marking bubbles
-      boolean popped;
-      // the corresponding node which has higher coverage when compared with Bubble
-      CharSequence aliveNodeID;
-      // Aligned Sequence
-      Sequence alignedSequence;
-      // Minor ID
-      CharSequence minor;
 
-      BubbleMetaData(GraphNodeData nodeData, CharSequence major)    {
+      // A boolean variable used for marking nodes which will be deleted because
+      // they are sufficiently similar to another node.
+      boolean popped;
+
+      // The properly aligned sequence which should be used for computing
+      // the edit distance.
+      Sequence alignedSequence;
+
+      String minorID;
+
+      BubbleMetaData(
+          GraphNodeData nodeData, CharSequence major) {
         node = new GraphNode();
         node.setData(nodeData);
-        extraCoverage = 0;
         popped = false;
-        aliveNodeID = "";
-
-       // strand type from Major Node
+        // Find the strand of this node which is the terminal for an outgoing
+        // edge of the forward strand of the major node.
         DNAStrand strandFromMajor;
+
         EdgeTerminal terminal =
             node.getEdgeTerminals(
                 DNAStrand.FORWARD, EdgeDirection.INCOMING).get(0);
-        if (node.getEdgeTerminals(DNAStrand.FORWARD, EdgeDirection.INCOMING).
-            get(0).nodeId.toString().equals(major.toString())){
+        if (terminal.nodeId.toString().equals(major.toString())) {
           strandFromMajor = DNAStrand.FORWARD;
         } else {
           strandFromMajor = DNAStrand.REVERSE;
         }
-        alignedSequence = DNAUtil.sequenceToDir(node.getSequence(), strandFromMajor);
 
-        // get minor for bubbleNode
-        if(!(node.getTail(DNAStrand.FORWARD,
-            EdgeDirection.OUTGOING).terminal.nodeId.toString().equals(major.toString())) )  {
-          minor = node.getTail(DNAStrand.FORWARD, EdgeDirection.OUTGOING).terminal.nodeId;
-        }
-        else  {
-          minor = node.getTail(DNAStrand.FORWARD, EdgeDirection.INCOMING).terminal.nodeId;
-        }
+        minorID = node.getEdgeTerminals(
+            strandFromMajor, EdgeDirection.OUTGOING).get(0).nodeId;
+
+        alignedSequence = DNAUtil.sequenceToDir(
+            node.getSequence(), strandFromMajor);
       }
 
       /**
-       * A positive result means coverage(this) < coverage(other). Conversely, a negative
-       * result means coverage(this) > coverage(other)
+       * A positive result means coverage(this) < coverage(other).
+       * Conversely, a negative result means coverage(this) > coverage(other).
+       *
+       * We define it this way so the nodes will be sorted in decreasing order
+       * of coverage.
        */
-      public int compareTo(BubbleMetaData o)    {
+      public int compareTo(BubbleMetaData o) {
         BubbleMetaData co = o;
         return (int)(co.node.getCoverage() - node.getCoverage());
       }
     }
 
     /**
-     *  For every pair of nodes (u, v) we compute the edit distance between the sequences.
-     *  If the edit distance is less than edit_distance_threshold then the
-     *  sequences are sufficiently similar and we can mark the node v to be removed
-     *  where node v is the node with smaller coverage.
+     * For every pair of nodes (u, v) we compute the edit distance between the
+     * sequences. If the edit distance is less than edit_distance_threshold
+     * then the sequences are sufficiently similar and we can mark the node
+     * v to be removed where node v is the node with smaller coverage.
      */
-    protected void ProcessMinorList(List<BubbleMetaData> minor_list, Reporter reporter, CharSequence minor)  {
-      // Sort potential bubble strings in order of decreasing coverage
+    protected void ProcessMinorList(
+        List<BubbleMetaData> minor_list, Reporter reporter,
+        CharSequence minor)  {
+      // Sort potential bubble nodes in order of decreasing coverage.
       Collections.sort(minor_list);
 
       for (int i = 0; i < minor_list.size(); i++)   {
@@ -279,128 +274,145 @@ public class FindBubblesAvro extends Stage   {
             continue;
           }
 
-          int distance = highCoverageNode.alignedSequence.computeEditDistance(lowCoverageNode.alignedSequence);
-          int threshold = (int) Math.max(highCoverageNode.node.getSequence().size(),
+          int distance = highCoverageNode.alignedSequence.computeEditDistance(
+              lowCoverageNode.alignedSequence);
+
+          int threshold = (int) Math.max(
+              highCoverageNode.node.getSequence().size(),
               lowCoverageNode.node.getSequence().size() * bubbleEditRate);
+
           reporter.incrCounter("Contrail", "bubbleschecked", 1);
 
           if (distance <= threshold)  {
             // Found a bubble!
             reporter.incrCounter("Contrail", "poppedbubbles", 1);
-            int dead_seq_merlen = lowCoverageNode.node.getSequence().size()- K + 1;
-            // since lowCoverageNode is the bubble that will be popped; we need to update coverage of highCoverageNode
-            float extracov =  lowCoverageNode.node.getCoverage() * dead_seq_merlen;
+            int lowLength =
+                lowCoverageNode.node.getSequence().size()- K + 1;
+
+            // Since lowCoverageNode is the bubble that will be popped;
+            // we need to update coverage of highCoverageNode to reflect the
+            // fact that we consider lowCoverageNode to be the same sequence
+            // as highCoverageNode except for the read errors.
+            float extraCoverage =
+                lowCoverageNode.node.getCoverage() * lowLength;
             lowCoverageNode.popped = true;
-            actual_node.removeNeighbor(lowCoverageNode.node.getNodeId());
-            // store data for popBubbles; for illustration mentioned start; in graph X->{A,B}->Y
-            lowCoverageNode.extraCoverage = extracov;
-            lowCoverageNode.aliveNodeID = highCoverageNode.node.getNodeId();
+
+
+            int highLength = highCoverageNode.node.getSequence().size()
+                             - K + 1;
+            float support = highCoverageNode.node.getCoverage() * highLength +
+                            extraCoverage;
+            highCoverageNode.node.setCoverage(support / highLength);
+            majorNode.removeNeighbor(lowCoverageNode.node.getNodeId());
           }
         }
       }
     }
 
     // Output the messages to the minor node.
-    void outputMessagesToMinor(List<BubbleMetaData> minor_list, CharSequence minor,
+    void outputMessagesToMinor(
+        List<BubbleMetaData> minor_list, CharSequence minor,
         AvroCollector<FindBubblesOutput> collector) throws IOException {
-
       output.setNode(null);
       output.setMinorNodeId("");
-      output.getMinorMessages().clear();
+      output.getDeletedNeighbors().clear();
 
-      ArrayList<BubbleMinorMessage> minorMessages = new ArrayList<BubbleMinorMessage>();
+      ArrayList<CharSequence> deletedNeighbors = new ArrayList<CharSequence>();
 
       for(BubbleMetaData bubbleMetaData : minor_list) {
-        BubbleMinorMessage bubble = new BubbleMinorMessage();
-        //GraphNodeData nodeData = null;
-
         if(bubbleMetaData.popped) {
-          bubble.setNodetoRemoveID(bubbleMetaData.node.getNodeId());
-          bubble.setExtraCoverage(bubbleMetaData.extraCoverage);
-          minorMessages.add(bubble);
+          deletedNeighbors.add(bubbleMetaData.node.getNodeId());
         } else {
           // This is a non-popped node so output the node.
           output.setNode(bubbleMetaData.node.getData());
           collector.collect(output);
         }
       }
+
       // Output the messages to the minor node.
       output.setNode(null);
       output.setMinorNodeId(minor);
-      output.setMinorMessages(minorMessages);
+      output.setDeletedNeighbors(deletedNeighbors);
       collector.collect(output);
     }
 
-    public void reduce(CharSequence nodeid, Iterable<GraphNodeData> iterable,
-        AvroCollector< FindBubblesOutput > collector, Reporter reporter)
-            throws IOException    {
-      // this hashMap will have list of BubbleMetaData of all nodes that correspond to a particular node as their minor (EdgeTerminal)
-      Map<String, List<BubbleMetaData>> bubblelinks = new HashMap<String, List<BubbleMetaData>>();
-      int sawnode = 0;
+    public void reduce(CharSequence nodeID, Iterable<GraphNodeData> iterable,
+        AvroCollector<FindBubblesOutput> collector, Reporter reporter)
+            throws IOException {
+      // We group BubbleMetaData based on the minor neighbor for the node.
+      Map<String, List<BubbleMetaData>> bubblelinks =
+          new HashMap<String, List<BubbleMetaData>>();
+      int sawNode = 0;
       Iterator<GraphNodeData> iter = iterable.iterator();
-      ArrayList<BubbleMinorMessage> bubble_info_list = new ArrayList<BubbleMinorMessage>();
+      ArrayList<BubbleMinorMessage> bubble_info_list =
+          new ArrayList<BubbleMinorMessage>();
+
+      // We want a string version for use with equals.
+      String majorID = nodeID.toString();
 
       while(iter.hasNext())   {
-        GraphNodeData msg = iter.next();
+        GraphNodeData nodeData = iter.next();
 
-        // this is a normal node: only node data is set in schema
-        if (msg.getNodeId().toString().equals(nodeid.toString()))    {
-          actual_node.setData(msg);
-          actual_node= actual_node.clone();
-          sawnode++;
-        }
-        else    {
-          bubble_node.setData(msg);
-          bubble_node= bubble_node.clone();
+        if (majorID.equals(nodeData.getNodeId().toString())) {
+          // This node is the major node.
+          majorNode.setData(nodeData);
+          majorNode = majorNode.clone();
+          ++sawNode;
+        } else {
+          bubbleNode.setData(nodeData);
+          bubbleNode = bubbleNode.clone();
 
-          BubbleMetaData bubble_message = new BubbleMetaData(bubble_node.getData(), nodeid);
+          BubbleMetaData bubbleData = new BubbleMetaData(
+              bubbleNode.getData(), majorID);
 
           reporter.incrCounter("Contrail", "linkschecked", 1);
-          // see if the hashmap has that particular ID of edge terminal; if not then add it
-          if (!bubblelinks.containsKey(bubble_message.minor.toString()))    {
-            List<BubbleMetaData> blist = new ArrayList<BubbleMetaData>();
-            bubblelinks.put(bubble_message.minor.toString(), blist);
+          // see if the hashmap has that particular ID of edge terminal;
+          // if not then add it
+          if (!bubblelinks.containsKey(bubbleData.minorID)) {
+            List<BubbleMetaData> list = new ArrayList<BubbleMetaData>();
+            bubblelinks.put(bubbleData.minorID, list);
           }
-          bubblelinks.get(bubble_message.minor.toString()).add(bubble_message);
+          bubblelinks.get(bubbleData.minorID.toString()).add(bubbleData);
         }
       }
 
-      if (sawnode == 0)    {
+      if (sawNode == 0)    {
         Formatter formatter = new Formatter(new StringBuilder());
         formatter.format(
             "ERROR: No node was provided for nodeId %s. This can happen if " +
             "the graph isn't maximally compressed before calling FindBubbles",
-            nodeid);
+            majorID);
         throw new IOException(formatter.toString());
       }
 
-      if (sawnode > 1) {
+      if (sawNode > 1) {
         Formatter formatter = new Formatter(new StringBuilder());
         formatter.format("ERROR: nodeId %s, %d nodes were provided",
-            nodeid, sawnode);
+            majorID, sawNode);
         throw new IOException(formatter.toString());
       }
 
       if (bubblelinks.size() > 0)   {
         for (String minorID : bubblelinks.keySet())   {
-
-          List<BubbleMetaData> minor_list = bubblelinks.get(minorID);
-          int choices = minor_list.size();
+          List<BubbleMetaData> minorBubbles = bubblelinks.get(minorID);
+          int choices = minorBubbles.size();
           reporter.incrCounter("Contrail", "minorchecked", 1);
-          if (choices <= 1)    {
+          if (choices <= 1) {
+            // TODO(jlewi): I don't think this should ever happen if the graph
+            // is maximally compressed.
             continue;
           }
           reporter.incrCounter("Contrail", "edgeschecked", choices);
           // marks nodes to be deleted for a particular list of minorID
-          ProcessMinorList(minor_list, reporter, minorID);
-          outputMessagesToMinor(minor_list, minorID, collector);
+          ProcessMinorList(minorBubbles, reporter, minorID);
+          outputMessagesToMinor(minorBubbles, minorID, collector);
         }
       }
 
       // Output the major node.
-      output.setNode(actual_node.getData());
+      output.setNode(majorNode.getData());
       output.setMinorNodeId("");
-      output.getMinorMessages().clear();
+      output.getDeletedNeighbors().clear();
       collector.collect(output);
     }
   }

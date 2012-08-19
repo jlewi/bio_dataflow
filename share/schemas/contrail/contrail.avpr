@@ -365,20 +365,6 @@
                  } 
                ]
     },
-    {"name": "contrail.stages.BubbleMinorMessage",
-     "type": "record",
-     "doc": "Message that is sent to the minor node to pop bubbles.",
-     "fields": [
-               {"name": "NodetoRemoveID", 
-		        "type": "string",
-                "doc": "The id of a node that was removed."
-               },
-               {"name": "extraCoverage", 
-		        "type": "float",
-                "doc": "modified coverage"
-               }                 
-               ]
-    },
     {"name": "contrail.stages.FindBubblesOutput",
      "type": "record",
      "doc": [ "Message used to transfer info from FindBubbles to PopBubbles. ",
@@ -394,12 +380,13 @@
                   "type": "string",
                   "doc": "The id of the minor node to send the messages to."
                 },
-                {"name": "minor_messages",
+                {"name": "deleted_neighbors",
                   "type": {"type": "array", 
-                          "items": "contrail.stages.BubbleMinorMessage"},
-                  "doc": ["We use a list because of cases like ",
-                          "X->{A, B, C}->Y in which we need to tell Y to remove ",
-                          "edges from B and C."] 
+                          "items": "string"},
+                  "doc": ["A list of neighbors which have been deleted. We ",
+                          "use a list because of cases like ",
+                          "X->{A, B, C}->Y in which we need to tell Y to ",
+                          "remove edges from B and C."] 
                 }             
                ]
     }
