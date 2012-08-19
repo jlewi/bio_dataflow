@@ -33,6 +33,7 @@ import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.sequences.DNAStrand;
+import contrail.stages.GraphCounters.CounterName;
 
 /**
  * RemoveLowCoverage is the last phase in correcting errors;
@@ -52,8 +53,12 @@ import contrail.sequences.DNAStrand;
  */
 
 public class RemoveLowCoverageAvro extends Stage {
+  private static final Logger sLogger =
+      Logger.getLogger(RemoveLowCoverageAvro.class);
 
-  private static final Logger sLogger = Logger.getLogger(RemoveLowCoverageAvro.class);
+  public final static CounterName NUM_REMOVED =
+      new CounterName("Contrail", "remove-low-coverage-num-removed");
+
   public static final Schema MAP_OUT_SCHEMA =
       Pair.getPairSchema(Schema.create(Schema.Type.STRING),
           (new RemoveNeighborMessage()).getSchema());
@@ -65,12 +70,13 @@ public class RemoveLowCoverageAvro extends Stage {
     ParameterDefinition lengthThresh = new ParameterDefinition("length_thresh",
         "A threshold for sequence lengths. Only sequence's with lengths less " +
         "than this value will be removed if the coverage is low",
-          Integer.class, new Integer(0));
+        Integer.class, new Integer(0));
     ParameterDefinition lowCovThresh = new ParameterDefinition("low_cov_thresh",
         "A threshold for node coverage. Only nodes with coverage less " +
             "than this value will be removed ",  Float.class, new Float(0));
 
-    for (ParameterDefinition def: new ParameterDefinition[] {lengthThresh, lowCovThresh}) {
+    for (ParameterDefinition def:
+             new ParameterDefinition[] {lengthThresh, lowCovThresh}) {
       defs.put(def.getName(), def);
     }
     for (ParameterDefinition def:
@@ -114,9 +120,7 @@ public class RemoveLowCoverageAvro extends Stage {
         return;
       }
 
-      reporter.incrCounter(
-          GraphCounters.num_low_coverage_nodes.group,
-          GraphCounters.num_low_coverage_nodes.tag, 1);
+      reporter.incrCounter(NUM_REMOVED.group, NUM_REMOVED.tag, 1);
       // We are sending messages to all nodes with edges to this node telling them that this node has low coverage
       int degree = 0;
       for(DNAStrand strand : DNAStrand.values())  {
@@ -182,6 +186,7 @@ public class RemoveLowCoverageAvro extends Stage {
       // all the neighbors got disconnected
       if(degree == 0)  {
         reporter.incrCounter("Contrail", "isolated-nodes-removed", 1);
+        reporter.incrCounter(NUM_REMOVED.group, NUM_REMOVED.tag, 1);
         return;
       }
       output.collect(node.getData());
@@ -190,8 +195,8 @@ public class RemoveLowCoverageAvro extends Stage {
 
   @Override
   public RunningJob runJob() throws Exception  {
-
-    String[] required_args = {"inputpath", "outputpath", "low_cov_thresh", "length_thresh"};
+    String[] required_args =
+      {"inputpath", "outputpath", "low_cov_thresh", "length_thresh"};
     checkHasParametersOrDie(required_args);
 
     String inputPath = (String) stage_options.get("inputpath");
@@ -200,6 +205,22 @@ public class RemoveLowCoverageAvro extends Stage {
     sLogger.info("Tool name: RemoveLowCoverage");
     sLogger.info(" - input: " + inputPath);
     sLogger.info(" - output: " + outputPath);
+
+    float coverageThreshold = (Float) stage_options.get("low_cov_thresh");
+    int lengthThreshold = (Integer) stage_options.get("length_threshold");
+    if (coverageThreshold <= 0) {
+      sLogger.warn(
+          "RemoveLowCoverage will not run because "+
+          "low_cov_threshold<=0 so no nodes would be removed.");
+      return null;
+    }
+
+    if (lengthThreshold <= 0) {
+      sLogger.warn(
+          "RemoveLowCoverage will not run because "+
+          "length_thresh<=0 so no nodes would be removed.");
+      return null;
+    }
 
     Configuration base_conf = getConf();
     JobConf conf = null;
