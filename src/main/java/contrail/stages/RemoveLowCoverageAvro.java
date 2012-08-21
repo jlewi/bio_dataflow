@@ -176,6 +176,10 @@ public class RemoveLowCoverageAvro extends Stage {
       if (sawnode > 1) {
         throw new IOException("ERROR: Saw multiple nodemsg (" + sawnode + ") for " + nodeid.toString());
       }
+      if (sawnode == 0) {
+        // The node was removed because it had low coverage.
+        return;
+      }
       for(CharSequence neighbor : neighbors) {
         boolean result= node.removeNeighbor(neighbor.toString());
         if(!result) {
