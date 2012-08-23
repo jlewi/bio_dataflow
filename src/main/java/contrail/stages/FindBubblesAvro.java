@@ -438,9 +438,9 @@ public class FindBubblesAvro extends Stage   {
 
     int bubbleLengthThreshold =
         (Integer)stage_options.get("bubble_length_threshold");
-    if (bubbleLengthThreshold <= 0) {
+    if (bubbleLengthThreshold <= K) {
       sLogger.warn(
-          "FindBubbles will not run because bubble_length_threshold<=0 so no " +
+          "FindBubbles will not run because bubble_length_threshold<=K so no " +
           "nodes will be considered bubbles.");
       return null;
     }

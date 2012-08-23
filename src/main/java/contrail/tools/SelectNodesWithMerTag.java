@@ -20,9 +20,12 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 
+import contrail.sequences.DNAUtil;
+import contrail.sequences.Sequence;
 import contrail.stages.ContrailParameters;
 import contrail.stages.ParameterDefinition;
 import contrail.stages.Stage;
+import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 
 /**
@@ -89,7 +92,11 @@ public class SelectNodesWithMerTag  extends Stage {
 
       while(avro_stream.hasNext()) {
         avro_stream.next(node_data);
-
+        GraphNode node = new GraphNode(node_data);
+        if (node.getNodeId().equals("AAGAGAGGAGATATCTCCTCT")) {
+          Sequence rc = DNAUtil.reverseComplement(node.getSequence());
+          System.out.println("NOde of interest");
+        }
         String mertag = node_data.getMertag().getReadTag().toString() + "_" +
             node_data.getMertag().getChunk();
         if (mertag.equals(target_mertag)) {
@@ -102,7 +109,7 @@ public class SelectNodesWithMerTag  extends Stage {
       }
 
     } catch (IOException exception) {
-      fail("There was a problem writing the graph to an avro file. Exception:" +
+      fail("There was a problem selecting the nodes. Exception:" +
           exception.getMessage());
     }
     finally {

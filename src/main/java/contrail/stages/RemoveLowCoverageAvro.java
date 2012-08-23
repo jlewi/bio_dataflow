@@ -111,6 +111,13 @@ public class RemoveLowCoverageAvro extends Stage {
       int len = graph_data.getSequence().getLength();
       float cov = node.getCoverage();
 
+      if (node.getNodeId().equals("AGAGAGGAGATATCTCCTCTC")) {
+        System.out.println("Problem node");
+      }
+      if (node.getNodeId().equals("AAGAGAGGAGATATCTCCTCT")) {
+        System.out.println("Problem node");
+      }
+
       // normal node
       if ((len > lengthThresh) || (cov >= lowCovThresh)) {
         RemoveNeighborMessage msg = new RemoveNeighborMessage();
@@ -204,11 +211,12 @@ public class RemoveLowCoverageAvro extends Stage {
   @Override
   public RunningJob runJob() throws Exception  {
     String[] required_args =
-      {"inputpath", "outputpath", "low_cov_thresh", "length_thresh"};
+      {"inputpath", "outputpath", "low_cov_thresh", "length_thresh", "K"};
     checkHasParametersOrDie(required_args);
 
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
+    int K = (Integer)stage_options.get("K");
 
     sLogger.info("Tool name: RemoveLowCoverage");
     sLogger.info(" - input: " + inputPath);
@@ -224,10 +232,10 @@ public class RemoveLowCoverageAvro extends Stage {
       return null;
     }
 
-    if (lengthThreshold <= 0) {
+    if (lengthThreshold <= K) {
       sLogger.warn(
           "RemoveLowCoverage will not run because "+
-          "length_thresh<=0 so no nodes would be removed.");
+          "length_thresh<=K so no nodes would be removed.");
       return null;
     }
 

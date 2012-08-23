@@ -276,20 +276,21 @@ public class RemoveTipsAvro extends Stage {
   // Run
   //////////////////////////////////////////////////////////////////////////
   public RunningJob runJob() throws Exception {
-    String[] required_args = {"inputpath", "outputpath", "tiplength"};
+    String[] required_args = {"inputpath", "outputpath", "tiplength", "K"};
     checkHasParametersOrDie(required_args);
 
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
 
     int tiplength =  (Integer) stage_options.get("tiplength");
+    int K = (Integer)stage_options.get("K");
 
     sLogger.info(" - input: "  + inputPath);
     sLogger.info(" - output: " + outputPath);
 
-    if (tiplength <= 0) {
+    if (tiplength <= K) {
       sLogger.warn(
-          "RemoveTips will not run because tiplength <= 0 so no nodes would " +
+          "RemoveTips will not run because tiplength <= K so no nodes would " +
           "be removed.");
       return null;
     }

@@ -18,10 +18,13 @@
 package contrail.stages;
 
 import java.text.DecimalFormat;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Formatter;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -50,7 +53,8 @@ public class CompressAndCorrect extends Stage {
 
     // We add all the options for the stages we depend on.
     Stage[] substages =
-      {new CompressChains(), new RemoveTipsAvro()};
+      {new CompressChains(), new RemoveTipsAvro(), new FindBubblesAvro(),
+       new PopBubblesAvro(), new RemoveLowCoverageAvro()};
 
     for (Stage stage: substages) {
       definitions.putAll(stage.getParameterDefinitions());
@@ -67,9 +71,11 @@ public class CompressAndCorrect extends Stage {
     public boolean graphChanged;
     // The path to the graph.
     public String graphPath;
+    // A message summarizing what happened.
+    public String logMessage;
   }
 
-  private void compressGraph(String inputPath, String outputPath)
+  private JobInfo compressGraph(String inputPath, String outputPath)
       throws Exception {
     CompressChains compressStage = new CompressChains();
     compressStage.setConf(getConf());
@@ -84,6 +90,12 @@ public class CompressAndCorrect extends Stage {
     stageOptions.put("outputpath", outputPath);
     compressStage.setParameters(stageOptions);
     RunningJob compressJob = compressStage.runJob();
+
+    // TODO(jlewi): We should compute how much the graph changed and output
+    // this as part of the log message.
+    JobInfo result = new JobInfo();
+    result.logMessage = "CompressChains ran.";
+    return result;
   }
 
   /**
@@ -92,7 +104,7 @@ public class CompressAndCorrect extends Stage {
    * @param outputPath
    * @return True if any tips were removed.
    */
-  private boolean removeTips(String inputPath, String outputPath)
+  private JobInfo removeTips(String inputPath, String outputPath)
       throws Exception {
     RemoveTipsAvro stage = new RemoveTipsAvro();
     stage.setConf(getConf());
@@ -108,16 +120,30 @@ public class CompressAndCorrect extends Stage {
     stage.setParameters(stageOptions);
     RunningJob job = stage.runJob();
 
+    JobInfo result = new JobInfo();
+    if (job == null) {
+      result.logMessage =
+          "RemoveTips stage was skipped because graph would not change.";
+      sLogger.info(result.logMessage);
+      result.graphPath = inputPath;
+      result.graphChanged = false;
+      return result;
+    }
+
     // Check if any tips were found.
     long tipsRemoved = job.getCounters().findCounter(
         RemoveTipsAvro.NUM_REMOVED.group,
         RemoveTipsAvro.NUM_REMOVED.tag).getValue();
 
-    boolean hadTips = false;
     if (tipsRemoved > 0) {
-      hadTips = true;
+      result.graphChanged = true;
     }
-    return hadTips;
+    result.graphPath = outputPath;
+
+    Formatter formatter = new Formatter(new StringBuilder());
+    result.logMessage = formatter.format(
+        "RemoveTips: number of nodes removed %d", tipsRemoved).toString();
+    return result;
   }
 
   /**
@@ -130,6 +156,7 @@ public class CompressAndCorrect extends Stage {
       throws Exception {
     FindBubblesAvro findStage = new FindBubblesAvro();
     findStage.setConf(getConf());
+    String findOutputPath = new Path(outputPath, "FindBubbles").toString();
     {
       // Make a shallow copy of the stage options required.
       Map<String, Object> stageOptions =
@@ -137,13 +164,22 @@ public class CompressAndCorrect extends Stage {
               this.stage_options,
               findStage.getParameterDefinitions().values());
 
-      String findOutputPath = new Path(outputPath, "FindBubbles").toString();
       stageOptions.put("inputpath", inputPath);
       stageOptions.put("outputpath", findOutputPath);
       findStage.setParameters(stageOptions);
     }
 
     RunningJob findJob = findStage.runJob();
+
+    if (findJob == null) {
+      JobInfo result = new JobInfo();
+      result.logMessage =
+          "FindBubbles stage was skipped because graph would not change.";
+      sLogger.info(result.logMessage);
+      result.graphPath = inputPath;
+      result.graphChanged = false;
+      return result;
+    }
 
     // Check if any bubbles were found.
     long bubblesFound = findJob.getCounters().findCounter(
@@ -158,6 +194,8 @@ public class CompressAndCorrect extends Stage {
       // Since the graph didn't change return the input path as the path to
       // the graph.
       result.graphPath = inputPath;
+      result.logMessage =
+          "FindBubbles found 0 bubbles.";
       return result;
     }
 
@@ -171,15 +209,19 @@ public class CompressAndCorrect extends Stage {
               this.stage_options,
               popStage.getParameterDefinitions().values());
 
-      stageOptions.put("inputpath", inputPath);
+      stageOptions.put("inputpath", findOutputPath);
       stageOptions.put("outputpath", popOutputPath);
-      findStage.setParameters(stageOptions);
+      popStage.setParameters(stageOptions);
     }
     RunningJob popJob = popStage.runJob();
 
     JobInfo result = new JobInfo();
     result.graphChanged = true;
     result.graphPath = popOutputPath;
+
+    Formatter formatter = new Formatter(new StringBuilder());
+    result.logMessage = formatter.format(
+        "FindBubbles: number of nodes removed %d", bubblesFound).toString();
     return result;
   }
 
@@ -205,16 +247,29 @@ public class CompressAndCorrect extends Stage {
     stage.setParameters(stageOptions);
     RunningJob job = stage.runJob();
 
+    JobInfo result = new JobInfo();
+    if (job == null) {
+      result.logMessage =
+          "RemoveLowCoverage stage was skipped because graph would not " +
+           "change.";
+      sLogger.info(result.logMessage);
+      result.graphPath = inputPath;
+      result.graphChanged = false;
+      return result;
+    }
     // Check if any tips were found.
     long nodesRemoved = job.getCounters().findCounter(
         RemoveLowCoverageAvro.NUM_REMOVED.group,
         RemoveLowCoverageAvro.NUM_REMOVED.tag).getValue();
 
-    JobInfo result = new JobInfo();
     result.graphPath = outputPath;
     if (nodesRemoved > 0) {
       result.graphChanged = true;
     }
+
+    Formatter formatter = new Formatter(new StringBuilder());
+    result.logMessage = formatter.format(
+        "RemoveLowCoverage removed %d nodes.", nodesRemoved).toString();
     return result;
   }
 
@@ -225,8 +280,12 @@ public class CompressAndCorrect extends Stage {
     // Create a subdirectory of the output path to contain the temporary
     // output from each substage.
     String tempPath = new Path(outputPath, "temp").toString();
+    int step = 0;
 
-    int step = 1;
+    // A list of log messages that summarizes what happened at each stage.
+    // We print this out at the end of the input for convenience.
+    ArrayList<String> logMessages = new ArrayList<String>();
+    logMessages.add("A summary of the various processing that happened.");
 
     // When formatting the step as a string we want to zero pad it
     DecimalFormat sf = new DecimalFormat("00");
@@ -236,6 +295,9 @@ public class CompressAndCorrect extends Stage {
     boolean  done = false;
 
     while (!done) {
+      ++step;
+      logMessages.add("Step " + sf.format(step).toString());
+
       // Create a subdirectory of the temp directory to contain the output
       // from this round.
       String stepPath = new Path(
@@ -248,19 +310,24 @@ public class CompressAndCorrect extends Stage {
             new Path(stepPath, "LowCoveragePath").toString();
         JobInfo result =
             removeLowCoverageNodes(stepInputPath, lowCoveragePath);
+        logMessages.add(result.logMessage);
         stepInputPath = result.graphPath;
       }
+
       // Paths to use for this round. The paths for the compressed graph
       // and the error corrected graph.
       String compressedPath = new Path(
           stepPath, "CompressChains").toString();
       String removeTipsPath = new Path(stepPath, "RemoveTips").toString();
 
-      compressGraph(stepInputPath, compressedPath);
-      boolean hadTips = removeTips(compressedPath, removeTipsPath);
+      JobInfo compressResult = compressGraph(stepInputPath, compressedPath);
+      logMessages.add(compressResult.logMessage);
 
-      if (hadTips) {
-        stepInputPath = removeTipsPath;
+      JobInfo tipsResult = removeTips(compressedPath, removeTipsPath);
+      logMessages.add(tipsResult.logMessage);
+
+      if (tipsResult.graphChanged) {
+        stepInputPath = tipsResult.graphPath;
         // We need to recompress the graph before continuing.
         continue;
       }
@@ -268,22 +335,28 @@ public class CompressAndCorrect extends Stage {
       // There were no tips, so the graph is maximally compressed. Try
       // finding and removing bubbles.
       String popBubblesPath = new Path(stepPath, "PoppedBubbles").toString();
-      JobInfo popResult = popBubbles(removeTipsPath, popBubblesPath);
-
+      JobInfo popResult = popBubbles(tipsResult.graphPath, popBubblesPath);
+      logMessages.add(popResult.logMessage);
       stepInputPath = popResult.graphPath;
       if (!popResult.graphChanged) {
         done = true;
       }
     }
 
+
     sLogger.info("Save result to: " + outputPath + "\n\n");
     FileHelper.moveDirectoryContents(getConf(), stepInputPath, outputPath);
+    logMessages.add("Final graph saved to:" + outputPath);
 
     // Clean up the intermediary directories.
     // TODO(jlewi): We might want to add an option to keep the intermediate
     // directories.
     sLogger.info("Delete temporary directory: " + tempPath + "\n\n");
     FileSystem.get(getConf()).delete(new Path(tempPath), true);
+
+    // Print out the summary of what happened.
+    String summary = StringUtils.join(logMessages, "\n");
+    sLogger.info(summary);
   }
 
   @Override
