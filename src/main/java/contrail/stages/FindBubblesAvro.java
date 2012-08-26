@@ -35,6 +35,7 @@ import contrail.graph.GraphUtil;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
+import contrail.stages.GraphCounters.CounterName;
 
 /**
  * This stage finds bubbles created by sequencing errors.
@@ -84,6 +85,9 @@ public class FindBubblesAvro extends Stage   {
   public static final Schema REDUCE_OUT_SCHEMA =
       new FindBubblesOutput().getSchema();
 
+  public static CounterName num_bubbles =
+      new CounterName("Contrail", "find-bubbles-num-bubbles");
+
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs =
         new HashMap<String, ParameterDefinition>();
@@ -99,7 +103,7 @@ public class FindBubblesAvro extends Stage   {
     ParameterDefinition bubble_length_threshold =
         new ParameterDefinition("bubble_length_threshold",
             "A threshold for sequence lengths. Only sequence's with lengths " +
-            "less than this value will be detected as potential bubble.",
+            "less than this value can be bubbles.",
             Integer.class, new Integer(0));
 
     for (ParameterDefinition def:
@@ -285,7 +289,7 @@ public class FindBubblesAvro extends Stage   {
 
           if (distance <= threshold)  {
             // Found a bubble!
-            reporter.incrCounter("Contrail", "poppedbubbles", 1);
+            reporter.incrCounter(num_bubbles.group, num_bubbles.tag, 1);
             int lowLength =
                 lowCoverageNode.node.getSequence().size()- K + 1;
 
@@ -433,6 +437,15 @@ public class FindBubblesAvro extends Stage   {
     sLogger.info("Tool name: FindBubbles");
     sLogger.info(" - input: "  + inputPath);
     sLogger.info(" - output: " + outputPath);
+
+    int bubbleLengthThreshold =
+        (Integer)stage_options.get("bubble_length_threshold");
+    if (bubbleLengthThreshold <= K) {
+      sLogger.warn(
+          "FindBubbles will not run because bubble_length_threshold<=K so no " +
+          "nodes will be considered bubbles.");
+      return null;
+    }
 
     Configuration base_conf = getConf();
     JobConf conf = null;

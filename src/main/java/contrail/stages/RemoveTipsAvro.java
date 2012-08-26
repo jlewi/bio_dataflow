@@ -34,6 +34,7 @@ import contrail.graph.GraphNodeData;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
+import contrail.stages.GraphCounters.CounterName;
 
 /**
  * removeTips Phase  identifies the 'tips' in the graphdata;
@@ -58,6 +59,9 @@ public class RemoveTipsAvro extends Stage {
 
   public static final Schema MAP_OUT_SCHEMA = Pair.getPairSchema(Schema.create(Schema.Type.STRING), (new RemoveTipMessage()).getSchema());
   private static Pair<CharSequence, RemoveTipMessage> out_pair = new Pair<CharSequence, RemoveTipMessage>(MAP_OUT_SCHEMA);
+
+  public final static CounterName NUM_REMOVED =
+      new CounterName("Contrail", "remove-tips-num-clipped");
 
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs =
@@ -261,9 +265,7 @@ public class RemoveTipsAvro extends Stage {
           }
 
           if(result)    {
-            reporter.incrCounter(
-                GraphCounters.remove_tips_num_removed.group,
-                GraphCounters.remove_tips_num_removed.tag, 1);
+            reporter.incrCounter(NUM_REMOVED.group, NUM_REMOVED.tag, 1);
           }
         }
       }
@@ -274,16 +276,24 @@ public class RemoveTipsAvro extends Stage {
   // Run
   //////////////////////////////////////////////////////////////////////////
   public RunningJob runJob() throws Exception {
-    String[] required_args = {"inputpath", "outputpath", "tiplength"};
+    String[] required_args = {"inputpath", "outputpath", "tiplength", "K"};
     checkHasParametersOrDie(required_args);
 
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
 
-    int tiplength=  (Integer) stage_options.get("tiplength");
+    int tiplength =  (Integer) stage_options.get("tiplength");
+    int K = (Integer)stage_options.get("K");
 
     sLogger.info(" - input: "  + inputPath);
     sLogger.info(" - output: " + outputPath);
+
+    if (tiplength <= K) {
+      sLogger.warn(
+          "RemoveTips will not run because tiplength <= K so no nodes would " +
+          "be removed.");
+      return null;
+    }
 
     Configuration base_conf = getConf();
     JobConf conf = null;

@@ -89,6 +89,17 @@ public class TestCompressAndCorrect extends CompressAndCorrect {
     // Add some tips.
     builder.addEdge("ATT", "TTG", 2);
     builder.addEdge("ATT", "TTC", 2);
+    int tipLength = 100;
+
+    // Add a bubble.
+    builder.addEdge("CCAA", "AATTG", 2);
+    builder.addEdge("CCAA", "AAGTG", 2);
+    builder.addEdge("AATTG", "TGGG", 2);
+    builder.addEdge("AAGTG", "TGGG", 2);
+    builder.findNodeForSequence("AATTG").setCoverage(10);
+    builder.findNodeForSequence("AAGTG").setCoverage(1);
+    float bubbleEditRate = 1.0f / 10.0f;
+    int bubbleLengthThreshold = 100;
 
     File temp = createTempDir();
     File avroFile = new File(temp, "graph.avro");
@@ -106,7 +117,9 @@ public class TestCompressAndCorrect extends CompressAndCorrect {
     String[] args =
       {"--inputpath=" + temp.toURI().toString(),
        "--outputpath=" + output_path.toURI().toString(),
-       "--K=3", "--localnodes=3"};
+       "--K=3", "--localnodes=3", "--tiplength=" + tipLength,
+       "--bubble_edit_rate=" + bubbleEditRate,
+       "--bubble_length_threshold=" + bubbleLengthThreshold};
 
     // Catch the following after debugging.
     try {

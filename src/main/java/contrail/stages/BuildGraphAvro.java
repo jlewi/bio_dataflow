@@ -511,6 +511,13 @@ public class BuildGraphAvro extends Stage
     String outputPath = (String) stage_options.get("outputpath");
     int K = (Integer)stage_options.get("K");
 
+    // K should be odd.
+    if ((K % 2) == 1) {
+      throw new RuntimeException (
+          "K should be odd. If K is even then there exist Kmers for which " +
+          "the KMer and its reverse complement are the same. This can cause " +
+          "problems for graph construction.");
+    }
     sLogger.info(" - input: "  + inputPath);
     sLogger.info(" - output: " + outputPath);
 
