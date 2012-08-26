@@ -206,11 +206,8 @@ public class RemoveLowCoverageAvro extends Stage {
   @Override
   public RunningJob runJob() throws Exception  {
     String[] required_args =
-<<<<<<< HEAD
       {"inputpath", "outputpath", "low_cov_thresh", "length_thresh", "K"};
-=======
-      {"inputpath", "outputpath", "low_cov_thresh", "length_thresh"};
->>>>>>> findbubbles_cl
+
     checkHasParametersOrDie(required_args);
 
     String inputPath = (String) stage_options.get("inputpath");
@@ -231,17 +228,10 @@ public class RemoveLowCoverageAvro extends Stage {
       return null;
     }
 
-<<<<<<< HEAD
     if (lengthThreshold <= K) {
       sLogger.warn(
           "RemoveLowCoverage will not run because "+
           "length_thresh<=K so no nodes would be removed.");
-=======
-    if (lengthThreshold <= 0) {
-      sLogger.warn(
-          "RemoveLowCoverage will not run because "+
-          "length_thresh<=0 so no nodes would be removed.");
->>>>>>> findbubbles_cl
       return null;
     }
 

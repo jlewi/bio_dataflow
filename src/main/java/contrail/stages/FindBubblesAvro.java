@@ -35,7 +35,6 @@ import contrail.graph.GraphUtil;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
-import contrail.stages.GraphCounters.CounterName;
 
 /**
  * This stage finds bubbles created by sequencing errors.
