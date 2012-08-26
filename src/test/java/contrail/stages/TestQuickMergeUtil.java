@@ -15,7 +15,9 @@ import org.junit.Test;
 
 import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
+import contrail.graph.GraphError;
 import contrail.graph.GraphNode;
+import contrail.graph.GraphUtil;
 import contrail.graph.SimpleGraphBuilder;
 
 import contrail.sequences.AlphabetUtil;
@@ -637,5 +639,100 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
           DNAStrand.FORWARD, EdgeDirection.INCOMING);
       assertTrue(ListUtil.listsAreEqual(expected_edges, edges));
     }
+  }
+
+  @Test
+  public void testSelfCycle() {
+    // The graph in this test case is
+    // A->X->R(X)->R(A) which gets merged into
+    // A->X'->R(A).
+    // The tricky part in this graph is making sure the edges in A are
+    // properly updated. In the original graph A has a single outgoing edge.
+    // but in the merged graph A has two edges A->X' and A->R(X').
+    final int K = 5;
+    GraphNode selfNode = new GraphNode();
+    selfNode.setNodeId("X");
+    selfNode.setSequence(new Sequence("ACTAG", DNAAlphabetFactory.create()));
+    {
+      Sequence complement = DNAUtil.reverseComplement(selfNode.getSequence());
+      if (!selfNode.getSequence().subSequence(1, K).equals(
+          complement.subSequence(0, K-1))) {
+        fail("Test isn't setup correctly");
+      }
+    }
+    GraphUtil.addBidirectionalEdge(
+        selfNode, DNAStrand.FORWARD, selfNode, DNAStrand.REVERSE);
+
+    GraphNode border = new GraphNode();
+    border.setNodeId("A");
+    border.setSequence(new Sequence("AACTA", DNAAlphabetFactory.create()));
+    GraphUtil.addBidirectionalEdge(
+        border, DNAStrand.FORWARD, selfNode, DNAStrand.FORWARD);
+
+    GraphUtil.addBidirectionalEdge(
+        border, DNAStrand.FORWARD, selfNode, DNAStrand.FORWARD);
+
+    HashMap<String, GraphNode> nodes = new HashMap<String, GraphNode>();
+    nodes.put(selfNode.getNodeId(), selfNode);
+    nodes.put(border.getNodeId(), border);
+
+    {
+      List<GraphError> graphErrors = GraphUtil.validateGraph(nodes, K);
+      if (graphErrors.size() > 0) {
+        fail("Test graph isn't valid.");
+      }
+    }
+
+    // The expected graph.
+    // A->X'->R(A)
+    GraphNode expectedSelf = new GraphNode();
+    expectedSelf.setNodeId("X");
+    expectedSelf.setSequence(
+        new Sequence("ACTAGT", DNAAlphabetFactory.create()));
+
+    GraphNode expectedBorder = new GraphNode();
+    expectedBorder.setNodeId("A");
+    expectedBorder.setSequence(
+        new Sequence("AACTA", DNAAlphabetFactory.create()));
+
+    GraphUtil.addBidirectionalEdge(
+        expectedBorder, DNAStrand.FORWARD, expectedSelf, DNAStrand.FORWARD);
+    GraphUtil.addBidirectionalEdge(
+        expectedSelf, DNAStrand.FORWARD, expectedBorder, DNAStrand.REVERSE);
+
+    {
+      HashMap<String, GraphNode> expectedNodes =
+          new HashMap<String, GraphNode>();
+      expectedNodes.put(expectedSelf.getNodeId(), expectedSelf);
+      expectedNodes.put(expectedBorder.getNodeId(), expectedBorder);
+      List<GraphError> graphErrors = GraphUtil.validateGraph(expectedNodes, K);
+      if (graphErrors.size() > 0) {
+        fail("Expected graph isn't valid.");
+      }
+    }
+
+    // Merge X and R(X)
+    NodesToMerge nodesToMerge = new NodesToMerge();
+    nodesToMerge.direction = EdgeDirection.OUTGOING;
+    nodesToMerge.start_terminal = new EdgeTerminal(
+        selfNode.getNodeId(), DNAStrand.FORWARD);
+    nodesToMerge.end_terminal = new EdgeTerminal(
+        selfNode.getNodeId(), DNAStrand.REVERSE);
+    nodesToMerge.hit_cycle = false;
+    ChainMergeResult result =
+        QuickMergeUtil.mergeLinearChain(nodes, nodesToMerge, K - 1);
+
+    HashMap<String, GraphNode> mergedGraph = new HashMap<String, GraphNode>();
+    mergedGraph.putAll(nodes);
+    for (String mergedId: result.merged_nodeids) {
+      mergedGraph.remove(mergedId);
+    }
+    mergedGraph.put(result.merged_node.getNodeId(), result.merged_node);
+
+    // Check that the node was properly merged.
+    assertEquals(expectedSelf.getData(), result.merged_node.getData());
+    assertEquals(expectedBorder.getData(), border.getData());
+    List<GraphError> graphErrors = GraphUtil.validateGraph(mergedGraph, K);
+    assertEquals(0, graphErrors.size());
   }
 }
