@@ -176,6 +176,12 @@ public class RemoveLowCoverageAvro extends Stage {
       if (sawnode > 1) {
         throw new IOException("ERROR: Saw multiple nodemsg (" + sawnode + ") for " + nodeid.toString());
       }
+
+      if (sawnode == 0) {
+        // The node was removed because it had low coverage.
+        return;
+      }
+
       for(CharSequence neighbor : neighbors) {
         boolean result= node.removeNeighbor(neighbor.toString());
         if(!result) {
@@ -200,11 +206,13 @@ public class RemoveLowCoverageAvro extends Stage {
   @Override
   public RunningJob runJob() throws Exception  {
     String[] required_args =
-      {"inputpath", "outputpath", "low_cov_thresh", "length_thresh"};
+      {"inputpath", "outputpath", "low_cov_thresh", "length_thresh", "K"};
+
     checkHasParametersOrDie(required_args);
 
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
+    int K = (Integer)stage_options.get("K");
 
     sLogger.info("Tool name: RemoveLowCoverage");
     sLogger.info(" - input: " + inputPath);
@@ -220,10 +228,10 @@ public class RemoveLowCoverageAvro extends Stage {
       return null;
     }
 
-    if (lengthThreshold <= 0) {
+    if (lengthThreshold <= K) {
       sLogger.warn(
           "RemoveLowCoverage will not run because "+
-          "length_thresh<=0 so no nodes would be removed.");
+          "length_thresh<=K so no nodes would be removed.");
       return null;
     }
 
