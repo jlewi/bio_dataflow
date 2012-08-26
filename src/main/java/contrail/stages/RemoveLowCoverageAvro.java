@@ -111,13 +111,6 @@ public class RemoveLowCoverageAvro extends Stage {
       int len = graph_data.getSequence().getLength();
       float cov = node.getCoverage();
 
-      if (node.getNodeId().equals("AGAGAGGAGATATCTCCTCTC")) {
-        System.out.println("Problem node");
-      }
-      if (node.getNodeId().equals("AAGAGAGGAGATATCTCCTCT")) {
-        System.out.println("Problem node");
-      }
-
       // normal node
       if ((len > lengthThresh) || (cov >= lowCovThresh)) {
         RemoveNeighborMessage msg = new RemoveNeighborMessage();

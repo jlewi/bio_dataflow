@@ -104,7 +104,8 @@ public abstract class Stage extends Configured implements Tool  {
   protected void checkHasParametersOrDie(String[] required) {
     ArrayList<String> missing = new ArrayList<String>();
     for (String arg_name: required) {
-      if (!stage_options.containsKey(arg_name)) {
+      if (!stage_options.containsKey(arg_name) ||
+           stage_options.get(arg_name) == null) {
         missing.add(arg_name);
       }
     }

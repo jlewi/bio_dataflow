@@ -95,6 +95,7 @@ public class CompressAndCorrect extends Stage {
     // this as part of the log message.
     JobInfo result = new JobInfo();
     result.logMessage = "CompressChains ran.";
+    result.graphPath = compressStage.getFinalGraphPath();
     return result;
   }
 
@@ -323,7 +324,7 @@ public class CompressAndCorrect extends Stage {
       JobInfo compressResult = compressGraph(stepInputPath, compressedPath);
       logMessages.add(compressResult.logMessage);
 
-      JobInfo tipsResult = removeTips(compressedPath, removeTipsPath);
+      JobInfo tipsResult = removeTips(compressResult.graphPath, removeTipsPath);
       logMessages.add(tipsResult.logMessage);
 
       if (tipsResult.graphChanged) {
