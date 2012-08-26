@@ -107,6 +107,49 @@ public class Sequence implements Comparable<Sequence> {
     return (int)(Math.floor((double)(data.length * BITSPERITEM) / alphabet.bitsPerLetter()));
   }
 
+  //Min3 gives minimum between 3 elements
+  private int Min3(int a, int b, int c)    {
+    a = Math.min(a, b);
+    return Math.min(a,c);
+  }
+
+  /**
+   * Calculate the edit distance (Levenshtein Distance)  between two sequences.
+   *
+   * see:
+   * http://en.wikipedia.org/wiki/String_metric
+   * http://www.ling.ohio-state.edu/~cbrew/795M/string-distance.html
+   * */
+  public int computeEditDistance(Sequence sequence2) {
+    Sequence sequence1 = this;
+    int len1 = sequence1.size();
+    int len2 = sequence2.size();
+
+    // The cost of the various errors.
+    final int DEL_COST = 1;
+    final int INS_COST = 1;
+    final int SUB_COST = 1;
+
+    int[][] d = new int[len1+1][len2+1];
+    d[0][0] = 0;
+    for (int i = 0; i < len1; i++)   {
+      d[i+1][0] = d[i][0] + DEL_COST;
+    }
+    for (int j = 0; j < len2; j++)   {
+      d[0][j+1] = d[0][j] + INS_COST;
+    }
+    for (int row = 1; row <= len1; ++row)   {
+      char w1 = sequence1.at(row - 1);
+      for (int col = 1; col <= len2; ++col)   {
+        char w2 = sequence2.at(col-1);
+        int e = (w1 == w2) ? 0 : SUB_COST;
+        d[row][col] = Min3(d[row-1][col] + 1, d[row][col-1] + 1,
+                           d[row-1][col-1]+e);
+      }
+    }
+    return d[len1][len2];
+  }
+
   /**
    * Set the character at the indicated position.
    *

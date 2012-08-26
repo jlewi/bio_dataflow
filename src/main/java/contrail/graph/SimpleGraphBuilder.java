@@ -82,6 +82,18 @@ public class SimpleGraphBuilder {
   }
 
   /**
+   * Return the node for the particular sequence.
+   * @param sequence
+   */
+  public GraphNode findNodeForSequence(String sequence) {
+    String nodeID = findNodeIdForSequence(sequence);
+    if (nodeID == null) {
+      return null;
+    }
+    return nodes.get(nodeID);
+  }
+
+  /**
    * Finds the edge terminal for this sequence. Returns null if
    * there's no node in the graph representing this terminal
    * @param sequence
