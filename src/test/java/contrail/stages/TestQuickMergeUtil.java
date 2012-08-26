@@ -644,7 +644,11 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
   @Test
   public void testSelfCycle() {
     // The graph in this test case is
-    // {C}->A->X->R(X)->R(A) -> {F}
+    // A->X->R(X)->R(A) which gets merged into
+    // A->X'->R(A).
+    // The tricky part in this graph is making sure the edges in A are
+    // properly updated. In the original graph A has a single outgoing edge.
+    // but in the merged graph A has two edges A->X' and A->R(X').
     final int K = 5;
     GraphNode selfNode = new GraphNode();
     selfNode.setNodeId("X");

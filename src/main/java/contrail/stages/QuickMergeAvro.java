@@ -39,8 +39,8 @@ public class QuickMergeAvro extends Stage {
    * GraphNodeData.
    */
   public static final Schema MAP_OUT_SCHEMA =
-      Pair.getPairSchema(Schema.create(Schema.Type.STRING),
-          (new GraphNodeData()).getSchema());
+      Pair.getPairSchema(
+          Schema.create(Schema.Type.STRING), (new GraphNodeData()).getSchema());
 
   /**
    * Define the schema for the reducer output. The keys will be a byte buffer
@@ -51,7 +51,7 @@ public class QuickMergeAvro extends Stage {
       new GraphNodeData().getSchema();
 
   public static class QuickMergeMapper extends
-  AvroMapper<GraphNodeData, Pair<CharSequence, GraphNodeData>> {
+      AvroMapper<GraphNodeData, Pair<CharSequence, GraphNodeData>> {
 
     private static Pair<CharSequence, GraphNodeData> out_pair =
         new Pair<CharSequence, GraphNodeData>(MAP_OUT_SCHEMA);
@@ -63,7 +63,8 @@ public class QuickMergeAvro extends Stage {
      * group nodes coming from the same read.
      */
     @Override
-    public void map(GraphNodeData graph_data,
+    public void map(
+        GraphNodeData graph_data,
         AvroCollector<Pair<CharSequence, GraphNodeData>> output,
         Reporter reporter) throws IOException {
       // The key is the read tag along with the chunk.
@@ -89,7 +90,7 @@ public class QuickMergeAvro extends Stage {
    * get many edges from each read that can most likely be merged together.
    */
   public static class QuickMergeReducer extends
-  AvroReducer<CharSequence, GraphNodeData, GraphNodeData> {
+      AvroReducer<CharSequence, GraphNodeData, GraphNodeData> {
     private static int K = 0;
     public static boolean VERBOSE = false;
 
@@ -185,7 +186,7 @@ public class QuickMergeAvro extends Stage {
   }
 
   protected Map<String, ParameterDefinition>
-  createParameterDefinitions() {
+      createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs =
         new HashMap<String, ParameterDefinition>();
 
