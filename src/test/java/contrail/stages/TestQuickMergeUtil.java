@@ -680,6 +680,7 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
     }
 
     // The expected graph.
+    // A->X'->R(A)
     GraphNode expectedSelf = new GraphNode();
     expectedSelf.setNodeId("X");
     expectedSelf.setSequence(
@@ -716,11 +717,18 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
     nodesToMerge.hit_cycle = false;
     ChainMergeResult result =
         QuickMergeUtil.mergeLinearChain(nodes, nodesToMerge, K - 1);
+
+    HashMap<String, GraphNode> mergedGraph = new HashMap<String, GraphNode>();
+    mergedGraph.putAll(nodes);
+    for (String mergedId: result.merged_nodeids) {
+      mergedGraph.remove(mergedId);
+    }
+    mergedGraph.put(result.merged_node.getNodeId(), result.merged_node);
+
     // Check that the node was properly merged.
     assertEquals(expectedSelf.getData(), result.merged_node.getData());
-    assertEquals(expectedSelf.getData(), border);
-    List<GraphError> graphErrors = GraphUtil.validateGraph(nodes, K);
+    assertEquals(expectedBorder.getData(), border.getData());
+    List<GraphError> graphErrors = GraphUtil.validateGraph(mergedGraph, K);
     assertEquals(0, graphErrors.size());
-    System.out.println("done");
   }
 }
