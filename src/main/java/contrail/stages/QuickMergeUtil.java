@@ -21,7 +21,10 @@ import contrail.sequences.StrandsUtil;
  * Some utilities for the QuickMergeStage.
  */
 public class QuickMergeUtil {
-
+  // TODO(jlewi): We should consider making this a non-static class;
+  // NodeMerger. The advantage would be that the class could manage its storage
+  // and could reuse objects rather than instantiating objects on each call.
+  // For example, we could reuse a single instance of NodesWithEdgesToMove.
   /**
    * Data structure which provides information about the nodes which
    * can be merged.
@@ -237,6 +240,112 @@ public class QuickMergeUtil {
   }
 
   /**
+   * Move the edges in nodes which are connected to both ends of the merged
+   * chain.
+   *
+   * Suppose we have the graph A->X->R(X)->R(A) and we are merging X & R(X).
+   * In this case the forward and reverse strands are identical.
+   * The merged sequence is  A->X'->R(A). In the original graph there is a
+   * single outgoing edge in A to X; that is there is a single edge in A
+   * corresponding to the outgoing edge from A to the start of the chain and
+   * the incoming edge to R(A) from the end of the chain. However, in the
+   * merged graph we have two edges  A->X' and A->R(X'). So
+   * we can't simply move the incoming A->X to A->X'; we also need to create
+   * a new edge to represent A->R(X').
+   *
+   * @param nodes: Nodes for the subgraph.
+   * @param specialIds: The ids of nodes which have outgoing edges to the
+   *   start of the merged chain and incoming edges from the end of the chain.
+   * @param nodesToMerge
+   * @param mergedNode
+   * @param mergedStrand
+   */
+  protected static void moveEdgesToBothEnds(
+      Map<String, GraphNode> nodes, HashSet<String> specialIds,
+      NodesToMerge nodesToMerge, GraphNode mergedNode, DNAStrand mergedStrand) {
+    // Process each of these nodes.
+    for (String specialId: specialIds) {
+      GraphNode node = nodes.get(specialId);
+
+      DNAStrand startStrand = node.findStrandWithEdgeToTerminal(
+          nodesToMerge.start_terminal, EdgeDirection.OUTGOING);
+
+      ArrayList<CharSequence> startTags = new ArrayList<CharSequence>();
+      for (CharSequence tag:
+           node.getTagsForEdge(startStrand, nodesToMerge.start_terminal)) {
+        // Convert it to a string so we make a copy of the data.
+        startTags.add(tag.toString());
+      }
+
+      // This is the strand with an outgoing edge to the end terminal.
+      EdgeTerminal endTerminal = nodesToMerge.end_terminal.flip();
+      DNAStrand endStrand =  node.findStrandWithEdgeToTerminal(
+          endTerminal, EdgeDirection.OUTGOING);
+
+      ArrayList<CharSequence> endTags = new ArrayList<CharSequence>();
+
+      for (CharSequence tag:
+           node.getTagsForEdge(endStrand, endTerminal)) {
+        // Convert it to a string so we make a copy of the data.
+        endTags.add(tag.toString());
+      }
+
+      // Remove the neighbor data.
+      node.removeNeighbor(nodesToMerge.start_terminal.nodeId);
+      if (!nodesToMerge.start_terminal.nodeId.equals(
+          nodesToMerge.end_terminal.nodeId)) {
+        node.removeNeighbor(nodesToMerge.end_terminal.nodeId);
+      }
+
+      // Add the appropriate edges.
+      final long MAXTHREADREADS = startTags.size() + endTags.size();
+      EdgeTerminal newStart = new EdgeTerminal(
+          mergedNode.getNodeId(), mergedStrand);
+      node.addOutgoingEdgeWithTags(
+          startStrand, newStart, startTags, MAXTHREADREADS);
+
+
+      EdgeTerminal newEnd = new EdgeTerminal(
+          mergedNode.getNodeId(), DNAStrandUtil.flip(mergedStrand));
+      node.addOutgoingEdgeWithTags(
+          endStrand, newEnd, endTags, MAXTHREADREADS);
+    }
+  }
+
+  /**
+   * Find nodes which have edges to both ends of the merged chain. These will
+   * be nodes with outgoing edges to the start of the merged chain or nodes
+   * with incoming edges from the end of the chain.
+   *
+   * @param nodes
+   * @param mergedNode
+   * @param mergedStrand
+   */
+  private static HashSet<String> findNodesWithEdgesToBothEnds(
+      Map<String, GraphNode> nodes, NodesToMerge nodesToMerge) {
+    HashSet<String> nodesToStart = new HashSet<String>();
+    HashSet<String> nodesToBoth = new HashSet<String>();
+    GraphNode startNode = nodes.get(nodesToMerge.start_terminal.nodeId);
+    List<EdgeTerminal> sourceTerminals = startNode.getEdgeTerminals(
+        nodesToMerge.start_terminal.strand, EdgeDirection.INCOMING);
+    for (EdgeTerminal terminal: sourceTerminals) {
+     nodesToStart.add(terminal.nodeId);
+    }
+
+    GraphNode endNode = nodes.get(nodesToMerge.end_terminal.nodeId);
+    List<EdgeTerminal> destTerminals = endNode.getEdgeTerminals(
+        nodesToMerge.end_terminal.strand, EdgeDirection.OUTGOING);
+
+    for (EdgeTerminal terminal:destTerminals) {
+      if (nodesToStart.contains(terminal.nodeId)) {
+        nodesToBoth.add(terminal.nodeId);
+      }
+    }
+
+    return nodesToBoth;
+  }
+
+  /**
    * Data structure for returning the results of merging a chain.
    */
   public static class ChainMergeResult {
@@ -323,88 +432,13 @@ public class QuickMergeUtil {
       return result;
     }
 
-    // Special Case: Suppose we have the graph A->X->R(X)->R(A)
-    // In this case the forward and reverse strands are identical.
-    // The merged sequence is  A->X'->R(A). The problem is that in the
-    // original graph there is a single outgoing edge in A corresponding for
-    // both strands because the forward and reverse are identical. However,
-    // in the merged graph we have two edges  A->X' and A->R(X'). So
-    // we can't simply move the incoming edges to X' because there is only
-    // a single edge in the source.
+    HashSet<String> nodesWithEdgesToBoth = findNodesWithEdgesToBothEnds(
+        nodes, nodes_to_merge);
 
-    // Identify any nodes which have outgoing edges to the start of the
-    // chain and incoming edges from the end of the terminal.
-
-    // List of nodes which have outgoing edges to the start of the chain
-    // and incoming edges from the end of the chain.
-    HashSet<String> specialIds = new HashSet<String>();
-    {
-      GraphNode startNode = nodes.get(nodes_to_merge.start_terminal.nodeId);
-      List<EdgeTerminal> sourceTerminals = startNode.getEdgeTerminals(
-          nodes_to_merge.start_terminal.strand, EdgeDirection.INCOMING);
-      HashSet<String> sourceIds = new HashSet<String>();
-      for (EdgeTerminal terminal: sourceTerminals) {
-        sourceIds.add(terminal.nodeId);
-      }
-
-      List<EdgeTerminal> destTerminals = startNode.getEdgeTerminals(
-          nodes_to_merge.end_terminal.strand, EdgeDirection.OUTGOING);
-
-      for (EdgeTerminal terminal:destTerminals) {
-        if (sourceIds.contains(terminal.nodeId)) {
-          specialIds.add(terminal.nodeId);
-        }
-      }
-
-      // Process each of these nodes.
-      for (String specialId: specialIds) {
-        GraphNode node = nodes.get(specialId);
-
-        DNAStrand startStrand = node.findStrandWithEdgeToTerminal(
-            nodes_to_merge.start_terminal, EdgeDirection.OUTGOING);
-
-        ArrayList<CharSequence> startTags = new ArrayList();
-        for (CharSequence tag:
-             node.getTagsForEdge(startStrand, nodes_to_merge.start_terminal)) {
-          // Convert it to a string so we make a copy of the data.
-          startTags.add(tag.toString());
-        }
-
-        // This is the strand with an outgoing edge to the end terminal.
-        EdgeTerminal endTerminal = nodes_to_merge.end_terminal.flip();
-        DNAStrand endStrand =  node.findStrandWithEdgeToTerminal(
-            endTerminal, EdgeDirection.OUTGOING);
-
-        ArrayList<CharSequence> endTags = new ArrayList();
-
-        for (CharSequence tag:
-             node.getTagsForEdge(endStrand, endTerminal)) {
-          // Convert it to a string so we make a copy of the data.
-          endTags.add(tag.toString());
-        }
-
-        // Remove the neighbor data.
-        node.removeNeighbor(nodes_to_merge.start_terminal.nodeId);
-        if (!nodes_to_merge.start_terminal.nodeId.equals(
-            nodes_to_merge.end_terminal.nodeId)) {
-          node.removeNeighbor(nodes_to_merge.end_terminal.nodeId);
-        }
-
-        // Add the appropriate edges.
-        final long MAXTHREADREADS = startTags.size() + endTags.size();
-        EdgeTerminal newStart = new EdgeTerminal(
-            merged_node.getNodeId(), merged_strand);
-        node.addOutgoingEdgeWithTags(
-            startStrand, newStart, startTags, MAXTHREADREADS);
-
-
-        EdgeTerminal newEnd = new EdgeTerminal(
-            merged_node.getNodeId(), DNAStrandUtil.flip(merged_strand));
-        node.addOutgoingEdgeWithTags(
-            endStrand, newEnd, endTags, MAXTHREADREADS);
-      }
-    }
-
+    // Move nodes with edges to both ends of the chain.
+    moveEdgesToBothEnds(
+        nodes, nodesWithEdgesToBoth, nodes_to_merge, merged_node,
+        merged_strand);
 
     // We need to move the incoming edges to the first node in the chain
     // and the incoming edges to the last node in the chain.
@@ -415,7 +449,8 @@ public class QuickMergeUtil {
           merged_node.getNodeId(), merged_strand);
 
       if (!old_terminal.equals(new_terminal)) {
-        moveIncomingEdges(nodes, old_terminal, new_terminal, specialIds);
+        moveIncomingEdges(
+            nodes, old_terminal, new_terminal, nodesWithEdgesToBoth);
       }
     }
 
@@ -429,7 +464,8 @@ public class QuickMergeUtil {
       // terminal, but the strand might have changed. In which case we
       // need to move the incoming edges
       if (!old_terminal.equals(new_terminal)) {
-        moveIncomingEdges(nodes, old_terminal, new_terminal, specialIds);
+        moveIncomingEdges(
+            nodes, old_terminal, new_terminal, nodesWithEdgesToBoth);
       }
     }
     result.merged_node = merged_node;

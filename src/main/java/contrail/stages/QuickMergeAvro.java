@@ -131,13 +131,6 @@ public class QuickMergeAvro extends Stage {
       Set<String> nodes_to_process = new HashSet<String>();
       nodes_to_process.addAll(nodes.keySet());
 
-      if (nodes_to_process.contains("AGAGAGGAGATATCTCCTCTC")) {
-        System.out.println("Problem node");
-      }
-      if (nodes_to_process.contains("AAGAGAGGAGATATCTCCTCT")) {
-        System.out.println("Problem node");
-      }
-
       while (nodes_to_process.size() > 0) {
         String nodeid = nodes_to_process.iterator().next();
         nodes_to_process.remove(nodeid);
@@ -148,20 +141,9 @@ public class QuickMergeAvro extends Stage {
           throw new RuntimeException("Start node shouldn't be null");
         }
 
-        if (start_node.getNodeId().equals("AGAGAGGAGATATCTCCTCTC")) {
-          System.out.println("Problem node");
-        }
         // Find a chain if any to merge.
         QuickMergeUtil.NodesToMerge nodes_to_merge =
             QuickMergeUtil.findNodesToMerge(nodes, start_node);
-
-        if (nodes_to_merge.nodeids_visited.contains("AGAGAGGAGATATCTCCTCTC")) {
-          System.out.println("Problem node");
-        }
-
-        if (nodes_to_merge.nodeids_visited.contains("AAGAGAGGAGATATCTCCTCT")) {
-          System.out.println("Problem node");
-        }
 
         // Remove all the nodes visited from the list of ids to process.
         nodes_to_process.removeAll(nodes_to_merge.nodeids_visited);
