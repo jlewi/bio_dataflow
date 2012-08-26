@@ -394,21 +394,23 @@ public class FindBubblesAvro extends Stage   {
         throw new IOException(formatter.toString());
       }
 
-      if (bubblelinks.size() > 0)   {
-        for (String minorID : bubblelinks.keySet())   {
-          List<BubbleMetaData> minorBubbles = bubblelinks.get(minorID);
-          int choices = minorBubbles.size();
-          reporter.incrCounter("Contrail", "checked", 1);
-          if (choices <= 1) {
-            // TODO(jlewi): I don't think this should ever happen if the graph
-            // is maximally compressed.
-            continue;
-          }
-          reporter.incrCounter("Contrail", "edgeschecked", choices);
-          // marks nodes to be deleted for a particular list of minorID
-          ProcessMinorList(minorBubbles, reporter, minorID);
-          outputMessagesToMinor(minorBubbles, minorID, collector);
+
+      for (String minorID : bubblelinks.keySet())   {
+        List<BubbleMetaData> minorBubbles = bubblelinks.get(minorID);
+        int choices = minorBubbles.size();
+        reporter.incrCounter("Contrail", "minorchecked", 1);
+        if (choices <= 1) {
+          // We have a chain, i.e A->X->B and not a bubble
+          // A->{X,Y,...}->B this shouldn't happen and probably means
+          // the graph wasn't maximally compressed.
+          throw new RuntimeException(
+              "We found a chain and not a bubble. This probably means the " +
+              "graph wasn't maximally compressed before running FindBubbles.");
         }
+        reporter.incrCounter("Contrail", "edgeschecked", choices);
+        // marks nodes to be deleted for a particular list of minorID
+        ProcessMinorList(minorBubbles, reporter, minorID);
+        outputMessagesToMinor(minorBubbles, minorID, collector);
       }
 
       // Output the major node.
