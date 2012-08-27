@@ -356,6 +356,15 @@ public class TestGraphStats extends GraphStats {
   }
 
   @Test
+  public void testHTMLReport() {
+    File tempDir = FileHelper.createLocalTempDir();
+    N50StatsTestData testData = createN50StatsTest();
+    this.stage_options.put("outputpath", tempDir.toString());
+    this.setConf(new JobConf());
+    this.writeReport(100, testData.outputStats);
+  }
+
+  @Test
   public void testRun() {
     // Create a graph and write it to a file.
     SimpleGraphBuilder builder = new SimpleGraphBuilder();
