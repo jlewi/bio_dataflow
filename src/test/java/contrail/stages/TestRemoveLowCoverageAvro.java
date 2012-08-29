@@ -139,6 +139,7 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
   }
 
   private static class ReduceTestCaseData {
+    String key;
     List <RemoveNeighborMessage> map_out_list;
     GraphNodeData expected_node_data;
   }
@@ -146,8 +147,11 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
   private void assertReduceOutput(
       ReduceTestCaseData case_data,
       AvroCollectorMock<GraphNodeData> collector_mock) {
-
-    //assertEquals(1, collector_mock.data.size());
+    if (case_data.expected_node_data == null) {
+      assertEquals(0, collector_mock.data.size());
+      return;
+    }
+    assertEquals(1, collector_mock.data.size());
     assertEquals(case_data.expected_node_data, collector_mock.data.get(0));
   }
 
@@ -157,14 +161,16 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
 
     List <RemoveNeighborMessage> map_out_list= new ArrayList <RemoveNeighborMessage>();
 
+    GraphNode node = graph.findNodeForSequence("TCA");
     RemoveNeighborMessage msg = new RemoveNeighborMessage();
-    msg.setNode(graph.getNode(graph.findNodeIdForSequence("TCA")).clone().getData());
+    msg.setNode(node.clone().getData());
     msg.setNodeIDtoRemove("");
     map_out_list.add(msg);
 
     ReduceTestCaseData test_data= new ReduceTestCaseData();
     test_data.expected_node_data = graph.getNode(graph.findNodeIdForSequence("TCA")).clone().getData();
     test_data.map_out_list = map_out_list;
+    test_data.key = node.getNodeId();
     return test_data;
   }
 
@@ -195,7 +201,22 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
 
     test_data.expected_node_data = node_temp.getData();
     test_data.map_out_list = map_out_list;
+    test_data.key = "AAATC";
     return test_data;
+  }
+
+  private ReduceTestCaseData reducerNodeAlreadyRemoved() {
+    // In this test case, no node is sent to the reducer because the node
+    // was removed in the mapper because its coverage was too low.
+    String nodeId = "nodeId";
+    ReduceTestCaseData testData= new ReduceTestCaseData();
+    RemoveNeighborMessage message = new RemoveNeighborMessage();
+    message.setNodeIDtoRemove(nodeId);
+    testData.expected_node_data = null;
+    testData.map_out_list = new ArrayList<RemoveNeighborMessage>();
+    testData.map_out_list.add(message);
+    testData.key = nodeId;
+    return testData;
   }
 
   private List<ReduceTestCaseData> constructReduceData() {
@@ -204,6 +225,7 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
       ReduceTestCaseData low_cov = constructLowCoverageData();
       test_data_list.add(low_cov);
       test_data_list.add(high_cov);
+      test_data_list.add(reducerNodeAlreadyRemoved());
       return test_data_list;
   }
 
@@ -220,8 +242,8 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
 
       AvroCollectorMock<GraphNodeData> collector_mock = new AvroCollectorMock<GraphNodeData>();
       try {
-        CharSequence key = case_data.expected_node_data.getNodeId();
-        reducer.reduce(key, case_data.map_out_list, collector_mock, reporter);
+        reducer.reduce(
+            case_data.key, case_data.map_out_list, collector_mock, reporter);
       }
       catch (IOException exception){
         fail("IOException occured in reduce: " + exception.getMessage());
