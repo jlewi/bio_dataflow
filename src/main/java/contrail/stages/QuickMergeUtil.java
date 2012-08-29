@@ -270,6 +270,8 @@ public class QuickMergeUtil {
       DNAStrand startStrand = node.findStrandWithEdgeToTerminal(
           nodesToMerge.start_terminal, EdgeDirection.OUTGOING);
 
+      // Collect the readtags associated with the edges so we can include
+      // them when adding the new edges.
       ArrayList<CharSequence> startTags = new ArrayList<CharSequence>();
       for (CharSequence tag:
            node.getTagsForEdge(startStrand, nodesToMerge.start_terminal)) {
@@ -282,8 +284,9 @@ public class QuickMergeUtil {
       DNAStrand endStrand =  node.findStrandWithEdgeToTerminal(
           endTerminal, EdgeDirection.OUTGOING);
 
+      // Collect the readtags associated with the edges so we can include
+      // them when adding the new edges.
       ArrayList<CharSequence> endTags = new ArrayList<CharSequence>();
-
       for (CharSequence tag:
            node.getTagsForEdge(endStrand, endTerminal)) {
         // Convert it to a string so we make a copy of the data.
