@@ -74,6 +74,12 @@ public class ContrailParameters {
     ParameterDefinition k = new ParameterDefinition(
         "K", "Length of KMers [required].", Integer.class, null);
     stage_options.add(k);
+
+    ParameterDefinition logFile = new ParameterDefinition(
+        "log_file", "File to log to. This can't be an HDFS path.", String.class,
+        null);
+    stage_options.add(logFile);
+
     return stage_options;
   }
 

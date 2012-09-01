@@ -26,7 +26,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
-
 import contrail.stages.BuildGraphAvro;
 import contrail.stages.CompressAndCorrect;
 import contrail.stages.ContrailParameters;
@@ -55,7 +54,7 @@ public class Ba10KExample extends Stage {
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> definitions =
         new HashMap<String, ParameterDefinition>();
-
+    definitions.putAll(super.createParameterDefinitions());
     // We add all the options for the stages we depend on.
     Stage[] substages =
       {new FastqPreprocessorAvroCompressed(), new BuildGraphAvro(),
