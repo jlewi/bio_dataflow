@@ -479,6 +479,10 @@ public class FindBubblesAvro extends Stage   {
 
     float diff = (float) ((endtime - starttime) / 1000.0);
 
+    long numToPop = result.getCounters().findCounter(
+        num_bubbles.group, num_bubbles.tag).getValue();
+
+    sLogger.info("Number of nodes to pop:" + numToPop);
     sLogger.info("Runtime: " + diff + " s");
     return result;
   }

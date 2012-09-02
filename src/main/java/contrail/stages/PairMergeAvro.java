@@ -36,6 +36,7 @@ import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAStrandUtil;
 import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
+import contrail.stages.GraphCounters.CounterName;
 
 /**
  * The second stage for doing parallel compression of linear chains.
@@ -57,6 +58,12 @@ import contrail.sequences.StrandsUtil;
  */
 public class PairMergeAvro extends Stage {
   private static final Logger sLogger = Logger.getLogger(PairMergeAvro.class);
+
+
+  // The number of nodes which still need to be compressed after PairMerge
+  // runs.
+  public static CounterName NUM_REMAINING_COMPRESSIBLE =
+      new CounterName("Contrail", "nodes_left_to_compress");
 
   protected static class PairMergeMapper extends
       AvroMapper<NodeInfoForMerge, Pair<CharSequence, NodeInfoForMerge>> {
@@ -376,8 +383,8 @@ public class PairMergeAvro extends Stage {
       CompressibleStrands compressible_strands = isCompressible(chain);
       if (compressible_strands != CompressibleStrands.NONE) {
         reporter.incrCounter(
-            GraphCounters.pair_merge_compressible_nodes.group,
-            GraphCounters.pair_merge_compressible_nodes.tag, 1);
+            NUM_REMAINING_COMPRESSIBLE.group, NUM_REMAINING_COMPRESSIBLE.tag,
+            1);
 
       }
       output.setNode(merged_node.getData());
@@ -467,7 +474,16 @@ public class PairMergeAvro extends Stage {
       long endtime = System.currentTimeMillis();
 
       float diff = (float) ((endtime - starttime) / 1000.0);
-      System.out.println("Runtime: " + diff + " s");
+      sLogger.info("Runtime: " + diff + " s");
+      long numCompressibleRemaining = job.getCounters().findCounter(
+          NUM_REMAINING_COMPRESSIBLE.group,
+          NUM_REMAINING_COMPRESSIBLE.tag).getValue();
+      long numNodes = job.getCounters().findCounter(
+          "org.apache.hadoop.mapred.Task$Counter",
+          "REDUCE_OUTPUT_RECORDS").getValue();
+      sLogger.info(
+          "Number of remaining nodes to compress:" + numCompressibleRemaining);
+      sLogger.info("Number of nodes in graph:" + numNodes);
       return job;
     }
     return null;

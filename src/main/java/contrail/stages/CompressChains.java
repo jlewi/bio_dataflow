@@ -140,7 +140,7 @@ public class CompressChains extends Stage {
       substage_options.put("outputpath", latest_path);
       compress.setParameters(substage_options);
       RunningJob job = compress.runJob();
-      compressible = counter(job, GraphCounters.compressible_nodes);
+      compressible = counter(job, CompressibleAvro.NUM_COMPRESSIBLE);
       logEndJob(job);
 
       if (compressible == 0) {
@@ -236,8 +236,9 @@ public class CompressChains extends Stage {
           RunningJob job = pmark.runJob();
           logEndJob(job);
 
-          sLogger.info("  " + counter(job, GraphCounters.num_nodes_to_merge) +
-              " marked\n");
+          sLogger.info(
+              "Number of nodes marked to compress" +
+              counter(job, PairMarkAvro.NUM_MARKED_FOR_MERGE));
         }
         {
           logStartJob("  Merge " + stage);
@@ -248,7 +249,7 @@ public class CompressChains extends Stage {
           pmerge.setParameters(mark_options);
           RunningJob job = pmerge.runJob();
           logEndJob(job);
-          remaining = counter(job,GraphCounters.pair_merge_compressible_nodes);
+          remaining = counter(job, PairMergeAvro.NUM_REMAINING_COMPRESSIBLE);
         }
       }
 

@@ -33,6 +33,7 @@ import contrail.stages.FastqPreprocessorAvroCompressed;
 import contrail.stages.GraphStats;
 import contrail.stages.NotImplementedException;
 import contrail.stages.ParameterDefinition;
+import contrail.stages.QuickMergeAvro;
 import contrail.stages.Stage;
 
 /**
@@ -58,7 +59,7 @@ public class Ba10KExample extends Stage {
     // We add all the options for the stages we depend on.
     Stage[] substages =
       {new FastqPreprocessorAvroCompressed(), new BuildGraphAvro(),
-       new CompressAndCorrect(), new GraphStats()};
+       new QuickMergeAvro(), new CompressAndCorrect(), new GraphStats()};
 
     for (Stage stage: substages) {
       definitions.putAll(stage.getParameterDefinitions());
@@ -99,7 +100,7 @@ public class Ba10KExample extends Stage {
 
     Stage[] subStages =
       {new FastqPreprocessorAvroCompressed(), new BuildGraphAvro(),
-       new CompressAndCorrect()};
+       new QuickMergeAvro(), new CompressAndCorrect()};
 
 
     // The path to process for the next stage.

@@ -332,6 +332,13 @@ public class RemoveTipsAvro extends Stage {
       }
 
       job = JobClient.runJob(conf);
+      long numTips = job.getCounters().findCounter(
+          NUM_REMOVED.group, NUM_REMOVED.tag).getValue();
+      long numNodes = job.getCounters().findCounter(
+          "org.apache.hadoop.mapred.Task$Counter",
+          "REDUCE_OUTPUT_RECORDS").getValue();
+      sLogger.info("Number of tips removed:" + numTips);
+      sLogger.info("Number of nodes outputted:" + numNodes);
     }
     return job;
   }
