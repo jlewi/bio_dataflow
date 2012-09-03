@@ -5,12 +5,15 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 import contrail.sequences.AlphabetUtil;
 import contrail.sequences.DNAAlphabetFactory;
@@ -96,7 +99,7 @@ public class TestGraphNode {
 		return all_terminals;
 	}
 
-	private List<EdgeTerminal> flipTerminals(List<EdgeTerminal> terminals) {
+	private List<EdgeTerminal> flipTerminals(Collection<EdgeTerminal> terminals) {
 		// Flip the edge of each terminal.
 		List<EdgeTerminal> flipped = new ArrayList<EdgeTerminal> ();
 		for (Iterator<EdgeTerminal> it = terminals.iterator(); it.hasNext();) {
@@ -152,6 +155,52 @@ public class TestGraphNode {
 			assertTrue(r_edges.containsAll(all_r_edge_terminals));
 		}
 	}
+
+	@Test
+  public void testSets () {
+    GraphNode node = createNode();
+
+    // This set will be all the edge terminals stored in
+    // the node. We will use this set to check all nodes in the derived
+    // lists are actually in the node.
+    List<EdgeTerminal> all_f_edge_terminals =
+        getAllEdgeTerminalsForStrand(node, DNAStrand.FORWARD);
+    List<EdgeTerminal> all_r_edge_terminals =
+        getAllEdgeTerminalsForStrand(node, DNAStrand.REVERSE);
+
+
+    // Check the requisite sets.
+    Set<EdgeTerminal> fOutgoing = node.getEdgeTerminalsSet(
+        DNAStrand.FORWARD, EdgeDirection.OUTGOING);
+    Set<EdgeTerminal> fIncoming = node.getEdgeTerminalsSet(
+        DNAStrand.FORWARD, EdgeDirection.INCOMING);
+    Set<EdgeTerminal> rOutgoing = node.getEdgeTerminalsSet(
+        DNAStrand.REVERSE, EdgeDirection.OUTGOING);
+    Set<EdgeTerminal> rIncoming = node.getEdgeTerminalsSet(
+        DNAStrand.REVERSE, EdgeDirection.INCOMING);
+
+    // Make sure all the edge terminals are actually in the node.
+    assertTrue(all_f_edge_terminals.containsAll(fOutgoing));
+    assertTrue(all_r_edge_terminals.containsAll(flipTerminals(fIncoming)));
+
+    assertTrue(all_r_edge_terminals.containsAll(rOutgoing));
+    assertTrue(all_f_edge_terminals.containsAll(flipTerminals(rIncoming)));
+
+    // Check the reverse
+    {
+      Set<EdgeTerminal> f_edges = new HashSet<EdgeTerminal>();
+      f_edges.addAll(fOutgoing);
+      f_edges.addAll(fIncoming);
+      assertTrue(f_edges.containsAll(all_f_edge_terminals));
+    }
+
+    {
+      Set<EdgeTerminal> r_edges = new HashSet<EdgeTerminal>();
+      r_edges.addAll(rOutgoing);
+      r_edges.addAll(rIncoming);
+      assertTrue(r_edges.containsAll(all_r_edge_terminals));
+    }
+  }
 
 	/**
 	 * Return the list of possible link direction in random permutation order
@@ -414,5 +463,28 @@ public class TestGraphNode {
 	  // during the clone because of the bug in avro.
 	  assertNotNull(node.getData().getSequence());
 	  assertNotNull(copy.getData().getSequence());
+	}
+
+	@Test
+	public void testAddNeighbor() {
+	  GraphNode original = createNode();
+	  GraphNode node = original.clone();
+	  NeighborData neighbor = new NeighborData();
+	  neighbor.setNodeId("newNeighbor");
+	  EdgeData edgeData = new EdgeData();
+	  edgeData.setStrands(StrandsForEdge.RF);
+	  edgeData.setReadTags(new ArrayList<CharSequence>());
+	  neighbor.setEdges(new ArrayList<EdgeData>());
+	  neighbor.getEdges().add(edgeData);
+
+	  node.addNeighbor(neighbor);
+	  // Check the node has the new edge.
+	  EdgeTerminal terminal = new EdgeTerminal("newNeighbor", DNAStrand.FORWARD);
+	  assertTrue(node.getEdgeTerminalsSet(
+	      DNAStrand.REVERSE, EdgeDirection.OUTGOING).contains(terminal));
+
+	  // Check that if we remove the edge we get the original node.
+	  node.removeNeighbor("newNeighbor");
+	  assertEquals(original.getData(), node.getData());
 	}
 }

@@ -31,6 +31,7 @@ import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
+import contrail.graph.NeighborData;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
@@ -221,7 +222,7 @@ public class RemoveTipsAvro extends Stage {
         int deg = 0;
         int numTips = 0;
         int besttip_len=0;
-        boolean result= false;
+        NeighborData result= null;
         boolean keptTip= false;
 
         List<RemoveTipMessage> msg_list = tips.get(strand);
@@ -233,10 +234,10 @@ public class RemoveTipsAvro extends Stage {
           besttip_len = LongestTip(msg_list);
         }
         /* if the number of tips is > 0 but not equal to the degree
-	of the non tip node;then we'll remove all the tips and
-	leave non-tips intact
-	the tips with same length are removed
-         */
+	         of the non tip node;then we'll remove all the tips and
+	         leave non-tips intact
+	         the tips with same length are removed
+	       */
         for (RemoveTipMessage message : msg_list)   {
           tip_node.setData(message.getNode());
           if(numTips == deg)	{
@@ -260,7 +261,7 @@ public class RemoveTipsAvro extends Stage {
             result = actual_node.removeNeighbor(tip_node.getNodeId());
           }
 
-          if(result)    {
+          if(result != null)    {
             reporter.incrCounter(
                 GraphCounters.remove_tips_num_removed.group,
                 GraphCounters.remove_tips_num_removed.tag, 1);
