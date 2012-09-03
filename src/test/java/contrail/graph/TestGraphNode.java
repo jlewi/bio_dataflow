@@ -464,4 +464,27 @@ public class TestGraphNode {
 	  assertNotNull(node.getData().getSequence());
 	  assertNotNull(copy.getData().getSequence());
 	}
+
+	@Test
+	public void testAddNeighbor() {
+	  GraphNode original = createNode();
+	  GraphNode node = original.clone();
+	  NeighborData neighbor = new NeighborData();
+	  neighbor.setNodeId("newNeighbor");
+	  EdgeData edgeData = new EdgeData();
+	  edgeData.setStrands(StrandsForEdge.RF);
+	  edgeData.setReadTags(new ArrayList<CharSequence>());
+	  neighbor.setEdges(new ArrayList<EdgeData>());
+	  neighbor.getEdges().add(edgeData);
+
+	  node.addNeighbor(neighbor);
+	  // Check the node has the new edge.
+	  EdgeTerminal terminal = new EdgeTerminal("newNeighbor", DNAStrand.FORWARD);
+	  assertTrue(node.getEdgeTerminalsSet(
+	      DNAStrand.REVERSE, EdgeDirection.OUTGOING).contains(terminal));
+
+	  // Check that if we remove the edge we get the original node.
+	  node.removeNeighbor("newNeighbor");
+	  assertEquals(original.getData(), node.getData());
+	}
 }

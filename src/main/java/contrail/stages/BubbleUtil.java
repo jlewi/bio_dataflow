@@ -1,13 +1,18 @@
 package contrail.stages;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
+import contrail.graph.EdgeData;
 import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
+import contrail.graph.NeighborData;
 import contrail.sequences.DNAStrand;
+import contrail.sequences.StrandsForEdge;
+import contrail.sequences.StrandsUtil;
 
 /**
  * Some utilities for working with bubbles.
@@ -74,44 +79,55 @@ public class BubbleUtil {
   public static void fixEdgesFromPalindrome(GraphNode palindrome) {
     // Find all neighbors of the palindrome with an outgoing edge from the
     // reverse strand of the palindrome.
-    HashSet<String> neighbors = new HashSet<String>();
+    HashSet<String> neighborIds = new HashSet<String>();
     List<EdgeTerminal> rTerminals =
         palindrome.getEdgeTerminals(DNAStrand.REVERSE, EdgeDirection.OUTGOING);
     for (EdgeTerminal terminal : rTerminals) {
-      neighbors.add(terminal.nodeId);
+      neighborIds.add(terminal.nodeId);
     }
 
+    // When we call removeNeighbor matters because it forces GraphNode
+    // to clear all derived data and we'd like to minimze the number of times
+    // we recompute the derived data.
+    ArrayList<NeighborData> neighbors = new ArrayList<NeighborData>();
 
-    // Alltags contains the tags to the terminal for the given edge.
-    HashMap<DNAStrand, HashSet<String>> allTags =
-        new HashMap<DNAStrand, HashSet<String>>();
-    allTags.put(DNAStrand.FORWARD, new HashSet<String>());
-    allTags.put(DNAStrand.REVERSE, new HashSet<String>());
+    for (String id: neighborIds) {
+      neighbors.add(palindrome.removeNeighbor(id));
+    }
 
-    HashSet<DNAStrand> strandsWithEdges = new HashSet<DNAStrand>();
-    for (String neighborId : neighbors) {
-      strandsWithEdges.clear();
+    // Loop over all the neighbors. Any edges which originate on the reverse
+    // strand should be moved to the forward strand.
+    HashMap<StrandsForEdge, EdgeData> edgeDataMap =
+        new HashMap<StrandsForEdge, EdgeData>();
 
-      for (DNAStrand strand : DNAStrand.values()) {
-        EdgeTerminal terminal = new EdgeTerminal(neighborId, strand);
-        for (DNAStrand palindromeStrand : DNAStrand.values()) {
-          if (!palindrome.getEdgeTerminalsSet(
-                  palindromeStrand, EdgeDirection.OUTGOING).contains(terminal)) {
-            continue;
-          }
-          strandsWithEdges.add(strand);
-          for (CharSequence tag : palindrome.getTagsForEdge(strand, terminal)) {
-            allTags.get(palindromeStrand).add(tag.toString());
-          }
+    HashSet<String> uniqueTags = new HashSet<String>();
+
+    for (NeighborData neighbor : neighbors) {
+      edgeDataMap.clear();
+      for (EdgeData edgeData : neighbor.getEdges()) {
+        StrandsForEdge strands = StrandsUtil.form(
+            DNAStrand.FORWARD, StrandsUtil.dest(edgeData.getStrands()));
+        edgeData.setStrands(strands);
+        if (!edgeDataMap.containsKey(strands)) {
+          edgeDataMap.put(strands, edgeData);
+        } else {
+          edgeDataMap.get(strands).getReadTags().addAll(
+              edgeData.getReadTags());
         }
       }
-      palindrome.removeNeighbor(neighborId);
-      for (DNAStrand strand : strandsWithEdges) {
-        EdgeTerminal terminal = new EdgeTerminal(neighborId, strand);
-        HashSet<String> tags = allTags.get(strand);
-        palindrome.addOutgoingEdgeWithTags(
-            DNAStrand.FORWARD, terminal, tags, tags.size());
+      neighbor.getEdges().clear();
+      for (EdgeData edgeData : edgeDataMap.values()) {
+        // Make sure the readtags are unique.
+        uniqueTags.clear();
+        for (CharSequence tag : edgeData.getReadTags()) {
+          uniqueTags.add(tag.toString());
+        }
+        edgeData.getReadTags().clear();
+        edgeData.getReadTags().addAll(uniqueTags);
+        neighbor.getEdges().add(edgeData);
       }
+      // Add the neighbor back to the node.
+      palindrome.addNeighbor(neighbor);
     }
   }
 }

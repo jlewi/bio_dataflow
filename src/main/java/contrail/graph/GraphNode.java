@@ -72,10 +72,13 @@ public class GraphNode {
     private HashMap<EdgeTerminal, List<CharSequence>> f_edge_tags_map;
     private HashMap<EdgeTerminal, List<CharSequence>> r_edge_tags_map;
 
+    private HashSet<String> neighborIds;
+
     public DerivedData(GraphNodeData data) {
       this.data = data;
       lists_created = false;
     }
+
     /**
      * This hash map maps the enum StrandsForEdge to a list of strings
      * which are the node ids for the neighbors.
@@ -193,6 +196,7 @@ public class GraphNode {
       fIncomingEdgeSet = Collections.unmodifiableSet(fIncomingEdgeSet);
       rIncomingEdgeSet = Collections.unmodifiableSet(rIncomingEdgeSet);
     }
+
     public List<CharSequence> getNeighborsForStrands(StrandsForEdge strands) {
       if (!lists_created) {
         createEdgeLists();
@@ -279,6 +283,8 @@ public class GraphNode {
      * whenever the graph changes so that we don't return stale data;
      */
     public void clear() {
+      // TODO(jlewi): We should probably just clear the lists rather than
+      // setting them to null so as to avoid the cost of recreating the objects.
       lists_created = false;
       f_outgoing_edges = null;
       r_outgoing_edges = null;
@@ -287,6 +293,33 @@ public class GraphNode {
       strands_to_neighbors = null;
       f_edge_tags_map = null;
       r_edge_tags_map = null;
+      fOutgoingEdgeSet = null;
+      rOutgoingEdgeSet = null;
+      fIncomingEdgeSet = null;
+      rIncomingEdgeSet = null;
+      neighborIds = null;
+    }
+
+    /**
+     * Return a modifiable set of the ids for the neighbors.
+     *
+     * We return a modifiable list of the neighborids so that GraphNodeData
+     * can modify it; e.g in addNeighbor.
+     *
+     * @return
+     */
+    public HashSet<String> getNeighborIds() {
+      if (neighborIds == null) {
+        neighborIds = new HashSet<String>();
+        for (NeighborData neighbor : this.data.getNeighbors()) {
+          neighborIds.add(neighbor.getNodeId().toString());
+        }
+      }
+      return neighborIds;
+    }
+
+    public void setNeighborIds(HashSet<String> idSet) {
+      neighborIds = idSet;
     }
   }
 
@@ -399,6 +432,50 @@ public class GraphNode {
     }
   }
 
+  /**
+   * Add the neighbor to this node.
+   *
+   * The node steals the reference to neighbor data so the caller shouldn't
+   * modify the nieghbor data.
+   *
+   * Warning. This function should only be used if you know what you are doing.
+   * In general you should  use addIncomingEdge/addOutgoingEdge to add eges
+   * to the node.
+   *
+   * @param neighbor
+   */
+  public void addNeighbor(NeighborData neighbor) {
+    // Ensure the node doesn't already have a neighbor for this node.
+    if (this.derived_data.getNeighborIds().contains(
+          neighbor.getNodeId().toString())) {
+      throw new RuntimeException(String.format(
+          "Tried to add neighbor %s to node %s but neighbor already exists.",
+          neighbor.getNodeId(), getNodeId()));
+    }
+
+    // Minimal validation, check that fields aren't null so that we can
+    // serialize it.
+    if (neighbor.getNodeId() == null) {
+      throw new RuntimeException("nieghbor has null fields");
+    }
+    if (neighbor.getEdges() == null) {
+      throw new RuntimeException("nieghbor has null fields");
+    }
+    for (EdgeData edgeData : neighbor.getEdges()) {
+      if (edgeData.getStrands() == null) {
+        throw new RuntimeException("edgeData has null fields");
+      }
+      if (edgeData.getReadTags() == null) {
+        throw new RuntimeException("edgeData has null fields");
+      }
+    }
+    // Make a copy of the neighborIds.
+    HashSet<String> neighborIds = this.derived_data.getNeighborIds();
+    neighborIds.add(neighbor.getNodeId().toString());
+    this.derived_data.clear();
+    this.derived_data.setNeighborIds(neighborIds);
+    this.data.getNeighbors().add(neighbor);
+  }
   /**
    * Set the mertag based on the read tag for a KMer.
    * @param mertag
@@ -567,7 +644,7 @@ public class GraphNode {
         long max_insert = MAXTHREADREADS - edge.getReadTags().size();
         long num_to_insert = max_insert > tags.size() ? tags.size() :
           max_insert;
-        Iterator<CharSequence> tagIterator = tags.iterator();
+        Iterator<? extends CharSequence> tagIterator = tags.iterator();
         for (int i = 0 ; i < num_to_insert; i++) {
           edge_tags.add(tagIterator.next());
         }
@@ -934,20 +1011,25 @@ public class GraphNode {
   /**
    * Remove the neighbor with the given id from this node.
    *
-   * @return: True on success false otherwise.
+   * This function returns the data for the neighbor. This is useful if you
+   * want to manipulate the data for this neighbor without going through the
+   * interface provided by GraphNode.
+   *
+   * @return: The data for the removed neighbor, null if neighbor doesn't exist.
    */
-  public boolean removeNeighbor(
-      String neighborid) {
+  public NeighborData removeNeighbor(String neighborid) {
+    NeighborData neighbor = null;
     for (int index = 0; index < data.getNeighbors().size(); index++) {
       if (data.getNeighbors().get(index).getNodeId().toString().equals(
           neighborid)) {
+        neighbor = data.getNeighbors().get(index);
         // We assume that each instance of a neighbor appears at most once.
         // so after removing it we can just return.
         data.getNeighbors().remove(index);
         derived_data.clear();
-        return true;
+        return neighbor;
       }
     }
-    return false;
+    return neighbor;
   }
 }
