@@ -8,8 +8,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-
 import org.apache.avro.Schema;
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroJob;
@@ -80,8 +78,10 @@ import contrail.stages.GraphCounters.CounterName;
  *    for doing pair wise merges means we can't deal with palindromes when
  *    doing the merge.
  *
- *    The reducer identifies bubbles formed by palindromes. If such a buble
- *    is detected then the bubble is popped by removing edges to R(A).
+ *    The reducer identifies bubbles formed by palindromes. If such a bubble
+ *    is detected then the bubble is popped by ensuring all edges from
+ *    the major neighbor target the forward strand of the node and all edges
+ *    from the minor target the reverse strand of the palindrome.
  *
  * Important: The graph must be maximally be compressed otherwise this code
  * won't work.
@@ -97,8 +97,11 @@ public class FindBubblesAvro extends Stage   {
   public static final Schema REDUCE_OUT_SCHEMA =
       new FindBubblesOutput().getSchema();
 
-  public static CounterName num_bubbles =
+  public final static CounterName NUM_BUBBLES =
       new CounterName("Contrail", "find-bubbles-num-bubbles");
+
+  public final static CounterName NUM_PALINDROMES =
+      new CounterName("Contrail", "find-bubbles-num-palindromes");
 
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs =
@@ -188,12 +191,13 @@ public class FindBubblesAvro extends Stage   {
    * The reducer.
    */
   public static class FindBubblesAvroReducer
-  extends AvroReducer<CharSequence, GraphNodeData, FindBubblesOutput> {
+      extends AvroReducer<CharSequence, GraphNodeData, FindBubblesOutput> {
     private int K;
     public float bubbleEditRate;
     private GraphNode majorNode = null;
     private GraphNode bubbleNode = null;
     private FindBubblesOutput output = null;
+    private BubbleUtil bubbleUtil = null;
 
     public void configure(JobConf job) {
       FindBubblesAvro stage = new FindBubblesAvro();
@@ -207,6 +211,8 @@ public class FindBubblesAvro extends Stage   {
       bubbleNode = new GraphNode();
       output = new FindBubblesOutput();
       output.setDeletedNeighbors(new ArrayList<CharSequence>());
+      output.setPalindromeNeighbors(new ArrayList<CharSequence>());
+      bubbleUtil = new BubbleUtil();
     }
 
     /**
@@ -228,6 +234,8 @@ public class FindBubblesAvro extends Stage   {
       Sequence alignedSequence;
 
       String minorID;
+
+      private Boolean isPalindromeValue;
 
       BubbleMetaData(
           GraphNodeData nodeData, CharSequence major) {
@@ -252,6 +260,13 @@ public class FindBubblesAvro extends Stage   {
 
         alignedSequence = DNAUtil.sequenceToDir(
             node.getSequence(), strandFromMajor);
+      }
+
+      public Boolean isPalindrome() {
+        if (isPalindromeValue == null) {
+          isPalindromeValue = DNAUtil.isPalindrome(alignedSequence);
+        }
+        return isPalindromeValue;
       }
 
       /**
@@ -301,7 +316,7 @@ public class FindBubblesAvro extends Stage   {
 
           if (distance <= threshold)  {
             // Found a bubble!
-            reporter.incrCounter(num_bubbles.group, num_bubbles.tag, 1);
+            reporter.incrCounter(NUM_BUBBLES.group, NUM_BUBBLES.tag, 1);
             int lowLength =
                 lowCoverageNode.node.getSequence().size()- K + 1;
 
@@ -338,26 +353,17 @@ public class FindBubblesAvro extends Stage   {
         if (bubbleData.popped) {
           continue;
         }
-        if (!DNAUtil.isPalindrome(bubbleData.alignedSequence)) {
+        if (!bubbleData.isPalindrome()) {
           continue;
         }
-        reporter.incrCounter("contrail", "palindrome-bubble", 1);
-        EdgeTerminal rBubbleTerminal = new EdgeTerminal(
-            bubbleData.node.getNodeId(), DNAStrand.REVERSE);
-        Set<DNAStrand> majorStrandsToBubble = majorNode.findStrandsWithEdgeToTerminal(
-            rBubbleTerminal, EdgeDirection.OUTGOING);
+        reporter.incrCounter(NUM_PALINDROMES.group, NUM_PALINDROMES.tag, 1);
 
-        if (majorStrandsToBubble.size() > 0) {
-          BubbleUtil.fixEdgesToPalindrom(majorNode, bubbleData.node);
-        }
-
-        if (bubbleData.node.getEdgeTerminals(
-                DNAStrand.REVERSE, EdgeDirection.OUTGOING).size() > 0) {
-          BubbleUtil.fixEdgesFromPalindrome(bubbleData.node);
-        }
-
+        bubbleUtil.fixEdgesToPalindrome(
+            majorNode, bubbleData.node.getNodeId(), true);
+        bubbleUtil.fixEdgesFromPalindrome(bubbleData.node);
       }
     }
+
     // Output the messages to the minor node.
     void outputMessagesToMinor(
         List<BubbleMetaData> minor_list, CharSequence minor,
@@ -365,13 +371,20 @@ public class FindBubblesAvro extends Stage   {
       output.setNode(null);
       output.setMinorNodeId("");
       output.getDeletedNeighbors().clear();
+      output.getPalindromeNeighbors().clear();
 
       ArrayList<CharSequence> deletedNeighbors = new ArrayList<CharSequence>();
+      ArrayList<CharSequence> palindromeNeighbors =
+          new ArrayList<CharSequence>();
+
 
       for(BubbleMetaData bubbleMetaData : minor_list) {
         if(bubbleMetaData.popped) {
           deletedNeighbors.add(bubbleMetaData.node.getNodeId());
         } else {
+          if (bubbleMetaData.isPalindrome()) {
+            palindromeNeighbors.add(bubbleMetaData.node.getNodeId());
+          }
           // This is a non-popped node so output the node.
           output.setNode(bubbleMetaData.node.getData());
           collector.collect(output);
@@ -382,6 +395,7 @@ public class FindBubblesAvro extends Stage   {
       output.setNode(null);
       output.setMinorNodeId(minor);
       output.setDeletedNeighbors(deletedNeighbors);
+      output.setPalindromeNeighbors(palindromeNeighbors);
       collector.collect(output);
     }
 
@@ -461,6 +475,7 @@ public class FindBubblesAvro extends Stage   {
         }
         // After popping bubbles, we check any nodes which are still alive
         // if they are palindromes.
+        processPalindromes(minorBubbles, reporter);
         reporter.incrCounter("Contrail", "edgeschecked", choices);
 
         outputMessagesToMinor(minorBubbles, minorID, collector);
@@ -533,9 +548,13 @@ public class FindBubblesAvro extends Stage   {
     float diff = (float) ((endtime - starttime) / 1000.0);
 
     long numToPop = result.getCounters().findCounter(
-        num_bubbles.group, num_bubbles.tag).getValue();
+        NUM_BUBBLES.group, NUM_BUBBLES.tag).getValue();
+
+    long numPalindromes = result.getCounters().findCounter(
+        NUM_PALINDROMES.group, NUM_PALINDROMES.tag).getValue();
 
     sLogger.info("Number of nodes to pop:" + numToPop);
+    sLogger.info("Number of palindromes:" + numPalindromes);
     sLogger.info("Runtime: " + diff + " s");
     return result;
   }

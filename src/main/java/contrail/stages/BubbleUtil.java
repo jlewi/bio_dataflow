@@ -60,28 +60,16 @@ public class BubbleUtil {
    * strand of the palindrome.
    *
    * @param node
-   * @param palindrome
+   * @param palindromeId: Id of the palindrome.
+   * @param isMajorNode: True if node is the major neighbor of the node.
    */
-  public void fixEdgesToPalindrome(GraphNode node, GraphNode palindrome) {
+  public void fixEdgesToPalindrome(
+      GraphNode node, String palindromeId, boolean isMajorNode) {
     clearAll();
-    NeighborData neighbor = node.removeNeighbor(palindrome.getNodeId());
-
-    if (neighbor == null) {
-      throw new RuntimeException(String.format(
-          "Node %s doesn't have an edge to the palindrome %s",
-          node.getNodeId(), palindrome.getNodeId()));
-    }
-
-    if (palindrome.getNeighborIds().size() !=2 ){
-      throw new RuntimeException(String.format(
-          "The code assumes the palindrome has two neighbors, but the " +
-          "palindrome has %d neighbors.", neighbors.size()));
-    }
-
-    String majorId = GraphUtil.computeMajorId(palindrome);
+    NeighborData neighbor = node.removeNeighbor(palindromeId);
 
     DNAStrand palindromeStrand = null;
-    if (node.getNodeId().equals(majorId)) {
+    if (isMajorNode) {
       palindromeStrand = DNAStrand.FORWARD;
     } else {
       palindromeStrand = DNAStrand.REVERSE;
@@ -124,10 +112,10 @@ public class BubbleUtil {
    */
   public void fixEdgesFromPalindrome(GraphNode palindrome) {
     clearAll();
-    if (palindrome.getNeighborIds().size() !=2 ){
+    if (palindrome.getNeighborIds().size() > 2 ){
       throw new RuntimeException(String.format(
-          "The code assumes the palindrome has two neighbors, but the " +
-          "palindrome has %d neighbors.", neighbors.size()));
+          "The code assumes the palindrome has no more than two neighbors, " +
+          "but the palindrome has %d neighbors.", neighbors.size()));
     }
 
     // Pop all the neighbors from the node.
@@ -135,9 +123,13 @@ public class BubbleUtil {
       neighbors.add(palindrome.removeNeighbor(id));
     }
 
-    String majorId = GraphUtil.computeMajorID(
+    String majorId;
+    if (neighbors.size() == 2) {
+      majorId = GraphUtil.computeMajorID(
         neighbors.get(0).getNodeId(), neighbors.get(1).getNodeId()).toString();
-
+    } else {
+      majorId = neighbors.get(0).getNodeId().toString();
+    }
     // Loop over all the neighbors. Edges to the major node should
     // be moved so they are from the forward strand and edges to the minor node
     // should be from the forward strand.

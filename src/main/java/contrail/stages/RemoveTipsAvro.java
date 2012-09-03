@@ -266,9 +266,7 @@ public class RemoveTipsAvro extends Stage {
           }
 
           if(result != null)    {
-            reporter.incrCounter(
-                GraphCounters.remove_tips_num_removed.group,
-                GraphCounters.remove_tips_num_removed.tag, 1);
+            reporter.incrCounter(NUM_REMOVED.group, NUM_REMOVED.tag, 1);
           }
         }
       }
