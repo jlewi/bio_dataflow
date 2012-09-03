@@ -16,8 +16,40 @@ import contrail.sequences.StrandsUtil;
 
 /**
  * Some utilities for working with bubbles.
+ *
  */
 public class BubbleUtil {
+  // Class is an instance class so we can use reuse storage  between calls.
+  private HashSet<String> uniqueTags;
+  HashSet<String> neighborIds;
+  HashMap<StrandsForEdge, EdgeData> edgeDataMap =
+      new HashMap<StrandsForEdge, EdgeData>();
+
+  public BubbleUtil() {
+    uniqueTags = new HashSet<String>();
+    neighborIds = new HashSet<String>();
+    edgeDataMap = new HashMap<StrandsForEdge, EdgeData>();
+  }
+
+  private void clearAll() {
+    uniqueTags.clear();
+    neighborIds.clear();
+    edgeDataMap.clear();
+  }
+
+  /**
+   * Ensures the read tags are unique.
+   * @param edgeData
+   */
+  private void ensureUniqueTags(EdgeData edgeData) {
+    // Make sure the readtags are unique.
+    uniqueTags.clear();
+    for (CharSequence tag : edgeData.getReadTags()) {
+      uniqueTags.add(tag.toString());
+    }
+    edgeData.getReadTags().clear();
+    edgeData.getReadTags().addAll(uniqueTags);
+  }
 
   /**
    * Ensure all outgoing edges are to the forward strand of the palindrome.
@@ -27,46 +59,28 @@ public class BubbleUtil {
    * @param node
    * @param palindrome
    */
-  public static void fixEdgesToPalindrom(GraphNode node, GraphNode palindrome) {
-    // Major strand has edges which need to be moved.
-    // So get all the read trrayListags for edges to the palindrome.
+  public void fixEdgesToPalindrom(GraphNode node, GraphNode palindrome) {
+    clearAll();
+    NeighborData neighbor = node.removeNeighbor(palindrome.getNodeId());
 
-    // Find the tags for the edges from node to the palindrome.
-    HashMap<DNAStrand, HashSet<String>> allTags =
-        new HashMap<DNAStrand, HashSet<String>>();
+    for (EdgeData edgeData : neighbor.getEdges()) {
+      StrandsForEdge strands = StrandsUtil.form(
+          StrandsUtil.src(edgeData.getStrands()), DNAStrand.FORWARD);
+      edgeData.setStrands(strands);
 
-    allTags.put(DNAStrand.FORWARD, new HashSet<String>());
-    allTags.put(DNAStrand.REVERSE, new HashSet<String>());
-
-    // Which strands of node have an edge to the palindrom.
-    HashSet<DNAStrand> strandsWithEdges = new HashSet<DNAStrand>();
-
-    for (DNAStrand palindromeStrand : DNAStrand.values()) {
-      EdgeTerminal palindromeTerminal = new EdgeTerminal(
-          palindrome.getNodeId(), palindromeStrand);
-      for (DNAStrand nodeStrand : DNAStrand.values()) {
-        if (!node.getEdgeTerminalsSet(
-            nodeStrand, EdgeDirection.OUTGOING).contains(
-                palindromeTerminal)) {
-          continue;
-        }
-        strandsWithEdges.add(nodeStrand);
-
-        for (CharSequence tag :
-          node.getTagsForEdge(nodeStrand, palindromeTerminal)) {
-          allTags.get(nodeStrand).add(tag.toString());
-        }
+      if (!edgeDataMap.containsKey(strands)) {
+        edgeDataMap.put(strands, edgeData);
+      } else {
+        edgeDataMap.get(strands).getReadTags().addAll(edgeData.getReadTags());
       }
     }
-    // Remove the edges to the palindrome.
-    node.removeNeighbor(palindrome.getNodeId());
-    EdgeTerminal palindromeTerminal = new EdgeTerminal(
-        palindrome.getNodeId(), DNAStrand.FORWARD);
-    for (DNAStrand strand : strandsWithEdges) {
-      HashSet<String> tags = allTags.get(strand);
-      node.addOutgoingEdgeWithTags(
-          strand, palindromeTerminal, tags, tags.size());
+
+    neighbor.getEdges().clear();
+    for (EdgeData edgeData : edgeDataMap.values()) {
+      ensureUniqueTags(edgeData);
+      neighbor.getEdges().add(edgeData);
     }
+    node.addNeighbor(neighbor);
   }
 
   /**
@@ -76,10 +90,11 @@ public class BubbleUtil {
    * are from the forward strand.
    * @param palindrome
    */
-  public static void fixEdgesFromPalindrome(GraphNode palindrome) {
+  public void fixEdgesFromPalindrome(GraphNode palindrome) {
+    clearAll();
     // Find all neighbors of the palindrome with an outgoing edge from the
     // reverse strand of the palindrome.
-    HashSet<String> neighborIds = new HashSet<String>();
+    neighborIds.clear();
     List<EdgeTerminal> rTerminals =
         palindrome.getEdgeTerminals(DNAStrand.REVERSE, EdgeDirection.OUTGOING);
     for (EdgeTerminal terminal : rTerminals) {
@@ -100,8 +115,6 @@ public class BubbleUtil {
     HashMap<StrandsForEdge, EdgeData> edgeDataMap =
         new HashMap<StrandsForEdge, EdgeData>();
 
-    HashSet<String> uniqueTags = new HashSet<String>();
-
     for (NeighborData neighbor : neighbors) {
       edgeDataMap.clear();
       for (EdgeData edgeData : neighbor.getEdges()) {
@@ -117,13 +130,7 @@ public class BubbleUtil {
       }
       neighbor.getEdges().clear();
       for (EdgeData edgeData : edgeDataMap.values()) {
-        // Make sure the readtags are unique.
-        uniqueTags.clear();
-        for (CharSequence tag : edgeData.getReadTags()) {
-          uniqueTags.add(tag.toString());
-        }
-        edgeData.getReadTags().clear();
-        edgeData.getReadTags().addAll(uniqueTags);
+        ensureUniqueTags(edgeData);
         neighbor.getEdges().add(edgeData);
       }
       // Add the neighbor back to the node.
