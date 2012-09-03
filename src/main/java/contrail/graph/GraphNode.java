@@ -16,6 +16,7 @@ import contrail.sequences.StrandsUtil;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -483,33 +484,38 @@ public class GraphNode {
   @Deprecated
   public DNAStrand findStrandWithEdgeToTerminal(
       EdgeTerminal terminal, EdgeDirection direction) {
-    // TODO(jlewi): We can optimize this by storing the edge terminals
-    // associated with each strands as hash sets so we can do faster lookups.
-    // TODO(jlewi): Add a unittest
-    boolean fStrand =
-        this.getEdgeTerminalsSet(DNAStrand.FORWARD, direction).contains(
-            terminal);
-
-    boolean rStrand =
-        this.getEdgeTerminalsSet(DNAStrand.REVERSE, direction).contains(
-            terminal);
-
-    if (fStrand && rStrand) {
+    Set<DNAStrand> strands = findStrandsWithEdgeToTerminal(terminal, direction);
+    if (strands.size() > 1) {
       throw new RuntimeException(
           "The forward and reverse strand both have edges to the terminal " +
           "the function findStrandWithEdgeTerminal erroneously assumes that " +
           "only one strand has an edge to the terminal.");
     }
 
-    if (fStrand) {
-      return DNAStrand.FORWARD;
-    }
-
-    if (rStrand) {
-      return DNAStrand.REVERSE;
+    if (strands.size() == 1) {
+      return strands.iterator().next();
     }
     return null;
   }
+
+  /**
+   * Find the strands of this node that have an edge to terminal.
+   *
+   * @param terminal: The terminal to find the edge to.
+   * @param direction: The direction for the edge.
+   * @returns The strand or null if no edge exists.
+   */
+  public Set<DNAStrand> findStrandsWithEdgeToTerminal(
+      EdgeTerminal terminal, EdgeDirection direction) {
+    HashSet<DNAStrand> strands = new HashSet<DNAStrand>();
+    for (DNAStrand strand : DNAStrand.values()) {
+      if (this.getEdgeTerminalsSet(strand, direction).contains(terminal)) {
+        strands.add(strand);
+      }
+    }
+    return strands;
+  }
+
 
   /**
    * Add an outgoing edge to this node.
@@ -521,7 +527,7 @@ public class GraphNode {
    *   than this number of tags associated with this read.
    */
   public void addOutgoingEdgeWithTags(DNAStrand strand, EdgeTerminal dest,
-      List<CharSequence> tags,
+      Collection<? extends CharSequence> tags,
       long MAXTHREADREADS) {
     // Clear the derived data.
     this.derived_data.clear();
@@ -561,8 +567,9 @@ public class GraphNode {
         long max_insert = MAXTHREADREADS - edge.getReadTags().size();
         long num_to_insert = max_insert > tags.size() ? tags.size() :
           max_insert;
+        Iterator<CharSequence> tagIterator = tags.iterator();
         for (int i = 0 ; i < num_to_insert; i++) {
-          edge_tags.add(tags.get(i));
+          edge_tags.add(tagIterator.next());
         }
       }
     }

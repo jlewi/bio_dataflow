@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.avro.Schema;
 import org.apache.avro.mapred.AvroCollector;
@@ -337,11 +338,24 @@ public class FindBubblesAvro extends Stage   {
         if (bubbleData.popped) {
           continue;
         }
-        if (DNAUtil.isPalindrome(bubbleData.alignedSequence)) {
-          // Make sure all edges to the node are to the forward strand.
-          majorNode.g
-          // Make sure all outgoing edges are from the forward strand as well.
+        if (!DNAUtil.isPalindrome(bubbleData.alignedSequence)) {
+          continue;
         }
+        reporter.incrCounter("contrail", "palindrome-bubble", 1);
+        EdgeTerminal rBubbleTerminal = new EdgeTerminal(
+            bubbleData.node.getNodeId(), DNAStrand.REVERSE);
+        Set<DNAStrand> majorStrandsToBubble = majorNode.findStrandsWithEdgeToTerminal(
+            rBubbleTerminal, EdgeDirection.OUTGOING);
+
+        if (majorStrandsToBubble.size() > 0) {
+          BubbleUtil.fixEdgesToPalindrom(majorNode, bubbleData.node);
+        }
+
+        if (bubbleData.node.getEdgeTerminals(
+                DNAStrand.REVERSE, EdgeDirection.OUTGOING).size() > 0) {
+          BubbleUtil.fixEdgesFromPalindrome(bubbleData.node);
+        }
+
       }
     }
     // Output the messages to the minor node.
