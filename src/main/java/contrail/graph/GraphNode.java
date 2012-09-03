@@ -18,8 +18,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.avro.specific.SpecificData;
 
@@ -52,10 +54,17 @@ public class GraphNode {
     // For each strand we store a list of outgoing and incoming edges.
     // TODO(jlewi): We should consider using HashSet's so that lookups
     // for a particular terminal will be fast.
+    // Lists, however, provide better guarantees for iterating over the
+    // elements.
     private List<EdgeTerminal> f_outgoing_edges;
     private List<EdgeTerminal> r_outgoing_edges;
     private List<EdgeTerminal> f_incoming_edges;
     private List<EdgeTerminal> r_incoming_edges;
+
+    private Set<EdgeTerminal> fOutgoingEdgeSet;
+    private Set<EdgeTerminal> rOutgoingEdgeSet;
+    private Set<EdgeTerminal> fIncomingEdgeSet;
+    private Set<EdgeTerminal> rIncomingEdgeSet;
 
     // For each strand we store a hash map which maps an EdgeTerminal
     // to a list of the read tags that gave rise to that edge.
@@ -171,6 +180,17 @@ public class GraphNode {
         strands_to_neighbors.put(strands, id_list);
       }
 
+      // TODO(jlewi): Should we create a separate function for creating the
+      // hash sets so we don't have to create them if all we want is the
+      // list versions and vice versa.
+      fOutgoingEdgeSet = Collections.unmodifiableSet(f_edge_tags_map.keySet());
+      rOutgoingEdgeSet = Collections.unmodifiableSet(r_edge_tags_map.keySet());
+      fIncomingEdgeSet = new HashSet<EdgeTerminal>();
+      rIncomingEdgeSet = new HashSet<EdgeTerminal>();
+      fIncomingEdgeSet.addAll(f_incoming_edges);
+      rIncomingEdgeSet.addAll(r_incoming_edges);
+      fIncomingEdgeSet = Collections.unmodifiableSet(fIncomingEdgeSet);
+      rIncomingEdgeSet = Collections.unmodifiableSet(rIncomingEdgeSet);
     }
     public List<CharSequence> getNeighborsForStrands(StrandsForEdge strands) {
       if (!lists_created) {
@@ -180,7 +200,7 @@ public class GraphNode {
     }
 
     /**
-     * Retuns an immutable list of the terminals for outgoing or incoming edges.
+     * Returns an immutable list of the terminals for outgoing or incoming edges.
      * @param strand: Which strand in this node to consider.
      * @param direction: Direction of the edge to consider.
      */
@@ -201,6 +221,33 @@ public class GraphNode {
           terminals = r_outgoing_edges;
         } else {
           terminals = r_incoming_edges;
+        }
+      }
+      return terminals;
+    }
+
+    /**
+     * Returns an immutable set of the terminals for outgoing or incoming edges.
+     * @param strand: Which strand in this node to consider.
+     * @param direction: Direction of the edge to consider.
+     */
+    public Set<EdgeTerminal>  getEdgeTerminalsSet(
+        DNAStrand strand, EdgeDirection direction) {
+      if (!lists_created) {
+        createEdgeLists();
+      }
+      Set<EdgeTerminal> terminals;
+      if (strand == DNAStrand.FORWARD) {
+        if (direction == EdgeDirection.OUTGOING) {
+          terminals = fOutgoingEdgeSet;
+        } else {
+          terminals = fIncomingEdgeSet;
+        }
+      } else {
+        if (direction == EdgeDirection.OUTGOING) {
+          terminals = rOutgoingEdgeSet;
+        } else {
+          terminals = rIncomingEdgeSet;
         }
       }
       return terminals;
@@ -422,24 +469,44 @@ public class GraphNode {
   /**
    * Find the strand of node that has an edge to terminal.
    *
+   * This function is deprecated because it improperly assumes each node
+   * only one strand could be connected to a given edge terminal. However,
+   * because of palindromes and other cases this may not be true. If this
+   * assumption is not true we raise an exception. The correct thing to do
+   * is use getEdgeTerminalsSet and then check if each strand contains
+   * the terminal in question.
+   *
    * @param terminal: The terminal to find the edge to.
    * @param direction: The direction for the edge.
    * @returns The strand or null if no edge exists.
    */
+  @Deprecated
   public DNAStrand findStrandWithEdgeToTerminal(
       EdgeTerminal terminal, EdgeDirection direction) {
     // TODO(jlewi): We can optimize this by storing the edge terminals
     // associated with each strands as hash sets so we can do faster lookups.
     // TODO(jlewi): Add a unittest
-    for (DNAStrand strand : DNAStrand.values()) {
-      List<EdgeTerminal> terminals_for_strand =
-          getEdgeTerminals(strand, direction);
+    boolean fStrand =
+        this.getEdgeTerminalsSet(DNAStrand.FORWARD, direction).contains(
+            terminal);
 
-      for (EdgeTerminal candidate: terminals_for_strand) {
-        if (terminal.equals(candidate)) {
-          return strand;
-        }
-      }
+    boolean rStrand =
+        this.getEdgeTerminalsSet(DNAStrand.REVERSE, direction).contains(
+            terminal);
+
+    if (fStrand && rStrand) {
+      throw new RuntimeException(
+          "The forward and reverse strand both have edges to the terminal " +
+          "the function findStrandWithEdgeTerminal erroneously assumes that " +
+          "only one strand has an edge to the terminal.");
+    }
+
+    if (fStrand) {
+      return DNAStrand.FORWARD;
+    }
+
+    if (rStrand) {
+      return DNAStrand.REVERSE;
     }
     return null;
   }
@@ -584,7 +651,7 @@ public class GraphNode {
     }
     return null;
   }
-  
+
   /**
    * Set the data manipulated by this node.
    */
@@ -593,7 +660,7 @@ public class GraphNode {
     // Clear the derived data
     this.derived_data = new DerivedData(data);
   }
-  
+
   /**
    * Compute the degree for this node.
    * in a particular direction
@@ -601,7 +668,7 @@ public class GraphNode {
   public int degree(DNAStrand strand, EdgeDirection direction)  {
     return getEdgeTerminals(strand, direction).size();
   }
-  
+
   /**
    * Compute the degree for this node.
    *
@@ -720,6 +787,16 @@ public class GraphNode {
   public List<EdgeTerminal>  getEdgeTerminals(
       DNAStrand strand, EdgeDirection direction) {
     return derived_data.getEdgeTerminals(strand, direction);
+  }
+
+  /**
+   * Returns an immutable set of the terminals for outgoing or incoming edges.
+   * @param strand: Which strand in this node to consider.
+   * @param direction: Direction of the edge to consider.
+   */
+  public Set<EdgeTerminal>  getEdgeTerminalsSet(
+      DNAStrand strand, EdgeDirection direction) {
+    return derived_data.getEdgeTerminalsSet(strand, direction);
   }
 
   /**

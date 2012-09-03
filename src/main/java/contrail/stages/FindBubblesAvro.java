@@ -71,6 +71,17 @@ import contrail.stages.GraphCounters.CounterName;
  * messages that are used in PopBubblesAvro to tell node X to delete its
  * edges to node B which was deleted.
  *
+ * Special Cases:
+ * 1. Palindromes. A bubble can be created by a palindrome, a sequence
+ *    which equals its reverse complement. Palindromes can be created when
+ *    two sequences are merged. This can create a bubble
+ *    X->{A, R(A)} -> Y  where A=R(A). Unfortunately, the distributed algorithm
+ *    for doing pair wise merges means we can't deal with palindromes when
+ *    doing the merge.
+ *
+ *    The reducer identifies bubbles formed by palindromes. If such a buble
+ *    is detected then the bubble is popped by removing edges to R(A).
+ *
  * Important: The graph must be maximally be compressed otherwise this code
  * won't work.
  */
@@ -313,6 +324,26 @@ public class FindBubblesAvro extends Stage   {
       }
     }
 
+    /**
+     * Check every non-popped node to see if its a palindrome. If it is
+     * a palindrome then make sure all edges to it are to the forward strand.
+     *
+     * @param minor_list
+     * @param reporter
+     */
+    void processPalindromes (
+        List<BubbleMetaData> minorList, Reporter reporter) {
+      for (BubbleMetaData bubbleData: minorList) {
+        if (bubbleData.popped) {
+          continue;
+        }
+        if (DNAUtil.isPalindrome(bubbleData.alignedSequence)) {
+          // Make sure all edges to the node are to the forward strand.
+          majorNode.g
+          // Make sure all outgoing edges are from the forward strand as well.
+        }
+      }
+    }
     // Output the messages to the minor node.
     void outputMessagesToMinor(
         List<BubbleMetaData> minor_list, CharSequence minor,
@@ -400,16 +431,24 @@ public class FindBubblesAvro extends Stage   {
         int choices = minorBubbles.size();
         reporter.incrCounter("Contrail", "minorchecked", 1);
         if (choices <= 1) {
-          // We have a chain, i.e A->X->B and not a bubble
-          // A->{X,Y,...}->B this shouldn't happen and probably means
-          // the graph wasn't maximally compressed.
-          throw new RuntimeException(
-              "We found a chain and not a bubble. This probably means the " +
-              "graph wasn't maximally compressed before running FindBubbles.");
+          // Check if this bubble is a palindrome.
+          if (!DNAUtil.isPalindrome(minorBubbles.get(0).alignedSequence)) {
+            // We have a chain, i.e A->X->B and not a bubble
+            // A->{X,Y,...}->B this shouldn't happen and probably means
+            // the graph wasn't maximally compressed.
+            throw new RuntimeException(
+                "We found a chain and not a bubble. This probably means the " +
+                "graph wasn't maximally compressed before running " +
+                "FindBubbles.");
+          }
+        } else {
+          // marks nodes to be deleted for a particular list of minorID
+          ProcessMinorList(minorBubbles, reporter, minorID);
         }
+        // After popping bubbles, we check any nodes which are still alive
+        // if they are palindromes.
         reporter.incrCounter("Contrail", "edgeschecked", choices);
-        // marks nodes to be deleted for a particular list of minorID
-        ProcessMinorList(minorBubbles, reporter, minorID);
+
         outputMessagesToMinor(minorBubbles, minorID, collector);
       }
 
