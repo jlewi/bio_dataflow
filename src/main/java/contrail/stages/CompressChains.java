@@ -150,7 +150,7 @@ public class CompressChains extends Stage {
       }
     }
 
-    sLogger.info("  " + compressible + " compressible\n");
+    sLogger.info("Number of compressible nodes:" + compressible);
     long lastremaining = compressible;
 
     while (lastremaining > 0) {
@@ -177,7 +177,7 @@ public class CompressChains extends Stage {
         qmark.setConf(this.getConf());
         qmerge.setConf(this.getConf());
 
-        // Send all the compressible nodes aFile old_path_file = new File(old_path);nd their neighbors to the same
+        // Send all the compressible nodes and their neighbors to the same
         // machine so they can be compressed in one shot.
         logStartJob("  QMark " + stage);
 
@@ -237,7 +237,7 @@ public class CompressChains extends Stage {
           logEndJob(job);
 
           sLogger.info(
-              "Number of nodes marked to compress" +
+              "Number of nodes marked to compress:" +
               counter(job, PairMarkAvro.NUM_MARKED_FOR_MERGE));
         }
         {
@@ -260,7 +260,8 @@ public class CompressChains extends Stage {
       String percchange =
           df.format((lastremaining > 0) ? 100*(remaining - lastremaining) /
               lastremaining : 0);
-      sLogger.info("  " + remaining + " remaining (" + percchange + "%)\n");
+      sLogger.info(" Number of compressible nodes remaining:" + remaining +
+                   " (" + percchange + "%)\n");
 
       lastremaining = remaining;
     }
