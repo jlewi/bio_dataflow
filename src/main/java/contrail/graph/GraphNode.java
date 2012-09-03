@@ -476,6 +476,7 @@ public class GraphNode {
     this.derived_data.setNeighborIds(neighborIds);
     this.data.getNeighbors().add(neighbor);
   }
+
   /**
    * Set the mertag based on the read tag for a KMer.
    * @param mertag
@@ -548,10 +549,17 @@ public class GraphNode {
    * Find the strand of node that has an edge to terminal.
    *
    * This function is deprecated because it improperly assumes each node
+<<<<<<< HEAD
    * only one strand could be connected to a given edge terminal. However,
    * because of palindromes and other cases this may not be true. If this
    * assumption is not true we raise an exception. The correct thing to do
    * is use getEdgeTerminalsSet and then check if each strand contains
+=======
+   * cane haveonly one strand could be connected to a given edge terminal.
+   * However, there are cases such as palindromes where this may not be true.
+   * If this assumption is not true we raise an exception. The correct thing to
+   * do is use getEdgeTerminalsSet and then check if each strand contains
+>>>>>>> graphnode_cl
    * the terminal in question.
    *
    * @param terminal: The terminal to find the edge to.
