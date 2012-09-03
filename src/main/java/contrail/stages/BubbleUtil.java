@@ -3,12 +3,9 @@ package contrail.stages;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
-
 import contrail.graph.EdgeData;
-import contrail.graph.EdgeDirection;
-import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
+import contrail.graph.GraphUtil;
 import contrail.graph.NeighborData;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.StrandsForEdge;
@@ -24,17 +21,20 @@ public class BubbleUtil {
   HashSet<String> neighborIds;
   HashMap<StrandsForEdge, EdgeData> edgeDataMap =
       new HashMap<StrandsForEdge, EdgeData>();
+  ArrayList<NeighborData> neighbors;
 
   public BubbleUtil() {
     uniqueTags = new HashSet<String>();
     neighborIds = new HashSet<String>();
     edgeDataMap = new HashMap<StrandsForEdge, EdgeData>();
+    neighbors = new ArrayList<NeighborData>();
   }
 
   private void clearAll() {
     uniqueTags.clear();
     neighborIds.clear();
     edgeDataMap.clear();
+    neighbors.clear();
   }
 
   /**
@@ -54,18 +54,42 @@ public class BubbleUtil {
   /**
    * Ensure all outgoing edges are to the forward strand of the palindrome.
    *
-   * This function adjusts the edges in node so that all outgoing edges in
-   * node to the palindrome to point to the forward strand of the palindrome.
+   * This function adjusts the edges in node to a palindrome. The major
+   * neighbor should have an outgoing strand to the forward strand of the
+   * palindrome. The minor node should have an outgoing edge to the reverse
+   * strand of the palindrome.
+   *
    * @param node
    * @param palindrome
    */
-  public void fixEdgesToPalindrom(GraphNode node, GraphNode palindrome) {
+  public void fixEdgesToPalindrome(GraphNode node, GraphNode palindrome) {
     clearAll();
     NeighborData neighbor = node.removeNeighbor(palindrome.getNodeId());
 
+    if (neighbor == null) {
+      throw new RuntimeException(String.format(
+          "Node %s doesn't have an edge to the palindrome %s",
+          node.getNodeId(), palindrome.getNodeId()));
+    }
+
+    if (palindrome.getNeighborIds().size() !=2 ){
+      throw new RuntimeException(String.format(
+          "The code assumes the palindrome has two neighbors, but the " +
+          "palindrome has %d neighbors.", neighbors.size()));
+    }
+
+    String majorId = GraphUtil.computeMajorId(palindrome);
+
+    DNAStrand palindromeStrand = null;
+    if (node.getNodeId().equals(majorId)) {
+      palindromeStrand = DNAStrand.FORWARD;
+    } else {
+      palindromeStrand = DNAStrand.REVERSE;
+    }
+
     for (EdgeData edgeData : neighbor.getEdges()) {
       StrandsForEdge strands = StrandsUtil.form(
-          StrandsUtil.src(edgeData.getStrands()), DNAStrand.FORWARD);
+          StrandsUtil.src(edgeData.getStrands()), palindromeStrand);
       edgeData.setStrands(strands);
 
       if (!edgeDataMap.containsKey(strands)) {
@@ -84,42 +108,54 @@ public class BubbleUtil {
   }
 
   /**
-   * Ensure all outgoing edges from a palindrome are from the forward strand.
+   * Ensure palindrome has outgoing edges from a single strand to each node.
    *
-   * This function adjusts the edges in a palindrome so that all outgoing edges
+   * Let P be a node corresponding to a palendrome and X another node
+   * connected to P. There should only exist edge P->X or R(P)->X but not
+   * both as this forms a bubble.
+   *
+   * This function assumes P has two neighbors and thus forms a potential
+   * chain. To make the merge possible we ensure P is connected as follows
+   * X->P->Y  where X is the majorId and Y is the minorId. This means P has
+   * the following edges P->Y, RC(P)->X.
+   *
    * are from the forward strand.
    * @param palindrome
    */
   public void fixEdgesFromPalindrome(GraphNode palindrome) {
     clearAll();
-    // Find all neighbors of the palindrome with an outgoing edge from the
-    // reverse strand of the palindrome.
-    neighborIds.clear();
-    List<EdgeTerminal> rTerminals =
-        palindrome.getEdgeTerminals(DNAStrand.REVERSE, EdgeDirection.OUTGOING);
-    for (EdgeTerminal terminal : rTerminals) {
-      neighborIds.add(terminal.nodeId);
+    if (palindrome.getNeighborIds().size() !=2 ){
+      throw new RuntimeException(String.format(
+          "The code assumes the palindrome has two neighbors, but the " +
+          "palindrome has %d neighbors.", neighbors.size()));
     }
 
-    // When we call removeNeighbor matters because it forces GraphNode
-    // to clear all derived data and we'd like to minimze the number of times
-    // we recompute the derived data.
-    ArrayList<NeighborData> neighbors = new ArrayList<NeighborData>();
-
-    for (String id: neighborIds) {
+    // Pop all the neighbors from the node.
+    for (String id: palindrome.getNeighborIds()) {
       neighbors.add(palindrome.removeNeighbor(id));
     }
 
-    // Loop over all the neighbors. Any edges which originate on the reverse
-    // strand should be moved to the forward strand.
+    String majorId = GraphUtil.computeMajorID(
+        neighbors.get(0).getNodeId(), neighbors.get(1).getNodeId()).toString();
+
+    // Loop over all the neighbors. Edges to the major node should
+    // be moved so they are from the forward strand and edges to the minor node
+    // should be from the forward strand.
     HashMap<StrandsForEdge, EdgeData> edgeDataMap =
         new HashMap<StrandsForEdge, EdgeData>();
 
     for (NeighborData neighbor : neighbors) {
       edgeDataMap.clear();
+      DNAStrand srcStrand = null;
+      if (neighbor.getNodeId().toString().equals(majorId)) {
+        srcStrand = DNAStrand.REVERSE;
+      } else {
+        srcStrand = DNAStrand.FORWARD;
+      }
       for (EdgeData edgeData : neighbor.getEdges()) {
+
         StrandsForEdge strands = StrandsUtil.form(
-            DNAStrand.FORWARD, StrandsUtil.dest(edgeData.getStrands()));
+            srcStrand, StrandsUtil.dest(edgeData.getStrands()));
         edgeData.setStrands(strands);
         if (!edgeDataMap.containsKey(strands)) {
           edgeDataMap.put(strands, edgeData);
