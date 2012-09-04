@@ -97,6 +97,7 @@ public class GraphStats extends Stage {
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> definitions =
         new HashMap<String, ParameterDefinition>();
+    definitions.putAll(super.createParameterDefinitions());
     ParameterDefinition topN =
         new ParameterDefinition("topn_contigs",
             "If set to an integer greater than zero then the lengths of the  " +

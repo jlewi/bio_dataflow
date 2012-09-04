@@ -45,6 +45,11 @@ public class CompressChains extends Stage {
 
   private long job_start_time = 0;
 
+  // This will be the path to the final graph. The location depends on whether
+  // the graph was compressible. If the graph wasn't compressible then
+  // this will just ge the input.
+  private String finalGraphPath;
+
   /**
    * Utility function for logging a message when starting a job.
    * @param desc
@@ -82,6 +87,7 @@ public class CompressChains extends Stage {
    */
   private void compressChains(
       String input_path, String temp_path, String final_path) throws Exception {
+    finalGraphPath = final_path;
     CompressibleAvro compress = new CompressibleAvro();
     compress.setConf(this.getConf());
 
@@ -136,6 +142,12 @@ public class CompressChains extends Stage {
       RunningJob job = compress.runJob();
       compressible = counter(job, GraphCounters.compressible_nodes);
       logEndJob(job);
+
+      if (compressible == 0) {
+        sLogger.info("The graph isn't compressible.");
+        finalGraphPath = input_path;
+        return;
+      }
     }
 
     sLogger.info("  " + compressible + " compressible\n");
@@ -340,6 +352,18 @@ public class CompressChains extends Stage {
     }
     return null;
   }
+
+  /**
+   * This will be the path to the final graph.
+   *
+   * The location depends on whether the graph was compressible. If the graph
+   * wasn't compressible then this will just be the input path.
+   * @return
+   */
+  public String getFinalGraphPath() {
+    return finalGraphPath;
+  }
+
 
   public static void main(String[] args) throws Exception {
     int res = ToolRunner.run(new Configuration(), new CompressChains(), args);

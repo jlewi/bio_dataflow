@@ -314,8 +314,9 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
 
   @Test
   public void testRun() {
+    final int K = 3;
     SimpleGraphBuilder builder = new SimpleGraphBuilder();
-    builder.addKMersForString("ACTGG", 3);
+    builder.addKMersForString("ACTGG", K);
     File temp = null;
     try {
       temp = File.createTempFile("temp", Long.toString(System.nanoTime()));
@@ -354,6 +355,7 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
     String[] args =
       {"--inputpath=" + temp.toURI().toString(),
        "--outputpath=" + output_path.toURI().toString(),
+       "--K=" + K,
       };
     try {
       run_tips.run(args);

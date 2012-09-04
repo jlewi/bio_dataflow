@@ -18,8 +18,9 @@ public class NodeMerger {
   /**
    * Copy edges from old_node to new node.
    * @param new_node: The node to copy to.
+   * @param new_strand: Which strand of the node node we are considering.
    * @param old_node: The node to copy from.
-   * @param strand: Which strand of the node we are considering.
+   * @param old_strand: Which strand of the old node we are considering.
    * @param direction: Whether to consider  incoming or outgoing edges.
    */
   protected static void copyEdgesForStrand(
