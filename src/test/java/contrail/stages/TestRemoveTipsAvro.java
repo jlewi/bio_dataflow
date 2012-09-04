@@ -355,7 +355,7 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
     String[] args =
       {"--inputpath=" + temp.toURI().toString(),
        "--outputpath=" + output_path.toURI().toString(),
-       "--K=" + K,
+       "--K=" + K, "--tiplength=" + 2 * K,
       };
     try {
       run_tips.run(args);
