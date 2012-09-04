@@ -38,22 +38,6 @@ public class GraphCounters {
     public final String tag;
   }
 
-  public static CounterName compressible_nodes =
-      new CounterName("Contrail", "compressible");
-
-  // The number of nodes marked in PairMarkAvro to be merged.
-  public static CounterName num_nodes_to_merge =
-      new CounterName("Contrail", "nodes_to_merge");
-
-  // Number of low coverage nodes found in the graph.
-  public static CounterName num_low_coverage_nodes =
-      new CounterName("Contrail", "number of low coverage nodes");
-
-  // The number of nodes which still need to be compressed after PairMerge
-  // runs.
-  public static CounterName pair_merge_compressible_nodes =
-      new CounterName("Contrail", "nodes_left_to_compress");
-
   public static CounterName quick_mark_nodes_send_to_compressor =
       new CounterName("Contrail", "nodes_to_send_to_compressor");
 }

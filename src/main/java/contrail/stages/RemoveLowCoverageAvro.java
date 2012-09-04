@@ -32,6 +32,7 @@ import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
+import contrail.graph.NeighborData;
 import contrail.sequences.DNAStrand;
 import contrail.stages.GraphCounters.CounterName;
 
@@ -62,6 +63,9 @@ public class RemoveLowCoverageAvro extends Stage {
   public static final Schema MAP_OUT_SCHEMA =
       Pair.getPairSchema(Schema.create(Schema.Type.STRING),
           (new RemoveNeighborMessage()).getSchema());
+
+  public final static CounterName NUM_ISLANDS =
+      new CounterName("Contrail", "low-coverage-islands");
 
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs = new HashMap<String, ParameterDefinition>();
@@ -135,7 +139,7 @@ public class RemoveLowCoverageAvro extends Stage {
         }
       }
       if (degree == 0)  {
-        reporter.incrCounter("Contrail", "lowcoverage-island", 1);
+        reporter.incrCounter(NUM_ISLANDS.group, NUM_ISLANDS.tag, 1);
       }
     }
   }
@@ -183,10 +187,11 @@ public class RemoveLowCoverageAvro extends Stage {
       }
 
       for(CharSequence neighbor : neighbors) {
-        boolean result= node.removeNeighbor(neighbor.toString());
-        if(!result) {
-          throw new RuntimeException("ERROR: Edge could not be removed from " + nodeid.toString()+
-              " to low coverage node "+neighbor.toString());
+        NeighborData result= node.removeNeighbor(neighbor.toString());
+        if(result == null) {
+          throw new RuntimeException(
+              "ERROR: Edge could not be removed from " + nodeid.toString() +
+              " to low coverage node " + neighbor.toString());
         }
         reporter.incrCounter("Contrail", "links-removed", 1);
       }
@@ -273,9 +278,18 @@ public class RemoveLowCoverageAvro extends Stage {
       long starttime = System.currentTimeMillis();
       RunningJob job = JobClient.runJob(conf);
       long endtime = System.currentTimeMillis();
-
       float diff = (float) ((endtime - starttime) / 1000.0);
 
+      long numIslands = job.getCounters().findCounter(
+          NUM_ISLANDS.group, NUM_ISLANDS.tag).getValue();
+      long numRemoved = job.getCounters().findCounter(
+          NUM_REMOVED.group, NUM_REMOVED.tag).getValue();
+      long numNodes = job.getCounters().findCounter(
+          "org.apache.hadoop.mapred.Task$Counter",
+          "REDUCE_OUTPUT_RECORDS").getValue();
+      sLogger.info("Number of low coverage nodes removed:" + numRemoved);
+      sLogger.info("Number of island nodes removed:" + numIslands);
+      sLogger.info("Number of nodes in graph:" + numNodes);
       System.out.println("Runtime: " + diff + " s");
       return job;
     }

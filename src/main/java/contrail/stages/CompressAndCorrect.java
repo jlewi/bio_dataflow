@@ -184,8 +184,8 @@ public class CompressAndCorrect extends Stage {
 
     // Check if any bubbles were found.
     long bubblesFound = findJob.getCounters().findCounter(
-        FindBubblesAvro.num_bubbles.group,
-        FindBubblesAvro.num_bubbles.tag).getValue();
+        FindBubblesAvro.NUM_BUBBLES.group,
+        FindBubblesAvro.NUM_BUBBLES.tag).getValue();
 
     if (bubblesFound == 0) {
       // Since no bubbles were found, we don't need to run the second phase

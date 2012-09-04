@@ -32,6 +32,7 @@ import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
 import contrail.graph.TailData;
 import contrail.sequences.DNAStrand;
+import contrail.stages.GraphCounters.CounterName;
 
 /**
  * The first map-reduce stage for a probabilistic algorithm for merging linear
@@ -95,6 +96,10 @@ import contrail.sequences.DNAStrand;
  */
 public class PairMarkAvro extends Stage {
   private static final Logger sLogger = Logger.getLogger(PairMarkAvro.class);
+
+  // The number of nodes marked to be merged.
+  public static CounterName NUM_MARKED_FOR_MERGE =
+      new CounterName("Contrail", "nodes_to_merge");
 
   /**
    * A wrapper class for the CompressibleNodeData schema.
@@ -378,8 +383,7 @@ public class PairMarkAvro extends Stage {
       out_pair.value().setPayload(node_info_for_merge);
       collector.collect(out_pair);
       reporter.incrCounter(
-          GraphCounters.num_nodes_to_merge.group,
-          GraphCounters.num_nodes_to_merge.tag, 1);
+          NUM_MARKED_FOR_MERGE.group, NUM_MARKED_FOR_MERGE.tag, 1);
     }
 
     /**
@@ -559,8 +563,11 @@ public class PairMarkAvro extends Stage {
       long endtime = System.currentTimeMillis();
 
       float diff = (float) ((endtime - starttime) / 1000.0);
+      long numMarkedNodes = job.getCounters().findCounter(
+          NUM_MARKED_FOR_MERGE.group, NUM_MARKED_FOR_MERGE.tag).getValue();
+      sLogger.info("Number of nodes marked to be merged:" + numMarkedNodes);
+      sLogger.info("Runtime: " + diff + " s");
 
-      System.out.println("Runtime: " + diff + " s");
       return job;
     }
     return null;
