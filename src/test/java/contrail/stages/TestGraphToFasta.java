@@ -65,7 +65,7 @@ public class TestGraphToFasta extends GraphToFasta {
   }
 
   private void assertFastaRecord(GraphNode nodeData, String[] fastaRecord) {
-    assertEquals("@" + nodeData.getNodeId(), fastaRecord[0]);
+    assertEquals(">" + nodeData.getNodeId(), fastaRecord[0]);
     assertEquals(nodeData.getSequence().toString(), fastaRecord[1]);
   }
 
