@@ -35,7 +35,6 @@ import contrail.graph.GraphNodeData;
 import contrail.graph.SimpleGraphBuilder;
 
 public class TestCompressAndCorrect extends CompressAndCorrect {
-
   /**
    * Create a temporary directory.
    * @return

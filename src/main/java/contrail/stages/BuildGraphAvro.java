@@ -1,12 +1,10 @@
 package contrail.stages;
 import contrail.CompressedRead;
 import contrail.ReadState;
-
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.graph.KMerEdge;
-
 import contrail.sequences.Alphabet;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
@@ -45,8 +43,7 @@ import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 
-public class BuildGraphAvro extends Stage
-{
+public class BuildGraphAvro extends Stage {
   private static final Logger sLogger = Logger.getLogger(BuildGraphAvro.class);
 
   public static final Schema kmer_edge_schema = (new KMerEdge()).getSchema();
@@ -413,7 +410,7 @@ public class BuildGraphAvro extends Stage
    * This class is public to facilitate unit-testing.
    */
   public static class BuildGraphReducer extends
-  AvroReducer<ByteBuffer, KMerEdge, GraphNodeData> {
+      AvroReducer<ByteBuffer, KMerEdge, GraphNodeData> {
     private static int K = 0;
     private static int MAXTHREADREADS = 0;
     private static int MAXR5 = 0;
@@ -512,7 +509,7 @@ public class BuildGraphAvro extends Stage
     int K = (Integer)stage_options.get("K");
 
     // K should be odd.
-    if ((K % 2) == 1) {
+    if ((K % 2) == 0) {
       throw new RuntimeException (
           "K should be odd. If K is even then there exist Kmers for which " +
           "the KMer and its reverse complement are the same. This can cause " +
