@@ -70,19 +70,6 @@ import contrail.stages.GraphCounters.CounterName;
  * messages that are used in PopBubblesAvro to tell node X to delete its
  * edges to node B which was deleted.
  *
- * Special Cases:
- * 1. Palindromes. A bubble can be created by a palindrome, a sequence
- *    which equals its reverse complement. Palindromes can be created when
- *    two sequences are merged. This can create a bubble
- *    X->{A, R(A)} -> Y  where A=R(A). Unfortunately, the distributed algorithm
- *    for doing pair wise merges means we can't deal with palindromes when
- *    doing the merge.
- *
- *    The reducer identifies bubbles formed by palindromes. If such a bubble
- *    is detected then the bubble is popped by ensuring all edges from
- *    the major neighbor target the forward strand of the node and all edges
- *    from the minor target the reverse strand of the palindrome.
- *
  * Important: The graph must be maximally be compressed otherwise this code
  * won't work.
  */
@@ -197,7 +184,6 @@ public class FindBubblesAvro extends Stage   {
     private GraphNode majorNode = null;
     private GraphNode bubbleNode = null;
     private FindBubblesOutput output = null;
-    private BubbleUtil bubbleUtil = null;
 
     public void configure(JobConf job) {
       FindBubblesAvro stage = new FindBubblesAvro();
@@ -211,8 +197,6 @@ public class FindBubblesAvro extends Stage   {
       bubbleNode = new GraphNode();
       output = new FindBubblesOutput();
       output.setDeletedNeighbors(new ArrayList<CharSequence>());
-      output.setPalindromeNeighbors(new ArrayList<CharSequence>());
-      bubbleUtil = new BubbleUtil();
     }
 
     /**
@@ -340,30 +324,6 @@ public class FindBubblesAvro extends Stage   {
       }
     }
 
-    /**
-     * Check every non-popped node to see if its a palindrome. If it is
-     * a palindrome then make sure all edges to it are to the forward strand.
-     *
-     * @param minor_list
-     * @param reporter
-     */
-    void processPalindromes (
-        List<BubbleMetaData> minorList, Reporter reporter) {
-      for (BubbleMetaData bubbleData: minorList) {
-        if (bubbleData.popped) {
-          continue;
-        }
-        if (!bubbleData.isPalindrome()) {
-          continue;
-        }
-        reporter.incrCounter(NUM_PALINDROMES.group, NUM_PALINDROMES.tag, 1);
-
-        bubbleUtil.fixEdgesToPalindrome(
-            majorNode, bubbleData.node.getNodeId(), true);
-        bubbleUtil.fixEdgesFromPalindrome(bubbleData.node);
-      }
-    }
-
     // Output the messages to the minor node.
     void outputMessagesToMinor(
         List<BubbleMetaData> minor_list, CharSequence minor,
@@ -371,20 +331,13 @@ public class FindBubblesAvro extends Stage   {
       output.setNode(null);
       output.setMinorNodeId("");
       output.getDeletedNeighbors().clear();
-      output.getPalindromeNeighbors().clear();
 
       ArrayList<CharSequence> deletedNeighbors = new ArrayList<CharSequence>();
-      ArrayList<CharSequence> palindromeNeighbors =
-          new ArrayList<CharSequence>();
-
 
       for(BubbleMetaData bubbleMetaData : minor_list) {
         if(bubbleMetaData.popped) {
           deletedNeighbors.add(bubbleMetaData.node.getNodeId());
         } else {
-          if (bubbleMetaData.isPalindrome()) {
-            palindromeNeighbors.add(bubbleMetaData.node.getNodeId());
-          }
           // This is a non-popped node so output the node.
           output.setNode(bubbleMetaData.node.getData());
           collector.collect(output);
@@ -395,7 +348,6 @@ public class FindBubblesAvro extends Stage   {
       output.setNode(null);
       output.setMinorNodeId(minor);
       output.setDeletedNeighbors(deletedNeighbors);
-      output.setPalindromeNeighbors(palindromeNeighbors);
       collector.collect(output);
     }
 
@@ -473,11 +425,7 @@ public class FindBubblesAvro extends Stage   {
           // marks nodes to be deleted for a particular list of minorID
           ProcessMinorList(minorBubbles, reporter, minorID);
         }
-        // After popping bubbles, we check any nodes which are still alive
-        // if they are palindromes.
-        processPalindromes(minorBubbles, reporter);
         reporter.incrCounter("Contrail", "edgeschecked", choices);
-
         outputMessagesToMinor(minorBubbles, minorID, collector);
       }
 
