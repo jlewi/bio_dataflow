@@ -170,7 +170,7 @@ public class CompressibleAvro extends Stage {
    */
   public static class CompressibleReducer extends
       AvroReducer<CharSequence, CompressibleMapOutput, CompressibleNodeData> {
-    private static GraphNode node = new GraphNode();
+    private GraphNode node = new GraphNode();
 
 
     // We store the nodes sending messages in two sets, one corresponding
