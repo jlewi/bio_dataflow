@@ -32,6 +32,7 @@ import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
+import contrail.graph.NeighborData;
 import contrail.sequences.DNAStrand;
 import contrail.stages.GraphCounters.CounterName;
 
@@ -183,10 +184,11 @@ public class RemoveLowCoverageAvro extends Stage {
       }
 
       for(CharSequence neighbor : neighbors) {
-        boolean result= node.removeNeighbor(neighbor.toString());
-        if(!result) {
-          throw new RuntimeException("ERROR: Edge could not be removed from " + nodeid.toString()+
-              " to low coverage node "+neighbor.toString());
+        NeighborData result= node.removeNeighbor(neighbor.toString());
+        if(result == null) {
+          throw new RuntimeException(
+              "ERROR: Edge could not be removed from " + nodeid.toString() +
+              " to low coverage node " + neighbor.toString());
         }
         reporter.incrCounter("Contrail", "links-removed", 1);
       }

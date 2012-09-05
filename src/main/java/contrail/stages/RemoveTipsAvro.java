@@ -31,6 +31,7 @@ import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
+import contrail.graph.NeighborData;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
@@ -224,9 +225,9 @@ public class RemoveTipsAvro extends Stage {
       for(DNAStrand strand: DNAStrand.values())	{
         int deg = 0;
         int numTips = 0;
-        int besttip_len=0;
-        boolean result= false;
-        boolean keptTip= false;
+        int besttip_len = 0;
+        NeighborData result = null;
+        boolean keptTip = false;
 
         List<RemoveTipMessage> msg_list = tips.get(strand);
         numTips += msg_list.size();
@@ -237,10 +238,10 @@ public class RemoveTipsAvro extends Stage {
           besttip_len = LongestTip(msg_list);
         }
         /* if the number of tips is > 0 but not equal to the degree
-	of the non tip node;then we'll remove all the tips and
-	leave non-tips intact
-	the tips with same length are removed
-         */
+	         of the non tip node;then we'll remove all the tips and
+	         leave non-tips intact
+	         the tips with same length are removed
+	       */
         for (RemoveTipMessage message : msg_list)   {
           tip_node.setData(message.getNode());
           if(numTips == deg)	{
@@ -264,7 +265,7 @@ public class RemoveTipsAvro extends Stage {
             result = actual_node.removeNeighbor(tip_node.getNodeId());
           }
 
-          if(result)    {
+          if(result != null)    {
             reporter.incrCounter(NUM_REMOVED.group, NUM_REMOVED.tag, 1);
           }
         }
@@ -332,6 +333,13 @@ public class RemoveTipsAvro extends Stage {
       }
 
       job = JobClient.runJob(conf);
+      long numTips = job.getCounters().findCounter(
+          NUM_REMOVED.group, NUM_REMOVED.tag).getValue();
+      long numNodes = job.getCounters().findCounter(
+          "org.apache.hadoop.mapred.Task$Counter",
+          "REDUCE_OUTPUT_RECORDS").getValue();
+      sLogger.info("Number of tips removed:" + numTips);
+      sLogger.info("Number of nodes outputted:" + numNodes);
     }
     return job;
   }
