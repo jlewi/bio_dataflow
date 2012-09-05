@@ -436,7 +436,7 @@ public class GraphNode {
    * Add the neighbor to this node.
    *
    * The node steals the reference to neighbor data so the caller shouldn't
-   * modify the nieghbor data.
+   * modify the neighbor data.
    *
    * Warning. This function should only be used if you know what you are doing.
    * In general you should  use addIncomingEdge/addOutgoingEdge to add eges
@@ -456,10 +456,10 @@ public class GraphNode {
     // Minimal validation, check that fields aren't null so that we can
     // serialize it.
     if (neighbor.getNodeId() == null) {
-      throw new RuntimeException("nieghbor has null fields");
+      throw new RuntimeException("neighbor has null fields");
     }
     if (neighbor.getEdges() == null) {
-      throw new RuntimeException("nieghbor has null fields");
+      throw new RuntimeException("neighbor has null fields");
     }
     for (EdgeData edgeData : neighbor.getEdges()) {
       if (edgeData.getStrands() == null) {
