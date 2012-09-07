@@ -225,9 +225,9 @@ public class RemoveTipsAvro extends Stage {
       for(DNAStrand strand: DNAStrand.values())	{
         int deg = 0;
         int numTips = 0;
-        int besttip_len=0;
-        NeighborData result= null;
-        boolean keptTip= false;
+        int besttip_len = 0;
+        NeighborData result = null;
+        boolean keptTip = false;
 
         List<RemoveTipMessage> msg_list = tips.get(strand);
         numTips += msg_list.size();
