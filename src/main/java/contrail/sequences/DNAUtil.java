@@ -115,4 +115,22 @@ public class DNAUtil {
     return src;
   }
 
+  /**
+   * A sequence is a palindrome if it equals its reverse complement.
+   *
+   * @param seq
+   * @return: True iff the sequence is a palindrome.
+   */
+  public static boolean isPalindrome(Sequence seq) {
+    if (seq.getAlphabet() == DNAAlphabetFactory.create()) {
+      if ((seq.size() & 0x1) == 1) {
+        // Odd length sequences can't be palindromes for the DNA alphabet.
+        return false;
+      }
+    }
+    if (seq.equals(reverseComplement(seq))) {
+      return true;
+    }
+    return false;
+  }
 }

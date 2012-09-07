@@ -1,6 +1,9 @@
 package contrail.sequences;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import org.junit.Test;
 
 public class TestDNAUtil {
@@ -8,7 +11,7 @@ public class TestDNAUtil {
   /**
    * Return a random sequence of characters of the specified length
    * using the given alphabet.
-   * 
+   *
    * @param length
    * @param alphabet
    * @return
@@ -19,7 +22,7 @@ public class TestDNAUtil {
     for (int pos = 0; pos < length; pos++) {
       // Randomly select the alphabet
       int rnd_int = (int) Math.floor(Math.random() * (alphabet.size() -1));
-      letters[pos] = alphabet.validChars()[rnd_int];        
+      letters[pos] = alphabet.validChars()[rnd_int];
     }
     return letters;
   }
@@ -52,7 +55,7 @@ public class TestDNAUtil {
           assertEquals(reverse, 'C');
         } else if (forward == 'C') {
           assertEquals(reverse, 'G');
-        }        
+        }
       }
     }
   }
@@ -65,14 +68,14 @@ public class TestDNAUtil {
 
     int ntrials = 100;
     for (int trial = 1; trial < ntrials; trial++) {
-      int length = (int) Math.ceil(Math.random() * MAX_LENGTH);        
-      String str_seq = String.valueOf(randomChars(length, alphabet));      
+      int length = (int) Math.ceil(Math.random() * MAX_LENGTH);
+      String str_seq = String.valueOf(randomChars(length, alphabet));
       Sequence seq = new Sequence(str_seq, alphabet);
       Sequence rc_seq = DNAUtil.reverseComplement(seq);
       String rc_str = rc_seq.toString();
       DNAStrand true_strand;
       if (seq.toString().compareTo(rc_seq.toString()) <= 0) {
-        true_strand = DNAStrand.FORWARD;          
+        true_strand = DNAStrand.FORWARD;
         assertEquals(seq, DNAUtil.canonicalseq(seq));
       }
       else {
@@ -87,5 +90,17 @@ public class TestDNAUtil {
     assertEquals(seq, DNAUtil.reverseComplement(seq));
     assertEquals(DNAUtil.canonicaldir(seq), DNAStrand.FORWARD);
     assertEquals(seq, DNAUtil.canonicalseq(seq));
+  }
+
+  @Test
+  public void testIsPalindrom() {
+    {
+      Sequence sequence = new Sequence("AATT", DNAAlphabetFactory.create());
+      assertTrue(DNAUtil.isPalindrome(sequence));
+    }
+    {
+      Sequence sequence = new Sequence("AATTT", DNAAlphabetFactory.create());
+      assertFalse(DNAUtil.isPalindrome(sequence));
+    }
   }
 }
