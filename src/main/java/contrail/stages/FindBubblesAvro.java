@@ -8,6 +8,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+
 import org.apache.avro.Schema;
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroJob;
@@ -237,8 +239,7 @@ public class FindBubblesAvro extends Stage   {
 
       private Boolean isPalindromeValue;
 
-      BubbleMetaData(
-          GraphNodeData nodeData, CharSequence major) {
+      BubbleMetaData(GraphNodeData nodeData, String major) {
         node = new GraphNode();
         node.setData(nodeData);
         popped = false;
@@ -255,8 +256,21 @@ public class FindBubblesAvro extends Stage   {
           strandFromMajor = DNAStrand.REVERSE;
         }
 
-        minorID = node.getEdgeTerminals(
-            strandFromMajor, EdgeDirection.OUTGOING).get(0).nodeId;
+        Set<String> neighborIds = node.getNeighborIds();
+
+        if (neighborIds.size() != 2) {
+          throw new RuntimeException(
+              String.format(
+                  "Bubble should have 2 neighbors. This is a bug. Number of " +
+                  "neighbors is %d.", neighborIds.size()));
+        }
+
+        for (String neighborId : neighborIds) {
+          if (!neighborId.equals(major)) {
+            minorID = neighborId;
+            break;
+          }
+        }
 
         alignedSequence = DNAUtil.sequenceToDir(
             node.getSequence(), strandFromMajor);
@@ -485,6 +499,7 @@ public class FindBubblesAvro extends Stage   {
       output.setNode(majorNode.getData());
       output.setMinorNodeId("");
       output.getDeletedNeighbors().clear();
+      output.getPalindromeNeighbors().clear();
       collector.collect(output);
     }
   }
