@@ -40,7 +40,9 @@ public class TestPopBubblesAvro {
   private void assertReducerOutput(
       ReduceTestCase testCase, AvroCollectorMock<GraphNodeData> collector ) {
     assertEquals(1, collector.data.size());
-    assertEquals(testCase.expectedOutput, collector.data.get(0));
+    GraphNode expected = new GraphNode(testCase.expectedOutput);
+    GraphNode actual = new GraphNode(collector.data.get(0));
+    assertEquals(expected, actual);
   }
 
   private ReduceTestCase createReduceTest () {
@@ -61,6 +63,7 @@ public class TestPopBubblesAvro {
       FindBubblesOutput input = new FindBubblesOutput();
       input.setMinorNodeId(node.getNodeId());
 
+      input.setPalindromeNeighbors(new ArrayList<CharSequence>());
       input.setDeletedNeighbors(new ArrayList<CharSequence>());
       input.getDeletedNeighbors().add(terminal.nodeId);
 
@@ -71,15 +74,65 @@ public class TestPopBubblesAvro {
     nodeInput.setNode(node.getData());
     nodeInput.setMinorNodeId("");
     nodeInput.setDeletedNeighbors(new ArrayList<CharSequence>());
+    nodeInput.setPalindromeNeighbors(new ArrayList<CharSequence>());
     testCase.inputs.add(nodeInput);
 
     return testCase;
   }
 
+  /**
+   * Test that if the minor node is connected to a palindrome, e.g
+   * we have the bubble X->{A, R(A)}->Y where A= R(A), where Y is the minor
+   * node. In this case the edge R(A)->Y should be deleted.
+   */
+  private ReduceTestCase createReducePalindromeTest () {
+    ReduceTestCase testCase = new ReduceTestCase();
+    // Create a test case in which a node has several edges removed.
+    GraphNode minor = new GraphNode();
+    minor.setNodeId("minor");
+    minor.setSequence(new Sequence("ACTG", DNAAlphabetFactory.create()));
+
+    String palindromeID = "palindrome";
+
+    minor.addIncomingEdge(
+        DNAStrand.FORWARD, new EdgeTerminal(palindromeID, DNAStrand.FORWARD));
+    minor.addIncomingEdge(
+        DNAStrand.FORWARD, new EdgeTerminal(palindromeID, DNAStrand.REVERSE));
+
+    GraphNode expectedMinor = minor.clone();
+    expectedMinor.removeNeighbor(palindromeID);
+
+    expectedMinor.addIncomingEdge(
+        DNAStrand.FORWARD, new EdgeTerminal(palindromeID, DNAStrand.FORWARD));
+
+    testCase.expectedOutput = expectedMinor.getData();
+
+    {
+      FindBubblesOutput input = new FindBubblesOutput();
+      input.setMinorNodeId(minor.getNodeId());
+
+      input.setDeletedNeighbors(new ArrayList<CharSequence>());
+      input.setPalindromeNeighbors(new ArrayList<CharSequence>());
+      input.getPalindromeNeighbors().add(palindromeID);
+      testCase.inputs.add(input);
+    }
+
+    FindBubblesOutput nodeInput = new FindBubblesOutput();
+    nodeInput.setNode(minor.getData());
+    nodeInput.setMinorNodeId("");
+    nodeInput.setDeletedNeighbors(new ArrayList<CharSequence>());
+    nodeInput.setPalindromeNeighbors(new ArrayList<CharSequence>());
+    testCase.inputs.add(nodeInput);
+
+    return testCase;
+  }
+
+
   @Test
   public void test() {
     ArrayList<ReduceTestCase> testCases = new ArrayList<ReduceTestCase>();
-    testCases.add(createReduceTest());
+    //testCases.add(createReduceTest());
+    testCases.add(createReducePalindromeTest());
 
     PopBubblesAvro.PopBubblesAvroReducer reducer =
         new PopBubblesAvro.PopBubblesAvroReducer();

@@ -55,8 +55,10 @@ public class TestBubbleUtil {
             new EdgeTerminal(palindrome.getNodeId(), DNAStrand.REVERSE));
 
         BubbleUtil bubbleUtil = new BubbleUtil();
-        bubbleUtil.fixEdgesToPalindrome(majorNode, palindrome);
-        bubbleUtil.fixEdgesToPalindrome(minorNode, palindrome);
+        bubbleUtil.fixEdgesToPalindrome(
+            majorNode, palindrome.getNodeId(), true);
+        bubbleUtil.fixEdgesToPalindrome(
+            minorNode, palindrome.getNodeId(), false);
 
         assertEquals(
             expectedMajor.getEdgeTerminalsSet(
