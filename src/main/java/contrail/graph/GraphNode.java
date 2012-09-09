@@ -12,7 +12,6 @@ import contrail.sequences.KMerReadTag;
 import contrail.sequences.Sequence;
 import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
-
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -549,7 +548,7 @@ public class GraphNode {
    * Find the strand of node that has an edge to terminal.
    *
    * This function is deprecated because it improperly assumes each node
-   * cane haveonly one strand could be connected to a given edge terminal.
+   * can have only one strand could be connected to a given edge terminal.
    * However, there are cases such as palindromes where this may not be true.
    * If this assumption is not true we raise an exception. The correct thing to
    * do is use getEdgeTerminalsSet and then check if each strand contains
@@ -767,10 +766,8 @@ public class GraphNode {
   public int degree(DNAStrand strand) {
     int retval = 0;
 
-
     StrandsForEdge fd = StrandsUtil.form(strand, DNAStrand.FORWARD);
     retval += this.derived_data.getNeighborsForStrands(fd).size();
-
 
     StrandsForEdge rd = StrandsUtil.form(strand, DNAStrand.REVERSE);
     retval += this.derived_data.getNeighborsForStrands(rd).size();
@@ -778,7 +775,86 @@ public class GraphNode {
     return retval;
   }
 
+  /**
+   * Return true if two nodes are equal.
+   *
+   * @param other
+   * @return
+   */
+  @Override
+  public boolean equals(Object otherObject) {
+    if (!(otherObject instanceof GraphNode)) {
+      throw new RuntimeException(
+          "Can only compare GraphNode's to other GraphNode's");
+    }
+    GraphNode other = (GraphNode) otherObject;
 
+    // We can't simply compare the values of GraphNodeData because two
+    // GraphNodeData's won't be equal if they have the same edges but in
+    // different order in the lists.
+    if (!this.getNodeId().equals(other.getNodeId())) {
+      return false;
+    }
+    if (this.getCoverage() != other.getCoverage()) {
+      return false;
+    }
+
+    if (!this.getSequence().equals(other.getSequence())) {
+      return false;
+    }
+
+    if (!R5TagUtil.listsAreEqual(
+          this.data.getR5Tags(), other.data.getR5Tags())) {
+      return false;
+    }
+
+    // Check edges.
+    if (!this.getNeighborIds().equals(other.getNeighborIds())) {
+      return false;
+    }
+    for (DNAStrand strand : DNAStrand.values()) {
+      if (!this.getEdgeTerminalsSet(strand, EdgeDirection.OUTGOING).equals(
+            other.getEdgeTerminalsSet(strand, EdgeDirection.OUTGOING))) {
+        return false;
+      }
+    }
+
+    // Check the read tags associated with each edge.
+    HashSet<String> thisSet = new HashSet<String> ();
+    HashSet<String> otherSet = new HashSet<String> ();
+    for (DNAStrand strand : DNAStrand.values()) {
+      List<EdgeTerminal> terminals =
+          this.getEdgeTerminals(strand, EdgeDirection.OUTGOING);
+      for (EdgeTerminal terminal : terminals ) {
+        List<CharSequence> thisTags = this.getTagsForEdge(strand, terminal);
+        List<CharSequence> otherTags = other.getTagsForEdge(strand, terminal);
+        if (thisTags.size() != otherTags.size()) {
+          return false;
+        }
+        thisSet.clear();
+        otherSet.clear();
+        for (CharSequence tag : thisTags) {
+          thisSet.add(tag.toString());
+        }
+        for (CharSequence tag : otherTags) {
+          otherSet.add(tag.toString());
+        }
+        if (!thisSet.equals(otherSet)) {
+          return false;
+        }
+      }
+    }
+
+    // Check the KMerReadTag
+    GraphNodeKMerTag thisMerTag = this.data.getMertag();
+    GraphNodeKMerTag otherMerTag = other.data.getMertag();
+
+    if (!thisMerTag.equals(otherMerTag)) {
+      return false;
+    }
+
+    return true;
+  }
   public String getNodeId() {
     return data.getNodeId().toString();
   }
@@ -831,6 +907,13 @@ public class GraphNode {
     }
     ti.terminal = terminals.get(0);
     return ti;
+  }
+
+  /**
+   * Return an unmodifiable view of the ids of all neighbors.
+   */
+  public Set<String> getNeighborIds() {
+    return Collections.unmodifiableSet(this.derived_data.getNeighborIds());
   }
 
   /**
