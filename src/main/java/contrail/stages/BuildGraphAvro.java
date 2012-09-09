@@ -554,13 +554,18 @@ public class BuildGraphAvro extends Stage {
       }
 
       long starttime = System.currentTimeMillis();
-      RunningJob result = JobClient.runJob(conf);
+      RunningJob job = JobClient.runJob(conf);
       long endtime = System.currentTimeMillis();
+      long numNodes =
+          job.getCounters().findCounter(
+              "org.apache.hadoop.mapred.Task$Counter",
+              "REDUCE_OUTPUT_RECORDS").getValue();
 
+      sLogger.info("Number of nodes in graph:" + numNodes);
       float diff = (float) ((endtime - starttime) / 1000.0);
 
       sLogger.info("Runtime: " + diff + " s");
-      return result;
+      return job;
     }
     return null;
   }

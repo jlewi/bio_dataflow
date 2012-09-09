@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Formatter;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 
 import org.apache.avro.Schema;
@@ -73,6 +74,23 @@ public class GraphUtil {
       minor = id1;
     }
     return minor;
+  }
+
+  /**
+   * Return the id of the major neighbor of the node.
+   * @param node
+   * @return
+   */
+  public static String computeMajorId(GraphNode node) {
+    Iterator<String> iterator = node.getNeighborIds().iterator();
+    String majorId =  iterator.next();
+    while (iterator.hasNext()) {
+      String next = iterator.next();
+      if (next.compareTo(majorId) > 0) {
+        majorId = next;
+      }
+    }
+    return majorId;
   }
 
   /**

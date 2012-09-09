@@ -8,7 +8,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-
 import org.apache.avro.Schema;
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroJob;
@@ -85,8 +84,11 @@ public class FindBubblesAvro extends Stage   {
   public static final Schema REDUCE_OUT_SCHEMA =
       new FindBubblesOutput().getSchema();
 
-  public static CounterName num_bubbles =
+  public final static CounterName NUM_BUBBLES =
       new CounterName("Contrail", "find-bubbles-num-bubbles");
+
+  public final static CounterName NUM_PALINDROMES =
+      new CounterName("Contrail", "find-bubbles-num-palindromes");
 
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs =
@@ -176,7 +178,7 @@ public class FindBubblesAvro extends Stage   {
    * The reducer.
    */
   public static class FindBubblesAvroReducer
-  extends AvroReducer<CharSequence, GraphNodeData, FindBubblesOutput> {
+      extends AvroReducer<CharSequence, GraphNodeData, FindBubblesOutput> {
     private int K;
     public float bubbleEditRate;
     private GraphNode majorNode = null;
@@ -217,6 +219,8 @@ public class FindBubblesAvro extends Stage   {
 
       String minorID;
 
+      private Boolean isPalindromeValue;
+
       BubbleMetaData(
           GraphNodeData nodeData, CharSequence major) {
         node = new GraphNode();
@@ -240,6 +244,13 @@ public class FindBubblesAvro extends Stage   {
 
         alignedSequence = DNAUtil.sequenceToDir(
             node.getSequence(), strandFromMajor);
+      }
+
+      public Boolean isPalindrome() {
+        if (isPalindromeValue == null) {
+          isPalindromeValue = DNAUtil.isPalindrome(alignedSequence);
+        }
+        return isPalindromeValue;
       }
 
       /**
@@ -289,7 +300,7 @@ public class FindBubblesAvro extends Stage   {
 
           if (distance <= threshold)  {
             // Found a bubble!
-            reporter.incrCounter(num_bubbles.group, num_bubbles.tag, 1);
+            reporter.incrCounter(NUM_BUBBLES.group, NUM_BUBBLES.tag, 1);
             int lowLength =
                 lowCoverageNode.node.getSequence().size()- K + 1;
 
@@ -400,16 +411,21 @@ public class FindBubblesAvro extends Stage   {
         int choices = minorBubbles.size();
         reporter.incrCounter("Contrail", "minorchecked", 1);
         if (choices <= 1) {
-          // We have a chain, i.e A->X->B and not a bubble
-          // A->{X,Y,...}->B this shouldn't happen and probably means
-          // the graph wasn't maximally compressed.
-          throw new RuntimeException(
-              "We found a chain and not a bubble. This probably means the " +
-              "graph wasn't maximally compressed before running FindBubbles.");
+          // Check if this bubble is a palindrome.
+          if (!DNAUtil.isPalindrome(minorBubbles.get(0).alignedSequence)) {
+            // We have a chain, i.e A->X->B and not a bubble
+            // A->{X,Y,...}->B this shouldn't happen and probably means
+            // the graph wasn't maximally compressed.
+            throw new RuntimeException(
+                "We found a chain and not a bubble. This probably means the " +
+                "graph wasn't maximally compressed before running " +
+                "FindBubbles.");
+          }
+        } else {
+          // marks nodes to be deleted for a particular list of minorID
+          ProcessMinorList(minorBubbles, reporter, minorID);
         }
         reporter.incrCounter("Contrail", "edgeschecked", choices);
-        // marks nodes to be deleted for a particular list of minorID
-        ProcessMinorList(minorBubbles, reporter, minorID);
         outputMessagesToMinor(minorBubbles, minorID, collector);
       }
 
@@ -479,6 +495,14 @@ public class FindBubblesAvro extends Stage   {
 
     float diff = (float) ((endtime - starttime) / 1000.0);
 
+    long numToPop = result.getCounters().findCounter(
+        NUM_BUBBLES.group, NUM_BUBBLES.tag).getValue();
+
+    long numPalindromes = result.getCounters().findCounter(
+        NUM_PALINDROMES.group, NUM_PALINDROMES.tag).getValue();
+
+    sLogger.info("Number of nodes to pop:" + numToPop);
+    sLogger.info("Number of palindromes:" + numPalindromes);
     sLogger.info("Runtime: " + diff + " s");
     return result;
   }

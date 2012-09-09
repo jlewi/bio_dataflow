@@ -549,7 +549,7 @@ public class GraphNode {
    * Find the strand of node that has an edge to terminal.
    *
    * This function is deprecated because it improperly assumes each node
-   * cane haveonly one strand could be connected to a given edge terminal.
+   * can have only one strand could be connected to a given edge terminal.
    * However, there are cases such as palindromes where this may not be true.
    * If this assumption is not true we raise an exception. The correct thing to
    * do is use getEdgeTerminalsSet and then check if each strand contains
@@ -831,6 +831,13 @@ public class GraphNode {
     }
     ti.terminal = terminals.get(0);
     return ti;
+  }
+
+  /**
+   * Return an unmodifiable view of the ids of all neighbors.
+   */
+  public Set<String> getNeighborIds() {
+    return Collections.unmodifiableSet(this.derived_data.getNeighborIds());
   }
 
   /**

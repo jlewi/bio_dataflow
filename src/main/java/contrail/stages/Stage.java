@@ -32,7 +32,9 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.Tool;
+import org.apache.log4j.FileAppender;
 import org.apache.log4j.Logger;
+import org.apache.log4j.PatternLayout;
 
 /**
  * An abstract base class for each stage of processing.
@@ -289,6 +291,20 @@ public abstract class Stage extends Configured implements Tool  {
     // line; i.e. using ToolRunner.
     sLogger.info("Tool name: " + this.getClass().getName());
     parseCommandLine(args);
+
+    if (stage_options.containsKey("log_file")) {
+      String logFile = (String) (stage_options.get("log_file"));
+      FileAppender fileAppender = new FileAppender();
+      fileAppender.setFile(logFile);
+      PatternLayout layout = new PatternLayout();
+      layout.setConversionPattern("%d{ISO8601} %p %c: %m%n");
+      fileAppender.setLayout(layout);
+      fileAppender.activateOptions();
+      Logger.getRootLogger().addAppender(fileAppender);
+      sLogger.info("Start logging");
+      sLogger.info("Adding a file log appender to: " + logFile);
+    }
+
     RunningJob job = runJob();
 
     if (job == null) {

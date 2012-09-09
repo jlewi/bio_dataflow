@@ -262,11 +262,16 @@ public class FastqPreprocessorAvroCompressed extends Stage {
       FileSystem.get(conf).delete(new Path(outputPath), true);
 
       long start_time = System.currentTimeMillis();
-      RunningJob result = JobClient.runJob(conf);
+      RunningJob job = JobClient.runJob(conf);
+      long numReads =
+          job.getCounters().findCounter(
+              "org.apache.hadoop.mapred.Task$Counter",
+              "MAP_OUTPUT_RECORDS").getValue();
+      sLogger.info("Number of reads:" + numReads);
       long end_time = System.currentTimeMillis();
       double nseconds = (end_time - start_time) / 1000.0;
-      System.out.println("Job took: " + nseconds + " seconds");
-      return result;
+      sLogger.info("Job took: " + nseconds + " seconds");
+      return job;
     }
     return null;
   }

@@ -90,7 +90,9 @@ public class GraphToFasta extends Stage {
         OutputCollector<Text, NullWritable> output, Reporter reporter)
             throws IOException {
       node.setData(nodeData.datum());
-      lines[0] = "@" + node.getNodeId();
+      // In fasta format the id line begins with > sign.
+      // Fastq uses @ to start the line.
+      lines[0] = ">" + node.getNodeId();
       lines[1] = node.getSequence().toString();
       textOutput.set(StringUtils.join(lines, "\n"));
       output.collect(textOutput, NullWritable.get());

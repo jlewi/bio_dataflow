@@ -134,6 +134,7 @@ public class PopBubblesAvro extends Stage  {
         node.removeNeighbor(neighborID);
         reporter.incrCounter("Contrail", "linksremoved", 1);
       }
+
       output.collect(node.getData());
     }
   }
@@ -182,6 +183,10 @@ public class PopBubblesAvro extends Stage  {
     FileSystem.get(conf).delete(new Path(outputPath), true);
 
     RunningJob job = JobClient.runJob(conf);
+    long numNodes = job.getCounters().findCounter(
+        "org.apache.hadoop.mapred.Task$Counter",
+        "REDUCE_OUTPUT_RECORDS").getValue();
+    sLogger.info("Number of nodes outputed:" + numNodes);
     return job;
   }
 
