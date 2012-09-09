@@ -85,6 +85,11 @@ import contrail.stages.GraphCounters.CounterName;
  *    the major neighbor target the forward strand of the node and all edges
  *    from the minor target the reverse strand of the palindrome.
  *
+ * 2. Major and minor node are the same. For example suppose we have the
+ *    graph  X->{A, B}->R(X). For the most part we can handle this like
+ *    any another bubble. Except that we can pop the bubble in the reducer
+ *    since we have access to the minor node.
+ *
  * Important: The graph must be maximally be compressed otherwise this code
  * won't work.
  */
@@ -239,14 +244,42 @@ public class FindBubblesAvro extends Stage   {
 
       private Boolean isPalindromeValue;
 
+      // This boolean indicates we have the special case where the
+      // two terminals for the bubble are different strands of the major
+      // node.
+      boolean noMinor;
+
       BubbleMetaData(GraphNodeData nodeData, String major) {
         node = new GraphNode();
         node.setData(nodeData);
         popped = false;
+        noMinor = false;
+        Set<String> neighborIds = node.getNeighborIds();
+
+        if (neighborIds.size() > 2) {
+          throw new RuntimeException(
+              String.format(
+                  "Bubble has more than 2 neighbors. This is a bug. Number " +
+                      "of neighbors is %d.", neighborIds.size()));
+        }
+
+        if (neighborIds.size() == 1) {
+          // We have the special case where the two terminals for the
+          // bubble are the same node.
+          minorID = major;
+          noMinor = true;
+        } else {
+          for (String neighborId : neighborIds) {
+            if (!neighborId.equals(major)) {
+              minorID = neighborId;
+              break;
+            }
+          }
+        }
+
         // Find the strand of this node which is the terminal for an outgoing
         // edge of the forward strand of the major node.
         DNAStrand strandFromMajor;
-
         EdgeTerminal terminal =
             node.getEdgeTerminals(
                 DNAStrand.FORWARD, EdgeDirection.INCOMING).get(0);
@@ -254,22 +287,6 @@ public class FindBubblesAvro extends Stage   {
           strandFromMajor = DNAStrand.FORWARD;
         } else {
           strandFromMajor = DNAStrand.REVERSE;
-        }
-
-        Set<String> neighborIds = node.getNeighborIds();
-
-        if (neighborIds.size() != 2) {
-          throw new RuntimeException(
-              String.format(
-                  "Bubble should have 2 neighbors. This is a bug. Number of " +
-                  "neighbors is %d.", neighborIds.size()));
-        }
-
-        for (String neighborId : neighborIds) {
-          if (!neighborId.equals(major)) {
-            minorID = neighborId;
-            break;
-          }
         }
 
         alignedSequence = DNAUtil.sequenceToDir(
@@ -405,6 +422,11 @@ public class FindBubblesAvro extends Stage   {
         }
       }
 
+      if (minor_list.get(0).noMinor) {
+        // For these bubbles the minor node is the same as the major node
+        // so we don't need to send any messages to a minor node.
+        return;
+      }
       // Output the messages to the minor node.
       output.setNode(null);
       output.setMinorNodeId(minor);
@@ -491,6 +513,7 @@ public class FindBubblesAvro extends Stage   {
         // if they are palindromes.
         processPalindromes(minorBubbles, reporter);
         reporter.incrCounter("Contrail", "edgeschecked", choices);
+
 
         outputMessagesToMinor(minorBubbles, minorID, collector);
       }

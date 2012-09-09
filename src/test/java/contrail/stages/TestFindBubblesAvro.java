@@ -286,6 +286,81 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
     return testData;
   }
 
+  // This function creates a Bubble in which their is no minor node.
+  // The graph in this case is
+  // X->{A, B}->R(X)
+  // So the major and minor node are the same
+  private ReduceTestCaseData constructBubbleNoMinorTest()  {
+    SimpleGraphBuilder graph = new SimpleGraphBuilder();
+    graph.addEdge("ACT", "CTGGAG", 2);
+    graph.addEdge("ACT", "CTTGAG", 2);
+    graph.addEdge("CTGGAG", "AGT", 2);
+    graph.addEdge("CTTGAG", "AGT", 2);
+
+    GraphNode majorNode = graph.getNode(graph.findNodeIdForSequence("ACT"));
+    // Nodes to keep and remove
+    GraphNode aliveNode = graph.getNode(graph.findNodeIdForSequence("CTGGAG"));
+    GraphNode deadNode = graph.getNode(graph.findNodeIdForSequence("CTTGAG"));
+
+    // We need to set the coverage for the bubble nodes so that aliveNode is
+    // kept and deadNode is deleted.
+    aliveNode.setCoverage(4);
+    deadNode.setCoverage(2);
+
+    // 3 input mapper messages.
+    // nodeid(ACT), <ACT nodedata>
+    // nodeid(ACT), <CTGGAG nodedata>
+    // nodeid(ACT), <CTTCAG nodedata>
+    List <GraphNodeData> mapOutputs = new ArrayList <GraphNodeData>();
+    ReduceTestCaseData testData = new ReduceTestCaseData();
+    testData.K = 3;
+
+    mapOutputs.add(majorNode.clone().getData());
+    mapOutputs.add(aliveNode.clone().getData());
+    mapOutputs.add(deadNode.clone().getData());
+
+    // Construct the expected outputs. There are two outputs; the major node
+    // and the alive node. The output graph should be
+    // X->A->R(X)
+    testData.expectedOutputs = new HashMap<String, FindBubblesOutput>();
+
+    {
+      FindBubblesOutput expectedOutput= new FindBubblesOutput();
+
+      GraphNode node = majorNode.clone();
+      node.removeNeighbor(deadNode.getNodeId());
+
+      expectedOutput.setNode(node.getData());
+      expectedOutput.setPalindromeNeighbors(new ArrayList<CharSequence>());
+      expectedOutput.setDeletedNeighbors(new ArrayList<CharSequence>());
+      expectedOutput.setMinorNodeId("");
+      testData.expectedOutputs.put(node.getNodeId(), expectedOutput);
+    }
+    {
+      // For aliveNode we just output the node after updating the coverage.
+      FindBubblesOutput expectedOutput= new FindBubblesOutput();
+      GraphNode node = aliveNode.clone();
+      int aliveLength = node.getData().getSequence().getLength()
+                        - testData.K + 1;
+      int deadLength = deadNode.getData().getSequence().getLength()
+                       - testData.K + 1;
+      float extraCoverage = deadNode.getCoverage() * deadLength;
+      float support = node.getCoverage() * aliveLength + extraCoverage;
+      node.setCoverage(support / aliveLength);
+
+      expectedOutput.setNode(node.clone().getData());
+      expectedOutput.setDeletedNeighbors(new ArrayList<CharSequence>());
+      expectedOutput.setPalindromeNeighbors(new ArrayList<CharSequence>());
+      expectedOutput.setMinorNodeId("");
+      testData.expectedOutputs.put(node.getNodeId(), expectedOutput);
+    }
+
+    testData.key =  majorNode.getNodeId();
+    testData.mapOutputs= mapOutputs;
+    return testData;
+  }
+
+
   // This function creates a bubble and tests that sequences are properly
   // aligned before computing the edit distance.
   // The graph in this case is  X->{A,R(B)}->Y. If the sequences aren't
@@ -490,6 +565,7 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
     testCases.add(constructBubblesCaseData());
     testCases.add(constructReverseBubblesCaseData());
     testCases.add(constructPalindromeCaseData());
+    testCases.add(constructBubbleNoMinorTest());
 
     ReporterMock reporter_mock = new ReporterMock();
     Reporter reporter = reporter_mock;
