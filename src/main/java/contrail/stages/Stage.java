@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
@@ -304,6 +305,20 @@ public abstract class Stage extends Configured implements Tool  {
       sLogger.info("Start logging");
       sLogger.info("Adding a file log appender to: " + logFile);
     }
+
+    // Print out all the stage options. This ensures we have a log of all
+    // option values.
+    Map<String, ParameterDefinition> definitions = getParameterDefinitions();
+    StringBuilder builder = new StringBuilder();
+    builder.append("options:");
+    for (Entry<String, Object> pair : stage_options.entrySet()) {
+      builder.append(" ");
+      ParameterDefinition definition = definitions.get(pair.getKey());
+      builder.append(String.format(
+          "--%s=%s", definition.getName(), pair.getValue().toString()));
+    }
+
+    sLogger.info(builder.toString());
 
     RunningJob job = runJob();
 
