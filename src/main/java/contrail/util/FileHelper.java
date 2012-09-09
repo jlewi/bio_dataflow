@@ -25,7 +25,6 @@ import java.io.IOException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
 
 /**
@@ -58,35 +57,6 @@ public class FileHelper {
           "Could not create temp directory: " + temp.getAbsolutePath());
     }
     return temp;
-  }
-
-  /**
-   * Function copies the contents of old_path into new_path. This is used
-   * to save the final graph.
-   * @param oldPath
-   * @param newPath
-   */
-  static public void copyDirectoryContents(
-      Configuration conf, String oldPath, String newPath) {
-    FileSystem fs = null;
-    final boolean deleteSource = false;
-    // TODO(jlewi): Should we overwrite the destination if it exists?
-    final boolean overwrite = false;
-    try{
-      fs = FileSystem.get(conf);
-    } catch (IOException e) {
-      throw new RuntimeException("Can't get filesystem: " + e.getMessage());
-    }
-    try {
-      Path oldPathObject = new Path(oldPath);
-      for (FileStatus status : fs.listStatus(oldPathObject)) {
-        Path oldFile = status.getPath();
-        Path newFile = new Path(newPath, oldFile.getName());
-        FileUtil.copy(fs, oldFile, fs, newFile, deleteSource, overwrite, conf);
-      }
-    } catch (IOException e) {
-      throw new RuntimeException("Problem copying the files: " + e.getMessage());
-    }
   }
 
   /**
