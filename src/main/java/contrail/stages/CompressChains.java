@@ -266,7 +266,8 @@ public class CompressChains extends Stage {
       lastremaining = remaining;
     }
 
-    sLogger.info("Save result to " + final_path + "\n\n");
+    sLogger.info("Moving graph from: " + latest_path);
+    sLogger.info("To: " + final_path);
     FileHelper.moveDirectoryContents(getConf(), latest_path, final_path);
   }
 
