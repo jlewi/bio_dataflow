@@ -1,10 +1,9 @@
 package contrail.graph;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -323,11 +322,46 @@ public class TestGraphNode {
 
 	@Test
 	public void testEquals() {
-	  {
-	    fail("Need to write test");
-	    //GraphNode
-	  }
+    GraphNode original = new GraphNode();
+    original.setNodeId("node");
+    original.setSequence(new Sequence("ACTG", DNAAlphabetFactory.create()));
+    original.setCoverage(10);
+    original.addOutgoingEdge(
+        DNAStrand.FORWARD, new EdgeTerminal("terminal", DNAStrand.REVERSE));
+    ArrayList<String> tags = new ArrayList<String>();
+    tags.add("tag1");
+    tags.add("tag2");
+    original.addOutgoingEdgeWithTags(
+        DNAStrand.REVERSE, new EdgeTerminal("tagtt", DNAStrand.REVERSE),
+        tags, 100);
+
+    {
+      GraphNode copy = original.clone();
+      assertTrue(original.equals(copy));
+    }
+    {
+      GraphNode modified = original.clone();
+      modified.setNodeId("node2");
+      assertFalse(original.equals(modified));
+    }
+    {
+      GraphNode modified = original.clone();
+      modified.setCoverage(100);
+      assertFalse(original.equals(modified));
+    }
+    {
+      GraphNode modified = original.clone();
+      original.addOutgoingEdge(
+          DNAStrand.FORWARD, new EdgeTerminal("different", DNAStrand.REVERSE));
+      assertFalse(original.equals(modified));
+    }
+    {
+      GraphNode modified = original.clone();
+      original.setSequence(new Sequence("ACCC", DNAAlphabetFactory.create()));
+      assertFalse(original.equals(modified));
+    }
 	}
+
 	@Test
 	public void testFindStrandWithEdgeToTerminal() {
 	  // Create a graph node with some edges.
