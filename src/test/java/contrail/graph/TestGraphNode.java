@@ -3,6 +3,7 @@ package contrail.graph;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -320,6 +321,13 @@ public class TestGraphNode {
 		assertEquals(terminal, outgoing_edges.get(0));
 	}
 
+	@Test
+	public void testEquals() {
+	  {
+	    fail("Need to write test");
+	    //GraphNode
+	  }
+	}
 	@Test
 	public void testFindStrandWithEdgeToTerminal() {
 	  // Create a graph node with some edges.
