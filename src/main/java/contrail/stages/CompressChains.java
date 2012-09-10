@@ -3,6 +3,7 @@ package contrail.stages;
 import java.io.File;
 import java.io.IOException;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -153,8 +154,11 @@ public class CompressChains extends Stage {
     sLogger.info("Number of compressible nodes:" + compressible);
     long lastremaining = compressible;
 
+    ArrayList<String> pathsToDelete = new ArrayList<String>();
+
     while (lastremaining > 0) {
       stage++;
+      pathsToDelete.clear();
 
       // Input path for marking nodes to be merged.
       String mark_input  = latest_path;
@@ -170,6 +174,11 @@ public class CompressChains extends Stage {
 
       latest_path = merged_graph_path;
       long remaining = 0;
+
+      // After each step we will want to delete the path containing the input
+      // to the marking step and the output of the marking step.
+      pathsToDelete.add(mark_input);
+      pathsToDelete.add(marked_graph_path);
 
       if (lastremaining < LOCALNODES) {
         QuickMarkAvro qmark   = new QuickMarkAvro();
@@ -251,11 +260,32 @@ public class CompressChains extends Stage {
           logEndJob(job);
           remaining = counter(job, PairMergeAvro.NUM_REMAINING_COMPRESSIBLE);
         }
+
+        if (remaining == 0) {
+          String convertedGraphPath = new File(
+              step_dir, "converted_graph").getPath();
+          CompressibleNodeConverter converter =
+              new CompressibleNodeConverter();
+          converter.setConf(this.getConf());
+          // If the number of remaining nodes is zero. Then we need to convert
+          // the graph of CompressibleNode's to GraphData. Ordinarily this
+          // would happen automatically in QuickMark + QuickMerge.
+          logStartJob("Convert to GraphNode's " + stage);
+          Map<String, Object> convert_options = new HashMap<String, Object>();
+          convert_options.put("inputpath", merged_graph_path);
+          convert_options.put("outputpath", convertedGraphPath);
+          converter.setParameters(convert_options);
+          RunningJob job = converter.runJob();
+          logEndJob(job);
+          latest_path = convertedGraphPath;
+          pathsToDelete.add(merged_graph_path);
+        }
       }
 
       JobConf job_conf = new JobConf(CompressChains.class);
-      FileSystem.get(job_conf).delete(new Path(mark_input), true);
-      FileSystem.get(job_conf).delete(new Path(marked_graph_path), true);
+      for (String pathToDelete : pathsToDelete) {
+        FileSystem.get(job_conf).delete(new Path(pathToDelete), true);
+      }
 
       String percchange =
           df.format((lastremaining > 0) ? 100*(remaining - lastremaining) /
@@ -266,7 +296,8 @@ public class CompressChains extends Stage {
       lastremaining = remaining;
     }
 
-    sLogger.info("Save result to " + final_path + "\n\n");
+    sLogger.info("Moving graph from: " + latest_path);
+    sLogger.info("To: " + final_path);
     FileHelper.moveDirectoryContents(getConf(), latest_path, final_path);
   }
 
