@@ -525,8 +525,6 @@ public class FindBubblesAvro extends Stage   {
         // if they are palindromes.
         processPalindromes(minorBubbles, reporter);
         reporter.incrCounter("Contrail", "edgeschecked", choices);
-
-
         outputMessagesToMinor(minorBubbles, minorID, collector);
       }
 

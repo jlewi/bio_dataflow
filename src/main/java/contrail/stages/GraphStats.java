@@ -504,7 +504,7 @@ public class GraphStats extends Stage {
       writer.append("Number of nodes:" + numNodes);
       writer.append("<br>");
       writer.append("N50 Statistics");
-      writer.append("<table>");
+      writer.append("<table border=1>");
       writer.append(
           "<tr><td>Min Length</td><td>Max Length</td><td>N50 Length</td>" +
           "<td>N50 Index</td><td>Num Contigs</td><td>Mean Coverage</td>" +
@@ -514,7 +514,6 @@ public class GraphStats extends Stage {
         writer.append(String.format("<td>%d</td>", record.getMaxLength()));
         writer.append(String.format("<td>%d</td>", record.getN50Length()));
         writer.append(String.format("<td>%d</td>", record.getN50Index()));
-        writer.append(String.format("<td>%d</td>", record.getNumContigs()));
         writer.append(String.format("<td>%d</td>", record.getNumContigs()));
         writer.append(String.format("<td>%f</td>", record.getMeanCoverage()));
         writer.append(String.format("<td>%f</td>", record.getMeanDegree()));
