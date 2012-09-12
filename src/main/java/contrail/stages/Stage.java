@@ -259,6 +259,43 @@ public abstract class Stage extends Configured implements Tool  {
   }
 
   /**
+   * A hook executed right before the job is run. This is intended to
+   * allow subclasses to execute code after the job has been fully initialized.
+   * Subclasses should invoke the hook in the base clas if the override it.
+   */
+  protected void hookBeforeRunJob() {
+    // Print out all the stage options. This ensures we have a log of all
+    // option values.
+    Map<String, ParameterDefinition> definitions = getParameterDefinitions();
+    StringBuilder builder = new StringBuilder();
+    builder.append("options:");
+    for (Entry<String, Object> pair : stage_options.entrySet()) {
+      builder.append(" ");
+      ParameterDefinition definition = definitions.get(pair.getKey());
+      builder.append(String.format(
+          "--%s=%s", definition.getName(), pair.getValue().toString()));
+    }
+
+    sLogger.info(builder.toString());
+  }
+
+  /**
+   * Execute runs a job.
+   *
+   * @return
+   */
+  public RunningJob execute() throws Exception {
+    // TODO(jlewi): Invoke a function setupJob that would be overwritten
+    // by the subclass.
+
+    // Now that the job is fully setup invoke the hookBeforeRunJob()
+    hookBeforeRunJob();
+
+    // Run the actual job.
+    return runJob();
+  }
+
+  /**
    * Run the job.
    *
    * @return
@@ -305,20 +342,6 @@ public abstract class Stage extends Configured implements Tool  {
       sLogger.info("Start logging");
       sLogger.info("Adding a file log appender to: " + logFile);
     }
-
-    // Print out all the stage options. This ensures we have a log of all
-    // option values.
-    Map<String, ParameterDefinition> definitions = getParameterDefinitions();
-    StringBuilder builder = new StringBuilder();
-    builder.append("options:");
-    for (Entry<String, Object> pair : stage_options.entrySet()) {
-      builder.append(" ");
-      ParameterDefinition definition = definitions.get(pair.getKey());
-      builder.append(String.format(
-          "--%s=%s", definition.getName(), pair.getValue().toString()));
-    }
-
-    sLogger.info(builder.toString());
 
     RunningJob job = runJob();
 

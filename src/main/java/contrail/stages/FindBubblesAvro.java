@@ -509,13 +509,18 @@ public class FindBubblesAvro extends Stage   {
         if (choices <= 1) {
           // Check if this bubble is a palindrome.
           if (!DNAUtil.isPalindrome(minorBubbles.get(0).alignedSequence)) {
-            // We have a chain, i.e A->X->B and not a bubble
-            // A->{X,Y,...}->B this shouldn't happen and probably means
-            // the graph wasn't maximally compressed.
-            throw new RuntimeException(
-                "We found a chain and not a bubble. This probably means the " +
-                "graph wasn't maximally compressed before running " +
-                "FindBubbles.");
+            // Check if we have a chain. We have a change if the major node
+            // has outdegree 1 from the forward
+            if (majorNode.degree(
+                    DNAStrand.FORWARD, EdgeDirection.OUTGOING) == 1) {
+              // We have a chain, i.e A->X->B and not a bubble
+              // A->{X,Y,...}->B this shouldn't happen and probably means
+              // the graph wasn't maximally compressed.
+              throw new RuntimeException(
+                  "We found a chain and not a bubble. This probably means " +
+                  "the graph wasn't maximally compressed before running " +
+                  "FindBubbles.");
+            }
           }
         } else {
           // marks nodes to be deleted for a particular list of minorID
