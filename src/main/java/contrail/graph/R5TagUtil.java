@@ -1,5 +1,8 @@
 package contrail.graph;
 
+import java.util.Collection;
+import java.util.HashSet;
+
 import contrail.graph.R5Tag;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAStrandUtil;
@@ -44,5 +47,41 @@ public class R5TagUtil {
   public static void reverse(R5Tag tag, int length) {
     tag.setStrand(DNAStrandUtil.flip(tag.getStrand()));
     tag.setOffset(length - tag.getOffset() -1);
+  }
+
+  /**
+   * Convert a list of R5Tags to a set of strings
+   */
+  private static HashSet<String> convertR5TagsToStrings (
+      Collection<R5Tag> tags) {
+    HashSet<String> tagSet = new HashSet<String>();
+    String value = null;
+    for (R5Tag item : tags ) {
+      value = String.format(
+          "%s:%d:%d", item.getTag(), item.getStrand(), item.getOffset());
+      if (tagSet.contains(value)) {
+        throw new RuntimeException("List of R5 Tags has duplicates");
+      }
+    }
+    return tagSet;
+  }
+
+  /**
+   * Return true is the two sets of R5Tags are equal irrespective of order.
+   *
+   * The function assumes neigther list has duplicates; if there are duplicates
+   * we throw an exception.
+   */
+  public static boolean listsAreEqual(
+      Collection<R5Tag> left, Collection<R5Tag> right) {
+    if (left.size() !=  right.size()) {
+      return false;
+    }
+    HashSet<String> leftSet = convertR5TagsToStrings(left);
+    HashSet<String> rightSet = convertR5TagsToStrings(right);
+    if (!leftSet.equals(rightSet)) {
+      return false;
+    }
+    return true;
   }
 }

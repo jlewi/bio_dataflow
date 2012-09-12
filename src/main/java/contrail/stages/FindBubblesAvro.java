@@ -1,3 +1,15 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package contrail.stages;
 
 import java.io.IOException;
@@ -8,6 +20,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+
 import org.apache.avro.Schema;
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroJob;
@@ -69,6 +83,24 @@ import contrail.stages.GraphCounters.CounterName;
  * deleted and the edges of node Y are updated. The reducer then outputs
  * messages that are used in PopBubblesAvro to tell node X to delete its
  * edges to node B which was deleted.
+ *
+ * Special Cases:
+ * 1. Palindromes. A bubble can be created by a palindrome, a sequence
+ *    which equals its reverse complement. Palindromes can be created when
+ *    two sequences are merged. This can create a bubble
+ *    X->{A, R(A)} -> Y  where A=R(A). Unfortunately, the distributed algorithm
+ *    for doing pair wise merges means we can't deal with palindromes when
+ *    doing the merge.
+ *
+ *    The reducer identifies bubbles formed by palindromes. If such a bubble
+ *    is detected then the bubble is popped by ensuring all edges from
+ *    the major neighbor target the forward strand of the node and all edges
+ *    from the minor target the reverse strand of the palindrome.
+ *
+ * 2. Major and minor node are the same. For example suppose we have the
+ *    graph  X->{A, B}->R(X). For the most part we can handle this like
+ *    any another bubble. Except that we can pop the bubble in the reducer
+ *    since we have access to the minor node.
  *
  * Important: The graph must be maximally be compressed otherwise this code
  * won't work.
@@ -184,6 +216,7 @@ public class FindBubblesAvro extends Stage   {
     private GraphNode majorNode = null;
     private GraphNode bubbleNode = null;
     private FindBubblesOutput output = null;
+    private BubbleUtil bubbleUtil = null;
 
     public void configure(JobConf job) {
       FindBubblesAvro stage = new FindBubblesAvro();
@@ -197,6 +230,8 @@ public class FindBubblesAvro extends Stage   {
       bubbleNode = new GraphNode();
       output = new FindBubblesOutput();
       output.setDeletedNeighbors(new ArrayList<CharSequence>());
+      output.setPalindromeNeighbors(new ArrayList<CharSequence>());
+      bubbleUtil = new BubbleUtil();
     }
 
     /**
@@ -221,15 +256,42 @@ public class FindBubblesAvro extends Stage   {
 
       private Boolean isPalindromeValue;
 
-      BubbleMetaData(
-          GraphNodeData nodeData, CharSequence major) {
+      // This boolean indicates we have the special case where the
+      // two terminals for the bubble are different strands of the major
+      // node.
+      boolean noMinor;
+
+      BubbleMetaData(GraphNodeData nodeData, String major) {
         node = new GraphNode();
         node.setData(nodeData);
         popped = false;
+        noMinor = false;
+        Set<String> neighborIds = node.getNeighborIds();
+
+        if (neighborIds.size() > 2) {
+          throw new RuntimeException(
+              String.format(
+                  "Bubble has more than 2 neighbors. This is a bug. Number " +
+                      "of neighbors is %d.", neighborIds.size()));
+        }
+
+        if (neighborIds.size() == 1) {
+          // We have the special case where the two terminals for the
+          // bubble are the same node.
+          minorID = major;
+          noMinor = true;
+        } else {
+          for (String neighborId : neighborIds) {
+            if (!neighborId.equals(major)) {
+              minorID = neighborId;
+              break;
+            }
+          }
+        }
+
         // Find the strand of this node which is the terminal for an outgoing
         // edge of the forward strand of the major node.
         DNAStrand strandFromMajor;
-
         EdgeTerminal terminal =
             node.getEdgeTerminals(
                 DNAStrand.FORWARD, EdgeDirection.INCOMING).get(0);
@@ -238,9 +300,6 @@ public class FindBubblesAvro extends Stage   {
         } else {
           strandFromMajor = DNAStrand.REVERSE;
         }
-
-        minorID = node.getEdgeTerminals(
-            strandFromMajor, EdgeDirection.OUTGOING).get(0).nodeId;
 
         alignedSequence = DNAUtil.sequenceToDir(
             node.getSequence(), strandFromMajor);
@@ -324,6 +383,30 @@ public class FindBubblesAvro extends Stage   {
       }
     }
 
+    /**
+     * Check every non-popped node to see if its a palindrome. If it is
+     * a palindrome then make sure all edges to it are to the forward strand.
+     *
+     * @param minor_list
+     * @param reporter
+     */
+    void processPalindromes (
+        List<BubbleMetaData> minorList, Reporter reporter) {
+      for (BubbleMetaData bubbleData: minorList) {
+        if (bubbleData.popped) {
+          continue;
+        }
+        if (!bubbleData.isPalindrome()) {
+          continue;
+        }
+        reporter.incrCounter(NUM_PALINDROMES.group, NUM_PALINDROMES.tag, 1);
+
+        bubbleUtil.fixEdgesToPalindrome(
+            majorNode, bubbleData.node.getNodeId(), true);
+        bubbleUtil.fixEdgesFromPalindrome(bubbleData.node);
+      }
+    }
+
     // Output the messages to the minor node.
     void outputMessagesToMinor(
         List<BubbleMetaData> minor_list, CharSequence minor,
@@ -331,23 +414,36 @@ public class FindBubblesAvro extends Stage   {
       output.setNode(null);
       output.setMinorNodeId("");
       output.getDeletedNeighbors().clear();
+      output.getPalindromeNeighbors().clear();
 
       ArrayList<CharSequence> deletedNeighbors = new ArrayList<CharSequence>();
+      ArrayList<CharSequence> palindromeNeighbors =
+          new ArrayList<CharSequence>();
+
 
       for(BubbleMetaData bubbleMetaData : minor_list) {
         if(bubbleMetaData.popped) {
           deletedNeighbors.add(bubbleMetaData.node.getNodeId());
         } else {
+          if (bubbleMetaData.isPalindrome()) {
+            palindromeNeighbors.add(bubbleMetaData.node.getNodeId());
+          }
           // This is a non-popped node so output the node.
           output.setNode(bubbleMetaData.node.getData());
           collector.collect(output);
         }
       }
 
+      if (minor_list.get(0).noMinor) {
+        // For these bubbles the minor node is the same as the major node
+        // so we don't need to send any messages to a minor node.
+        return;
+      }
       // Output the messages to the minor node.
       output.setNode(null);
       output.setMinorNodeId(minor);
       output.setDeletedNeighbors(deletedNeighbors);
+      output.setPalindromeNeighbors(palindromeNeighbors);
       collector.collect(output);
     }
 
@@ -425,6 +521,9 @@ public class FindBubblesAvro extends Stage   {
           // marks nodes to be deleted for a particular list of minorID
           ProcessMinorList(minorBubbles, reporter, minorID);
         }
+        // After popping bubbles, we check any nodes which are still alive
+        // if they are palindromes.
+        processPalindromes(minorBubbles, reporter);
         reporter.incrCounter("Contrail", "edgeschecked", choices);
         outputMessagesToMinor(minorBubbles, minorID, collector);
       }
@@ -433,6 +532,7 @@ public class FindBubblesAvro extends Stage   {
       output.setNode(majorNode.getData());
       output.setMinorNodeId("");
       output.getDeletedNeighbors().clear();
+      output.getPalindromeNeighbors().clear();
       collector.collect(output);
     }
   }
