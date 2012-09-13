@@ -395,7 +395,7 @@ public class CompressAndCorrect extends Stage {
     if (lowCoverageResult.graphChanged) {
       ++step;
       CompressionResult finalCompression = compressAsMuchAsPossible(
-          0, inputPath);
+          step, lowCoverageResult.graphPath);
       finalGraphPath = finalCompression.latestPath;
     } else {
       finalGraphPath = lowCoverageResult.graphPath;
