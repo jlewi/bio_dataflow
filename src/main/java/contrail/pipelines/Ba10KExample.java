@@ -78,7 +78,7 @@ public class Ba10KExample extends Stage {
       stage_options.put("K", new Integer(21));
     }
     if (!stage_options.containsKey("tiplength")) {
-      stage_options.put("tiplength", new Integer(42));
+      stage_options.put("tiplength", new Integer(50));
     }
     if (!stage_options.containsKey("bubble_edit_rate")) {
       stage_options.put("bubble_edit_rate", new Float(.05f));
