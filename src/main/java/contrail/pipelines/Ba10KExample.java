@@ -130,10 +130,14 @@ public class Ba10KExample extends Stage {
 
       latestPath = stageOutput;
       // We compute graph stats for each stage except the conversion
-      // of Fastq files to Avro.
-      if (FastqPreprocessorAvroCompressed.class.isInstance(stage)) {
+      // of Fastq files to Avro and BuildGraph.
+      if (FastqPreprocessorAvroCompressed.class.isInstance(stage) ||
+          BuildGraphAvro.class.isInstance(stage)) {
         continue;
       }
+
+      // TODO(jlewi): It would probably be better to continue running the
+      // pipeline and not blocking on GraphStats.
       GraphStats statsStage = new GraphStats();
       statsStage.setConf(getConf());
       String statsOutput = new Path(
