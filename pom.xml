@@ -16,9 +16,9 @@
          we might build against. You can set the profile on the command
          line using -P [PROFILE_ID].
 
-	 If you don't want to have to specify it on the command line you
-	 can set the profile in your maven settings file see
-	 http://maven.apache.org/guides/introduction/introduction-to-profiles.html
+         If you don't want to have to specify it on the command line you
+         can set the profile in your maven settings file see
+         http://maven.apache.org/guides/introduction/introduction-to-profiles.html
       -->
     <profile>
       <id>cdh4</id>
