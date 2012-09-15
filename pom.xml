@@ -116,6 +116,11 @@
       <name>Cloudera  Repository</name>
       <url>https://repository.cloudera.com/content/repositories/releases</url>
     </repository>
+    <repository>
+      <id>cloudera-2</id>
+      <name>Cloudera  Repository</name>
+      <url>https://repository.cloudera.com/artifactory/cloudera-repos</url>
+    </repository>
   </repositories>
   <build>
     <plugins>

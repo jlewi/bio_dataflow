@@ -350,6 +350,7 @@ public class CompressibleAvro extends Stage {
       conf = new JobConf(CompressibleAvro.class);
     }
     conf.setJobName("CompressibleAvro " + inputPath);
+    conf.setUserClassesTakesPrecedence(true);
 
     initializeJobConfiguration(conf);
 
