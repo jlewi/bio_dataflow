@@ -1,6 +1,5 @@
 package contrail.graph;
 
-import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.TailData;
 
@@ -548,11 +547,10 @@ public class GraphNode {
    * Find the strand of node that has an edge to terminal.
    *
    * This function is deprecated because it improperly assumes each node
-   * can have only one strand could be connected to a given edge terminal.
+   * can have only one strand connected to a given edge terminal.
    * However, there are cases such as palindromes where this may not be true.
    * If this assumption is not true we raise an exception. The correct thing to
-   * do is use getEdgeTerminalsSet and then check if each strand contains
-   * the terminal in question.
+   * do is use findStrandsWithEdgeToTerminal.
    *
    * @param terminal: The terminal to find the edge to.
    * @param direction: The direction for the edge.
