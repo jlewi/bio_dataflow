@@ -93,7 +93,6 @@ import contrail.util.AvroFileContentsIterator;
  */
 public class GraphStats extends Stage {
   private static final Logger sLogger = Logger.getLogger(GraphStats.class);
-  org.apache.haodop.mapred.TasskRunner runner;
   /**
    * Get the parameters used by this stage.
    */
