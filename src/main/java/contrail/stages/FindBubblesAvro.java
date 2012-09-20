@@ -261,6 +261,12 @@ public class FindBubblesAvro extends Stage   {
       // node.
       boolean noMinor;
 
+      // The strands of the major, minor, and bubble node such that we form
+      // a chain majorStrand->bubbleStrand->minorStrand.
+      DNAStrand bubbleStrand;
+      DNAStrand majorStrand;
+      DNAStrand minorStrand;
+
       BubbleMetaData(GraphNodeData nodeData, String major) {
         node = new GraphNode();
         node.setData(nodeData);
@@ -290,19 +296,25 @@ public class FindBubblesAvro extends Stage   {
         }
 
         // Find the strand of this node which is the terminal for an outgoing
-        // edge of the forward strand of the major node.
-        DNAStrand strandFromMajor;
+        // edge from the major node.
         EdgeTerminal terminal =
             node.getEdgeTerminals(
                 DNAStrand.FORWARD, EdgeDirection.INCOMING).get(0);
         if (terminal.nodeId.toString().equals(major.toString())) {
-          strandFromMajor = DNAStrand.FORWARD;
+          bubbleStrand = DNAStrand.FORWARD;
         } else {
-          strandFromMajor = DNAStrand.REVERSE;
+          bubbleStrand = DNAStrand.REVERSE;
         }
 
         alignedSequence = DNAUtil.sequenceToDir(
-            node.getSequence(), strandFromMajor);
+            node.getSequence(), bubbleStrand);
+
+        EdgeTerminal majorTerminal = node.getEdgeTerminals(
+            bubbleStrand, EdgeDirection.INCOMING).get(0);
+        EdgeTerminal minorTerminal = node.getEdgeTerminals(
+            bubbleStrand, EdgeDirection.OUTGOING).get(0);
+        majorStrand = majorTerminal.strand;
+        minorStrand = minorTerminal.strand;
       }
 
       public Boolean isPalindrome() {
@@ -345,6 +357,13 @@ public class FindBubblesAvro extends Stage   {
         for (int j = i+1; j < minor_list.size(); j++)   {
           BubbleMetaData lowCoverageNode = minor_list.get(j);
           if(lowCoverageNode.popped)  {
+            continue;
+          }
+
+          // We only have a bubble if the two nodes are connected to the
+          // same strands of the major and minor terminals.
+          if ((highCoverageNode.majorStrand != lowCoverageNode.majorStrand) ||
+              (highCoverageNode.minorStrand != lowCoverageNode.minorStrand)) {
             continue;
           }
 
@@ -507,6 +526,7 @@ public class FindBubblesAvro extends Stage   {
         int choices = minorBubbles.size();
         reporter.incrCounter("Contrail", "minorchecked", 1);
         if (choices <= 1) {
+          BubbleMetaData bubble = minorBubbles.get(0);
           // Check if this bubble is a palindrome.
           if (!DNAUtil.isPalindrome(minorBubbles.get(0).alignedSequence)) {
             // We have a chain, i.e A->X->B and not a bubble
