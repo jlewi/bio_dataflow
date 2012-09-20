@@ -267,7 +267,6 @@ public class FindBubblesAvro extends Stage   {
       DNAStrand majorStrand;
       DNAStrand minorStrand;
 
-
       BubbleMetaData(GraphNodeData nodeData, String major) {
         node = new GraphNode();
         node.setData(nodeData);
