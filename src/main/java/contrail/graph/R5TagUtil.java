@@ -69,8 +69,11 @@ public class R5TagUtil {
   /**
    * Return true is the two sets of R5Tags are equal irrespective of order.
    *
-   * The function assumes neigther list has duplicates; if there are duplicates
+   * The function assumes neither list has duplicates; if there are duplicates
    * we throw an exception.
+   *
+   * Neither list should be null. If the lists are null the behavior is
+   * undefined.
    */
   public static boolean listsAreEqual(
       Collection<R5Tag> left, Collection<R5Tag> right) {
