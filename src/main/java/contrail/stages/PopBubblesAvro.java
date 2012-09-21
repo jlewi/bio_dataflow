@@ -1,3 +1,15 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package contrail.stages;
 
 import java.io.IOException;
@@ -82,6 +94,8 @@ public class PopBubblesAvro extends Stage  {
     extends AvroReducer<CharSequence, FindBubblesOutput, GraphNodeData> {
     GraphNode node = null;
     ArrayList<String> neighborsToRemove;
+    ArrayList<String> palindromeNeighbors;
+    BubbleUtil bubbleUtil;
 
     public void configure(JobConf job) {
       PopBubblesAvro stage = new PopBubblesAvro();
@@ -90,6 +104,8 @@ public class PopBubblesAvro extends Stage  {
 
       node = new GraphNode();
       neighborsToRemove = new ArrayList<String>();
+      palindromeNeighbors = new ArrayList<String>();
+      bubbleUtil = new BubbleUtil();
     }
 
     public void reduce(
@@ -99,6 +115,7 @@ public class PopBubblesAvro extends Stage  {
       int sawNode = 0;
       Iterator<FindBubblesOutput> iter = iterable.iterator();
       neighborsToRemove.clear();
+      palindromeNeighbors.clear();
 
       while(iter.hasNext()) {
         FindBubblesOutput input = iter.next();
@@ -110,6 +127,9 @@ public class PopBubblesAvro extends Stage  {
         } else {
           for (CharSequence  neighbor : input.getDeletedNeighbors()) {
             neighborsToRemove.add(neighbor.toString());
+          }
+          for (CharSequence  neighbor : input.getPalindromeNeighbors()) {
+            palindromeNeighbors.add(neighbor.toString());
           }
         }
       }
@@ -133,6 +153,11 @@ public class PopBubblesAvro extends Stage  {
       for(String neighborID : neighborsToRemove) {
         node.removeNeighbor(neighborID);
         reporter.incrCounter("Contrail", "linksremoved", 1);
+      }
+
+      for (String neighborID : palindromeNeighbors) {
+        bubbleUtil.fixEdgesToPalindrome(node, neighborID, false);
+        reporter.incrCounter("Contrail", "palindromes-fixed", 1);
       }
       output.collect(node.getData());
     }
@@ -182,6 +207,10 @@ public class PopBubblesAvro extends Stage  {
     FileSystem.get(conf).delete(new Path(outputPath), true);
 
     RunningJob job = JobClient.runJob(conf);
+    long numNodes = job.getCounters().findCounter(
+        "org.apache.hadoop.mapred.Task$Counter",
+        "REDUCE_OUTPUT_RECORDS").getValue();
+    sLogger.info("Number of nodes outputed:" + numNodes);
     return job;
   }
 

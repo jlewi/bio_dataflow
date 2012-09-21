@@ -3,6 +3,7 @@ package contrail.stages;
 import java.io.File;
 import java.io.IOException;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -140,7 +141,7 @@ public class CompressChains extends Stage {
       substage_options.put("outputpath", latest_path);
       compress.setParameters(substage_options);
       RunningJob job = compress.runJob();
-      compressible = counter(job, GraphCounters.compressible_nodes);
+      compressible = counter(job, CompressibleAvro.NUM_COMPRESSIBLE);
       logEndJob(job);
 
       if (compressible == 0) {
@@ -150,11 +151,14 @@ public class CompressChains extends Stage {
       }
     }
 
-    sLogger.info("  " + compressible + " compressible\n");
+    sLogger.info("Number of compressible nodes:" + compressible);
     long lastremaining = compressible;
+
+    ArrayList<String> pathsToDelete = new ArrayList<String>();
 
     while (lastremaining > 0) {
       stage++;
+      pathsToDelete.clear();
 
       // Input path for marking nodes to be merged.
       String mark_input  = latest_path;
@@ -171,13 +175,18 @@ public class CompressChains extends Stage {
       latest_path = merged_graph_path;
       long remaining = 0;
 
+      // After each step we will want to delete the path containing the input
+      // to the marking step and the output of the marking step.
+      pathsToDelete.add(mark_input);
+      pathsToDelete.add(marked_graph_path);
+
       if (lastremaining < LOCALNODES) {
         QuickMarkAvro qmark   = new QuickMarkAvro();
         QuickMergeAvro qmerge = new QuickMergeAvro();
         qmark.setConf(this.getConf());
         qmerge.setConf(this.getConf());
 
-        // Send all the compressible nodes aFile old_path_file = new File(old_path);nd their neighbors to the same
+        // Send all the compressible nodes and their neighbors to the same
         // machine so they can be compressed in one shot.
         logStartJob("  QMark " + stage);
 
@@ -236,8 +245,9 @@ public class CompressChains extends Stage {
           RunningJob job = pmark.runJob();
           logEndJob(job);
 
-          sLogger.info("  " + counter(job, GraphCounters.num_nodes_to_merge) +
-              " marked\n");
+          sLogger.info(
+              "Number of nodes marked to compress:" +
+              counter(job, PairMarkAvro.NUM_MARKED_FOR_MERGE));
         }
         {
           logStartJob("  Merge " + stage);
@@ -248,23 +258,46 @@ public class CompressChains extends Stage {
           pmerge.setParameters(mark_options);
           RunningJob job = pmerge.runJob();
           logEndJob(job);
-          remaining = counter(job,GraphCounters.pair_merge_compressible_nodes);
+          remaining = counter(job, PairMergeAvro.NUM_REMAINING_COMPRESSIBLE);
+        }
+
+        if (remaining == 0) {
+          String convertedGraphPath = new File(
+              step_dir, "converted_graph").getPath();
+          CompressibleNodeConverter converter =
+              new CompressibleNodeConverter();
+          converter.setConf(this.getConf());
+          // If the number of remaining nodes is zero. Then we need to convert
+          // the graph of CompressibleNode's to GraphData. Ordinarily this
+          // would happen automatically in QuickMark + QuickMerge.
+          logStartJob("Convert to GraphNode's " + stage);
+          Map<String, Object> convert_options = new HashMap<String, Object>();
+          convert_options.put("inputpath", merged_graph_path);
+          convert_options.put("outputpath", convertedGraphPath);
+          converter.setParameters(convert_options);
+          RunningJob job = converter.runJob();
+          logEndJob(job);
+          latest_path = convertedGraphPath;
+          pathsToDelete.add(merged_graph_path);
         }
       }
 
       JobConf job_conf = new JobConf(CompressChains.class);
-      FileSystem.get(job_conf).delete(new Path(mark_input), true);
-      FileSystem.get(job_conf).delete(new Path(marked_graph_path), true);
+      for (String pathToDelete : pathsToDelete) {
+        FileSystem.get(job_conf).delete(new Path(pathToDelete), true);
+      }
 
       String percchange =
           df.format((lastremaining > 0) ? 100*(remaining - lastremaining) /
               lastremaining : 0);
-      sLogger.info("  " + remaining + " remaining (" + percchange + "%)\n");
+      sLogger.info(" Number of compressible nodes remaining:" + remaining +
+                   " (" + percchange + "%)\n");
 
       lastremaining = remaining;
     }
 
-    sLogger.info("Save result to " + final_path + "\n\n");
+    sLogger.info("Moving graph from: " + latest_path);
+    sLogger.info("To: " + final_path);
     FileHelper.moveDirectoryContents(getConf(), latest_path, final_path);
   }
 

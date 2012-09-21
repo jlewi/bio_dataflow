@@ -27,6 +27,7 @@ import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
+import contrail.util.CharUtil;
 import contrail.util.FileHelper;
 
 public class TestFindBubblesAvro extends FindBubblesAvro{
@@ -152,7 +153,26 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
 
       outNodeIDList.add(key);
       FindBubblesOutput expected = caseData.expectedOutputs.get(key);
-      assertEquals(expected, element);
+      // Check the GraphNodes are equal. We can't simply check if
+      // FindBubblesOutput is equal because the order of edges in
+      // the GraphNodeData could be different.
+      if (element.getNode() == null ){
+        assertEquals(null, expected.getNode());
+      } else {
+        GraphNode expectedNode = new GraphNode(expected.getNode());
+        GraphNode actualNode = new GraphNode(element.getNode());
+        assertEquals(expectedNode, actualNode);
+      }
+
+      assertEquals(
+          expected.getMinorNodeId().toString(),
+          element.getMinorNodeId().toString());
+      assertEquals(
+          CharUtil.toStringSet(expected.getDeletedNeighbors()),
+          CharUtil.toStringSet(element.getDeletedNeighbors()));
+      assertEquals(
+          CharUtil.toStringSet(expected.getPalindromeNeighbors()),
+          CharUtil.toStringSet(element.getPalindromeNeighbors()));
     }
     assertEquals(outNodeIDList, caseData.expectedOutputs.keySet());
   }
@@ -167,6 +187,7 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
     GraphNode node = graph.findNodeForSequence("AAT");
     output.setNode(node.getData());
     output.setMinorNodeId("");
+    output.setPalindromeNeighbors(new ArrayList<CharSequence>());
     output.setDeletedNeighbors(new ArrayList<CharSequence>());
 
     testData.mapOutputs.add(
@@ -224,6 +245,7 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
       node.removeNeighbor(deadNode.getNodeId());
 
       expectedOutput.setNode(node.getData());
+      expectedOutput.setPalindromeNeighbors(new ArrayList<CharSequence>());
       expectedOutput.setDeletedNeighbors(new ArrayList<CharSequence>());
       expectedOutput.setMinorNodeId("");
       testData.expectedOutputs.put(node.getNodeId(), expectedOutput);
@@ -242,6 +264,7 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
 
       expectedOutput.setNode(node.clone().getData());
       expectedOutput.setDeletedNeighbors(new ArrayList<CharSequence>());
+      expectedOutput.setPalindromeNeighbors(new ArrayList<CharSequence>());
       expectedOutput.setMinorNodeId("");
       testData.expectedOutputs.put(node.getNodeId(), expectedOutput);
     }
@@ -250,6 +273,7 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
       // For node ATATC we output a message to AAT to remove the edge
       // to ATATC.
       FindBubblesOutput expectedOutput = new FindBubblesOutput();
+      expectedOutput.setPalindromeNeighbors(new ArrayList<CharSequence>());
       expectedOutput.setDeletedNeighbors(new ArrayList<CharSequence>());
       expectedOutput.getDeletedNeighbors().add(deadNode.getNodeId());
 
@@ -262,11 +286,86 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
     return testData;
   }
 
+  // This function creates a Bubble in which their is no minor node.
+  // The graph in this case is
+  // X->{A, B}->R(X)
+  // So the major and minor node are the same
+  private ReduceTestCaseData constructBubbleNoMinorTest()  {
+    SimpleGraphBuilder graph = new SimpleGraphBuilder();
+    graph.addEdge("ACT", "CTGGAG", 2);
+    graph.addEdge("ACT", "CTTGAG", 2);
+    graph.addEdge("CTGGAG", "AGT", 2);
+    graph.addEdge("CTTGAG", "AGT", 2);
+
+    GraphNode majorNode = graph.getNode(graph.findNodeIdForSequence("ACT"));
+    // Nodes to keep and remove
+    GraphNode aliveNode = graph.getNode(graph.findNodeIdForSequence("CTGGAG"));
+    GraphNode deadNode = graph.getNode(graph.findNodeIdForSequence("CTTGAG"));
+
+    // We need to set the coverage for the bubble nodes so that aliveNode is
+    // kept and deadNode is deleted.
+    aliveNode.setCoverage(4);
+    deadNode.setCoverage(2);
+
+    // 3 input mapper messages.
+    // nodeid(ACT), <ACT nodedata>
+    // nodeid(ACT), <CTGGAG nodedata>
+    // nodeid(ACT), <CTTCAG nodedata>
+    List <GraphNodeData> mapOutputs = new ArrayList <GraphNodeData>();
+    ReduceTestCaseData testData = new ReduceTestCaseData();
+    testData.K = 3;
+
+    mapOutputs.add(majorNode.clone().getData());
+    mapOutputs.add(aliveNode.clone().getData());
+    mapOutputs.add(deadNode.clone().getData());
+
+    // Construct the expected outputs. There are two outputs; the major node
+    // and the alive node. The output graph should be
+    // X->A->R(X)
+    testData.expectedOutputs = new HashMap<String, FindBubblesOutput>();
+
+    {
+      FindBubblesOutput expectedOutput= new FindBubblesOutput();
+
+      GraphNode node = majorNode.clone();
+      node.removeNeighbor(deadNode.getNodeId());
+
+      expectedOutput.setNode(node.getData());
+      expectedOutput.setPalindromeNeighbors(new ArrayList<CharSequence>());
+      expectedOutput.setDeletedNeighbors(new ArrayList<CharSequence>());
+      expectedOutput.setMinorNodeId("");
+      testData.expectedOutputs.put(node.getNodeId(), expectedOutput);
+    }
+    {
+      // For aliveNode we just output the node after updating the coverage.
+      FindBubblesOutput expectedOutput= new FindBubblesOutput();
+      GraphNode node = aliveNode.clone();
+      int aliveLength = node.getData().getSequence().getLength()
+                        - testData.K + 1;
+      int deadLength = deadNode.getData().getSequence().getLength()
+                       - testData.K + 1;
+      float extraCoverage = deadNode.getCoverage() * deadLength;
+      float support = node.getCoverage() * aliveLength + extraCoverage;
+      node.setCoverage(support / aliveLength);
+
+      expectedOutput.setNode(node.clone().getData());
+      expectedOutput.setDeletedNeighbors(new ArrayList<CharSequence>());
+      expectedOutput.setPalindromeNeighbors(new ArrayList<CharSequence>());
+      expectedOutput.setMinorNodeId("");
+      testData.expectedOutputs.put(node.getNodeId(), expectedOutput);
+    }
+
+    testData.key =  majorNode.getNodeId();
+    testData.mapOutputs= mapOutputs;
+    return testData;
+  }
+
+
   // This function creates a bubble and tests that sequences are properly
   // aligned before computing the edit distance.
   // The graph in this case is  X->{A,R(B)}->Y. If the sequences aren't
   // properly aligned (e.g. if we end up computing the edit distance of A & B
-  // then the result should be two large for the nodes to be merges.
+  // then the result should be too large for the nodes to be merges.
   private ReduceTestCaseData constructReverseBubblesCaseData()  {
     // The reducer takes as input nodes X, A, B. So we don't construct
     // node Y.
@@ -329,6 +428,7 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
       node.removeNeighbor(lowNode.getNodeId());
 
       expectedOutput.setNode(node.getData());
+      expectedOutput.setPalindromeNeighbors(new ArrayList<CharSequence>());
       expectedOutput.setDeletedNeighbors(new ArrayList<CharSequence>());
       expectedOutput.setMinorNodeId("");
       testData.expectedOutputs.put(node.getNodeId(), expectedOutput);
@@ -345,6 +445,7 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
       float support = node.getCoverage() * aliveLength + extraCoverage;
       node.setCoverage(support / aliveLength);
       expectedOutput.setNode(node.clone().getData());
+      expectedOutput.setPalindromeNeighbors(new ArrayList<CharSequence>());
       expectedOutput.setDeletedNeighbors(new ArrayList<CharSequence>());
       expectedOutput.setMinorNodeId("");
       testData.expectedOutputs.put(node.getNodeId(), expectedOutput);
@@ -354,6 +455,7 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
       // For node ATATC we output a message to AAT to remove the edge
       // to ATATC.
       FindBubblesOutput expectedOutput = new FindBubblesOutput();
+      expectedOutput.setPalindromeNeighbors(new ArrayList<CharSequence>());
       expectedOutput.setDeletedNeighbors(new ArrayList<CharSequence>());
       expectedOutput.getDeletedNeighbors().add(lowNode.getNodeId());
       expectedOutput.setMinorNodeId(minorID.toString());
@@ -365,13 +467,105 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
     return testData;
   }
 
+  /**
+   * This test constructs a bubble
+   * X->{A, R(A)}->Y  where A=R(A); i.e. A is a palindrome. In this case
+   * the reducer should move edges from X to the forward strand of A.
+   * It should also mark A as a palindrome.
+   */
+  private ReduceTestCaseData constructPalindromeCaseData() {
+    // The reducer takes as input nodes X, A, B. So we don't construct
+    // node Y.
+    GraphNode majorNode = new GraphNode();
+    majorNode.setCoverage(0);
+    majorNode.setSequence(new Sequence("ACT", DNAAlphabetFactory.create()));
+
+    // We set the id's such that nodeX is the major id.
+    majorNode.setNodeId("bmajorId");
+    String minorID = "aminorId";
+
+    GraphNode palindrome = new GraphNode();    // higher coverage
+    palindrome.setCoverage(4);
+    palindrome.setNodeId("palindrome");
+    palindrome.setSequence(new Sequence("CTAG", DNAAlphabetFactory.create()));
+
+    palindrome.addOutgoingEdge(
+        DNAStrand.REVERSE, new EdgeTerminal(minorID, DNAStrand.FORWARD));
+
+    GraphUtil.addBidirectionalEdge(
+        majorNode, DNAStrand.FORWARD, palindrome, DNAStrand.FORWARD);
+    GraphUtil.addBidirectionalEdge(
+        majorNode, DNAStrand.FORWARD, palindrome, DNAStrand.REVERSE);
+
+    // Construct the test case
+    ReduceTestCaseData testData = new ReduceTestCaseData();
+
+    testData.bubbleEditRate = 2.0f/5.0f;
+    testData.key = majorNode.getNodeId();
+    testData.mapOutputs = new ArrayList<GraphNodeData>();
+    testData.mapOutputs.add(majorNode.clone().getData());
+    testData.mapOutputs.add(palindrome.clone().getData());
+
+    testData.expectedOutputs = new HashMap<String, FindBubblesOutput>();
+
+    // For the major node and palindrome we move the edges so that
+    // edges are to the forward strand of the palindrome.
+    GraphNode expectedMajor = majorNode.clone();
+    GraphNode expectedPalindrome = palindrome.clone();
+    expectedMajor.removeNeighbor(expectedPalindrome.getNodeId());
+    expectedPalindrome.removeNeighbor(expectedMajor.getNodeId());
+    expectedPalindrome.removeNeighbor(minorID);
+
+    expectedPalindrome.addOutgoingEdge(
+        DNAStrand.FORWARD, new EdgeTerminal(minorID, DNAStrand.FORWARD));
+
+    GraphUtil.addBidirectionalEdge(
+        expectedMajor, DNAStrand.FORWARD, expectedPalindrome,
+        DNAStrand.FORWARD);
+    {
+      FindBubblesOutput expectedOutput= new FindBubblesOutput();
+      expectedOutput.setNode(expectedMajor.getData());
+      expectedOutput.setDeletedNeighbors(new ArrayList<CharSequence>());
+      expectedOutput.setPalindromeNeighbors(new ArrayList<CharSequence>());
+      expectedOutput.setMinorNodeId("");
+      testData.expectedOutputs.put(expectedMajor.getNodeId(), expectedOutput);
+    }
+    {
+      FindBubblesOutput expectedOutput= new FindBubblesOutput();
+      expectedOutput.setNode(expectedPalindrome.getData());
+      expectedOutput.setDeletedNeighbors(new ArrayList<CharSequence>());
+      expectedOutput.setPalindromeNeighbors(new ArrayList<CharSequence>());
+      expectedOutput.setMinorNodeId("");
+      testData.expectedOutputs.put(
+          expectedPalindrome.getNodeId(), expectedOutput);
+    }
+
+    {
+      // For the minor node we output a message letting it know that
+      // its neighbor is a plaindrome.
+      FindBubblesOutput expectedOutput = new FindBubblesOutput();
+      expectedOutput.setDeletedNeighbors(new ArrayList<CharSequence>());
+      expectedOutput.setPalindromeNeighbors(new ArrayList<CharSequence>());
+      expectedOutput.getPalindromeNeighbors().add(
+          expectedPalindrome.getNodeId());
+      expectedOutput.setMinorNodeId(minorID.toString());
+
+      testData.expectedOutputs.put(
+          minorID.toString(), expectedOutput);
+    }
+
+    return testData;
+  }
+
   @Test
   public void testReduce() {
-    List <ReduceTestCaseData> caseData_list =
+    List <ReduceTestCaseData> testCases =
         new ArrayList<ReduceTestCaseData>();
-    caseData_list.add(constructNonBubblesCaseData());
-    caseData_list.add(constructBubblesCaseData());
-    caseData_list.add(constructReverseBubblesCaseData());
+    testCases.add(constructNonBubblesCaseData());
+    testCases.add(constructBubblesCaseData());
+    testCases.add(constructReverseBubblesCaseData());
+    testCases.add(constructPalindromeCaseData());
+    testCases.add(constructBubbleNoMinorTest());
 
     ReporterMock reporter_mock = new ReporterMock();
     Reporter reporter = reporter_mock;
@@ -384,7 +578,7 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
     FindBubblesAvro.FindBubblesAvroReducer reducer =
         new FindBubblesAvro.FindBubblesAvroReducer();
 
-    for (ReduceTestCaseData caseData : caseData_list) {
+    for (ReduceTestCaseData caseData : testCases) {
       definitions.get("bubble_edit_rate").addToJobConf(
           job, caseData.bubbleEditRate);
       definitions.get("K").addToJobConf(job, caseData.K);

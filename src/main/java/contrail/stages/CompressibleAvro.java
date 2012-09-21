@@ -33,6 +33,7 @@ import contrail.graph.TailData;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
+import contrail.stages.GraphCounters.CounterName;
 
 /**
  * This mapreduce stage marks nodes which can be compressed. A node
@@ -63,6 +64,9 @@ public class CompressibleAvro extends Stage {
    */
   public static final Schema REDUCE_OUT_SCHEMA =
       (new CompressibleNodeData()).getSchema();
+
+  public static CounterName NUM_COMPRESSIBLE =
+      new CounterName("Contrail", "compressible");
 
   /**
    * Get the parameters used by this stage.
@@ -310,9 +314,6 @@ public class CompressibleAvro extends Stage {
           r_compressible = true;
         }
 
-        reporter.incrCounter(
-            GraphCounters.compressible_nodes.group,
-            GraphCounters.compressible_nodes.tag, 1);
       }
       annotated_node.setCompressibleStrands(CompressibleStrands.NONE);
       if (f_compressible && r_compressible) {
@@ -321,6 +322,10 @@ public class CompressibleAvro extends Stage {
         annotated_node.setCompressibleStrands(CompressibleStrands.FORWARD);
       } else if (r_compressible) {
         annotated_node.setCompressibleStrands(CompressibleStrands.REVERSE);
+      }
+      if (f_compressible || r_compressible) {
+        reporter.incrCounter(
+            NUM_COMPRESSIBLE.group, NUM_COMPRESSIBLE.tag, 1);
       }
       collector.collect(annotated_node);
     }
@@ -359,7 +364,7 @@ public class CompressibleAvro extends Stage {
     AvroJob.setMapperClass(conf, CompressibleMapper.class);
     AvroJob.setReducerClass(conf, CompressibleReducer.class);
 
-    RunningJob result = null;
+    RunningJob job = null;
     if (stage_options.containsKey("writeconfig")) {
       writeJobConfig(conf);
     } else {
@@ -374,14 +379,22 @@ public class CompressibleAvro extends Stage {
       }
 
       long starttime = System.currentTimeMillis();
-      result = JobClient.runJob(conf);
+      job = JobClient.runJob(conf);
       long endtime = System.currentTimeMillis();
 
       float diff = (float) ((endtime - starttime) / 1000.0);
+      long numNodes = job.getCounters().findCounter(
+          "org.apache.hadoop.mapred.Task$Counter",
+          "MAP_INPUT_RECORDS").getValue();
+      long numCompressibleNodes = job.getCounters().findCounter(
+          NUM_COMPRESSIBLE.group, NUM_COMPRESSIBLE.tag).getValue();
 
-      System.out.println("Runtime: " + diff + " s");
+      sLogger.info("Number of nodes in graph:" + numNodes);
+      sLogger.info(
+          "Number of compressible nodes in graph:" + numCompressibleNodes);
+      sLogger.info("Runtime: " + diff + " s");
     }
-    return result;
+    return job;
   }
 
   public static void main(String[] args) throws Exception {

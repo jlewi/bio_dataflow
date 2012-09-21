@@ -3,6 +3,7 @@ package contrail.stages;
 
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
+import contrail.stages.GraphCounters.CounterName;
 
 import java.io.IOException;
 
@@ -41,6 +42,11 @@ public class QuickMergeAvro extends Stage {
   public static final Schema MAP_OUT_SCHEMA =
       Pair.getPairSchema(
           Schema.create(Schema.Type.STRING), (new GraphNodeData()).getSchema());
+
+  public final static CounterName NUM_COMPRESSED_CHAINS =
+      new CounterName("contrail", "num-compressed-chains");
+  public final static CounterName NUM_COMPRESSED_NODES =
+      new CounterName("contrail", "num-compressed-nodes-in-chains");
 
   /**
    * Define the schema for the reducer output. The keys will be a byte buffer
@@ -178,9 +184,10 @@ public class QuickMergeAvro extends Stage {
       }
 
       reporter.incrCounter(
-          "Contrail", "num_compressed_chains",  num_compressed_chains);
+          NUM_COMPRESSED_CHAINS.group, NUM_COMPRESSED_CHAINS.tag,
+          num_compressed_chains);
       reporter.incrCounter(
-          "Contrail", "num_nodes_in_compressed_chains",
+          NUM_COMPRESSED_NODES.group, NUM_COMPRESSED_NODES.tag,
           num_nodes_in_compressed_chains);
     }
   }
@@ -265,10 +272,22 @@ public class QuickMergeAvro extends Stage {
       long starttime = System.currentTimeMillis();
       RunningJob result = JobClient.runJob(conf);
       long endtime = System.currentTimeMillis();
-
       float diff = (float) ((endtime - starttime) / 1000.0);
 
-      System.out.println("Runtime: " + diff + " s");
+      sLogger.info("Runtime: " + diff + " s");
+      long numCompressedChains = result.getCounters().findCounter(
+          NUM_COMPRESSED_CHAINS.group,
+          NUM_COMPRESSED_CHAINS.tag).getValue();
+      long numCompressedNodes = result.getCounters().findCounter(
+          NUM_COMPRESSED_NODES.group,
+          NUM_COMPRESSED_NODES.tag).getValue();
+
+      long numNodes = result.getCounters().findCounter(
+          "org.apache.hadoop.mapred.Task$Counter",
+          "REDUCE_OUTPUT_RECORDS").getValue();
+      sLogger.info("Number of chains compressed:" + numCompressedChains);
+      sLogger.info("Number of nodes compressed:" + numCompressedNodes);
+      sLogger.info("Number of nodes outputed:" + numNodes);
       return result;
     }
     return null;

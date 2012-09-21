@@ -19,6 +19,9 @@ package contrail.stages;
 
 import static org.junit.Assert.fail;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -467,6 +470,67 @@ public class GraphStats extends Stage {
     }
   }
 
+  /**
+   * Create an HTML report to describe the result.
+   */
+  protected void writeReport(
+      long numNodes, ArrayList<GraphN50StatsData> n50Records) {
+    // We create a temporary local file to write the data to.
+    // We then copy that file to the output path which could be on HDFS.
+    File temp = null;
+    try {
+      temp = File.createTempFile("temp",null);
+    } catch (IOException exception) {
+      fail("Could not create temporary file. Exception:" +
+          exception.getMessage());
+    }
+
+    String outputDir = (String) stage_options.get("outputpath");
+    Path outputPath = new Path(outputDir, "report.html");
+
+    FileSystem fs = null;
+    try{
+      fs = FileSystem.get(getConf());
+    } catch (IOException e) {
+      throw new RuntimeException("Can't get filesystem: " + e.getMessage());
+    }
+
+    try {
+      FileWriter fileWriter = new FileWriter(temp);
+      BufferedWriter writer = new BufferedWriter(fileWriter);
+
+      //writer.create(schema, outputStream);
+      writer.append("<html><body>");
+      writer.append("Number of nodes:" + numNodes);
+      writer.append("<br>");
+      writer.append("N50 Statistics");
+      writer.append("<table border=1>");
+      writer.append(
+          "<tr><td>Min Length</td><td>Max Length</td><td>N50 Length</td>" +
+          "<td>N50 Index</td><td>Num Contigs</td><td>Mean Coverage</td>" +
+          "<td>MeanDegree</td></tr>");
+      for (GraphN50StatsData record: n50Records) {
+        writer.append(String.format("<td>%d</td>", record.getMinLength()));
+        writer.append(String.format("<td>%d</td>", record.getMaxLength()));
+        writer.append(String.format("<td>%d</td>", record.getN50Length()));
+        writer.append(String.format("<td>%d</td>", record.getN50Index()));
+        writer.append(String.format("<td>%d</td>", record.getNumContigs()));
+        writer.append(String.format("<td>%f</td>", record.getMeanCoverage()));
+        writer.append(String.format("<td>%f</td>", record.getMeanDegree()));
+        writer.append("<tr>");
+      }
+      writer.append("</table>");
+      writer.append("</body></html>");
+      writer.close();
+      fs.moveFromLocalFile(new Path(temp.toString()), outputPath);
+
+      sLogger.info("Wrote HTML report to: " + outputPath.toString());
+    } catch (IOException exception) {
+      fail("There was a problem writing the html report. " +
+          "Exception: " + exception.getMessage());
+    }
+  }
+
   @Override
   public RunningJob runJob() throws Exception {
     String[] required_args = {"inputpath", "outputpath"};
@@ -530,7 +594,6 @@ public class GraphStats extends Stage {
       float diff = (float) ((endtime - starttime) / 1000.0);
       System.out.println("Runtime: " + diff + " s");
 
-
       // Create iterators to read the output
       Iterator<GraphStatsData> binsIterator = createOutputIterator();
 
@@ -540,6 +603,13 @@ public class GraphStats extends Stage {
       // Write the N50 stats to a file.
       writeN50StatsToFile(N50Stats);
 
+      // Create an HTML report.
+      long numNodes =
+          job.getCounters().findCounter(
+              "org.apache.hadoop.mapred.Task$Counter",
+              "MAP_INPUT_RECORDS").getValue();
+
+      writeReport(numNodes, N50Stats);
       Integer topn_contigs = (Integer) stage_options.get("topn_contigs");
       if (topn_contigs > 0) {
         // Get the lengths of the n contigs.
