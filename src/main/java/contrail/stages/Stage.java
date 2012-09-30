@@ -362,10 +362,7 @@ public abstract class Stage extends Configured implements Tool  {
       sLogger.info("Adding a file log appender to: " + logFile);
     }
 
-<<<<<<< HEAD
     logParameters();
-=======
->>>>>>> graphnode_cl
     RunningJob job = runJob();
 
     if (job == null) {
