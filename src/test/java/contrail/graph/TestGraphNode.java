@@ -322,6 +322,8 @@ public class TestGraphNode {
 
 	@Test
 	public void testEquals() {
+	  // Test the equals method by creating a GraphNode and then applying a
+	  // mutation to it and verifying the nodes are no longer equal.
     GraphNode original = new GraphNode();
     original.setNodeId("node");
     original.setSequence(new Sequence("ACTG", DNAAlphabetFactory.create()));
