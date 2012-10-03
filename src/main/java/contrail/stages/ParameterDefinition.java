@@ -42,12 +42,11 @@ public class ParameterDefinition {
       description = description + "(default: " + default_value_.toString() +
           ")";
     }
-    if (type_.equals(Boolean.class)) {
-      // Boolean arguments don't require an argument.
-      return new Option(short_name_, name_, false, description_);
-    } else {
-      return new Option(short_name_, name_, true, description_);
-    }
+    // We require an argument for boolean values because otherwise the value
+    // of the boolean is determined by the presence or absence of the option.
+    // If we don't require an option then we can't set an option to false
+    // by doing "--some_option=false".
+    return new Option(short_name_, name_, true, description_);
   }
 
   public String getName() {
@@ -74,6 +73,30 @@ public class ParameterDefinition {
    */
   public Object parseCommandLine(CommandLine line) {
     String value = null;
+    if (this.type_.equals(Boolean.class)) {
+      // Boolean options might not have an argument. In this case
+      // we should interpret the option as being true.
+      boolean hasOption = false;
+      if (line.hasOption(name_)) {
+        value = line.getOptionValue(name_);
+        hasOption = true;
+      } else if (line.hasOption(short_name_)) {
+        value = line.getOptionValue(short_name_);
+        hasOption = true;
+      }
+      if (hasOption) {
+        if (value == null) {
+          // When a boolean argument is specified but has no value we interpret
+          // that as true.
+          return true;
+        } else {
+          return fromString(value);
+        }
+      } else {
+        return null;
+      }
+    }
+
     if (line.hasOption(name_)) {
       value = line.getOptionValue(name_);
     } else if (line.hasOption(short_name_)) {
@@ -83,6 +106,7 @@ public class ParameterDefinition {
       // the parameter is missing?
       return null;
     }
+
     return fromString(value);
   }
 
