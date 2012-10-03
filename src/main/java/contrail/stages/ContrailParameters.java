@@ -84,6 +84,30 @@ public class ContrailParameters {
   }
 
   /**
+   * The option computing the graph stats.
+   */
+  public static ParameterDefinition getComputeStats() {
+    ParameterDefinition stats = new ParameterDefinition(
+        "compute_stats", "If true compute statistics about the graph after " +
+        "each stage [optional].", Boolean.class, false);
+
+    return stats;
+  }
+
+  /**
+   * The option controlling cleanup.
+   */
+  public static ParameterDefinition getCleanup() {
+    ParameterDefinition cleanup = new ParameterDefinition(
+        "cleanup", "If true(default) temporary directories are aggressively " +
+        "cleaned up. For debugging it can be useful to keep the intermediate " +
+        "directories by setting this to false. [optional].", Boolean.class,
+        true);
+
+    return cleanup;
+  }
+
+  /**
    * Add a list of parameters to a map of parameters.
    * @param map
    * @param parameters

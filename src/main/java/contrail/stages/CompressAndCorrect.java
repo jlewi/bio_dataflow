@@ -58,6 +58,12 @@ public class CompressAndCorrect extends Stage {
       definitions.putAll(stage.getParameterDefinitions());
     }
 
+    ParameterDefinition stats = ContrailParameters.getComputeStats();
+    definitions.put(stats.getName(), stats);
+
+    ParameterDefinition cleanup = ContrailParameters.getCleanup();
+    definitions.put(cleanup.getName(), cleanup);
+
     return Collections.unmodifiableMap(definitions);
   }
 
@@ -328,9 +334,11 @@ public class CompressAndCorrect extends Stage {
 
       JobInfo compressResult = compressGraph(stepInputPath, compressedPath);
       sLogger.info(compressResult.logMessage);
+      computeStats(stepPath, CompressChains.class.getName(), compressResult);
 
       JobInfo tipsResult = removeTips(compressResult.graphPath, removeTipsPath);
       sLogger.info(tipsResult.logMessage);
+      computeStats(stepPath, RemoveTipsAvro.class.getName(), tipsResult);
 
       if (tipsResult.graphChanged) {
         stepInputPath = tipsResult.graphPath;
@@ -343,6 +351,8 @@ public class CompressAndCorrect extends Stage {
       String popBubblesPath = new Path(stepPath, "PoppedBubbles").toString();
       JobInfo popResult = popBubbles(tipsResult.graphPath, popBubblesPath);
       sLogger.info(popResult.logMessage);
+      computeStats(stepPath, PopBubblesAvro.class.getName(), popResult);
+
       stepInputPath = popResult.graphPath;
       if (!popResult.graphChanged) {
         done = true;
@@ -353,6 +363,36 @@ public class CompressAndCorrect extends Stage {
     result.step = step;
     result.latestPath = stepInputPath;
     return result;
+  }
+
+  /**
+   * Compute the graph statistics.
+   */
+  private void computeStats(String stepPath, String stageName, JobInfo stageJob)
+      throws Exception {
+    if (!(Boolean) stage_options.get("compute_stats")) {
+      return;
+    }
+    String statsOutput = new Path(
+        stepPath,
+        String.format("%sStats", stageName)).toString();
+
+
+    // TODO(jlewi): It would probably be better to continue running the
+    // pipeline and not blocking on GraphStats.
+    GraphStats statsStage = new GraphStats();
+    statsStage.setConf(getConf());
+    Map<String, Object> statsParameters = new HashMap<String, Object>();
+    statsParameters.put("inputpath", stageJob.graphPath);
+    statsParameters.put("outputpath", statsOutput);
+    statsStage.setParameters(statsParameters);
+
+    RunningJob statsJob = statsStage.runJob();
+    if (!statsJob.isSuccessful()) {
+      throw new RuntimeException(
+          String.format(
+              "Computing stats had a problem. Graph: %s", stageJob.graphPath));
+    }
   }
 
   private void processGraph() throws Exception {
@@ -386,6 +426,8 @@ public class CompressAndCorrect extends Stage {
       lowCoverageResult = removeLowCoverageNodes(
               initialCompression.latestPath, lowCoveragePath);
       sLogger.info(lowCoverageResult.logMessage);;
+      computeStats(
+          stepPath, RemoveLowCoverageAvro.class.getName(), lowCoverageResult);
     }
 
     String finalGraphPath;
@@ -408,8 +450,10 @@ public class CompressAndCorrect extends Stage {
     // Clean up the intermediary directories.
     // TODO(jlewi): We might want to add an option to keep the intermediate
     // directories.
-    sLogger.info("Delete temporary directory: " + tempPath() + "\n\n");
-    FileSystem.get(getConf()).delete(new Path(tempPath()), true);
+    if ((Boolean) stage_options.get("cleanup")) {
+      sLogger.info("Delete temporary directory: " + tempPath() + "\n\n");
+      FileSystem.get(getConf()).delete(new Path(tempPath()), true);
+    }
   }
 
   @Override
