@@ -34,7 +34,6 @@ public class TestParameterDefinition {
   public void testBoolean() {
     // Test that we can parse a boolean option correctly when its default
     // value is true or false.
-
     boolean[] deafults = {true, false};
     for (boolean paramDefault : deafults) {
       ParameterDefinition cleanup = new ParameterDefinition(
