@@ -43,6 +43,11 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
       Pair<CharSequence, RemoveTipMessage> expected_message,
       AvroCollectorMock<Pair<CharSequence, RemoveTipMessage>> collector_mock) {
 
+    if (expected_message == null) {
+      assertEquals(collector_mock.data.size(), 0);
+      return;
+    }
+
     // Check the output.
     Iterator<Pair<CharSequence, RemoveTipMessage>> it =
         collector_mock.data.iterator();
@@ -151,27 +156,52 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
     return testCase;
   }
 
+  private MapTestCaseData constructMapRemoveIsland() {
+    // Construct a test case consisting of a GraphNode which is an island.
+    // In this case the island has a length shorter than the tiplength so
+    // the island should be removed.
+    MapTestCaseData testCase = new MapTestCaseData();
+
+    GraphNode node = new GraphNode();
+    node.setNodeId("island");
+    node.setSequence(new Sequence("GCTGACCCTA", DNAAlphabetFactory.create()));
+
+    testCase.node = node.getData();
+    testCase.tiplength = node.getSequence().size() * 2;
+
+    RemoveTipMessage message= new RemoveTipMessage();
+    message.setNode(node.clone().getData());
+    message.setEdgeStrands(null);
+
+    testCase.expected_message = null;
+    return testCase;
+  }
+
   @Test
   public void testMap() {
     ReporterMock reporter_mock = new ReporterMock();
     Reporter reporter = reporter_mock;
 
-    RemoveTipsAvro.RemoveTipsAvroMapper mapper = new RemoveTipsAvro.RemoveTipsAvroMapper();
+    RemoveTipsAvro.RemoveTipsAvroMapper mapper =
+        new RemoveTipsAvro.RemoveTipsAvroMapper();
 
     RemoveTipsAvro stage= new RemoveTipsAvro();
-    Map<String, ParameterDefinition> definitions = stage.getParameterDefinitions();
+    Map<String, ParameterDefinition> definitions =
+        stage.getParameterDefinitions();
     JobConf job = new JobConf(RemoveTipsAvro.RemoveTipsAvroMapper.class);
 
     // Construct the different test cases.
     List <MapTestCaseData> test_cases = constructMapCases();
     test_cases.add(constructMapKeepIsland());
+    test_cases.add(constructMapRemoveIsland());
     for (MapTestCaseData case_data : test_cases) {
       definitions.get("tiplength").addToJobConf(
           job, new Integer(case_data.tiplength));
       mapper.configure(job);
 
       AvroCollectorMock<Pair<CharSequence, RemoveTipMessage>>
-      collector_mock =  new AvroCollectorMock<Pair<CharSequence, RemoveTipMessage>>();
+      collector_mock =
+          new AvroCollectorMock<Pair<CharSequence, RemoveTipMessage>>();
       try {
         mapper.map(case_data.node, collector_mock, reporter);
       }
