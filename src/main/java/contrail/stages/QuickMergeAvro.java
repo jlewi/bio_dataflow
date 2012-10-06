@@ -59,8 +59,12 @@ public class QuickMergeAvro extends Stage {
   public static class QuickMergeMapper extends
       AvroMapper<GraphNodeData, Pair<CharSequence, GraphNodeData>> {
 
-    private static Pair<CharSequence, GraphNodeData> out_pair =
-        new Pair<CharSequence, GraphNodeData>(MAP_OUT_SCHEMA);
+    private Pair<CharSequence, GraphNodeData> out_pair;
+
+    public void Configure(JobConf job) {
+      out_pair = new Pair<CharSequence, GraphNodeData>(MAP_OUT_SCHEMA);
+    }
+
     /**
      * Mapper for QuickMerge.
      *
