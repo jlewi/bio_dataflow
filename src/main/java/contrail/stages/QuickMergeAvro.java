@@ -61,7 +61,7 @@ public class QuickMergeAvro extends Stage {
 
     private Pair<CharSequence, GraphNodeData> out_pair;
 
-    public void Configure(JobConf job) {
+    public void configure(JobConf job) {
       out_pair = new Pair<CharSequence, GraphNodeData>(MAP_OUT_SCHEMA);
     }
 

@@ -22,6 +22,8 @@ import java.util.Map;
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroMapper;
+import org.apache.avro.mapred.AvroReducer;
+import org.apache.avro.mapred.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -58,30 +60,48 @@ public class SelectCompressibleSubgraph  extends Stage {
       SelectCompressibleSubgraph.class);
 
   public static class SubgraphMapper extends
-      AvroMapper<GraphNodeData, GraphNodeData> {
-
+      AvroMapper<GraphNodeData, Pair<CharSequence, GraphNodeData>> {
     String targetTag;
+    Pair<CharSequence, GraphNodeData> pair;
 
-    public void Configure(JobConf job) {
+    public void configure(JobConf job) {
       SelectCompressibleSubgraph stage = new SelectCompressibleSubgraph();
       Map<String, ParameterDefinition> definitions =
           stage.getParameterDefinitions();
       targetTag = (String)(definitions.get("read_tag").parseJobConf(job));
+
+      if (targetTag == null) {
+        throw new RuntimeException("The read tag to match isn't set.");
+      }
+      pair = new Pair<CharSequence, GraphNodeData>("0", new GraphNodeData());
     }
 
     @Override
     public void map(
         GraphNodeData graphData,
-        AvroCollector<GraphNodeData> collector,
+        AvroCollector<Pair<CharSequence, GraphNodeData>> collector,
         Reporter reporter) throws IOException {
       String readTag = graphData.getMertag().getReadTag().toString();
-
       if (!readTag.equals(targetTag)) {
         return;
       }
 
-      collector.collect(graphData);
+      pair.value(graphData);
+      collector.collect(pair);
       reporter.incrCounter("Contrail", "nodes", 1);
+    }
+  }
+
+  public static class SubgraphReducer extends
+    AvroReducer<CharSequence, GraphNodeData, GraphNodeData> {
+
+    @Override
+    public void reduce(CharSequence  key, Iterable<GraphNodeData> iterable,
+        AvroCollector<GraphNodeData> collector, Reporter reporter)
+            throws IOException  {
+      for (GraphNodeData node : iterable) {
+        collector.collect(node);
+      }
     }
   }
 
@@ -116,7 +136,6 @@ public class SelectCompressibleSubgraph  extends Stage {
     sLogger.info(" - input: "  + inputPath);
     sLogger.info(" - output: " + outputPath);
 
-
     Configuration base_conf = getConf();
     JobConf conf = null;
     if (base_conf == null) {
@@ -133,11 +152,19 @@ public class SelectCompressibleSubgraph  extends Stage {
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
     GraphNodeData graphData = new GraphNodeData();
-    AvroJob.setInputSchema(conf, graphData.getSchema());
-    AvroJob.setMapOutputSchema(conf, graphData.getSchema());
+    Pair<CharSequence, GraphNodeData> pair =
+        new Pair<CharSequence, GraphNodeData>("", graphData);
 
-    // Job is mapper only.
-    conf.setNumReduceTasks(0);
+    AvroJob.setInputSchema(conf, graphData.getSchema());
+    AvroJob.setMapOutputSchema(conf, pair.getSchema());
+    AvroJob.setOutputSchema(conf, graphData.getSchema());
+
+    AvroJob.setMapperClass(conf, SubgraphMapper.class);
+    AvroJob.setReducerClass(conf, SubgraphReducer.class);
+
+    // The Job could be mapper only but for convenience we typically want
+    // all the nodes to be in one file.
+    conf.setNumReduceTasks(1);
 
     if (stage_options.containsKey("writeconfig")) {
       writeJobConfig(conf);
