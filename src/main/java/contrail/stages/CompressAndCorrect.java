@@ -411,6 +411,8 @@ public class CompressAndCorrect extends Stage {
     CompressionResult initialCompression = compressAsMuchAsPossible(
         0, inputPath);
 
+    step = initialCompression.step + 1;
+
     // Having compressed the graph and popping bubbles, operations which could
     // increase the average coverage of some nodes, we remove low coverage
     // nodes.
@@ -420,7 +422,6 @@ public class CompressAndCorrect extends Stage {
       // from this round.
       String stepPath = new Path(
           tempPath(), "step_" +sf.format(step)).toString();
-      step = initialCompression.step + 1;
       String lowCoveragePath =
           new Path(stepPath, "LowCoveragePath").toString();
       lowCoverageResult = removeLowCoverageNodes(
