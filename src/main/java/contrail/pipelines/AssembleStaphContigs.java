@@ -49,6 +49,17 @@ public class AssembleStaphContigs extends AssembleContigs {
     if (!stage_options.containsKey("MAXTHREADREADS")) {
       stage_options.put("MAXTHREADREADS", new Integer(0));
     }
+
+    // Compute the stats after stage.
+    if (!stage_options.containsKey("compute_stats")) {
+      stage_options.put("compute_stats", new Boolean(true));
+    }
+
+    // Keep the outputs from each stage. This helps in debugging and
+    // analysis.
+    if (!stage_options.containsKey("cleanup")) {
+      stage_options.put("cleanup", new Boolean(false));
+    }
   }
 
   public static void main(String[] args) throws Exception {
