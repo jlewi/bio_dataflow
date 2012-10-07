@@ -642,6 +642,64 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
   }
 
   @Test
+  public void testCycleWithIncomingEdge() {
+    // This test covers a subgraph that we saw in the staph dataset. The
+    // graph is  B->X->RC(Y)->X .
+    // In this case the cycle is automatically borken at X because of
+    // the incoming edge from B. This means we will try to merge X & Y
+    // So the resulting graph should be B->{XY}.
+    GraphNode branchNode = new GraphNode();
+    branchNode.setNodeId("branch");
+    branchNode.setSequence(new Sequence("ACCT", DNAAlphabetFactory.create()));
+
+    GraphNode cycleStart = new GraphNode();
+    cycleStart.setNodeId("cyclestart");
+    cycleStart.setSequence(new Sequence("CTC", DNAAlphabetFactory.create()));
+
+    GraphNode cycleEnd = new GraphNode();
+    cycleEnd.setNodeId("cyclend");
+    cycleEnd.setSequence(
+        DNAUtil.reverseComplement(
+            new Sequence("TCCT", DNAAlphabetFactory.create())));
+
+    GraphUtil.addBidirectionalEdge(
+        branchNode, DNAStrand.FORWARD, cycleStart, DNAStrand.FORWARD);
+
+    GraphUtil.addBidirectionalEdge(
+        cycleStart, DNAStrand.FORWARD, cycleEnd, DNAStrand.REVERSE);
+
+    GraphUtil.addBidirectionalEdge(
+        cycleEnd, DNAStrand.REVERSE, cycleStart, DNAStrand.FORWARD);
+
+    HashMap<String, GraphNode> nodes = new HashMap<String, GraphNode>();
+    nodes.put(branchNode.getNodeId(), branchNode);
+    nodes.put(cycleStart.getNodeId(), cycleStart);
+    nodes.put(cycleEnd.getNodeId(), cycleEnd);
+
+    NodesToMerge nodesToMerge =
+        QuickMergeUtil.findNodesToMerge(nodes, cycleStart);
+
+    int K = 3;
+    ChainMergeResult result =
+        QuickMergeUtil.mergeLinearChain(nodes, nodesToMerge, K - 1);
+
+    GraphNode expectedMerged = new GraphNode();
+    expectedMerged.setNodeId(cycleStart.getNodeId());
+    expectedMerged.setSequence(
+        new Sequence("ACTAC", DNAAlphabetFactory.create()));
+
+    GraphNode expectedBranch = branchNode.clone();
+    GraphUtil.addBidirectionalEdge(
+        expectedBranch, DNAStrand.FORWARD, expectedMerged, DNAStrand.FORWARD);
+
+    GraphUtil.addBidirectionalEdge(
+        expectedMerged, DNAStrand.FORWARD, expectedMerged, DNAStrand.FORWARD);
+
+    assertEquals(expectedMerged, result.merged_node);
+    System.out.println("done");
+  }
+
+  @Test
   public void testSelfCycle() {
     // The graph in this test case is
     // A->X->R(X)->R(A) which gets merged into
