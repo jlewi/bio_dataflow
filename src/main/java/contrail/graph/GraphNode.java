@@ -858,7 +858,20 @@ public class GraphNode {
   }
 
   public void setNodeId(String nodeid) {
+    String oldId = getNodeId();
     data.setNodeId(nodeid);
+
+    // If the node has any edges to itself then we need to update those
+    // edges as well.
+    if (this.getNeighborIds().contains(oldId)) {
+      for (NeighborData neighbor : data.getNeighbors()) {
+        if (neighbor.getNodeId().toString().equals(oldId)) {
+          neighbor.setNodeId(nodeid);
+          break;
+        }
+      }
+      this.derived_data.clear();
+    }
   }
 
   /**

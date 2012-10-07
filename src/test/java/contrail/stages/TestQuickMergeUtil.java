@@ -686,11 +686,11 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
     GraphNode expectedMerged = new GraphNode();
     expectedMerged.setNodeId(cycleStart.getNodeId());
     expectedMerged.setSequence(
-        new Sequence("ACTAC", DNAAlphabetFactory.create()));
+        new Sequence("AGGAG", DNAAlphabetFactory.create()));
 
     GraphNode expectedBranch = branchNode.clone();
     GraphUtil.addBidirectionalEdge(
-        expectedBranch, DNAStrand.FORWARD, expectedMerged, DNAStrand.FORWARD);
+        expectedBranch, DNAStrand.FORWARD, expectedMerged, DNAStrand.REVERSE);
 
     GraphUtil.addBidirectionalEdge(
         expectedMerged, DNAStrand.FORWARD, expectedMerged, DNAStrand.FORWARD);

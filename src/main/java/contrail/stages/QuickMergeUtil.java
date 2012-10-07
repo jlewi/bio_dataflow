@@ -402,7 +402,7 @@ public class QuickMergeUtil {
           merged_node, dest, strands, overlap);
 
       merged_node = merge_result.node;
-      merged_node.getData().setNodeId(merged_id);
+      merged_node.setNodeId(merged_id);
 
       // Which strand corresponds to the merged strand.
       merged_strand = merge_result.strand;
@@ -443,6 +443,12 @@ public class QuickMergeUtil {
         nodes, nodesWithEdgesToBoth, nodes_to_merge, merged_node,
         merged_strand);
 
+    // When moving the incoming edges to the ends of the chain we need
+    // to avoid cycles. We do this by adding the ids of the chain ends
+    // to the list of terminals to avoid merging.
+    nodesWithEdgesToBoth.add(nodes_to_merge.start_terminal.nodeId);
+    nodesWithEdgesToBoth.add(nodes_to_merge.end_terminal.nodeId);
+
     // We need to move the incoming edges to the first node in the chain
     // and the incoming edges to the last node in the chain.
     {
@@ -471,6 +477,23 @@ public class QuickMergeUtil {
             nodes, old_terminal, new_terminal, nodesWithEdgesToBoth);
       }
     }
+
+    // LEWI NO COMMIT THIS CODE SHOULDN"T BE NEEDED. The cycle
+    // should be created when we merge the two nodes.
+    // Handle a cycle. Supose we have the graph B->X->Y->X
+    // And we are merging the X & Y. Then after the merge we should have
+    // B->XY->XY
+//    {
+//      GraphNode endNode = nodes.get(nodes_to_merge.end_terminal.nodeId);
+//      if (endNode.getEdgeTerminalsSet(
+//          nodes_to_merge.end_terminal.strand, EdgeDirection.OUTGOING).contains(
+//              nodes_to_merge.start_terminal)) {
+//        // Add a cycle to the merged node.
+//        EdgeTerminal terminal = new EdgeTerminal(
+//            merged_node.getNodeId(), merged_strand);
+//        merged_node.addOutgoingEdge(merged_strand, terminal);
+//      }
+//    }
     result.merged_node = merged_node;
     return result;
   }
