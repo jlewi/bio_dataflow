@@ -531,4 +531,19 @@ public class TestGraphNode {
 	  node.removeNeighbor("newNeighbor");
 	  assertEquals(original.getData(), node.getData());
 	}
+
+	@Test
+	public void testSetNodeId() {
+	  // When setting the id for a node we need to make sure that if the node
+	  // has an edge to itself that edge gets updated.
+	  GraphNode node = new GraphNode();
+	  node.setNodeId("oldid");
+	  node.setSequence(new Sequence("AAA", DNAAlphabetFactory.create()));
+	  GraphUtil.addBidirectionalEdge(
+	      node, DNAStrand.FORWARD, node, DNAStrand.FORWARD);
+	  node.setNodeId("newid");
+	  HashSet<String> expectedNeighbors = new HashSet<String>();
+	  expectedNeighbors.add("newid");
+	  assertEquals(expectedNeighbors, node.getNeighborIds());
+	}
 }

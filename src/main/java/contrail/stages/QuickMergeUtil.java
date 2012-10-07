@@ -417,24 +417,6 @@ public class QuickMergeUtil {
     // to move other edges.
     merged_node.setNodeId(merged_id);
 
-    if (nodes_to_merge.hit_cycle) {
-      // We are merging a perfect cycle.
-      // e.g ATC->TCG->CGC->GCA->CAT
-      // So the merged sequence is ATCGCAT
-      // and has incoming/outgoing edges to itself. So we need to move
-      // the incoming edge to ATC. E.g CAT->ATC needs to become
-      // ATCGCAT -> ATCGCAT.
-      EdgeTerminal end_terminal = nodes_to_merge.end_terminal;
-      DNAStrand strand = DNAStrandUtil.flip(merged_strand);
-      EdgeTerminal old_terminal = end_terminal.flip();
-      EdgeTerminal new_terminal = new EdgeTerminal(
-          merged_node.getNodeId(), strand);
-      merged_node.moveOutgoingEdge(
-          strand, old_terminal, new_terminal);
-      result.merged_node = merged_node;
-      return result;
-    }
-
     HashSet<String> nodesWithEdgesToBoth = findNodesWithEdgesToBothEnds(
         nodes, nodes_to_merge);
 
