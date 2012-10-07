@@ -460,22 +460,6 @@ public class QuickMergeUtil {
       }
     }
 
-    // LEWI NO COMMIT THIS CODE SHOULDN"T BE NEEDED. The cycle
-    // should be created when we merge the two nodes.
-    // Handle a cycle. Supose we have the graph B->X->Y->X
-    // And we are merging the X & Y. Then after the merge we should have
-    // B->XY->XY
-//    {
-//      GraphNode endNode = nodes.get(nodes_to_merge.end_terminal.nodeId);
-//      if (endNode.getEdgeTerminalsSet(
-//          nodes_to_merge.end_terminal.strand, EdgeDirection.OUTGOING).contains(
-//              nodes_to_merge.start_terminal)) {
-//        // Add a cycle to the merged node.
-//        EdgeTerminal terminal = new EdgeTerminal(
-//            merged_node.getNodeId(), merged_strand);
-//        merged_node.addOutgoingEdge(merged_strand, terminal);
-//      }
-//    }
     result.merged_node = merged_node;
     return result;
   }
