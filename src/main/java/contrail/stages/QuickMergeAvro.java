@@ -156,10 +156,6 @@ public class QuickMergeAvro extends Stage {
         QuickMergeUtil.NodesToMerge nodes_to_merge =
             QuickMergeUtil.findNodesToMerge(nodes, start_node);
 
-        // LEWI NO COMMIT
-        if (nodes_to_merge.nodeids_visited.contains("AAGTTAAAAGCTTTATGTGGTTTTGATTAAACTGCGAACAGCTGCTTCTCTTTGA")) {
-          System.out.println("Problem");
-        }
         // Remove all the nodes visited from the list of ids to process.
         nodes_to_process.removeAll(nodes_to_merge.nodeids_visited);
 
