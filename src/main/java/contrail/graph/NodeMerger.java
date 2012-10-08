@@ -13,8 +13,6 @@ import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
 
 public class NodeMerger {
-
-
   /**
    * Copy edges from old_node to new node.
    * @param new_node: The node to copy to.
@@ -338,11 +336,11 @@ public class NodeMerger {
     // these edges so that the result is:
     // AB->A => AB->AB
     // RC(AB)->RC(B) => RC(AB)->RC(AB).
+    EdgeTerminal srcTerminal = new EdgeTerminal(
+        src.getNodeId(), StrandsUtil.src(strands));
     if (dest.getEdgeTerminalsSet(
-        StrandsUtil.dest(strands), EdgeDirection.OUTGOING).contains(
-            new EdgeTerminal(src.getNodeId(), StrandsUtil.src(strands)))) {
-      EdgeTerminal srcTerminal = new EdgeTerminal(
-          src.getNodeId(), StrandsUtil.src(strands));
+            StrandsUtil.dest(strands), EdgeDirection.OUTGOING).contains(
+                srcTerminal)) {
       EdgeTerminal destTerminal = new EdgeTerminal(
           dest.getNodeId(), StrandsUtil.dest(strands));
 
