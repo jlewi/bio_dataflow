@@ -31,7 +31,7 @@ public class AssembleStaphContigs extends AssembleContigs {
       stage_options.put("K", new Integer(55));
     }
     if (!stage_options.containsKey("tiplength")) {
-      stage_options.put("tiplength", new Integer(110));
+      stage_options.put("tiplength", new Integer(125));
     }
     if (!stage_options.containsKey("bubble_edit_rate")) {
       stage_options.put("bubble_edit_rate", new Float(.05f));
