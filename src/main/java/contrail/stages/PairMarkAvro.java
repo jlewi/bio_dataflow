@@ -246,7 +246,13 @@ public class PairMarkAvro extends Stage {
           compressible_node.getNode().getEdgeTerminals(
               edge_to_compress.strand, EdgeDirection.INCOMING);
 
-      for (EdgeTerminal terminal: incoming_terminals){
+      for (EdgeTerminal terminal: incoming_terminals) {
+        if (terminal.nodeId.equals(edge_to_compress.other_terminal.nodeId)) {
+          // The incoming edge is from the terminal we are about to merge
+          // with (e.g. we have a cycle). That edge will be moved when
+          // we merge the two nodes so we don't need to to handle it now.
+          continue;
+        }
         out_pair.key(terminal.nodeId);
         out_pair.value().setPayload(edge_update);
         collector.collect(out_pair);
