@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -343,6 +344,19 @@ public class PairMarkAvro extends Stage {
         return;
       }
       reporter.incrCounter("Contrail", "compressible", 1);
+
+
+      //LEWI NO COMMIT
+      {
+        HashSet<String> debugIds = new HashSet<String>();
+        debugIds.add("CGGTTTACAGTTGGATCTTCGCTCCAACTGCATAAGAGCCACTAATTATTATAAA");
+        debugIds.add("ATAATAATTAGTGGCTCTTATGCAGTTGGAGCGAAGATCCAACTGTAAACCGTAG");
+
+            if (debugIds.contains(node_data.getNode().getNodeId().toString())) {
+              GraphNode node = new GraphNode(node_data.getNode());
+              System.out.println("LEWI NOCOMMIT");
+            }
+      }
 
       CoinFlipper.CoinFlip coin = computeState(
           compressible_node.getNode(), fbuddy, rbuddy);
