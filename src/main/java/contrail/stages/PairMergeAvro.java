@@ -375,11 +375,6 @@ public class PairMergeAvro extends Stage {
       reporter.incrCounter(
           "PairMergeAvro", "nodes-merged", nodes_to_merge.size());
 
-      // LEWI NOCOMMIT
-      if (nodeid.toString().equals("CGGTTTACAGTTGGATCTTCGCTCCAACTGCATAAGAGCCACTAATTATTATAAA")) {
-        System.out.println("LEWI NOCOMMIT");
-      }
-
       // Sort the nodes into a chain so that we just need to merge
       // each node with its neighbor.
       Chain chain = sortNodes(nodes_to_merge);
