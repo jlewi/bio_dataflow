@@ -645,7 +645,7 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
   public void testCycleWithIncomingEdge() {
     // This test covers a subgraph that we saw in the staph dataset. The
     // graph is  B->X->RC(Y)->X .
-    // In this case the cycle is automatically borken at X because of
+    // In this case the cycle is automatically broken at X because of
     // the incoming edge from B. This means we will try to merge X & Y
     // So the resulting graph should be B->{XY}.
     GraphNode branchNode = new GraphNode();
@@ -696,7 +696,6 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
         expectedMerged, DNAStrand.FORWARD, expectedMerged, DNAStrand.FORWARD);
 
     assertEquals(expectedMerged, result.merged_node);
-    System.out.println("done");
   }
 
   @Test
