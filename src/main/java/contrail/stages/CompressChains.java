@@ -283,8 +283,10 @@ public class CompressChains extends Stage {
       }
 
       JobConf job_conf = new JobConf(CompressChains.class);
-      for (String pathToDelete : pathsToDelete) {
-        FileSystem.get(job_conf).delete(new Path(pathToDelete), true);
+      if ((Boolean) stage_options.get("cleanup")) {
+        for (String pathToDelete : pathsToDelete) {
+          FileSystem.get(job_conf).delete(new Path(pathToDelete), true);
+        }
       }
 
       String percchange =
@@ -357,6 +359,10 @@ public class CompressChains extends Stage {
       new ParameterDefinition[] {localnodes, resume, stage_num}) {
       definitions.put(def.getName(), def);
     }
+
+    ParameterDefinition cleanup = ContrailParameters.getCleanup();
+    definitions.put(cleanup.getName(), cleanup);
+
     return Collections.unmodifiableMap(definitions);
   }
 
