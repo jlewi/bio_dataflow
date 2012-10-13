@@ -23,7 +23,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+
+import org.apache.avro.Schema;
+import org.apache.avro.file.DataFileWriter;
+import org.apache.avro.io.DatumWriter;
 import org.apache.avro.mapred.Pair;
+import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
@@ -358,6 +363,61 @@ public class TestValidateGraph extends ValidateGraph {
 
     GraphUtil.writeGraphToFile(
         avroFile, builder.getAllNodes().values());
+
+    // Run it.
+    ValidateGraph stage = new ValidateGraph();
+    // We need to initialize the configuration otherwise we will get an
+    // exception. Normally the initialization happens in main.
+    stage.setConf(new Configuration());
+
+    File output_path = new File(temp, "output");
+
+    String[] args =
+      {"--inputpath=" + temp.toURI().toString(),
+       "--outputpath=" + output_path.toURI().toString(),
+       "--K=3"};
+
+    // Catch the following after debugging.
+    try {
+      stage.run(args);
+    } catch (Exception exception) {
+      exception.printStackTrace();
+      fail("Exception occured:" + exception.getMessage());
+    }
+  }
+
+  @Test
+  public void testRunCompressibleNodeData() {
+    // Create a graph and write it to a file.
+    SimpleGraphBuilder builder = new SimpleGraphBuilder();
+    builder.addKMersForString("ACTGGATT", 3);
+
+    // Add some tips.
+    builder.addEdge("ATT", "TTG", 2);
+    builder.addEdge("ATT", "TTC", 2);
+
+    File temp = createTempDir();
+    File avroFile = new File(temp, "graph.avro");
+
+    Schema schema = (new CompressibleNodeData()).getSchema();
+    DatumWriter<CompressibleNodeData> datumWriter =
+        new SpecificDatumWriter<CompressibleNodeData>(schema);
+    DataFileWriter<CompressibleNodeData> writer =
+        new DataFileWriter<CompressibleNodeData>(datumWriter);
+
+    try {
+      writer.create(schema, avroFile);
+      for (GraphNode node: builder.getAllNodes().values()) {
+        CompressibleNodeData compressible = new CompressibleNodeData();
+        compressible.setNode(node.getData());
+        compressible.setCompressibleStrands(CompressibleStrands.NONE);
+        writer.append(compressible);
+      }
+      writer.close();
+    } catch (IOException exception) {
+      fail("There was a problem writing the graph to an avro file. " +
+           "Exception: " + exception.getMessage());
+    }
 
     // Run it.
     ValidateGraph stage = new ValidateGraph();
