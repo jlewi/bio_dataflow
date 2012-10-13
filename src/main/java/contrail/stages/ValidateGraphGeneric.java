@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroMapper;
@@ -84,7 +83,7 @@ public class ValidateGraphGeneric extends Stage {
    * outgoing edges.
    */
   protected static class ValidateGraphMapper extends
-      AvroMapper<GenericRecord, Pair<CharSequence, ValidateMessage>> {
+      AvroMapper<Object, Pair<CharSequence, ValidateMessage>> {
     private int K = 0;
     private GraphNode node = null;
     private Pair<CharSequence, ValidateMessage> outPair = null;
@@ -101,13 +100,21 @@ public class ValidateGraphGeneric extends Stage {
           "", new ValidateMessage());
     }
     @Override
-    public void map(GenericRecord record,
+    public void map(Object record,
         AvroCollector<Pair<CharSequence, ValidateMessage>> output,
         Reporter reporter) throws IOException {
-
-      throw new RuntimeException("Code not finished");
       // TODO(jlewi): Grab the graphNode data from the record.
-      GraphNodeData nodeData = new GraphNodeData();
+      GraphNodeData nodeData;
+      if (record instanceof GraphNodeData) {
+        nodeData = (GraphNodeData) record;
+      } else if (record instanceof CompressibleNodeData) {
+        CompressibleNodeData compressedNode = (CompressibleNodeData) record;
+        nodeData = compressedNode.getNode();
+      } else {
+        throw new RuntimeException(
+            "Don't know how to get GraphNodeData from: " +
+            record.getClass().getName());
+      }
 
       node.setData(nodeData);
       // Output the node.
@@ -350,9 +357,11 @@ public class ValidateGraphGeneric extends Stage {
 
     // Create a union of all the schemas that the input could be.
     GraphNodeData nodeData = new GraphNodeData();
+    CompressibleNodeData compressibleNodeData = new CompressibleNodeData();
 
     ArrayList<Schema> schemas = new ArrayList<Schema>();
     schemas.add(nodeData.getSchema());
+    schemas.add(compressibleNodeData.getSchema());
 
     Schema unionSchema = Schema.createUnion(schemas);
     AvroJob.setInputSchema(conf, unionSchema);
@@ -382,7 +391,8 @@ public class ValidateGraphGeneric extends Stage {
   }
 
   public static void main(String[] args) throws Exception {
-    int res = ToolRunner.run(new Configuration(), new ValidateGraph(), args);
+    int res = ToolRunner.run(
+        new Configuration(), new ValidateGraphGeneric(), args);
     System.exit(res);
   }
 }
