@@ -73,30 +73,6 @@ public class ParameterDefinition {
    */
   public Object parseCommandLine(CommandLine line) {
     String value = null;
-    if (this.type_.equals(Boolean.class)) {
-      // Boolean options might not have an argument. In this case
-      // we should interpret the option as being true.
-      boolean hasOption = false;
-      if (line.hasOption(name_)) {
-        value = line.getOptionValue(name_);
-        hasOption = true;
-      } else if (line.hasOption(short_name_)) {
-        value = line.getOptionValue(short_name_);
-        hasOption = true;
-      }
-      if (hasOption) {
-        if (value == null) {
-          // When a boolean argument is specified but has no value we interpret
-          // that as true.
-          return true;
-        } else {
-          return fromString(value);
-        }
-      } else {
-        return null;
-      }
-    }
-
     if (line.hasOption(name_)) {
       value = line.getOptionValue(name_);
     } else if (line.hasOption(short_name_)) {
