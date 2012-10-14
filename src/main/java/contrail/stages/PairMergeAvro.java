@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -354,6 +355,16 @@ public class PairMergeAvro extends Stage {
         nodes_to_merge.add(CompressUtil.copyNodeInfoForMerge(node_data));
       }
 
+      {
+        // LEWI NOCOMMIT FOR DEBUGGING ONLY
+        HashSet<String> ids = new HashSet<String>();
+        for (NodeInfoForMerge info: nodes_to_merge) {
+          ids.add(info.getCompressibleNode().getNode().getNodeId().toString());
+        }
+        if (ids.contains("ACCGTAGTGTACTTATTATTTATAATAATTAGTGGCTCTTATGCAGTTGGAGCGA")) {
+          System.out.println("problem node.");
+        }
+      }
       // Sanity check. There should be at most three nodes in nodes_to_merge.
       if (nodes_to_merge.size() > 3) {
         throw new RuntimeException(
