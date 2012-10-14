@@ -45,6 +45,12 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
   private static class MapTestCaseData {
     public GraphNodeData node;
     public HashMap<String, RemoveNeighborMessage> expected_messages;
+    public Integer lengthThreshold = 5;
+    public Float coverageThreshold = 4.0f;
+
+    public MapTestCaseData () {
+      expected_messages = new HashMap<String, RemoveNeighborMessage>();
+    }
   }
 
   // short sequence (less than threshold) but not low coverage; hence classified as Non_Low coverage node
@@ -98,12 +104,43 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
     return test_data;
   }
 
-  private List<MapTestCaseData> constructMapCases() {
-    List <MapTestCaseData> cases= new ArrayList<MapTestCaseData>();
-    MapTestCaseData low_cov = constructLowCoverageNode();
-    MapTestCaseData high_cov = constructNonLowCoverageNode();
-    cases.add(high_cov);
-    cases.add(low_cov);
+  private List<MapTestCaseData> constructMapIslands()  {
+    // Construct test cases where the input is an island. If the island
+    // is longer than the cutoff or has higher coverage then it should be
+    // removed.
+    GraphNode node = new GraphNode();
+    node.setSequence(new Sequence("ACTGAT", DNAAlphabetFactory.create()));
+    node.setCoverage(10.0f);
+
+    List<MapTestCaseData> cases = new ArrayList<MapTestCaseData>();
+
+    // Construct all 4 test cases.
+    for (boolean tooLong : new boolean[] {true, false}) {
+      for (boolean highCoverage : new boolean[] {true, false}) {
+        MapTestCaseData testCase = new MapTestCaseData();
+        if (tooLong) {
+          testCase.lengthThreshold = node.getSequence().size() - 2;
+        } else {
+          testCase.lengthThreshold = node.getSequence().size() + 2;
+        }
+
+        if (highCoverage) {
+          testCase.coverageThreshold = node.getCoverage() - 2;
+        } else {
+          testCase.coverageThreshold = node.getCoverage() + 2;
+        }
+        testCase.node = node.clone().getData();
+
+        if (tooLong || highCoverage) {
+          // Island should not be removed.
+          RemoveNeighborMessage message = new RemoveNeighborMessage();
+          message.setNode(node.clone().getData());
+          message.setNodeIDtoRemove("");
+          testCase.expected_messages.put(node.getNodeId(), message);
+          cases.add(testCase);
+        }
+      }
+    }
     return cases;
   }
 
@@ -114,18 +151,25 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
 
     RemoveLowCoverageAvro.RemoveLowCoverageAvroMapper mapper =
         new RemoveLowCoverageAvro.RemoveLowCoverageAvroMapper();
-    RemoveLowCoverageAvro stage= new RemoveLowCoverageAvro();
-    Map<String, ParameterDefinition> definitions = stage.getParameterDefinitions();
+    RemoveLowCoverageAvro stage = new RemoveLowCoverageAvro();
+    Map<String, ParameterDefinition> definitions =
+        stage.getParameterDefinitions();
 
-    JobConf job = new JobConf(RemoveLowCoverageAvro.RemoveLowCoverageAvroMapper.class);
+    List <MapTestCaseData> testCases= new ArrayList<MapTestCaseData>();
+    testCases.add(constructLowCoverageNode());
+    testCases.add(constructNonLowCoverageNode());
+    testCases.addAll(constructMapIslands());
 
-    definitions.get("length_thresh").addToJobConf(job, new Integer(5));
-    definitions.get("low_cov_thresh").addToJobConf(job, new Float(4));
-    mapper.configure(job);
+    JobConf job =
+        new JobConf(RemoveLowCoverageAvro.RemoveLowCoverageAvroMapper.class);
 
-    // Construct the different test cases.
-    List <MapTestCaseData> test_cases = constructMapCases();
-    for (MapTestCaseData case_data : test_cases) {
+    for (MapTestCaseData case_data : testCases) {
+      definitions.get("length_thresh").addToJobConf(
+          job, case_data.lengthThreshold);
+      definitions.get("low_cov_thresh").addToJobConf(
+          job, case_data.coverageThreshold);
+      mapper.configure(job);
+
       AvroCollectorMock<Pair<CharSequence, RemoveNeighborMessage>>
       collector_mock =  new AvroCollectorMock<Pair<CharSequence, RemoveNeighborMessage>>();
       try {
@@ -140,8 +184,15 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
 
   private static class ReduceTestCaseData {
     String key;
-    List <RemoveNeighborMessage> map_out_list;
+    List<RemoveNeighborMessage> map_out_list;
     GraphNodeData expected_node_data;
+
+    public Integer lengthThreshold = 5;
+    public Float coverageThreshold = 4.0f;
+
+    public ReduceTestCaseData() {
+      map_out_list = new ArrayList<RemoveNeighborMessage>();
+    }
   }
 
   private void assertReduceOutput(
@@ -219,28 +270,76 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
     return testData;
   }
 
-  private List<ReduceTestCaseData> constructReduceData() {
-      List<ReduceTestCaseData> test_data_list= new ArrayList<ReduceTestCaseData> ();
-      ReduceTestCaseData high_cov = constructHighCoverageData();
-      ReduceTestCaseData low_cov = constructLowCoverageData();
-      test_data_list.add(low_cov);
-      test_data_list.add(high_cov);
-      test_data_list.add(reducerNodeAlreadyRemoved());
-      return test_data_list;
+  private List<ReduceTestCaseData> constructReduceIslands()  {
+    // Construct test cases where the input is an island. If the island
+    // is longer than the cutoff or has higher coverage then it should be
+    // removed.
+    GraphNode node = new GraphNode();
+    node.setSequence(new Sequence("ACTGAT", DNAAlphabetFactory.create()));
+    node.setCoverage(10.0f);
+
+    List<ReduceTestCaseData> cases = new ArrayList<ReduceTestCaseData>();
+
+    // Construct all 4 test cases.
+    for (boolean tooLong : new boolean[] {true, false}) {
+      for (boolean highCoverage : new boolean[] {true, false}) {
+        ReduceTestCaseData testCase = new ReduceTestCaseData();
+        if (tooLong) {
+          testCase.lengthThreshold = node.getSequence().size() - 2;
+        } else {
+          testCase.lengthThreshold = node.getSequence().size() + 2;
+        }
+
+        if (highCoverage) {
+          testCase.coverageThreshold = node.getCoverage() - 2;
+        } else {
+          testCase.coverageThreshold = node.getCoverage() + 2;
+        }
+
+        RemoveNeighborMessage message = new RemoveNeighborMessage();
+        message.setNode(node.clone().getData());
+        message.setNodeIDtoRemove("");
+        testCase.map_out_list.add(message);
+
+        if (tooLong || highCoverage) {
+          // Island should not be removed.
+          testCase.expected_node_data = node.clone().getData();
+        }
+        cases.add(testCase);
+      }
+    }
+    return cases;
   }
 
   @Test
   public void testReduce() {
-    List <ReduceTestCaseData> case_data_list= constructReduceData();
     ReporterMock reporter_mock = new ReporterMock();
     Reporter reporter = reporter_mock;
-    JobConf job = new JobConf(RemoveLowCoverageAvro.RemoveLowCoverageAvroReducer.class);
+    JobConf job =
+        new JobConf(RemoveLowCoverageAvro.RemoveLowCoverageAvroReducer.class);
+    RemoveLowCoverageAvro stage = new RemoveLowCoverageAvro();
     RemoveLowCoverageAvro.RemoveLowCoverageAvroReducer reducer =
         new RemoveLowCoverageAvro.RemoveLowCoverageAvroReducer();
-    reducer.configure(job);
-    for (ReduceTestCaseData case_data : case_data_list) {
+    Map<String, ParameterDefinition> definitions =
+        stage.getParameterDefinitions();
 
-      AvroCollectorMock<GraphNodeData> collector_mock = new AvroCollectorMock<GraphNodeData>();
+    List<ReduceTestCaseData> testCases =
+        new ArrayList<ReduceTestCaseData>();
+
+    testCases.add(constructHighCoverageData());
+    testCases.add(constructLowCoverageData());
+    testCases.add(reducerNodeAlreadyRemoved());
+    testCases.addAll(constructReduceIslands());
+
+    for (ReduceTestCaseData case_data : testCases) {
+      definitions.get("length_thresh").addToJobConf(
+          job, case_data.lengthThreshold);
+      definitions.get("low_cov_thresh").addToJobConf(
+          job, case_data.coverageThreshold);
+      reducer.configure(job);
+
+      AvroCollectorMock<GraphNodeData> collector_mock =
+          new AvroCollectorMock<GraphNodeData>();
       try {
         reducer.reduce(
             case_data.key, case_data.map_out_list, collector_mock, reporter);
