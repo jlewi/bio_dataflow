@@ -25,6 +25,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.avro.Schema;
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroMapper;
@@ -44,6 +45,9 @@ import org.apache.log4j.Logger;
 
 /**
  * This MR job checks that a graph is valid.
+ * This version attempts to use as a GenericRecord as the input schema
+ * so that we can handle different input types; e.g. the output of the
+ * compressible stage.
  *
  * Every node sends a message to its neighbor containing:
  *   1) The id of the source node.
@@ -57,7 +61,8 @@ import org.apache.log4j.Logger;
  *      edge.
  */
 public class ValidateGraph extends Stage {
-  private static final Logger sLogger = Logger.getLogger(ValidateGraph.class);
+  private static final Logger sLogger = Logger.getLogger(
+      ValidateGraph.class);
 
   protected Map<String, ParameterDefinition>
     createParameterDefinitions() {
@@ -78,7 +83,7 @@ public class ValidateGraph extends Stage {
    * outgoing edges.
    */
   protected static class ValidateGraphMapper extends
-  AvroMapper<GraphNodeData, Pair<CharSequence, ValidateMessage>> {
+      AvroMapper<Object, Pair<CharSequence, ValidateMessage>> {
     private int K = 0;
     private GraphNode node = null;
     private Pair<CharSequence, ValidateMessage> outPair = null;
@@ -95,9 +100,21 @@ public class ValidateGraph extends Stage {
           "", new ValidateMessage());
     }
     @Override
-    public void map(GraphNodeData nodeData,
+    public void map(Object record,
         AvroCollector<Pair<CharSequence, ValidateMessage>> output,
         Reporter reporter) throws IOException {
+      // TODO(jlewi): Grab the graphNode data from the record.
+      GraphNodeData nodeData;
+      if (record instanceof GraphNodeData) {
+        nodeData = (GraphNodeData) record;
+      } else if (record instanceof CompressibleNodeData) {
+        CompressibleNodeData compressedNode = (CompressibleNodeData) record;
+        nodeData = compressedNode.getNode();
+      } else {
+        throw new RuntimeException(
+            "Don't know how to get GraphNodeData from: " +
+            record.getClass().getName());
+      }
 
       node.setData(nodeData);
       // Output the node.
@@ -333,14 +350,21 @@ public class ValidateGraph extends Stage {
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
-    GraphNodeData nodeData = new GraphNodeData();
-
     Pair<CharSequence, ValidateMessage> mapPair = new Pair(
         "", new ValidateMessage());
 
     GraphError graphError = new GraphError();
 
-    AvroJob.setInputSchema(conf, nodeData.getSchema());
+    // Create a union of all the schemas that the input could be.
+    GraphNodeData nodeData = new GraphNodeData();
+    CompressibleNodeData compressibleNodeData = new CompressibleNodeData();
+
+    ArrayList<Schema> schemas = new ArrayList<Schema>();
+    schemas.add(nodeData.getSchema());
+    schemas.add(compressibleNodeData.getSchema());
+
+    Schema unionSchema = Schema.createUnion(schemas);
+    AvroJob.setInputSchema(conf, unionSchema);
     AvroJob.setMapOutputSchema(conf, mapPair.getSchema());
     AvroJob.setOutputSchema(conf, graphError.getSchema());
 
@@ -367,7 +391,8 @@ public class ValidateGraph extends Stage {
   }
 
   public static void main(String[] args) throws Exception {
-    int res = ToolRunner.run(new Configuration(), new ValidateGraph(), args);
+    int res = ToolRunner.run(
+        new Configuration(), new ValidateGraph(), args);
     System.exit(res);
   }
 }
