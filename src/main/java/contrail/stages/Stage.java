@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
@@ -79,6 +80,7 @@ import org.apache.log4j.PatternLayout;
 public abstract class Stage extends Configured implements Tool  {
   private static final Logger sLogger =
       Logger.getLogger(Stage.class);
+
   public Stage() {
   }
 
@@ -145,6 +147,19 @@ public abstract class Stage extends Configured implements Tool  {
       definitions = createParameterDefinitions();
     }
     return definitions;
+  }
+
+  /**
+   * This function logs the values of the options.
+   */
+  private void logParameters() {
+    ArrayList<String> keys = new ArrayList<String>();
+    keys.addAll(stage_options.keySet());
+    Collections.sort(keys);
+    for (String key : keys) {
+      sLogger.info(String.format(
+          "Parameter: %s=%s", key, stage_options.get(key).toString()));
+    }
   }
 
   /**
@@ -258,6 +273,43 @@ public abstract class Stage extends Configured implements Tool  {
   }
 
   /**
+   * A hook executed right before the job is run. This is intended to
+   * allow subclasses to execute code after the job has been fully initialized.
+   * Subclasses should invoke the hook in the base clas if the override it.
+   */
+  protected void hookBeforeRunJob() {
+    // Print out all the stage options. This ensures we have a log of all
+    // option values.
+    Map<String, ParameterDefinition> definitions = getParameterDefinitions();
+    StringBuilder builder = new StringBuilder();
+    builder.append("options:");
+    for (Entry<String, Object> pair : stage_options.entrySet()) {
+      builder.append(" ");
+      ParameterDefinition definition = definitions.get(pair.getKey());
+      builder.append(String.format(
+          "--%s=%s", definition.getName(), pair.getValue().toString()));
+    }
+
+    sLogger.info(builder.toString());
+  }
+
+  /**
+   * Execute runs a job.
+   *
+   * @return
+   */
+  public RunningJob execute() throws Exception {
+    // TODO(jlewi): Invoke a function setupJob that would be overwritten
+    // by the subclass.
+
+    // Now that the job is fully setup invoke the hookBeforeRunJob()
+    hookBeforeRunJob();
+
+    // Run the actual job.
+    return runJob();
+  }
+
+  /**
    * Run the job.
    *
    * @return
@@ -290,6 +342,11 @@ public abstract class Stage extends Configured implements Tool  {
     // This function provides the entry point when running from the command
     // line; i.e. using ToolRunner.
     sLogger.info("Tool name: " + this.getClass().getName());
+
+    // Print the command line on a single line as its convenient for
+    // copy pasting.
+    sLogger.info("Command line arguments: " + StringUtils.join(args, " "));
+
     parseCommandLine(args);
 
     if (stage_options.containsKey("log_file")) {
@@ -305,6 +362,7 @@ public abstract class Stage extends Configured implements Tool  {
       sLogger.info("Adding a file log appender to: " + logFile);
     }
 
+    logParameters();
     RunningJob job = runJob();
 
     if (job == null) {
