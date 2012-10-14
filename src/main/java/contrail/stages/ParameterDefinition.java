@@ -100,7 +100,7 @@ public class ParameterDefinition {
     if (line.hasOption(name_)) {
       value = line.getOptionValue(name_);
     } else if (line.hasOption(short_name_)) {
-     value = line.getOptionValue(short_name_);
+      value = line.getOptionValue(short_name_);
     } else {
       // TODO(jlewi): Should we return null or throw an exception if
       // the parameter is missing?
