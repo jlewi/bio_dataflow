@@ -69,8 +69,10 @@ public class RemoveTipsAvro extends Stage {
         new HashMap<String, ParameterDefinition>();
     defs.putAll(super.createParameterDefinitions());
 
-    ParameterDefinition tiplength = new ParameterDefinition("tiplength", "any" +
-        "sequences longer than this are not considered tips and will not be removed", Integer.class, new Integer(0));
+    ParameterDefinition tiplength = new ParameterDefinition(
+        "tiplength", "Any sequences longer than this are not considered tips " +
+        "or islands and will not be removed. This value should be at least " +
+        "K.", Integer.class, new Integer(0));
 
     for (ParameterDefinition def: new ParameterDefinition[] {tiplength}) {
       defs.put(def.getName(), def);
@@ -87,7 +89,7 @@ public class RemoveTipsAvro extends Stage {
   ///////////////////////////////////////////////////////////////////////////
 
   public static class RemoveTipsAvroMapper extends
-  AvroMapper<GraphNodeData, Pair<CharSequence, RemoveTipMessage>>  {
+      AvroMapper<GraphNodeData, Pair<CharSequence, RemoveTipMessage>>  {
 
     public int tiplength = 0;
     public  GraphNode node= null;
@@ -112,9 +114,19 @@ public class RemoveTipsAvro extends Stage {
       int len     = graph_data.getSequence().getLength();
 
       if ((fdegree == 0) && (rdegree == 0))   {
-        reporter.incrCounter("Contrail", "tips_island", 1);
+        if (node.getSequence().size() <= tiplength) {
+          reporter.incrCounter("Contrail", "RemoveTips-island-removed", 1);
+          return;
+        }
+
+        msg.setNode(graph_data);
+        msg.setEdgeStrands(null);
+        out_pair.set(node.getNodeId(), msg);
+        output.collect(out_pair);
+        reporter.incrCounter("Contrail", "nodes", 1);
         return;
       }
+
       if ((len <= tiplength) && (fdegree + rdegree <= 1))  {
         reporter.incrCounter("Contrail", "tips_found", 1);
 

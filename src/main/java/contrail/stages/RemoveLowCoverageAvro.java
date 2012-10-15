@@ -149,9 +149,19 @@ public class RemoveLowCoverageAvro extends Stage {
     GraphNode node = null;
     List<String> neighbors = null;
 
+    int lengthThresh;
+    float lowCovThresh;
+
     public void configure(JobConf job) {
       node = new GraphNode();
+      RemoveLowCoverageAvro stage = new RemoveLowCoverageAvro();
+      Map<String, ParameterDefinition> definitions =
+          stage.getParameterDefinitions();
       neighbors = new ArrayList<String>();
+      lengthThresh =
+          (Integer)(definitions.get("length_thresh").parseJobConf(job));
+      lowCovThresh =
+          (Float)(definitions.get("low_cov_thresh").parseJobConf(job));
     }
 
     public void reduce(CharSequence nodeid, Iterable<RemoveNeighborMessage> iterable,
@@ -187,7 +197,7 @@ public class RemoveLowCoverageAvro extends Stage {
       }
 
       for(CharSequence neighbor : neighbors) {
-        NeighborData result= node.removeNeighbor(neighbor.toString());
+        NeighborData result = node.removeNeighbor(neighbor.toString());
         if(result == null) {
           throw new RuntimeException(
               "ERROR: Edge could not be removed from " + nodeid.toString() +
@@ -200,9 +210,13 @@ public class RemoveLowCoverageAvro extends Stage {
 
       // all the neighbors got disconnected
       if (degree == 0)  {
-        reporter.incrCounter("Contrail", "isolated-nodes-removed", 1);
-        reporter.incrCounter(NUM_REMOVED.group, NUM_REMOVED.tag, 1);
-        return;
+        if ((node.getSequence().size() <= lengthThresh) &&
+            (node.getCoverage() < lowCovThresh)) {
+          reporter.incrCounter("Contrail", "isolated-nodes-removed", 1);
+          reporter.incrCounter(NUM_REMOVED.group, NUM_REMOVED.tag, 1);
+          return;
+        }
+        reporter.incrCounter("Contrail", "isolated-nodes-kept", 1);
       }
       output.collect(node.getData());
     }
