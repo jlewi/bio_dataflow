@@ -1,4 +1,4 @@
-package contrail.gephi;
+package contrail.tools;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import contrail.stages.CompressibleNodeData;
 import contrail.stages.ContrailParameters;
 import contrail.stages.ParameterDefinition;
 import contrail.stages.Stage;
@@ -29,8 +30,9 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
-import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileStream;
+import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapred.RunningJob;
@@ -148,11 +150,8 @@ public class WriteGephiFile extends Stage {
 
     xml_node.setAttribute("id", this_node_id.toString());
 
-    // We use the numeric id and the strand because the primary use
-    // is to correlate it with data in the data laboratory and this is easier
-    // to do using numbers rather than long sequences of characters.
     xml_node.setAttribute(
-        "label", this_node_id.toString() + ":" +
+        "label", terminal.nodeId + ":" +
         terminal.strand.toString().substring(0, 1));
 
     // Set all the attributes.
@@ -290,11 +289,101 @@ public class WriteGephiFile extends Stage {
     }
   }
 
-  private HashMap<String, GraphNode> readNodes() {
+  private enum InputRecordTypes {
+    GraphNodeData,
+    CompressibleNodeData,
+    Unknown
+  };
+
+  private InputRecordTypes determineInputType (File inFile) {
+    // Determine the input type by reading the first record in one of the
+    // file.
+    GenericDatumReader reader = new GenericDatumReader<GenericRecord>();
+    //SpecificDatumReader<GraphNodeData> reader = new SpecificDatumReader<GraphNodeData>();
+    try {
+      FileInputStream in_stream = new FileInputStream(inFile);
+
+      DataFileStream<GenericRecord> avro_stream =
+          new DataFileStream<GenericRecord>(in_stream, reader);
+
+      if (!avro_stream.hasNext()) {
+        throw new RuntimeException(
+            "Couldn't determine the input record type because no records could be read.");
+      }
+      GenericRecord record = avro_stream.next();
+      if (record.getSchema().getName().equals("GraphNodeData")) {
+        return InputRecordTypes.GraphNodeData;
+      } else if (record.getSchema().getName().equals("CompressibleNodeData")) {
+        return InputRecordTypes.CompressibleNodeData;
+      } else {
+        throw new RuntimeException(String.format(
+            "%s is not a valid schema for the input",
+            record.getSchema().getName()));
+      }
+    } catch (IOException exception) {
+      throw new RuntimeException(
+          "There was a problem reading the nodes the graph to an avro file." +
+          " Exception:" + exception.getMessage());
+    }
+  }
+
+  private HashMap<String, GraphNode> readGraphNodes(List<File> inputFiles) {
+    // Read the nodes from a file where the record type is GraphNodeData.
     HashMap<String, GraphNode> nodes = new HashMap<String, GraphNode>();
+    try {
+      for (File inFile : inputFiles) {
+        FileInputStream in_stream = new FileInputStream(inFile);
+
+        SpecificDatumReader<GraphNodeData> reader =
+            new SpecificDatumReader<GraphNodeData>();
+        DataFileStream<GraphNodeData> avro_stream =
+            new DataFileStream<GraphNodeData>(in_stream, reader);
+        while(avro_stream.hasNext()) {
+          GraphNodeData data  = avro_stream.next();
+          GraphNode node = new GraphNode(data);
+
+          nodes.put(node.getNodeId(), node);
+        }
+      }
+    } catch (IOException exception) {
+      throw new RuntimeException(
+          "There was a problem reading the nodes the graph to an avro file." +
+              " Exception:" + exception.getMessage());
+    }
+    return nodes;
+  }
+
+  private HashMap<String, GraphNode> readCompressibleNodes(
+      List<File> inputFiles) {
+    // Read the nodes from a file where the record type is GraphNodeData.
+    HashMap<String, GraphNode> nodes = new HashMap<String, GraphNode>();
+    try {
+      for (File inFile : inputFiles) {
+        FileInputStream in_stream = new FileInputStream(inFile);
+
+        SpecificDatumReader<CompressibleNodeData> reader =
+            new SpecificDatumReader<CompressibleNodeData>();
+        DataFileStream<CompressibleNodeData> avro_stream =
+            new DataFileStream<CompressibleNodeData>(in_stream, reader);
+        while(avro_stream.hasNext()) {
+          CompressibleNodeData data  = avro_stream.next();
+          GraphNode node = new GraphNode(data.getNode());
+
+          nodes.put(node.getNodeId(), node);
+        }
+      }
+    } catch (IOException exception) {
+      throw new RuntimeException(
+          "There was a problem reading the nodes the graph to an avro file." +
+              " Exception:" + exception.getMessage());
+    }
+    return nodes;
+  }
+
+
+  private HashMap<String, GraphNode> readNodes() {
     String inputPathStr = (String) stage_options.get("inputpath");
-    sLogger.info(" - input: "  + inputPathStr);
-    Schema schema = (new GraphNodeData()).getSchema();
+    sLogger.info(" - input: "  + inputPathStr);;
 
     // Check if path is a directory.
     File inputPath = new File(inputPathStr);
@@ -316,28 +405,16 @@ public class WriteGephiFile extends Stage {
       throw new RuntimeException("Didn't find any graph files.");
     }
 
-    try {
-      for (File inFile : inputFiles) {
-        FileInputStream in_stream = new FileInputStream(inFile);
-        SpecificDatumReader<GraphNodeData> reader =
-            new SpecificDatumReader<GraphNodeData>(GraphNodeData.class);
+    InputRecordTypes inputType = determineInputType(inputFiles.get(0));
 
-        DataFileStream<GraphNodeData> avro_stream =
-            new DataFileStream<GraphNodeData>(in_stream, reader);
-
-        while(avro_stream.hasNext()) {
-          GraphNodeData data = avro_stream.next();
-          GraphNode node = new GraphNode(data);
-
-          nodes.put(node.getNodeId(), node);
-        }
-      }
-    } catch (IOException exception) {
-      throw new RuntimeException(
-          "There was a problem reading the nodes the graph to an avro file." +
-          " Exception:" + exception.getMessage());
+    if (inputType == InputRecordTypes.GraphNodeData) {
+      return readGraphNodes(inputFiles);
     }
-    return nodes;
+
+    if (inputType == InputRecordTypes.CompressibleNodeData) {
+      return readCompressibleNodes(inputFiles);
+    }
+    throw new RuntimeException("No handler for this schema type");
   }
 
   /**
@@ -353,6 +430,12 @@ public class WriteGephiFile extends Stage {
     HashSet<String> nextHop = new HashSet<String>();
 
     String start_node = (String) stage_options.get("start_node");
+
+    if (!nodes.containsKey(start_node)) {
+      throw new RuntimeException(
+          "The input doesn't contain the node: " + start_node);
+    }
+
     int num_hops = (Integer) stage_options.get("num_hops");
     int hop = 0;
     thisHop.add(start_node);
@@ -362,7 +445,16 @@ public class WriteGephiFile extends Stage {
         if (subGraph.containsKey(nodeId)) {
           continue;
         }
+        if (!nodes.containsKey(nodeId)) {
+          // The node isn't in the graph. This can happen if we are only
+          // displaying part of the graph.
+          // TODO(jlewi): The visualization should indicate nodes which
+          // don't have all their edges shown.
+          continue;
+        }
         subGraph.put(nodeId, nodes.get(nodeId));
+        GraphNode target = nodes.get(nodeId);
+
         nextHop.addAll(nodes.get(nodeId).getNeighborIds());
       }
       thisHop.clear();
