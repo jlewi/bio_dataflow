@@ -45,13 +45,24 @@ public class NodeReverser {
     GraphNodeData node_data = output.getData();
     List<NeighborData> neighbors = node_data.getNeighbors();
 
+    String inputId = input.getNodeId();
     for (NeighborData neighbor: neighbors) {
+      boolean isSelf = neighbor.getNodeId().toString().equals(inputId);
       for (EdgeData edge_data: neighbor.getEdges()) {
         StrandsForEdge old_strands = edge_data.getStrands();
         DNAStrand src_strand = StrandsUtil.src(old_strands);
         DNAStrand dest_strand = StrandsUtil.dest(old_strands);
-        StrandsForEdge new_strands = StrandsUtil.form(
-            DNAStrandUtil.flip(src_strand), dest_strand);
+
+        StrandsForEdge new_strands = null;
+        if (isSelf) {
+          // The edge is a self cycle e.g X->X so we flip both strands.
+          new_strands = StrandsUtil.form(
+              DNAStrandUtil.flip(src_strand), DNAStrandUtil.flip(dest_strand));
+        } else {
+          // Since the edge isn't a cycle we only flip the src strand.
+          new_strands = StrandsUtil.form(
+              DNAStrandUtil.flip(src_strand), dest_strand);
+        }
         edge_data.setStrands(new_strands);
       }
     }

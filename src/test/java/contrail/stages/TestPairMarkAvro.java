@@ -23,10 +23,12 @@ import contrail.ReporterMock;
 import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
+import contrail.graph.GraphUtil;
 import contrail.graph.SimpleGraphBuilder;
 import contrail.graph.TailData;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
+import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
 
 /** Extend PairMergeAvro so we can access the mapper and reducer.*/
@@ -286,6 +288,107 @@ public class TestPairMarkAvro extends PairMarkAvro {
     return test_case;
   }
 
+  private List<MapperTestCase> mapperCycleWithIncomingEdge() {
+    // This test covers a subgraph that we saw in the staph dataset. The
+    // graph is  B->X->RC(Y)->X .
+    // In this case the cycle is automatically broken at X because of
+    // the incoming edge from B. This means we will try to merge X & Y
+    // So the resulting graph should be B->{XY}.
+    // Since X & Y are the nodes that will be merged they should not
+    // send updates to each other to move the edges to each other in the
+    // reducer because this will happen in PairMerge.
+    GraphNode branchNode = new GraphNode();
+    branchNode.setNodeId("branch");
+    branchNode.setSequence(new Sequence("ACCT", DNAAlphabetFactory.create()));
+
+    GraphNode cycleStart = new GraphNode();
+    cycleStart.setNodeId("cyclestart");
+    cycleStart.setSequence(new Sequence("CTC", DNAAlphabetFactory.create()));
+
+    GraphNode cycleEnd = new GraphNode();
+    cycleEnd.setNodeId("cyclend");
+    cycleEnd.setSequence(
+        DNAUtil.reverseComplement(
+            new Sequence("TCCT", DNAAlphabetFactory.create())));
+
+    GraphUtil.addBidirectionalEdge(
+        branchNode, DNAStrand.FORWARD, cycleStart, DNAStrand.FORWARD);
+
+    GraphUtil.addBidirectionalEdge(
+        cycleStart, DNAStrand.FORWARD, cycleEnd, DNAStrand.REVERSE);
+
+    GraphUtil.addBidirectionalEdge(
+        cycleEnd, DNAStrand.REVERSE, cycleStart, DNAStrand.FORWARD);
+
+    ArrayList<MapperTestCase> testCases = new ArrayList<MapperTestCase>();
+    {
+      MapperTestCase testCase = new MapperTestCase();
+      // In the first case assume X is up so it gets sent to Y.
+      CoinFlipperFixed flipper = new CoinFlipperFixed();
+      testCase.flipper = flipper;
+      flipper.tosses.put(cycleStart.getNodeId(), CoinFlipper.CoinFlip.UP);
+      flipper.tosses.put(cycleEnd.getNodeId(), CoinFlipper.CoinFlip.DOWN);
+
+      MapperInputOutput inputOutput = new MapperInputOutput();
+
+      inputOutput.input_node = new CompressibleNodeData();
+      inputOutput.input_node.setNode(cycleStart.clone().getData());
+      inputOutput.input_node.setCompressibleStrands(
+          CompressibleStrands.FORWARD);
+
+      // The first output is the node itself.
+      inputOutput.output_node = new NodeInfoForMerge();
+
+      CompressibleNodeData outNode = new CompressibleNodeData();
+      outNode.setNode(cycleStart.clone().getData());
+      outNode.setCompressibleStrands(CompressibleStrands.FORWARD);
+      inputOutput.output_node.setCompressibleNode(outNode);
+      inputOutput.output_node.setStrandToMerge(CompressibleStrands.FORWARD);
+
+      // Second output is a message to branch telling it about the impending
+      // move.
+      EdgeUpdateForMerge edgeUpdate = new EdgeUpdateForMerge();
+      edgeUpdate.setNewStrand(DNAStrand.REVERSE);
+      edgeUpdate.setNewId(cycleEnd.getNodeId());
+      edgeUpdate.setOldId(cycleStart.getNodeId());
+      edgeUpdate.setOldStrand(DNAStrand.FORWARD);
+      inputOutput.edge_updates.put(branchNode.getNodeId(), edgeUpdate);
+      testCase.inputs_outputs.put(cycleStart.getNodeId(), inputOutput);
+
+      testCases.add(testCase);
+    }
+
+    {
+      MapperTestCase testCase = new MapperTestCase();
+      // In the second case assume Y is down so it gets sent to X.
+      CoinFlipperFixed flipper = new CoinFlipperFixed();
+      testCase.flipper = flipper;
+      flipper.tosses.put(cycleStart.getNodeId(), CoinFlipper.CoinFlip.DOWN);
+      flipper.tosses.put(cycleEnd.getNodeId(), CoinFlipper.CoinFlip.UP);
+
+      MapperInputOutput inputOutput = new MapperInputOutput();
+
+      inputOutput.input_node = new CompressibleNodeData();
+      inputOutput.input_node.setNode(cycleEnd.clone().getData());
+      inputOutput.input_node.setCompressibleStrands(
+          CompressibleStrands.BOTH);
+
+      // The only output is the node itself because all of its edges are
+      // to the node it will be merged with.
+      inputOutput.output_node = new NodeInfoForMerge();
+
+      CompressibleNodeData outNode = new CompressibleNodeData();
+      outNode.setNode(cycleEnd.clone().getData());
+      outNode.setCompressibleStrands(CompressibleStrands.BOTH);
+      inputOutput.output_node.setCompressibleNode(outNode);
+      inputOutput.output_node.setStrandToMerge(CompressibleStrands.FORWARD);
+
+      testCase.inputs_outputs.put(cycleEnd.getNodeId(), inputOutput);
+      testCases.add(testCase);
+    }
+    return testCases;
+  }
+
   // Check the output of the mapper matches the expected result.
   private void assertMapperOutput(
       MapperInputOutput input_output,
@@ -324,6 +427,7 @@ public class TestPairMarkAvro extends PairMarkAvro {
     test_cases.add(mapperNoMergeTest());
     test_cases.add(simpleMapperTest());
     test_cases.add(mapperConvertDownToUpTest());
+    test_cases.addAll(mapperCycleWithIncomingEdge());
 
     PairMarkMapper mapper = new PairMarkMapper();
 

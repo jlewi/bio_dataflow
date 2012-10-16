@@ -11,6 +11,7 @@ import org.junit.Test;
 
 import contrail.sequences.AlphabetUtil;
 import contrail.sequences.DNAAlphabetFactory;
+import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAStrandUtil;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
@@ -174,5 +175,25 @@ public class TestNodeReverser {
       GraphNode reversed = reverser.reverse(test_case.node);
       assertReversedNode(test_case, reversed);
     }
+  }
+
+  @Test
+  public void testNodeWithCycle() {
+    // Test a node that has a cycle to itself.
+    GraphNode node = new GraphNode();
+    node.setNodeId("node");
+    node.setSequence(new Sequence("ACTTAC", DNAAlphabetFactory.create()));
+    node.addOutgoingEdge(
+        DNAStrand.FORWARD, new EdgeTerminal("node", DNAStrand.FORWARD));
+
+    GraphNode expected = new GraphNode();
+    expected.setNodeId(node.getNodeId());
+    expected.setSequence(DNAUtil.reverseComplement(node.getSequence()));
+    expected.addOutgoingEdge(
+        DNAStrand.REVERSE, new EdgeTerminal("node", DNAStrand.REVERSE));
+
+    NodeReverser reverser = new NodeReverser();
+    GraphNode reversed = reverser.reverse(node);
+    assertEquals(expected, reversed);
   }
 }

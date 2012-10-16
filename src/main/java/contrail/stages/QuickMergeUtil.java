@@ -402,7 +402,7 @@ public class QuickMergeUtil {
           merged_node, dest, strands, overlap);
 
       merged_node = merge_result.node;
-      merged_node.getData().setNodeId(merged_id);
+      merged_node.setNodeId(merged_id);
 
       // Which strand corresponds to the merged strand.
       merged_strand = merge_result.strand;
@@ -417,24 +417,6 @@ public class QuickMergeUtil {
     // to move other edges.
     merged_node.setNodeId(merged_id);
 
-    if (nodes_to_merge.hit_cycle) {
-      // We are merging a perfect cycle.
-      // e.g ATC->TCG->CGC->GCA->CAT
-      // So the merged sequence is ATCGCAT
-      // and has incoming/outgoing edges to itself. So we need to move
-      // the incoming edge to ATC. E.g CAT->ATC needs to become
-      // ATCGCAT -> ATCGCAT.
-      EdgeTerminal end_terminal = nodes_to_merge.end_terminal;
-      DNAStrand strand = DNAStrandUtil.flip(merged_strand);
-      EdgeTerminal old_terminal = end_terminal.flip();
-      EdgeTerminal new_terminal = new EdgeTerminal(
-          merged_node.getNodeId(), strand);
-      merged_node.moveOutgoingEdge(
-          strand, old_terminal, new_terminal);
-      result.merged_node = merged_node;
-      return result;
-    }
-
     HashSet<String> nodesWithEdgesToBoth = findNodesWithEdgesToBothEnds(
         nodes, nodes_to_merge);
 
@@ -442,6 +424,12 @@ public class QuickMergeUtil {
     moveEdgesToBothEnds(
         nodes, nodesWithEdgesToBoth, nodes_to_merge, merged_node,
         merged_strand);
+
+    // When moving the incoming edges to the ends of the chain we need
+    // to avoid cycles. We do this by adding the ids of the chain ends
+    // to the list of terminals to avoid merging.
+    nodesWithEdgesToBoth.add(nodes_to_merge.start_terminal.nodeId);
+    nodesWithEdgesToBoth.add(nodes_to_merge.end_terminal.nodeId);
 
     // We need to move the incoming edges to the first node in the chain
     // and the incoming edges to the last node in the chain.
@@ -471,6 +459,7 @@ public class QuickMergeUtil {
             nodes, old_terminal, new_terminal, nodesWithEdgesToBoth);
       }
     }
+
     result.merged_node = merged_node;
     return result;
   }
