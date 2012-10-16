@@ -93,7 +93,6 @@ import contrail.util.AvroFileContentsIterator;
  */
 public class GraphStats extends Stage {
   private static final Logger sLogger = Logger.getLogger(GraphStats.class);
-
   /**
    * Get the parameters used by this stage.
    */
@@ -545,9 +544,9 @@ public class GraphStats extends Stage {
     Configuration base_conf = getConf();
     JobConf conf = null;
     if (base_conf != null) {
-      conf = new JobConf(getConf(), PairMergeAvro.class);
+      conf = new JobConf(getConf(), GraphStats.class);
     } else {
-      conf = new JobConf(PairMergeAvro.class);
+      conf = new JobConf(GraphStats.class);
     }
 
     conf.setJobName("GraphStats " + inputPath);
