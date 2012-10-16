@@ -11,6 +11,42 @@
     <jackson-version>1.7.3</jackson-version>
     <avro-version>1.6.1</avro-version>
   </properties>
+  <profiles>
+    <!-- We define different profiles for the different hadoop versions
+         we might build against. You can set the profile on the command
+         line using -P [PROFILE_ID].
+
+         If you don't want to have to specify it on the command line you
+         can set the profile in your maven settings file see
+         http://maven.apache.org/guides/introduction/introduction-to-profiles.html
+      -->
+    <profile>
+      <id>cdh4</id>
+      <properties>
+	<hadoop-version>2.0.0-mr1-cdh4.0.1</hadoop-version>
+      </properties>
+      <dependencies>
+         <dependency>
+           <groupId>org.apache.hadoop</groupId>
+           <artifactId>hadoop-hdfs</artifactId>
+           <version>2.0.0-cdh4.0.1</version>
+           <scope>provided</scope>
+        </dependency>
+        <dependency>
+          <groupId>org.apache.hadoop</groupId>
+          <artifactId>hadoop-common</artifactId>
+          <version>2.0.0-cdh4.0.1</version>
+          <scope>provided</scope>
+        </dependency>
+      </dependencies>
+    </profile>
+    <profile>
+      <id>cdh3</id>
+      <properties>
+	<hadoop-version>0.20.2-cdh3u1</hadoop-version>
+      </properties>
+    </profile>
+  </profiles>
   <dependencies>
   	<!--Provides useful methods for manipulating core classes; e.g
   	    StringUtils-->
@@ -36,14 +72,12 @@
       <artifactId>hadoop-core</artifactId>
       <!-- hadoop's execution environment provides its own jars, usurping any others.
            So we should not include it here -->
-      <version>0.20.2-cdh3u1</version>
+      <version>${hadoop-version}</version>
       <!--running in net beans we need this b\c netbeans isn't haodop
       aware. We should uncomment for real runs.-->
-      <!--<scope>-->
-      <!--provided-->
-      <!--</scope>-->
+      <scope>provided</scope>
     </dependency>
-    <dependency>
+   <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <version>${junit-version}</version>

@@ -42,12 +42,11 @@ public class ParameterDefinition {
       description = description + "(default: " + default_value_.toString() +
           ")";
     }
-    if (type_.equals(Boolean.class)) {
-      // Boolean arguments don't require an argument.
-      return new Option(short_name_, name_, false, description_);
-    } else {
-      return new Option(short_name_, name_, true, description_);
-    }
+    // We require an argument for boolean values because otherwise the value
+    // of the boolean is determined by the presence or absence of the option.
+    // If we don't require an option then we can't set an option to false
+    // by doing "--some_option=false".
+    return new Option(short_name_, name_, true, description_);
   }
 
   public String getName() {
@@ -77,12 +76,13 @@ public class ParameterDefinition {
     if (line.hasOption(name_)) {
       value = line.getOptionValue(name_);
     } else if (line.hasOption(short_name_)) {
-     value = line.getOptionValue(short_name_);
+      value = line.getOptionValue(short_name_);
     } else {
       // TODO(jlewi): Should we return null or throw an exception if
       // the parameter is missing?
       return null;
     }
+
     return fromString(value);
   }
 
