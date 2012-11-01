@@ -30,8 +30,9 @@ public class AssembleStaphContigs extends AssembleContigs {
     if (!stage_options.containsKey("K")) {
       stage_options.put("K", new Integer(55));
     }
+
     if (!stage_options.containsKey("tiplength")) {
-      stage_options.put("tiplength", new Integer(125));
+      stage_options.put("tiplength", new Integer(1000));
     }
     if (!stage_options.containsKey("bubble_edit_rate")) {
       stage_options.put("bubble_edit_rate", new Float(.05f));
@@ -40,10 +41,10 @@ public class AssembleStaphContigs extends AssembleContigs {
       stage_options.put("bubble_length_threshold", new Integer(110));
     }
     if (!stage_options.containsKey("length_thresh")) {
-      stage_options.put("length_thresh", new Integer(110));
+      stage_options.put("length_thresh", new Integer(500));
     }
     if (!stage_options.containsKey("low_cov_thresh")) {
-      stage_options.put("low_cov_thresh", new Float(5.0f));
+      stage_options.put("low_cov_thresh", new Float(20.0f));
     }
     // We don't record the reads because this information isn't used anywhere.
     if (!stage_options.containsKey("MAXTHREADREADS")) {
