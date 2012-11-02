@@ -6,6 +6,8 @@ import contrail.util.ByteUtil;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
+import org.apache.commons.codec.binary.Base64;
+
 /**
  * Provides a wrapper class for accessing the sequence compactly encoded in an array of integers.
  *
@@ -446,6 +448,13 @@ public class Sequence implements Comparable<Sequence> {
   public byte[] toPackedBytes() {
     byte[] bytes = ByteUtil.intsToBytes(data);
     return bytes;
+  }
+
+  /**
+   * Return a string representing the packed bytes in base64.
+   */
+  public String toBase64() {
+    return Base64.encodeBase64URLSafeString(toPackedBytes());
   }
 
   /**
