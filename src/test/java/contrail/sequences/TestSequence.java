@@ -5,6 +5,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
 
+import org.apache.commons.codec.binary.Base64;
 import org.junit.Test;
 
 import contrail.util.ByteUtil;
@@ -458,5 +459,17 @@ public class TestSequence {
     Sequence reconstructed = new Sequence(DNAAlphabetFactory.create());
     reconstructed.readCompressedSequence(compressed);
     assertEquals(sequence, reconstructed);
+  }
+
+  @Test
+  public void testtoBase64() {
+    for (int length = 0; length < 100; ++length) {
+      String letters = randomChars(length, DNAAlphabetFactory.create());
+      Sequence sequence = new Sequence(letters, DNAAlphabetFactory.create());
+      String base64 = sequence.toBase64();
+
+      byte[] decodedBytes = Base64.decodeBase64(base64);
+      assertTrue(Arrays.equals(sequence.toPackedBytes(), decodedBytes));
+    }
   }
 }
