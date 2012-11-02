@@ -1,6 +1,7 @@
 package contrail.stages;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import org.junit.Test;
 
@@ -10,6 +11,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.avro.mapred.Pair;
 import org.apache.hadoop.mapred.JobConf;
@@ -17,10 +19,14 @@ import org.apache.hadoop.mapred.Reporter;
 
 import contrail.RemoveNeighborMessage;
 import contrail.ReporterMock;
+import contrail.graph.EdgeDirection;
+import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
+import contrail.graph.GraphUtil;
 import contrail.graph.SimpleGraphBuilder;
 import contrail.sequences.DNAAlphabetFactory;
+import contrail.sequences.DNAStrand;
 import contrail.sequences.Sequence;
 
 public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
@@ -29,11 +35,16 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
    * Check the output of the map is correct.
    */
   private void assertMapperOutput(
-      GraphNodeData expected_node, HashMap<String, RemoveNeighborMessage> expected_messages,
+      GraphNodeData expected_node,
+      HashMap<String, RemoveNeighborMessage> expected_messages,
       AvroCollectorMock<Pair<CharSequence, RemoveNeighborMessage>> collector_mock) {
 
-    Iterator<Pair<CharSequence, RemoveNeighborMessage>> it = collector_mock.data.iterator();
+    Iterator<Pair<CharSequence, RemoveNeighborMessage>> it =
+        collector_mock.data.iterator();
 
+    // We check the sizes are equal because we want to make sure no message
+    // is duplicated in the output.
+    assertEquals(expected_messages.size(), collector_mock.data.size());
     while (it.hasNext()) {
       Pair<CharSequence, RemoveNeighborMessage> pair = it.next();
       String key = pair.key().toString();
@@ -144,6 +155,46 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
     return cases;
   }
 
+  // In this test case their are edges between both strands of a low coverage
+  // node and its neighbor; i.e the graph is  A <->B. We want to make sure
+  // that the low coverage node outputs a single remove message to its neighbor.
+  MapTestCaseData constructDoubleEdge()  {
+    MapTestCaseData testData = new MapTestCaseData();
+    SimpleGraphBuilder graph = new SimpleGraphBuilder();
+
+    graph.addEdge("GACCTTC", "TCA", 2);
+
+    GraphNode lowNode = graph.getNode(graph.findNodeIdForSequence("GACCTTC"));
+    GraphNode highNode = graph.getNode(graph.findNodeIdForSequence("TCA"));
+
+    GraphUtil.addBidirectionalEdge(
+        lowNode, DNAStrand.FORWARD, highNode, DNAStrand.FORWARD);
+
+    // Check the test is setup correctly.
+    for (DNAStrand strand : DNAStrand.values()) {
+      Set<EdgeTerminal> terminals =
+          lowNode.getEdgeTerminalsSet(strand, EdgeDirection.OUTGOING);
+      assertTrue(terminals.contains(
+          new EdgeTerminal(highNode.getNodeId(), DNAStrand.FORWARD)));
+    }
+    testData.coverageThreshold = 10.0f;
+    testData.lengthThreshold = lowNode.getSequence().size() + 10;
+    lowNode.setCoverage(testData.coverageThreshold - 1.0f);
+    highNode.setCoverage(testData.coverageThreshold + 1.0f);
+
+    HashMap<String, RemoveNeighborMessage> expectedOutputs =
+        new HashMap<String, RemoveNeighborMessage>();
+    {
+      RemoveNeighborMessage message = new RemoveNeighborMessage();
+      message.setNode(null);
+      message.setNodeIDtoRemove(lowNode.getNodeId());
+      expectedOutputs.put(highNode.getNodeId(), message);
+    }
+    testData.node = lowNode.clone().getData();
+    testData.expected_messages = expectedOutputs;
+    return testData;
+  }
+
   @Test
   public void testMap() {
     ReporterMock reporter_mock = new ReporterMock();
@@ -156,6 +207,7 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
         stage.getParameterDefinitions();
 
     List <MapTestCaseData> testCases= new ArrayList<MapTestCaseData>();
+    testCases.add(constructDoubleEdge());
     testCases.add(constructLowCoverageNode());
     testCases.add(constructNonLowCoverageNode());
     testCases.addAll(constructMapIslands());

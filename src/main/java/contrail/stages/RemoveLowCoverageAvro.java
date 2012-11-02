@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -94,11 +95,14 @@ public class RemoveLowCoverageAvro extends Stage {
       new Pair<CharSequence, RemoveNeighborMessage>(MAP_OUT_SCHEMA);
 
   public static class RemoveLowCoverageAvroMapper extends
-  AvroMapper<GraphNodeData, Pair<CharSequence, RemoveNeighborMessage>>  {
+      AvroMapper<GraphNodeData, Pair<CharSequence, RemoveNeighborMessage>>  {
     int lengthThresh;
     float lowCovThresh;
     GraphNode node = null;
     RemoveNeighborMessage msg = null;
+
+    // List of neighbors to send messages to.
+    HashSet<String> neighbors;
 
     public void configure(JobConf job) {
       RemoveLowCoverageAvro stage = new RemoveLowCoverageAvro();
@@ -107,10 +111,12 @@ public class RemoveLowCoverageAvro extends Stage {
       lowCovThresh = (Float)(definitions.get("low_cov_thresh").parseJobConf(job));
       node = new GraphNode();
       msg = new RemoveNeighborMessage();
+      neighbors = new HashSet<String>();
     }
 
     public void map(GraphNodeData graph_data,
         AvroCollector<Pair<CharSequence, RemoveNeighborMessage>> output, Reporter reporter) throws IOException  {
+      neighbors.clear();
       node.setData(graph_data);
       int len = graph_data.getSequence().getLength();
       float cov = node.getCoverage();
@@ -132,6 +138,11 @@ public class RemoveLowCoverageAvro extends Stage {
         degree += node.degree(strand);
         List<EdgeTerminal> terminals = node.getEdgeTerminals(strand, EdgeDirection.INCOMING);
         for(EdgeTerminal terminal : terminals) {
+          if (neighbors.contains(terminal.nodeId)) {
+            // We've already sent a message to this node.
+            continue;
+          }
+          neighbors.add(terminal.nodeId);
           msg.setNode(null);
           msg.setNodeIDtoRemove(node.getNodeId());
           out_pair.set(terminal.nodeId, msg);
