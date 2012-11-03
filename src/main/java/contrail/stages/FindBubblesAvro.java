@@ -529,7 +529,7 @@ public class FindBubblesAvro extends Stage   {
           BubbleMetaData bubble = minorBubbles.get(0);
           // Check if this bubble is a palindrome.
           if (!DNAUtil.isPalindrome(bubble.alignedSequence)) {
-            // Check if we have a chain. We have a change if the major node
+            // Check if we have a chain. We have a chain if the major node
             // has outdegree 1 from the forward strand.
             if (majorNode.degree(
                     bubble.majorStrand, EdgeDirection.OUTGOING) == 1) {
