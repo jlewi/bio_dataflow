@@ -46,9 +46,10 @@ public class AssembleStaphContigs extends AssembleContigs {
     if (!stage_options.containsKey("low_cov_thresh")) {
       stage_options.put("low_cov_thresh", new Float(5.0f));
     }
-    // We don't record the reads because this information isn't used anywhere.
+    // We record the reads because we can use this to measure the coverage
+    // for edges.
     if (!stage_options.containsKey("MAXTHREADREADS")) {
-      stage_options.put("MAXTHREADREADS", new Integer(0));
+      stage_options.put("MAXTHREADREADS", new Integer(250));
     }
 
     // Compute the stats after stage.
