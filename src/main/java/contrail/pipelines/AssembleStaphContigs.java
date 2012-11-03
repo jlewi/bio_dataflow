@@ -28,11 +28,11 @@ public class AssembleStaphContigs extends AssembleContigs {
     // Set any parameters to the default value if they haven't already been
     // set.
     if (!stage_options.containsKey("K")) {
-      stage_options.put("K", new Integer(55));
+      stage_options.put("K", new Integer(30));
     }
 
     if (!stage_options.containsKey("tiplength")) {
-      stage_options.put("tiplength", new Integer(1000));
+      stage_options.put("tiplength", new Integer(100));
     }
     if (!stage_options.containsKey("bubble_edit_rate")) {
       stage_options.put("bubble_edit_rate", new Float(.05f));
@@ -44,7 +44,7 @@ public class AssembleStaphContigs extends AssembleContigs {
       stage_options.put("length_thresh", new Integer(500));
     }
     if (!stage_options.containsKey("low_cov_thresh")) {
-      stage_options.put("low_cov_thresh", new Float(20.0f));
+      stage_options.put("low_cov_thresh", new Float(5.0f));
     }
     // We don't record the reads because this information isn't used anywhere.
     if (!stage_options.containsKey("MAXTHREADREADS")) {
