@@ -40,7 +40,8 @@ import contrail.graph.NodeConverter;
  * order by different keys and will require resorting the graph anyway.
  */
 public class ConvertAvroGraphToOldFormat extends Stage {
-  private static final Logger sLogger = Logger.getLogger(QuickMergeAvro.class);
+  private static final Logger sLogger = Logger.getLogger(
+      ConvertAvroGraphToOldFormat.class);
 
   private static class ConvertMapper extends MapReduceBase
   implements Mapper<AvroWrapper<GraphNodeData>, NullWritable, Text, Text> {

@@ -13,8 +13,6 @@ import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
 
 public class NodeMerger {
-
-
   /**
    * Copy edges from old_node to new node.
    * @param new_node: The node to copy to.
@@ -329,6 +327,33 @@ public class NodeMerger {
     copyEdgesForStrand(
         new_node, rc_strand, src, StrandsUtil.dest(rc_edge_strands),
         EdgeDirection.OUTGOING);
+
+    // Handle a cycle. Suppose we have the graph A->B->A.
+    // and we are merging A and B. So the merged sequence is AB.
+    // Therefore when we move the incoming edges to the chain we get the
+    // edge B->AB which implies RC(AB)->RC(B). The other end of the chain
+    // has the edge RC(A)->RC(AB) which is the edge AB->A. We need to move
+    // these edges so that the result is:
+    // AB->A => AB->AB
+    // RC(AB)->RC(B) => RC(AB)->RC(AB).
+    EdgeTerminal srcTerminal = new EdgeTerminal(
+        src.getNodeId(), StrandsUtil.src(strands));
+    if (dest.getEdgeTerminalsSet(
+            StrandsUtil.dest(strands), EdgeDirection.OUTGOING).contains(
+                srcTerminal)) {
+      EdgeTerminal destTerminal = new EdgeTerminal(
+          dest.getNodeId(), StrandsUtil.dest(strands));
+
+      EdgeTerminal newTerminal = new EdgeTerminal(
+        new_node.getNodeId(), merge_info.merged_strand);
+
+      new_node.moveOutgoingEdge(
+          merge_info.merged_strand, srcTerminal, newTerminal);
+
+      new_node.moveOutgoingEdge(
+          DNAStrandUtil.flip(merge_info.merged_strand),
+          destTerminal.flip(), newTerminal.flip());
+    }
 
     // Align the tags.
     new_node.getData().setR5Tags(alignTags(

@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroJob;
@@ -244,7 +245,13 @@ public class PairMarkAvro extends Stage {
           compressible_node.getNode().getEdgeTerminals(
               edge_to_compress.strand, EdgeDirection.INCOMING);
 
-      for (EdgeTerminal terminal: incoming_terminals){
+      for (EdgeTerminal terminal: incoming_terminals) {
+        if (terminal.nodeId.equals(edge_to_compress.other_terminal.nodeId)) {
+          // The incoming edge is from the terminal we are about to merge
+          // with (e.g. we have a cycle). That edge will be moved when
+          // we merge the two nodes so we don't need to to handle it now.
+          continue;
+        }
         out_pair.key(terminal.nodeId);
         out_pair.value().setPayload(edge_update);
         collector.collect(out_pair);
@@ -456,20 +463,22 @@ public class PairMarkAvro extends Stage {
         EdgeTerminal old_terminal = new EdgeTerminal(
             edge_update.getOldId().toString(), edge_update.getOldStrand());
 
-        DNAStrand strand = graph_node.findStrandWithEdgeToTerminal(
+        Set<DNAStrand> strandsSet = graph_node.findStrandsWithEdgeToTerminal(
             old_terminal, EdgeDirection.OUTGOING);
 
-        if (strand == null) {
-          throw new RuntimeException(
-              "Node: " + nodeid + " has recieved a message to update edge " +
-              "to terminal:" + old_terminal + " but no edge could be found " +
-              "to that terminal.");
+        for (DNAStrand strand : strandsSet) {
+          if (strand == null) {
+            throw new RuntimeException(
+                "Node: " + nodeid + " has recieved a message to update edge " +
+                "to terminal:" + old_terminal + " but no edge could be found " +
+                "to that terminal.");
+          }
+
+          EdgeTerminal new_terminal = new EdgeTerminal(
+              edge_update.getNewId().toString(), edge_update.getNewStrand());
+
+          graph_node.moveOutgoingEdge(strand, old_terminal, new_terminal);
         }
-
-        EdgeTerminal new_terminal = new EdgeTerminal(
-            edge_update.getNewId().toString(), edge_update.getNewStrand());
-
-        graph_node.moveOutgoingEdge(strand, old_terminal, new_terminal);
       }
 
       collector.collect(output_node);

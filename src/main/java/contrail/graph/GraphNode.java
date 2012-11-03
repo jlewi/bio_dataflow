@@ -329,6 +329,22 @@ public class GraphNode {
   public GraphNode() {
     data = new GraphNodeData();
     derived_data = new DerivedData(data);
+    // Make sure its initialized to empty values.
+    clear();
+  }
+
+  /**
+   * Construct a new node with a reference to the passed in data.
+   */
+  public GraphNode(GraphNodeData graph_data) {
+    data = graph_data;
+    derived_data = new DerivedData(data);
+  }
+
+  /**
+   * Clears the data and ensures all fields are initialized to empty values.
+   */
+  public void clear() {
     // Initialize any member variables so that if we serialize this instance of
     // GraphNodeData we don't have null members which causes exceptions.
     data.setR5Tags(new ArrayList<R5Tag>());
@@ -339,14 +355,9 @@ public class GraphNode {
     tag.setReadTag("");
     tag.setChunk(0);
     data.setMertag(tag);
-  }
 
-  /**
-   * Construct a new node with a reference to the passed in data.
-   */
-  public GraphNode(GraphNodeData graph_data) {
-    data = graph_data;
-    derived_data = new DerivedData(data);
+    // Clear derived data.
+    derived_data.clear();
   }
 
   /**
@@ -550,8 +561,7 @@ public class GraphNode {
    * can have only one strand connected to a given edge terminal.
    * However, there are cases such as palindromes where this may not be true.
    * If this assumption is not true we raise an exception. The correct thing to
-   * do is use getEdgeTerminalsSet and then check if each strand contains
-   * the terminal in question.
+   * do is use findStrandsWithEdgeToTerminal.
    *
    * @param terminal: The terminal to find the edge to.
    * @param direction: The direction for the edge.
@@ -859,7 +869,20 @@ public class GraphNode {
   }
 
   public void setNodeId(String nodeid) {
+    String oldId = getNodeId();
     data.setNodeId(nodeid);
+
+    // If the node has any edges to itself then we need to update those
+    // edges as well.
+    if (this.getNeighborIds().contains(oldId)) {
+      for (NeighborData neighbor : data.getNeighbors()) {
+        if (neighbor.getNodeId().toString().equals(oldId)) {
+          neighbor.setNodeId(nodeid);
+          break;
+        }
+      }
+      this.derived_data.clear();
+    }
   }
 
   /**

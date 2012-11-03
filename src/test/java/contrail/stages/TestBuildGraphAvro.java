@@ -286,8 +286,9 @@ public class TestBuildGraphAvro {
    * Used by the testReduce to find a KMerEdge which would have produced
    * an edge between the given source and destination.
    *
-   * @param nodeid: The id for the source node. This will be a string
+   * @param nodeid: The id for the source node. This will be a base64
    *   representation of the canonical sequence.
+   * @param K: The length of the KMers.
    * @param neighbor_id: Id for the neighbor.
    * @param strands: Which strands each end of the edge comes from.
    * @param read_tag: The read tag to match. null if you don't want it to
@@ -297,7 +298,7 @@ public class TestBuildGraphAvro {
    *   (canonical_src, dest_node, link_dir).
    */
   private static boolean foundKMerEdge(
-      String nodeid, String neighbor_id, StrandsForEdge strands,
+      String nodeid, int K, String neighbor_id, StrandsForEdge strands,
       String read_tag, ArrayList<KMerEdge> edges) {
     Alphabet alphabet = DNAAlphabetFactory.create();
 
@@ -306,7 +307,8 @@ public class TestBuildGraphAvro {
     // eges.
     List<Integer> pos_to_delete = new ArrayList<Integer>();
 
-    Sequence canonical_src = new Sequence(nodeid, alphabet);
+    Sequence canonical_src = new Sequence(alphabet);
+    canonical_src.readBase64(nodeid, K);
 
     for (int index = 0; index < edges.size(); index++) {
       KMerEdge edge = edges.get(index);
@@ -321,7 +323,8 @@ public class TestBuildGraphAvro {
 
       Sequence canonical_dest = DNAUtil.canonicalseq(dest_sequence);
 
-      String kmer_nodeid = canonical_dest.toString();
+      // The ids for the node are the base64 representation of the sequence.
+      String kmer_nodeid = canonical_dest.toBase64();
 
       if (!kmer_nodeid.equals(neighbor_id)) {
         // Destination nodeids don't match.
@@ -554,7 +557,7 @@ public class TestBuildGraphAvro {
 	            // FoundKMerEdge will search for the edge in edges_to_find and
 	            // remove it if its found.
 	            assertTrue(foundKMerEdge(
-	                graph_data.getNodeId().toString(),
+	                graph_data.getNodeId().toString(), reduce_data.K,
 	                dest_node.getNodeId().toString(),
 	                edge_data.getStrands(), tag,  edges_to_find));
             }
