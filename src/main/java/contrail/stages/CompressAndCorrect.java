@@ -18,13 +18,11 @@
 package contrail.stages;
 
 import java.text.DecimalFormat;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Formatter;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -59,6 +57,12 @@ public class CompressAndCorrect extends Stage {
     for (Stage stage: substages) {
       definitions.putAll(stage.getParameterDefinitions());
     }
+
+    ParameterDefinition stats = ContrailParameters.getComputeStats();
+    definitions.put(stats.getName(), stats);
+
+    ParameterDefinition cleanup = ContrailParameters.getCleanup();
+    definitions.put(cleanup.getName(), cleanup);
 
     return Collections.unmodifiableMap(definitions);
   }
@@ -278,46 +282,49 @@ public class CompressAndCorrect extends Stage {
     return result;
   }
 
-  private void processGraph() throws Exception {
-    // TODO(jlewi): Does this function really need to throw an exception?
-    String outputPath = (String) stage_options.get("outputpath");
+  /**
+   * Class contains the result of compressing the graph as much as possible.
+   */
+  private class CompressionResult {
+    // The current step.
+    int step;
 
-    // Create a subdirectory of the output path to contain the temporary
+    // The latest path.
+    String latestPath;
+  }
+
+  private String tempPath() {
+    String outputPath = (String) stage_options.get("outputpath");
+    // A subdirectory of the output path to contain the temporary
     // output from each substage.
     String tempPath = new Path(outputPath, "temp").toString();
-    int step = 0;
+    return tempPath;
+  }
 
-    // A list of log messages that summarizes what happened at each stage.
-    // We print this out at the end of the input for convenience.
-    ArrayList<String> logMessages = new ArrayList<String>();
-    logMessages.add("A summary of the various processing that happened.");
+  /**
+   * Compress the graph as much as possible, removing tips and popping bubbles.
+   *
+   * @param step: Integer identifying the step number.
+   */
+  private CompressionResult compressAsMuchAsPossible(
+      int step, String stepInputPath) throws Exception {
+    // TODO(jlewi): Does this function really need to throw an exception?
+    String outputPath = (String) stage_options.get("outputpath");
 
     // When formatting the step as a string we want to zero pad it
     DecimalFormat sf = new DecimalFormat("00");
 
     // Keep track of the latest input for the step.
-    String stepInputPath = (String) stage_options.get("inputpath");
     boolean  done = false;
 
     while (!done) {
       ++step;
-      logMessages.add("Step " + sf.format(step).toString());
+      sLogger.info("Step " + sf.format(step).toString());
 
       // Create a subdirectory of the temp directory to contain the output
       // from this round.
       String stepPath = new Path(
-          tempPath, "step_" +sf.format(step)).toString();
-
-      // We only remove low coverage nodes on the first step because the
-      // subsequent stages shouldn't decrease coverage for any nodes.
-      if (step == 1) {
-        String lowCoveragePath =
-            new Path(stepPath, "LowCoveragePath").toString();
-        JobInfo result =
-            removeLowCoverageNodes(stepInputPath, lowCoveragePath);
-        logMessages.add(result.logMessage);
-        stepInputPath = result.graphPath;
-      }
+          tempPath(), "step_" +sf.format(step)).toString();
 
       // Paths to use for this round. The paths for the compressed graph
       // and the error corrected graph.
@@ -326,10 +333,12 @@ public class CompressAndCorrect extends Stage {
       String removeTipsPath = new Path(stepPath, "RemoveTips").toString();
 
       JobInfo compressResult = compressGraph(stepInputPath, compressedPath);
-      logMessages.add(compressResult.logMessage);
+      sLogger.info(compressResult.logMessage);
+      computeStats(stepPath, CompressChains.class.getName(), compressResult);
 
       JobInfo tipsResult = removeTips(compressResult.graphPath, removeTipsPath);
-      logMessages.add(tipsResult.logMessage);
+      sLogger.info(tipsResult.logMessage);
+      computeStats(stepPath, RemoveTipsAvro.class.getName(), tipsResult);
 
       if (tipsResult.graphChanged) {
         stepInputPath = tipsResult.graphPath;
@@ -341,27 +350,122 @@ public class CompressAndCorrect extends Stage {
       // finding and removing bubbles.
       String popBubblesPath = new Path(stepPath, "PoppedBubbles").toString();
       JobInfo popResult = popBubbles(tipsResult.graphPath, popBubblesPath);
-      logMessages.add(popResult.logMessage);
+      sLogger.info(popResult.logMessage);
+      computeStats(stepPath, PopBubblesAvro.class.getName(), popResult);
+
       stepInputPath = popResult.graphPath;
       if (!popResult.graphChanged) {
         done = true;
       }
     }
 
+    CompressionResult result = new CompressionResult();
+    result.step = step;
+    result.latestPath = stepInputPath;
+    return result;
+  }
+
+  /**
+   * Compute the graph statistics.
+   */
+  private void computeStats(String stepPath, String stageName, JobInfo stageJob)
+      throws Exception {
+    if (!(Boolean) stage_options.get("compute_stats")) {
+      return;
+    }
+    String statsOutput = new Path(
+        stepPath,
+        String.format("%sStats", stageName)).toString();
+
+
+    // TODO(jlewi): It would probably be better to continue running the
+    // pipeline and not blocking on GraphStats.
+    GraphStats statsStage = new GraphStats();
+    statsStage.setConf(getConf());
+    Map<String, Object> statsParameters = new HashMap<String, Object>();
+    statsParameters.put("inputpath", stageJob.graphPath);
+    statsParameters.put("outputpath", statsOutput);
+    statsStage.setParameters(statsParameters);
+
+    RunningJob statsJob = statsStage.runJob();
+    if (!statsJob.isSuccessful()) {
+      throw new RuntimeException(
+          String.format(
+              "Computing stats had a problem. Graph: %s", stageJob.graphPath));
+    }
+  }
+
+  /**
+   * Perform the steps needed to assemble contigs.
+   *
+   * Assembly consists of three stages:
+   *   1. Compressing the graph as much as possible.
+   *   2. Removing low coverage nodes.
+   *   3. Compressing the graph as much as possible.
+   *
+   * Low coverage nodes are removed after the initial round of graph
+   * compression because graph compression can increase node coverage.
+   *
+   * @throws Exception
+   */
+  private void processGraph() throws Exception {
+    // TODO(jlewi): Does this function really need to throw an exception?
+    String outputPath = (String) stage_options.get("outputpath");
+
+    // When formatting the step as a string we want to zero pad it
+    DecimalFormat sf = new DecimalFormat("00");
+
+    String inputPath = (String) stage_options.get("inputpath");
+
+    // Compress the graph as much as possible, removing tips and popping
+    // bubbles.
+    CompressionResult initialCompression = compressAsMuchAsPossible(
+        0, inputPath);
+
+    int step = initialCompression.step + 1;
+
+    // Having compressed the graph and popping bubbles, operations which could
+    // increase the average coverage of some nodes, we remove low coverage
+    // nodes.
+    JobInfo lowCoverageResult;
+    {
+      // Create a subdirectory of the temp directory to contain the output
+      // from this round.
+      String stepPath = new Path(
+          tempPath(), "step_" +sf.format(step)).toString();
+      String lowCoveragePath =
+          new Path(stepPath, "LowCoveragePath").toString();
+      lowCoverageResult = removeLowCoverageNodes(
+              initialCompression.latestPath, lowCoveragePath);
+      sLogger.info(lowCoverageResult.logMessage);;
+      computeStats(
+          stepPath, RemoveLowCoverageAvro.class.getName(), lowCoverageResult);
+    }
+
+    String finalGraphPath;
+
+    // If remove low coverage changed the graph then run another round of
+    // compression.
+    if (lowCoverageResult.graphChanged) {
+      ++step;
+      CompressionResult finalCompression = compressAsMuchAsPossible(
+          step, lowCoverageResult.graphPath);
+      finalGraphPath = finalCompression.latestPath;
+    } else {
+      finalGraphPath = lowCoverageResult.graphPath;
+    }
 
     sLogger.info("Save result to: " + outputPath + "\n\n");
-    FileHelper.moveDirectoryContents(getConf(), stepInputPath, outputPath);
-    logMessages.add("Final graph saved to:" + outputPath);
+    FileHelper.moveDirectoryContents(getConf(), finalGraphPath, outputPath);
+    sLogger.info("Final graph saved to:" + outputPath);
 
     // Clean up the intermediary directories.
     // TODO(jlewi): We might want to add an option to keep the intermediate
     // directories.
-    sLogger.info("Delete temporary directory: " + tempPath + "\n\n");
-    FileSystem.get(getConf()).delete(new Path(tempPath), true);
-
-    // Print out the summary of what happened.
-    String summary = StringUtils.join(logMessages, "\n");
-    sLogger.info(summary);
+    if ((Boolean) stage_options.get("cleanup")) {
+      sLogger.info("Delete temporary directory: " + tempPath() + "\n\n");
+      FileSystem.get(getConf()).delete(new Path(tempPath()), true);
+    }
   }
 
   @Override
