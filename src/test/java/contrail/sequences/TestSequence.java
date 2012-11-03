@@ -5,6 +5,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
 
+import org.apache.commons.codec.binary.Base64;
 import org.junit.Test;
 
 import contrail.util.ByteUtil;
@@ -458,5 +459,29 @@ public class TestSequence {
     Sequence reconstructed = new Sequence(DNAAlphabetFactory.create());
     reconstructed.readCompressedSequence(compressed);
     assertEquals(sequence, reconstructed);
+  }
+
+  @Test
+  public void testBase64() {
+    // One potential problem is that extra bits aren't correctly zero'd out.
+    // To try to catch this we create the sequence outside the loop and
+    // go from long to short sequences. This won't produce correct results
+    // unless extra bits are correctly zero'd out.
+    //Sequence sequence = new Sequence(DNAAlphabetFactory.create());
+    for (int length = 100; length >= 0; --length) {
+      String letters = randomChars(length, DNAAlphabetFactory.create());
+      Sequence sequence = new Sequence(letters, DNAAlphabetFactory.create());
+      String base64 = sequence.toBase64();
+
+      byte[] expectedBytes = Arrays.copyOf(
+          sequence.toPackedBytes(), sequence.numPackedBytes());
+      byte[] decodedBytes = Base64.decodeBase64(base64);
+      assertTrue(Arrays.equals(expectedBytes, decodedBytes));
+
+
+      Sequence reconstructed = new Sequence(DNAAlphabetFactory.create());
+      reconstructed.readBase64(base64, length);
+      assertEquals(sequence, reconstructed);
+    }
   }
 }

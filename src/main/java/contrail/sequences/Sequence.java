@@ -6,6 +6,8 @@ import contrail.util.ByteUtil;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
+import org.apache.commons.codec.binary.Base64;
+
 /**
  * Provides a wrapper class for accessing the sequence compactly encoded in an array of integers.
  *
@@ -334,6 +336,17 @@ public class Sequence implements Comparable<Sequence> {
   }
 
   /**
+   * Read a string containing the compressed bytes in base64.
+   *
+   * @param base64: String containing the packed bytes in base64.
+   * @param length: The length of the dna sequence.
+   */
+  public void readBase64(String base64, int length) {
+    byte[] bytes = Base64.decodeBase64(base64);
+    readPackedBytes(bytes, length);
+  }
+
+  /**
    * Read a record containing the compressed sequence.
    */
   public void readCompressedSequence(CompressedSequence data) {
@@ -446,6 +459,18 @@ public class Sequence implements Comparable<Sequence> {
   public byte[] toPackedBytes() {
     byte[] bytes = ByteUtil.intsToBytes(data);
     return bytes;
+  }
+
+  /**
+   * Return a string representing the packed bytes in base64.
+   *
+   * Note: Base64 adds 33% overhead because there are 4 output bytes for
+   * every input byte. So for maximum compression store a byte array containing
+   * the packed bytes.
+   */
+  public String toBase64() {
+    byte[] minBytes = Arrays.copyOf(toPackedBytes(), numPackedBytes());
+    return Base64.encodeBase64URLSafeString(minBytes);
   }
 
   /**
