@@ -56,7 +56,7 @@ public class BuildGraphAvro extends Stage {
    * instance of KMerEdge.
    */
   public static final Schema MAP_OUT_SCHEMA =
-      Pair.getPairSchema(Schema.create(Schema.Type.STRING), kmer_edge_schema);
+      Pair.getPairSchema(Schema.create(Schema.Type.BYTES), kmer_edge_schema);
 
   /**
    * Define the schema for the reducer output. The keys will be a byte buffer
@@ -229,8 +229,7 @@ public class BuildGraphAvro extends Stage {
    * Class is public to facilitate unit-testing.
    */
   public static class BuildGraphMapper extends
-  AvroMapper<CompressedRead, Pair<CharSequence, KMerEdge>>
-  {
+      AvroMapper<CompressedRead, Pair<ByteBuffer, KMerEdge>> {
     private static int K = 0;
 
     private Alphabet alphabet = DNAAlphabetFactory.create();
@@ -238,7 +237,8 @@ public class BuildGraphAvro extends Stage {
     private SequencePreProcessor preprocessor;
 
     private KMerEdge node = new KMerEdge();
-    private Pair<CharSequence, KMerEdge> outPair;
+    private Pair<ByteBuffer, KMerEdge> outPair;
+
     public void configure(JobConf job) {
       BuildGraphAvro stage = new BuildGraphAvro();
       Map<String, ParameterDefinition> definitions =
@@ -251,7 +251,7 @@ public class BuildGraphAvro extends Stage {
       int TRIM3 = (Integer)(definitions.get("TRIM3").parseJobConf(job));;
 
       preprocessor = new SequencePreProcessor(alphabet, TRIM5, TRIM3);
-      outPair = new Pair<CharSequence, KMerEdge>(MAP_OUT_SCHEMA);
+      outPair = new Pair<ByteBuffer, KMerEdge>(MAP_OUT_SCHEMA);
     }
 
 
@@ -269,7 +269,7 @@ public class BuildGraphAvro extends Stage {
      */
     @Override
     public void map(CompressedRead compressed_read,
-        AvroCollector<Pair<CharSequence, KMerEdge>> output, Reporter reporter)
+        AvroCollector<Pair<ByteBuffer, KMerEdge>> output, Reporter reporter)
             throws IOException {
 
       seq.readPackedBytes(compressed_read.getDna().array(),
@@ -362,7 +362,9 @@ public class BuildGraphAvro extends Stage {
           node.setTag(compressed_read.getId());
           node.setState(ustate);
           node.setChunk(chunk);
-          outPair.key(ukmer_canonical.toBase64());
+          outPair.key(ByteBuffer.wrap(
+              ukmer_canonical.toPackedBytes(), 0,
+              ukmer_canonical.numPackedBytes()));
           outPair.value(node);
           output.collect(outPair);
         }
@@ -376,11 +378,14 @@ public class BuildGraphAvro extends Stage {
           // TODO(jlewi): Should we verify that all unset bits in node.kmer are
           // 0?
           node.setStrands(rc_strands);
-          node.setLastBase(ByteBuffer.wrap(ukmer_start.toPackedBytes(), 0, ukmer_start.numPackedBytes()));
+          node.setLastBase(ByteBuffer.wrap(
+              ukmer_start.toPackedBytes(), 0, ukmer_start.numPackedBytes()));
           node.setTag(compressed_read.id);
           node.setState(vstate);
           node.setChunk(chunk);
-          outPair.key(vkmer_canonical.toBase64());
+          outPair.key(ByteBuffer.wrap(
+              vkmer_canonical.toPackedBytes(), 0,
+              vkmer_canonical.numPackedBytes()));
           outPair.value(node);
           output.collect(outPair);
         }
@@ -402,7 +407,7 @@ public class BuildGraphAvro extends Stage {
    * This class is public to facilitate unit-testing.
    */
   public static class BuildGraphReducer extends
-      AvroReducer<CharSequence, KMerEdge, GraphNodeData> {
+      AvroReducer<ByteBuffer, KMerEdge, GraphNodeData> {
     private int K = 0;
     private int MAXTHREADREADS = 0;
     private int MAXR5 = 0;
@@ -426,15 +431,15 @@ public class BuildGraphAvro extends Stage {
     }
 
     @Override
-    public void reduce(CharSequence source_kmer_packed_bytes,
+    public void reduce(ByteBuffer source_kmer_packed_bytes,
         Iterable<KMerEdge> iterable,
         AvroCollector<GraphNodeData> collector, Reporter reporter)
             throws IOException {
       Alphabet alphabet = DNAAlphabetFactory.create();
-      GraphNode graphnode = new GraphNode();
 
+      graphnode.clear();
 
-      canonical_src.readBase64(source_kmer_packed_bytes.toString(), K);
+      canonical_src.readPackedBytes(source_kmer_packed_bytes.array(), K);
       graphnode.setSequence(canonical_src);
 
       KMerReadTag mertag = null;

@@ -329,6 +329,22 @@ public class GraphNode {
   public GraphNode() {
     data = new GraphNodeData();
     derived_data = new DerivedData(data);
+    // Make sure its initialized to empty values.
+    clear();
+  }
+
+  /**
+   * Construct a new node with a reference to the passed in data.
+   */
+  public GraphNode(GraphNodeData graph_data) {
+    data = graph_data;
+    derived_data = new DerivedData(data);
+  }
+
+  /**
+   * Clears the data and ensures all fields are initialized to empty values.
+   */
+  public void clear() {
     // Initialize any member variables so that if we serialize this instance of
     // GraphNodeData we don't have null members which causes exceptions.
     data.setR5Tags(new ArrayList<R5Tag>());
@@ -339,14 +355,9 @@ public class GraphNode {
     tag.setReadTag("");
     tag.setChunk(0);
     data.setMertag(tag);
-  }
 
-  /**
-   * Construct a new node with a reference to the passed in data.
-   */
-  public GraphNode(GraphNodeData graph_data) {
-    data = graph_data;
-    derived_data = new DerivedData(data);
+    // Clear derived data.
+    derived_data.clear();
   }
 
   /**
