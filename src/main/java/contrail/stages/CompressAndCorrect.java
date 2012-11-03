@@ -395,11 +395,22 @@ public class CompressAndCorrect extends Stage {
     }
   }
 
+  /**
+   * Perform the steps needed to assemble contigs.
+   *
+   * Assembly consists of three stages:
+   *   1. Compressing the graph as much as possible.
+   *   2. Removing low coverage nodes.
+   *   3. Compressing the graph as much as possible.
+   *
+   * Low coverage nodes are removed after the initial round of graph
+   * compression because graph compression can increase node coverage.
+   *
+   * @throws Exception
+   */
   private void processGraph() throws Exception {
     // TODO(jlewi): Does this function really need to throw an exception?
     String outputPath = (String) stage_options.get("outputpath");
-
-    int step = 0;
 
     // When formatting the step as a string we want to zero pad it
     DecimalFormat sf = new DecimalFormat("00");
@@ -411,7 +422,7 @@ public class CompressAndCorrect extends Stage {
     CompressionResult initialCompression = compressAsMuchAsPossible(
         0, inputPath);
 
-    step = initialCompression.step + 1;
+    int step = initialCompression.step + 1;
 
     // Having compressed the graph and popping bubbles, operations which could
     // increase the average coverage of some nodes, we remove low coverage
