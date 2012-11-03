@@ -28,7 +28,7 @@ public class AssembleStaphContigs extends AssembleContigs {
     // Set any parameters to the default value if they haven't already been
     // set.
     if (!stage_options.containsKey("K")) {
-      stage_options.put("K", new Integer(30));
+      stage_options.put("K", new Integer(33));
     }
 
     if (!stage_options.containsKey("tiplength")) {
