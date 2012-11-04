@@ -1,0 +1,34 @@
+This package includes the pipeline to run CABOG + Bambus 2 on genome assemblies.
+
+The package has been tested with AMOS v3.0.1 and CA 6.1. Previous versions will definitely not work. Later versions may work. The code is available under src and a build is available under bin. All code is machine-independent, except for the modified CA terminator program. It is build for Linux 64 and can be built for other platforms using the provided source code + CA source. The modifications to terminator are now included in CA after release 6.1
+
+Detailed use instructions:
+The basic outline to run an assembly is:
+1. Set up inputs
+  - Any paired-end (non-jumping) illumina libraries can be input as is using the fastqToCA program to generate a frg
+  - Any mate-pair (jumping) illumina libraries should be input as an interleaved but unmated fastq file to CA
+     - For these library, the pipeline looks for a script named PREFIX.libSizes which looks like:
+         short 2450 4550
+        to specify the mate min and max distance for the library
+
+2. Run CA up to unitiggging
+  - The script relies on the runCA.sh script to specify any additional parameters to CA that you would like such as sge settings or parallel settings.
+  - My pipeline runs everything up through unitigging and uses the unitig output to select a threshold for bad mate breaking in CA
+  - Unitigging and consensus is re-run with the selected cutoff.
+
+3. CA output is converted to Bambus 2
+   - A user has two options to specify this
+      - First, they can take CA directly and add any mates for the library specified in the PREFIX.libSizes file. This is the approach taken in Ecoli and Rhodobacter as all the reads can be input to CA directly.
+       - Secondly, the user can choose to map the original sequences to the unitigs (bowtie is used). This is the approach taken in Staph as the jumping libraries are only 35bp and cannot be input to CA without making code modifications.
+
+4. The Bambus 2 pipeline is run using the goBambus2 executive
+   - This pipeline generates the final output and fasta sequences for the scaffolds and contigs files.
+   - Bambus 2 does not recall consensus so if two unitigs overlap, only of their sequences will be represented in the overlapping region. 
+
+The main script (convertToCA.sh) has the following parameters:
+1: 0 if you want to map, 1 if you want to use the existing CA assembly read placements
+2: the location of the CA assembly where it will use the unitigs from, if the assembly doesn't exist in that directly, it will try to run the runCA.sh script there to generate an assembly
+3: the prefix for your input/output (so it assumes there will be a PREFIX.libSizes, PREFIX.gkpStore, etc)
+4: For mapping assemblies, the location of the fastq files to map to your data. These are assumed to have a .1.fastq and a .2.fastq and the file name is what determines the library name to compute pairing. For non-mapping assemblies, this specifies whether you want to use unitigs or contigs (0 means unitigs, 1 means contigs).
+5: Whether you want to run Bambus 2 or only generate an AMOS bank. 1 = run, 0 = do not run, stop at bank generation.
+6: Only for the mapping assembly, the suffix for the file you want to use for the mapping. So utg.fasta means it will look for the file named PREFIX.utg.fasta to map the reads to.
