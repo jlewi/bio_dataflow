@@ -354,7 +354,7 @@ public class FindBubblesAvro extends Stage   {
             middleNodeStrand, EdgeDirection.INCOMING).get(0);
         EdgeTerminal minorTerminal = middleNode.getEdgeTerminals(
             middleNodeStrand, EdgeDirection.OUTGOING).get(0);
-        
+
         majorStrand = majorTerminal.strand;
         minorStrand = minorTerminal.strand;
       }
@@ -723,110 +723,116 @@ public class FindBubblesAvro extends Stage   {
           IndirectPath indirectPath = (IndirectPath) minorPaths.get(0);
           // Check if this middleNode is a palindrome.
           if (!DNAUtil.isPalindrome(indirectPath.alignedSequence)) {
-            // We have a chain, i.e A->X->B here
-            // A->{X,Y,...}->B this shouldn't happen and probably means
-            // the graph wasn't maximally compressed.
-            throw new RuntimeException(
-                "We found a chain. This probably means the " +
-                    "graph wasn't maximally compressed before running " +
-                "FindBubbles.");
-          } else {
-            // get add Paths between major and minor
-            addDirectPathList(minorID, minorPaths, majorNode,K);
-            // marks nodes to be deleted for a particular list of minorID
-            markRedundantPaths(minorPaths, reporter, minorID);
+            // Check if we have a chain. We have a chain if the major node
+            // has outdegree 1 from the forward strand.
+            if (majorNode.degree(
+                indirectPath.majorStrand, EdgeDirection.OUTGOING) == 1) {
+              // We have a chain, i.e A->X->B and not a bubble
+              // A->{X,Y,...}->B this shouldn't happen and probably means
+              // the graph wasn't maximally compressed.
+              throw new RuntimeException(
+                  "We found a chain. This probably means the " +
+                  "graph wasn't maximally compressed before running " +
+                  "FindBubbles.");
+            }
           }
-          // After removing redundant paths, we check any nodes which are still 
-          //alive if they are palindromes.
-          processPalindromes(minorPaths, reporter);
-          reporter.incrCounter("Contrail", "edgeschecked", choices);
-          outputMessages(minorPaths, minorID, collector);
+        } else {
+          // get add Paths between major and minor
+          addDirectPathList(minorID, minorPaths, majorNode,K);
+          // marks nodes to be deleted for a particular list of minorID
+          markRedundantPaths(minorPaths, reporter, minorID);
         }
-
-        // Output the major node.
-        output.setNode(majorNode.getData());
-        output.setMinorNodeId("");
-        output.getDeletedNeighbors().clear();
-        output.getPalindromeNeighbors().clear();
-        collector.collect(output);
+        // After removing redundant paths, we check any nodes which are still 
+        //alive if they are palindromes.
+        processPalindromes(minorPaths, reporter);
+        reporter.incrCounter("Contrail", "edgeschecked", choices);
+        outputMessages(minorPaths, minorID, collector);
       }
+
+      // Output the major node.
+      output.setNode(majorNode.getData());
+      output.setMinorNodeId("");
+      output.getDeletedNeighbors().clear();
+      output.getPalindromeNeighbors().clear();
+      collector.collect(output);
+
     }
   }
 
-    // Run Tool
-    ///////////////////////////////////////////////////////////////////////////
+  // Run Tool
+  ///////////////////////////////////////////////////////////////////////////
 
-    public RunningJob runJob() throws Exception {
-      String[] requiredArgs = {"inputpath", "outputpath", "bubble_edit_rate",
-      "bubble_length_threshold"};
-      checkHasParametersOrDie(requiredArgs);
+  public RunningJob runJob() throws Exception {
+    String[] requiredArgs = {"inputpath", "outputpath", "bubble_edit_rate",
+    "bubble_length_threshold"};
+    checkHasParametersOrDie(requiredArgs);
 
-      String inputPath = (String) stage_options.get("inputpath");
-      String outputPath = (String) stage_options.get("outputpath");
-      int K = (Integer)stage_options.get("K");
+    String inputPath = (String) stage_options.get("inputpath");
+    String outputPath = (String) stage_options.get("outputpath");
+    int K = (Integer)stage_options.get("K");
 
-      sLogger.info("Tool name: FindBubbles");
-      sLogger.info(" - input: "  + inputPath);
-      sLogger.info(" - output: " + outputPath);
+    sLogger.info("Tool name: FindBubbles");
+    sLogger.info(" - input: "  + inputPath);
+    sLogger.info(" - output: " + outputPath);
 
-      int bubbleLengthThreshold =
-          (Integer)stage_options.get("bubble_length_threshold");
-      if (bubbleLengthThreshold <= K) {
-        sLogger.warn(
-            "FindBubbles will not run because bubble_length_threshold<=K so no " +
-            "nodes will be considered bubbles.");
-        return null;
-      }
-
-      Configuration base_conf = getConf();
-      JobConf conf = null;
-      if (base_conf != null) {
-        conf = new JobConf(getConf(), this.getClass());
-      }
-      else {
-        conf = new JobConf(this.getClass());
-      }
-      conf.setJobName("FindBubbles " + inputPath + " " + K);
-
-      initializeJobConfiguration(conf);
-
-      FileInputFormat.addInputPath(conf, new Path(inputPath));
-      FileOutputFormat.setOutputPath(conf, new Path(outputPath));
-
-      GraphNodeData graph_data = new GraphNodeData();
-      AvroJob.setInputSchema(conf, graph_data.getSchema());
-      AvroJob.setMapOutputSchema(conf, FindBubblesAvro.MAP_OUT_SCHEMA);
-      AvroJob.setOutputSchema(conf, FindBubblesAvro.REDUCE_OUT_SCHEMA);
-
-      AvroJob.setMapperClass(conf, FindBubblesAvroMapper.class);
-      AvroJob.setReducerClass(conf, FindBubblesAvroReducer.class);
-
-      //delete the output directory if it exists already
-      FileSystem.get(conf).delete(new Path(outputPath), true);
-
-      long starttime = System.currentTimeMillis();
-      RunningJob result = JobClient.runJob(conf);
-      long endtime = System.currentTimeMillis();
-
-      float diff = (float) ((endtime - starttime) / 1000.0);
-
-      long numToPop = result.getCounters().findCounter(
-          NUM_BUBBLES.group, NUM_BUBBLES.tag).getValue();
-
-      long numPalindromes = result.getCounters().findCounter(
-          NUM_PALINDROMES.group, NUM_PALINDROMES.tag).getValue();
-
-      sLogger.info("Number of nodes to pop:" + numToPop);
-      sLogger.info("Number of palindromes:" + numPalindromes);
-      sLogger.info("Runtime: " + diff + " s");
-      return result;
+    int bubbleLengthThreshold =
+        (Integer)stage_options.get("bubble_length_threshold");
+    if (bubbleLengthThreshold <= K) {
+      sLogger.warn(
+          "FindBubbles will not run because bubble_length_threshold<=K so no " +
+          "nodes will be considered bubbles.");
+      return null;
     }
 
-    // Main
-    ///////////////////////////////////////////////////////////////////////////
-
-    public static void main(String[] args) throws Exception   {
-      int res = ToolRunner.run(new Configuration(), new FindBubblesAvro(), args);
-      System.exit(res);
+    Configuration base_conf = getConf();
+    JobConf conf = null;
+    if (base_conf != null) {
+      conf = new JobConf(getConf(), this.getClass());
     }
+    else {
+      conf = new JobConf(this.getClass());
+    }
+    conf.setJobName("FindBubbles " + inputPath + " " + K);
+
+    initializeJobConfiguration(conf);
+
+    FileInputFormat.addInputPath(conf, new Path(inputPath));
+    FileOutputFormat.setOutputPath(conf, new Path(outputPath));
+
+    GraphNodeData graph_data = new GraphNodeData();
+    AvroJob.setInputSchema(conf, graph_data.getSchema());
+    AvroJob.setMapOutputSchema(conf, FindBubblesAvro.MAP_OUT_SCHEMA);
+    AvroJob.setOutputSchema(conf, FindBubblesAvro.REDUCE_OUT_SCHEMA);
+
+    AvroJob.setMapperClass(conf, FindBubblesAvroMapper.class);
+    AvroJob.setReducerClass(conf, FindBubblesAvroReducer.class);
+
+    //delete the output directory if it exists already
+    FileSystem.get(conf).delete(new Path(outputPath), true);
+
+    long starttime = System.currentTimeMillis();
+    RunningJob result = JobClient.runJob(conf);
+    long endtime = System.currentTimeMillis();
+
+    float diff = (float) ((endtime - starttime) / 1000.0);
+
+    long numToPop = result.getCounters().findCounter(
+        NUM_BUBBLES.group, NUM_BUBBLES.tag).getValue();
+
+    long numPalindromes = result.getCounters().findCounter(
+        NUM_PALINDROMES.group, NUM_PALINDROMES.tag).getValue();
+
+    sLogger.info("Number of nodes to pop:" + numToPop);
+    sLogger.info("Number of palindromes:" + numPalindromes);
+    sLogger.info("Runtime: " + diff + " s");
+    return result;
+  }
+
+  // Main
+  ///////////////////////////////////////////////////////////////////////////
+
+  public static void main(String[] args) throws Exception   {
+    int res = ToolRunner.run(new Configuration(), new FindBubblesAvro(), args);
+    System.exit(res);
+  }
 }
