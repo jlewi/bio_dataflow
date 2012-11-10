@@ -28,17 +28,18 @@ public class AssembleStaphContigs extends AssembleContigs {
     // Set any parameters to the default value if they haven't already been
     // set.
     if (!stage_options.containsKey("K")) {
-      stage_options.put("K", new Integer(33));
+      stage_options.put("K", new Integer(91));
     }
 
     if (!stage_options.containsKey("tiplength")) {
-      stage_options.put("tiplength", new Integer(100));
+      stage_options.put("tiplength", new Integer(202));
     }
+
     if (!stage_options.containsKey("bubble_edit_rate")) {
       stage_options.put("bubble_edit_rate", new Float(.05f));
     }
     if (!stage_options.containsKey("bubble_length_threshold")) {
-      stage_options.put("bubble_length_threshold", new Integer(110));
+      stage_options.put("bubble_length_threshold", new Integer(202));
     }
     if (!stage_options.containsKey("length_thresh")) {
       stage_options.put("length_thresh", new Integer(500));
