@@ -115,7 +115,7 @@ public class Sequence implements Comparable<Sequence> {
         / alphabet.bitsPerLetter()));
   }
 
-  // Min3 gives minimum between 3 elements
+  //Min3 gives minimum between 3 elements
   private int Min3(int a, int b, int c) {
     a = Math.min(a, b);
     return Math.min(a, c);
@@ -264,17 +264,30 @@ public class Sequence implements Comparable<Sequence> {
 
     data = new int[num_bytes];
 
+<<<<<<< HEAD
     readChars(letters);
+=======
+    boolean has_eos = alphabet.hasEOS();
+
+    for (int pos = 0; pos < letters.length; pos++) {
+      if (has_eos && (letters[pos] == alphabet.EOS())) {
+        String error = "Sequence should not contain the null/end of sequence character ("
+            + alphabet.EOS() + "). Sequence is: " + new String(letters);
+        throw new RuntimeException(error);
+      }
+      setAt(pos, letters[pos]);
+    }
+    length = letters.length;
+
+    // Set null characters for all remaining characters in the array.
+    int max_length = capacity();
+    for (int pos = letters.length; pos < max_length; pos++) {
+      setAt(pos, alphabet.EOS());
+    }
   }
 
   public Sequence(String letters, Alphabet alphabet) {
-    // Determine the number of bytes.
-    int num_bytes = (int) (Math.ceil(((double) (letters.length() * alphabet
-        .bitsPerLetter()) / BITSPERITEM)));
-
-    data = new int[num_bytes];
-    this.alphabet = alphabet;
-    readCharSequence(letters);
+    this(letters.toCharArray(), alphabet);
   }
 
   /**
@@ -310,8 +323,7 @@ public class Sequence implements Comparable<Sequence> {
     // Determine the first bit in the byte that belongs to this character.
     int bit_start = pos * alphabet.bitsPerLetter() - byte_start * BITSPERITEM;
 
-    // Shift the bits in the start byte to the right so that it starts in the
-    // right position.
+    // Shift the bits in the start byte to the right so that it starts in the right position.
     int val = data[byte_start] >>> bit_start;
 
     // Now get the bits from the next byte
@@ -334,8 +346,8 @@ public class Sequence implements Comparable<Sequence> {
   /**
    * Read a string containing the compressed bytes in base64.
    * 
-   * @param base64 : String containing the packed bytes in base64.
-   * @param length : The length of the dna sequence.
+   * @param base64: String containing the packed bytes in base64.
+   * @param length: The length of the dna sequence.
    */
   public void readBase64(String base64, int length) {
     byte[] bytes = Base64.decodeBase64(base64);
@@ -396,66 +408,6 @@ public class Sequence implements Comparable<Sequence> {
       data = new int[(int) Math.ceil(bytes.length / 4.0)];
     }
     ByteUtil.bytesToInt(bytes, data);
-  }
-
-  /**
-   * Read the data in a string storing the raw sequence.
-   * 
-   * @param sequence: A sequence of letters in the alphabet.
-   */
-  public void readCharSequence(CharSequence sequence) {
-    growCapacity(sequence.length());
-
-    // Zero out the array.
-    Arrays.fill(this.data, FILL_VALUE);
-
-    boolean has_eos = alphabet.hasEOS();
-
-    for (int pos = 0; pos < sequence.length(); pos++) {
-      if (has_eos && (sequence.charAt(pos) == alphabet.EOS())) {
-        String error = "Sequence should not contain the null/end of sequence character ("
-            + alphabet.EOS() + "). Sequence is: " + sequence.toString();
-        throw new RuntimeException(error);
-      }
-      setAt(pos, sequence.charAt(pos));
-    }
-    length = sequence.length();
-
-    // Set null characters for all remaining characters in the array.
-    int max_length = capacity();
-    for (int pos = sequence.length(); pos < max_length; pos++) {
-      setAt(pos, alphabet.EOS());
-    }
-  }
-
-  /**
-   * Read the data in a string storing the raw sequence.
-   * 
-   * @param sequence: The sequence to read in.
-   */
-  public void readChars(char[] letters) {
-    growCapacity(letters.length);
-
-    // Zero out the array.
-    Arrays.fill(this.data, FILL_VALUE);
-
-    boolean has_eos = alphabet.hasEOS();
-
-    for (int pos = 0; pos < letters.length; pos++) {
-      if (has_eos && (letters[pos] == alphabet.EOS())) {
-        String error = "Sequence should not contain the null/end of sequence character ("
-            + alphabet.EOS() + "). Sequence is: " + new String(letters);
-        throw new RuntimeException(error);
-      }
-      setAt(pos, letters[pos]);
-    }
-    length = letters.length;
-
-    // Set null characters for all remaining characters in the array.
-    int max_length = capacity();
-    for (int pos = letters.length; pos < max_length; pos++) {
-      setAt(pos, alphabet.EOS());
-    }
   }
 
   /**
@@ -620,9 +572,10 @@ public class Sequence implements Comparable<Sequence> {
    * return a reference to the buffer so if a new buffer is allocated the caller
    * can update any shared references.
    * 
-   * @param newsize : The new capacity (number of letters) that the sequence
-   *          should be able to represent.
+   * @param newsize - The new capacity (number of letters) that the sequence
+   *          should be able to represent
    */
+  @SuppressWarnings("unused")
   public int[] growCapacity(int newsize) {
     if (newsize < this.capacity()) {
       return this.data;
@@ -667,8 +620,7 @@ public class Sequence implements Comparable<Sequence> {
 
     final int this_old_size = this.size();
     final int this_new_size = this_old_size + other.size();
-    // Fill in the last partially filled item with letters from the other
-    // sequence.
+    // Fill in the last partially filled item with letters from the other sequence.
     int write_bit_num = alphabet.bitsPerLetter() * this_old_size;
 
     // The write position in this.data.
@@ -801,7 +753,6 @@ public class Sequence implements Comparable<Sequence> {
     if (shift > 0) {
       int mask = 0xFFFFFFFF;
       mask = mask >>> shift;
-      // mask = mask >> 1;
       data[num_items - 1] = data[num_items - 1] & mask;
     }
     // Fill in the remaining items

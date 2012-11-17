@@ -108,6 +108,7 @@ public class BuildGraphAvro extends Stage {
     // Add options specific to this stage.
     ParameterDefinition max_reads = new ParameterDefinition("max_reads",
         "max reads starts per node.", Integer.class, new Integer(250));
+<<<<<<< HEAD
 
     ParameterDefinition trim3 = new ParameterDefinition("TRIM3",
         "Chopped bases.", Integer.class, new Integer(0));
@@ -145,10 +146,10 @@ public class BuildGraphAvro extends Stage {
    * bases we can construct the destination KMer from the source KMer and the
    * non-overlap region of the destination
    * 
-   * @param canonical_src : Canonical representation of the source KMer.
-   * @param last_base : The non overlap region of the destination KMer.
-   * @param strands : Which strands the source and destination kmer came from.
-   * @param alphabet : The alphabet for the encoding.
+   * @param canonical_src: Canonical representation of the source KMer.
+   * @param last_base: The non overlap region of the destination KMer.
+   * @param strands: Which strands the source and destination kmer came from.
+   * @param alphabet: The alphabet for the encoding.
    * @return: The destination KMer.
    */
   public static Sequence ConstructDestSequence(Sequence canonical_src,
@@ -376,7 +377,11 @@ public class BuildGraphAvro extends Stage {
           node.setStrands(strands);
           node.setLastBase(ByteBuffer.wrap(vkmer_end.toPackedBytes(), 0,
               vkmer_end.numPackedBytes()));
+<<<<<<< HEAD
           node.setTag(readId);
+=======
+          node.setTag(compressed_read.getId());
+>>>>>>> forge_master
           node.setState(ustate);
           node.setChunk(chunk);
           outPair.key(ByteBuffer.wrap(ukmer_canonical.toPackedBytes(), 0,
