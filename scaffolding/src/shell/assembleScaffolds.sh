@@ -1,30 +1,21 @@
 #!/bin/sh
 
-# You can specify the paths for AMOS and the CBCB here.
+# You can specify the paths for AMOS here.
 # The script will try to locate the needed binaries using which.
 AMOS=/fs/sz-user-supported/Linux-x86_64/packages/AMOS-3.0.1/bin/
-#CA=/fs/szdevel/core-cbcb-software/Linux-x86_64/packages/wgs-6.1/Linux-amd64/bin/
 if [ ! -e $AMOS/bank-transact ]; then
    AMOS=`which bank-transact`
    AMOS=`dirname $AMOS`
 fi
 
-#if [ ! -e $CA/gatekeeper ]; then
-#   CA=`which gatekeeper`
-#   CA=`dirname $CA`
-#fi
-
 MACHINE=`uname`
 PROC=`uname -p`
 SCRIPT_PATH=$0
 SCRIPT_PATH=`dirname $SCRIPT_PATH`
-#CA_TERMINATOR=$SCRIPT_PATH/../$MACHINE-$PROC/bin/terminator
 JAVA_PATH=$SCRIPT_PATH:.
 
 echo "Configuration summary:"
 echo "AMOS: $AMOS"
-#echo "CA: $CA"
-#echo "Terminator: $CA_TERMINATOR"
 echo "Java: $JAVA_PATH"
 
 WORKDIR=$1
@@ -45,8 +36,8 @@ time java -cp $JAVA_PATH BuildBambusInput $WORKDIR $UTGCTG $SUFFIX $PREFIX.libSi
 echo $AMOS/toAmos_new -s $PREFIX.$SUFFIX.fasta -m $PREFIX.$SUFFIX.library -c $PREFIX.$SUFFIX.contig -b $PREFIX.bnk
 time $AMOS/toAmos_new -s $PREFIX.$SUFFIX.fasta -m $PREFIX.$SUFFIX.library -c $PREFIX.$SUFFIX.contig -b $PREFIX.bnk
 
-echo "Running bambus"
 # run bambus
+echo "Running bambus"
 echo $AMOS/goBambus2 $PREFIX.bnk ${PREFIX}_output clk bundle reps,"-noPathRepeats" orient,"-maxOverlap 500 -redundancy 0" 2fasta printscaff
 time $AMOS/goBambus2 $PREFIX.bnk ${PREFIX}_output clk bundle reps,"-noPathRepeats" orient,"-maxOverlap 500 -redundancy 0" 2fasta printscaff
 
