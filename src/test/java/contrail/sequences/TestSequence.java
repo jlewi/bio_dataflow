@@ -1,3 +1,16 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+// Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.sequences;
 
 import static org.junit.Assert.assertEquals;
@@ -11,7 +24,6 @@ import org.junit.Test;
 import contrail.util.ByteUtil;
 
 public class TestSequence {
-
   final int BITSPERITEM = 32;
 
   public static int determineLCM(int larger, int smaller) {
@@ -52,7 +64,6 @@ public class TestSequence {
 
   @Test
   public void testDNASequence() {
-
     Alphabet alphabet = DNAAlphabetFactory.create();
     // Run some unittests to check that Sequence is working.
     // TODO (jeremy@lewi.us): How can we test it works for other alpahbets.
@@ -84,6 +95,46 @@ public class TestSequence {
       // Check the characters match.
       for (int pos = 0; pos < length; pos++) {
         assertEquals(sequence.at(pos), letters[pos]);
+      }
+
+      // Check its padded.
+      for (int pos = length; pos < sequence.capacity(); pos++) {
+        assertEquals(sequence.at(pos), alphabet.EOS());
+      }
+    }
+  }
+
+  @Test
+  public void testReadCharSequence() {
+    Alphabet alphabet = DNAAlphabetFactory.create();
+    // Create the sequence
+    Sequence sequence = new Sequence(alphabet);
+
+    // Run some unittests to check that Sequence is working.
+    // TODO (jeremy@lewi.us): How can we test it works for other alpahbets.
+    //
+    // We want to check sequences of length 1 to NLCM where
+    // NLCM  = LCM(alphabet.bitsPerLetter, 8)/alphabet.bitsPerLetter
+    // where LCM stands for least common multiple. This should cover all possible
+    // cases for how much padding/overlap.
+
+    int bits_lcm = determineLCM(BITSPERITEM, alphabet.bitsPerLetter()); // DNASequence uses
+
+    int max_length = (int) Math.ceil((double) bits_lcm
+        / alphabet.bitsPerLetter());
+
+    // We iterate over the lengths in reverse order because we want to make sure when reading in a shorter
+    // string we properly zero out any unset bits.
+    for (int length = max_length; length >= 1; length--) {
+      // Generate a random sequence of the indicated length;
+      String letters = randomChars(length, alphabet);
+
+      sequence.readCharSequence(letters);
+      assertEquals(sequence.size(), letters.length());
+
+      // Check the characters match.
+      for (int pos = 0; pos < length; pos++) {
+        assertEquals(sequence.at(pos), letters.charAt(pos));
       }
 
       // Check its padded.

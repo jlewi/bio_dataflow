@@ -1,3 +1,16 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+// Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.stages;
 
 import static org.junit.Assert.assertEquals;
@@ -30,6 +43,7 @@ import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAStrandUtil;
 import contrail.sequences.DNAUtil;
+import contrail.sequences.FastQRecord;
 import contrail.sequences.Sequence;
 import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
@@ -156,120 +170,156 @@ public class TestBuildGraphAvro {
     }
   }
 
-  @Test
-  // TODO(jlewi): We should probably test that chunk is set correctly.
-  public void TestMap() {
-    int ntrials = 10;
+  /**
+   * Run the test on the mapper.
+   * 
+   * @param useCompressedRead: Whether the input should be a comprssedRead or a
+   *          FastQRecord. TODO(jlewi): We should probably test that chunk is
+   *          set correctly.
+   */
+  private void runMapTest(boolean useCompressedRead) {
     Alphabet alphabet = DNAAlphabetFactory.create();
 
     BuildGraphAvro stage = new BuildGraphAvro();
     Map<String, ParameterDefinition> definitions = stage
         .getParameterDefinitions();
+
+    MapTestData test_data = MapTestData.RandomTest();
+
+    AvroCollectorMock<Pair<ByteBuffer, KMerEdge>> collector_mock = new AvroCollectorMock<Pair<ByteBuffer, KMerEdge>>();
+
+    ReporterMock reporter_mock = new ReporterMock();
+    Reporter reporter = reporter_mock;
+
+    BuildGraphAvro.BuildGraphMapper mapper = new BuildGraphAvro.BuildGraphMapper();
+
+    int K = test_data.getK();
+    JobConf job = new JobConf(BuildGraphAvro.BuildGraphMapper.class);
+    definitions.get("K").addToJobConf(job, new Integer(test_data.K));
+    mapper.configure(job);
+
+    try {
+      Object inputRecord;
+      if (useCompressedRead) {
+        inputRecord = test_data.getRead();
+      } else {
+        FastQRecord record = new FastQRecord();
+        record.setId(test_data.getRead().getId());
+        Sequence seq = new Sequence(alphabet);
+        seq.readPackedBytes(test_data.getRead().getDna().array(), test_data
+            .getRead().getLength());
+        record.setRead(seq.toString());
+        inputRecord = record;
+      }
+
+      mapper.map(inputRecord, collector_mock, reporter);
+    } catch (IOException exception) {
+      fail("IOException occured in map: " + exception.getMessage());
+    }
+
+    // Keep track of the full K + 1 strings corresponding to the
+    // edges we read. We keep a count of each edge because it could
+    // appear more than once
+    HashMap<String, java.lang.Integer> edges = new HashMap<String, java.lang.Integer>();
+
+    // Reconstruct all possible edges coming from the outputs of the mapper.
+    for (Iterator<Pair<ByteBuffer, KMerEdge>> it = collector_mock.data
+        .iterator(); it.hasNext();) {
+      Pair<ByteBuffer, KMerEdge> pair = it.next();
+
+      Sequence canonical_key = new Sequence(DNAAlphabetFactory.create(),
+          (int) ContrailConfig.K);
+      canonical_key.readPackedBytes(pair.key().array(), test_data.getK());
+      Sequence rc_key = DNAUtil.reverseComplement(canonical_key);
+
+      KMerEdge edge = pair.value();
+
+      DNAStrand src_strand = StrandsUtil.src(edge.getStrands());
+      DNAStrand dest_strand = StrandsUtil.dest(edge.getStrands());
+
+      // Reconstruct the K+1 string this edge came from.
+      Sequence last_base = new Sequence(alphabet);
+      last_base.readPackedBytes(edge.getLastBase().array(), 1);
+
+      Sequence edge_seq = new Sequence(alphabet);
+      if (src_strand == DNAStrand.FORWARD) {
+        edge_seq.add(canonical_key);
+      } else {
+        edge_seq.add(DNAUtil.reverseComplement(canonical_key));
+      }
+      edge_seq.add(last_base);
+
+      Sequence dest_kmer = edge_seq.subSequence(1, test_data.getK() + 1);
+      // Check that the direction of the destination node is properly encoded.
+      // If the sequence and its reverse complement are equal then the link
+      // direction could be either forward or reverse because of
+      // StransUtil.flip_link.
+      if (dest_kmer.equals(DNAUtil.reverseComplement(dest_kmer))) {
+        assertTrue(dest_strand == DNAStrand.FORWARD
+            || dest_strand == DNAStrand.REVERSE);
+      } else {
+        assertEquals(DNAUtil.canonicaldir(dest_kmer), dest_strand);
+      }
+
+      {
+        // Add the edge (K + 1) sequence that would ahve genereated this
+        // KMerEdge to the list of edges.
+        String edge_str = edge_seq.toString();
+        if (!edges.containsKey(edge_str)) {
+          edges.put(edge_str, 0);
+        }
+        edges.put(edge_str, edges.get(edge_str) + 1);
+      }
+
+      String uncompressed = test_data.getUncompressed();
+      // Check the state as best we can.
+      if (edge.getState() == ReadState.END5) {
+        assertEquals(src_strand, DNAStrand.FORWARD);
+        // The first characters in the string should match this edge.
+        assertEquals(canonical_key.toString(), uncompressed.substring(0, K));
+      } else if (edge.getState() == ReadState.END6) {
+        assertEquals(src_strand, DNAStrand.REVERSE);
+        // The first characters in the string should be the reverse complement
+        // of the start node.
+        assertEquals(rc_key.toString(), uncompressed.substring(0, K));
+      } else if (edge.getState() == ReadState.END3) {
+        // The canonical version of the sequence should match the canonical
+        // version of the last Kmer in the read.
+        // Get the canonical version of the last K + 1 based in the read.
+        Sequence last_kmer = new Sequence(uncompressed.substring(uncompressed
+            .length() - K), alphabet);
+        last_kmer = DNAUtil.canonicalseq(last_kmer);
+        assertEquals(last_kmer, canonical_key);
+      }
+    }
+
+    // Generate a list of all edges, (substrings of length K + 1), that should
+    // be generated by the read.
+    HashMap<String, java.lang.Integer> true_edges = allEdgesForRead(
+        test_data.getUncompressed(), K);
+
+    // Check that the list of edges from the read matches the set of edges
+    // created from the KMerEdges outputted by the mapper.
+    assertEquals(true_edges.entrySet(), edges.entrySet());
+  }
+
+  // Test the mapper operates correctly when the input is a CompressedRead
+  // record.
+  @Test
+  public void testMapCompressedRead() {
+    int ntrials = 10;
     for (int trial = 0; trial < ntrials; trial++) {
-      MapTestData test_data = MapTestData.RandomTest();
+      runMapTest(true);
+    }
+  }
 
-      AvroCollectorMock<Pair<ByteBuffer, KMerEdge>> collector_mock = new AvroCollectorMock<Pair<ByteBuffer, KMerEdge>>();
-
-      ReporterMock reporter_mock = new ReporterMock();
-      Reporter reporter = reporter_mock;
-
-      BuildGraphAvro.BuildGraphMapper mapper = new BuildGraphAvro.BuildGraphMapper();
-
-      int K = test_data.getK();
-      JobConf job = new JobConf(BuildGraphAvro.BuildGraphMapper.class);
-      definitions.get("K").addToJobConf(job, new Integer(test_data.K));
-      mapper.configure(job);
-
-      try {
-        mapper.map(test_data.getRead(), collector_mock, reporter);
-      } catch (IOException exception) {
-        fail("IOException occured in map: " + exception.getMessage());
-      }
-
-      // Keep track of the full K + 1 strings corresponding to the
-      // edges we read. We keep a count of each edge because it could
-      // appear more than once
-      HashMap<String, java.lang.Integer> edges = new HashMap<String, java.lang.Integer>();
-
-      // Reconstruct all possible edges coming from the outputs of the mapper.
-      for (Iterator<Pair<ByteBuffer, KMerEdge>> it = collector_mock.data
-          .iterator(); it.hasNext();) {
-        Pair<ByteBuffer, KMerEdge> pair = it.next();
-
-        Sequence canonical_key = new Sequence(DNAAlphabetFactory.create(),
-            (int) ContrailConfig.K);
-        canonical_key.readPackedBytes(pair.key().array(), test_data.getK());
-        Sequence rc_key = DNAUtil.reverseComplement(canonical_key);
-
-        KMerEdge edge = pair.value();
-
-        DNAStrand src_strand = StrandsUtil.src(edge.getStrands());
-        DNAStrand dest_strand = StrandsUtil.dest(edge.getStrands());
-
-        // Reconstruct the K+1 string this edge came from.
-        Sequence last_base = new Sequence(alphabet);
-        last_base.readPackedBytes(edge.getLastBase().array(), 1);
-
-        Sequence edge_seq = new Sequence(alphabet);
-        if (src_strand == DNAStrand.FORWARD) {
-          edge_seq.add(canonical_key);
-        } else {
-          edge_seq.add(DNAUtil.reverseComplement(canonical_key));
-        }
-        edge_seq.add(last_base);
-
-        Sequence dest_kmer = edge_seq.subSequence(1, test_data.getK() + 1);
-        // Check that the direction of the destination node is properly encoded.
-        // If the sequence and its reverse complement are equal then the link
-        // direction could be either forward or reverse because of
-        // StransUtil.flip_link.
-        if (dest_kmer.equals(DNAUtil.reverseComplement(dest_kmer))) {
-          assertTrue(dest_strand == DNAStrand.FORWARD
-              || dest_strand == DNAStrand.REVERSE);
-        } else {
-          assertEquals(DNAUtil.canonicaldir(dest_kmer), dest_strand);
-        }
-
-        {
-          // Add the edge (K + 1) sequence that would ahve genereated this
-          // KMerEdge to the list of edges.
-          String edge_str = edge_seq.toString();
-          if (!edges.containsKey(edge_str)) {
-            edges.put(edge_str, 0);
-          }
-          edges.put(edge_str, edges.get(edge_str) + 1);
-        }
-
-        String uncompressed = test_data.getUncompressed();
-        // Check the state as best we can.
-        if (edge.getState() == ReadState.END5) {
-          assertEquals(src_strand, DNAStrand.FORWARD);
-          // The first characters in the string should match this edge.
-          assertEquals(canonical_key.toString(), uncompressed.substring(0, K));
-        } else if (edge.getState() == ReadState.END6) {
-          assertEquals(src_strand, DNAStrand.REVERSE);
-          // The first characters in the string should be the reverse complement
-          // of the start node.
-          assertEquals(rc_key.toString(), uncompressed.substring(0, K));
-        } else if (edge.getState() == ReadState.END3) {
-          // The canonical version of the sequence should match the canonical
-          // version of the last Kmer in the read.
-          // Get the canonical version of the last K + 1 based in the read.
-          Sequence last_kmer = new Sequence(uncompressed.substring(uncompressed
-              .length() - K), alphabet);
-          last_kmer = DNAUtil.canonicalseq(last_kmer);
-          assertEquals(last_kmer, canonical_key);
-        }
-      }
-
-      // Generate a list of all edges, (substrings of length K + 1), that should
-      // be generated by the read.
-      HashMap<String, java.lang.Integer> true_edges = allEdgesForRead(
-          test_data.getUncompressed(), K);
-
-      // Check that the list of edges from the read matches the set of edges
-      // created from the KMerEdges outputted by the mapper.
-      assertEquals(true_edges.entrySet(), edges.entrySet());
+  // Test the mapper operates correctly when the input is a FastQRecord
+  // record.
+  @Test
+  public void testMapFastQrecord() {
+    int ntrials = 10;
+    for (int trial = 0; trial < ntrials; trial++) {
+      runMapTest(false);
     }
   }
 

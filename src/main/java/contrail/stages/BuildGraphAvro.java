@@ -1,7 +1,21 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+// Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.stages;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -37,11 +51,18 @@ import contrail.sequences.Alphabet;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAUtil;
+import contrail.sequences.FastQRecord;
 import contrail.sequences.KMerReadTag;
 import contrail.sequences.Sequence;
 import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
 
+/**
+ * This stage constructs the initial graph based on KMers in the reads.
+ * 
+ * The input is an avro file. The records in the avro file can either be
+ * CompressedRead or FastQRecords.
+ */
 public class BuildGraphAvro extends Stage {
   private static final Logger sLogger = Logger.getLogger(BuildGraphAvro.class);
 
@@ -124,10 +145,10 @@ public class BuildGraphAvro extends Stage {
    * bases we can construct the destination KMer from the source KMer and the
    * non-overlap region of the destination
    * 
-   * @param canonical_src: Canonical representation of the source KMer.
-   * @param last_base: The non overlap region of the destination KMer.
-   * @param strands: Which strands the source and destination kmer came from.
-   * @param alphabet: The alphabet for the encoding.
+   * @param canonical_src : Canonical representation of the source KMer.
+   * @param last_base : The non overlap region of the destination KMer.
+   * @param strands : Which strands the source and destination kmer came from.
+   * @param alphabet : The alphabet for the encoding.
    * @return: The destination KMer.
    */
   public static Sequence ConstructDestSequence(Sequence canonical_src,
@@ -155,8 +176,6 @@ public class BuildGraphAvro extends Stage {
    * We use a separate class so that its easy to unittest.
    */
   public static class SequencePreProcessor {
-
-    private Alphabet alphabet;
     private int trim5;
     private int trim3;
 
@@ -169,7 +188,6 @@ public class BuildGraphAvro extends Stage {
      * @param trim3 - Number of bases to trim off the end.
      */
     public SequencePreProcessor(Alphabet alphabet, int trim5, int trim3) {
-      this.alphabet = alphabet;
       this.trim5 = trim5;
       this.trim3 = trim3;
 
@@ -218,7 +236,7 @@ public class BuildGraphAvro extends Stage {
    * Mapper for BuildGraph. Class is public to facilitate unit-testing.
    */
   public static class BuildGraphMapper extends
-      AvroMapper<CompressedRead, Pair<ByteBuffer, KMerEdge>> {
+      AvroMapper<Object, Pair<ByteBuffer, KMerEdge>> {
     private static int K = 0;
 
     private Alphabet alphabet = DNAAlphabetFactory.create();
@@ -227,6 +245,8 @@ public class BuildGraphAvro extends Stage {
 
     private KMerEdge node = new KMerEdge();
     private Pair<ByteBuffer, KMerEdge> outPair;
+
+    private CharSequence readId;
 
     public void configure(JobConf job) {
       BuildGraphAvro stage = new BuildGraphAvro();
@@ -257,12 +277,20 @@ public class BuildGraphAvro extends Stage {
      * of the sequence.
      */
     @Override
-    public void map(CompressedRead compressed_read,
+    public void map(Object inputRecord,
         AvroCollector<Pair<ByteBuffer, KMerEdge>> output, Reporter reporter)
         throws IOException {
+      if (inputRecord instanceof CompressedRead) {
+        CompressedRead compressed_read = (CompressedRead) inputRecord;
+        seq.readPackedBytes(compressed_read.getDna().array(),
+            compressed_read.getLength());
+        readId = compressed_read.getId();
+      } else if (inputRecord instanceof FastQRecord) {
+        FastQRecord fastQRecord = (FastQRecord) inputRecord;
+        readId = fastQRecord.getId();
+        seq.readCharSequence(fastQRecord.getRead());
+      }
 
-      seq.readPackedBytes(compressed_read.getDna().array(),
-          compressed_read.getLength());
       seq = preprocessor.PreProcess(seq);
 
       // Check for short reads.
@@ -348,7 +376,7 @@ public class BuildGraphAvro extends Stage {
           node.setStrands(strands);
           node.setLastBase(ByteBuffer.wrap(vkmer_end.toPackedBytes(), 0,
               vkmer_end.numPackedBytes()));
-          node.setTag(compressed_read.getId());
+          node.setTag(readId);
           node.setState(ustate);
           node.setChunk(chunk);
           outPair.key(ByteBuffer.wrap(ukmer_canonical.toPackedBytes(), 0,
@@ -367,7 +395,7 @@ public class BuildGraphAvro extends Stage {
           node.setStrands(rc_strands);
           node.setLastBase(ByteBuffer.wrap(ukmer_start.toPackedBytes(), 0,
               ukmer_start.numPackedBytes()));
-          node.setTag(compressed_read.id);
+          node.setTag(readId);
           node.setState(vstate);
           node.setChunk(chunk);
           outPair.key(ByteBuffer.wrap(vkmer_canonical.toPackedBytes(), 0,
@@ -519,8 +547,14 @@ public class BuildGraphAvro extends Stage {
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
+    ArrayList<Schema> schemas = new ArrayList<Schema>();
     CompressedRead read = new CompressedRead();
-    AvroJob.setInputSchema(conf, read.getSchema());
+    FastQRecord fastQRecord = new FastQRecord();
+    schemas.add(read.getSchema());
+    schemas.add(fastQRecord.getSchema());
+
+    Schema unionSchema = Schema.createUnion(schemas);
+    AvroJob.setInputSchema(conf, unionSchema);
     AvroJob.setMapOutputSchema(conf, BuildGraphAvro.MAP_OUT_SCHEMA);
     AvroJob.setOutputSchema(conf, BuildGraphAvro.REDUCE_OUT_SCHEMA);
 
