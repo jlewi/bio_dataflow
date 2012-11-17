@@ -105,7 +105,6 @@ public class TestSequence {
   }
 
   @Test
-<<<<<<< HEAD
   public void testReadCharSequence() {
     Alphabet alphabet = DNAAlphabetFactory.create();
     // Create the sequence
@@ -146,8 +145,6 @@ public class TestSequence {
   }
 
   @Test
-=======
->>>>>>> forge_master
   public void testDNASequenceReadPackedBytes() {
     // Test readBytes() and toBytes
 
