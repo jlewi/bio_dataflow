@@ -25,16 +25,16 @@ public class TestSequence {
 
     int lcm = larger;
 
-    while ( (lcm % smaller) != 0) {
+    while ((lcm % smaller) != 0) {
       lcm += larger;
     }
     return lcm;
   }
 
   /**
-   * Return a random sequence of characters of the specified length
-   * using the given alphabet.
-   *
+   * Return a random sequence of characters of the specified length using the
+   * given alphabet.
+   * 
    * @param length
    * @param alphabet
    * @return
@@ -44,14 +44,14 @@ public class TestSequence {
     char[] letters = new char[length];
     for (int pos = 0; pos < length; pos++) {
       // Randomly select the alphabet
-      int rnd_int = (int) Math.floor(Math.random() * (alphabet.size() -1));
+      int rnd_int = (int) Math.floor(Math.random() * (alphabet.size() - 1));
       letters[pos] = alphabet.validChars()[rnd_int];
     }
     return String.valueOf(letters);
   }
 
   @Test
-  public void testDNASequence(){
+  public void testDNASequence() {
 
     Alphabet alphabet = DNAAlphabetFactory.create();
     // Run some unittests to check that Sequence is working.
@@ -62,19 +62,19 @@ public class TestSequence {
     // where LCM stands for least common multiple. This should cover all possible
     // cases for how much padding/overlap.
 
-    int bits_lcm = determineLCM(BITSPERITEM, alphabet.bitsPerLetter());   // DNASequence uses
+    int bits_lcm = determineLCM(BITSPERITEM, alphabet.bitsPerLetter()); // DNASequence uses
 
-    int max_length = (int) Math.ceil((double)bits_lcm / alphabet.bitsPerLetter());
+    int max_length = (int) Math.ceil((double) bits_lcm
+        / alphabet.bitsPerLetter());
 
-    for (int length = 1 ; length < max_length ; length ++){
+    for (int length = 1; length < max_length; length++) {
       // Generate a random sequence of the indicated length;
       char[] letters = new char[length];
       for (int pos = 0; pos < length; pos++) {
         // Randomly select the alphabet
-        int rnd_int = (int) Math.floor(Math.random() * (alphabet.size() -1));
+        int rnd_int = (int) Math.floor(Math.random() * (alphabet.size() - 1));
         letters[pos] = alphabet.validChars()[rnd_int];
       }
-
 
       // Create the sequence
       Sequence sequence = new Sequence(letters, alphabet);
@@ -82,19 +82,19 @@ public class TestSequence {
       assertEquals(sequence.size(), letters.length);
 
       // Check the characters match.
-      for (int pos = 0 ; pos < length; pos++) {
+      for (int pos = 0; pos < length; pos++) {
         assertEquals(sequence.at(pos), letters[pos]);
       }
 
       // Check its padded.
-      for (int pos = length; pos < sequence.capacity(); pos++){
+      for (int pos = length; pos < sequence.capacity(); pos++) {
         assertEquals(sequence.at(pos), alphabet.EOS());
       }
     }
   }
 
   @Test
-  public void testDNASequenceReadPackedBytes(){
+  public void testDNASequenceReadPackedBytes() {
     // Test readBytes() and toBytes
 
     Alphabet alphabet = DNAAlphabetFactory.create();
@@ -106,16 +106,17 @@ public class TestSequence {
     // where LCM stands for least common multiple. This should cover all possible
     // cases for how much padding/overlap there is.
 
-    int bits_lcm = determineLCM(BITSPERITEM, alphabet.bitsPerLetter());   // DNASequence uses
+    int bits_lcm = determineLCM(BITSPERITEM, alphabet.bitsPerLetter()); // DNASequence uses
 
-    int max_length = (int) Math.ceil((double)bits_lcm / alphabet.bitsPerLetter());
+    int max_length = (int) Math.ceil((double) bits_lcm
+        / alphabet.bitsPerLetter());
 
-    for (int length = 1 ; length < max_length ; length ++){
+    for (int length = 1; length < max_length; length++) {
       // Generate a random sequence of the indicated length;
       char[] letters = new char[length];
       for (int pos = 0; pos < length; pos++) {
         // Randomly select the letters
-        int rnd_int = (int) Math.floor(Math.random() * (alphabet.size() -1));
+        int rnd_int = (int) Math.floor(Math.random() * (alphabet.size() - 1));
         letters[pos] = alphabet.validChars()[rnd_int];
 
       }
@@ -125,7 +126,8 @@ public class TestSequence {
       byte[] bytes = true_sequence.toPackedBytes();
 
       // reduce bytes to the minimum number of bytes
-      int num_bytes = (int)Math.ceil((alphabet.bitsPerLetter() * length)/ 8.0);
+      int num_bytes = (int) Math
+          .ceil((alphabet.bitsPerLetter() * length) / 8.0);
       byte[] min_bytes = new byte[num_bytes];
       for (int pos = 0; pos < num_bytes; pos++) {
         min_bytes[pos] = bytes[pos];
@@ -138,31 +140,31 @@ public class TestSequence {
       assertEquals(sequence.size(), letters.length);
 
       // Check the characters match.
-      for (int pos = 0 ; pos < length; pos++) {
+      for (int pos = 0; pos < length; pos++) {
         assertEquals(sequence.at(pos), letters[pos]);
       }
 
       // Check its padded.
-      for (int pos = length; pos < sequence.capacity(); pos++){
+      for (int pos = length; pos < sequence.capacity(); pos++) {
         assertEquals(sequence.at(pos), alphabet.EOS());
       }
     }
   }
 
   @Test
-  public void testcomputeEditDistance()  {
+  public void testcomputeEditDistance() {
     {
       Alphabet alphabet = DNAAlphabetFactory.create();
-      Sequence s1 =  new Sequence("AATG", alphabet);
+      Sequence s1 = new Sequence("AATG", alphabet);
       Sequence s2 = new Sequence("AATG", alphabet);
 
-      int retval= s1.computeEditDistance(s2);
-      int expected_val= new Integer(0);
+      int retval = s1.computeEditDistance(s2);
+      int expected_val = new Integer(0);
       assertEquals(retval, expected_val);
     }
     {
       Alphabet alphabet = DNAAlphabetFactory.create();
-      Sequence s1 =  new Sequence("AAT", alphabet);
+      Sequence s1 = new Sequence("AAT", alphabet);
       Sequence s2 = new Sequence("ACGC", alphabet);
 
       int retval = s1.computeEditDistance(s2);
@@ -172,7 +174,7 @@ public class TestSequence {
     {
       Alphabet alphabet = DNAAlphabetFactory.create();
       Sequence s1 = new Sequence("ACGC", alphabet);
-      Sequence s2 =  new Sequence("CGC", alphabet);
+      Sequence s2 = new Sequence("CGC", alphabet);
 
       int retval = s1.computeEditDistance(s2);
       int expected_val = new Integer(1);
@@ -181,7 +183,7 @@ public class TestSequence {
   }
 
   @Test
-  public void testDNASequenceReadUTF8(){
+  public void testDNASequenceReadUTF8() {
 
     Alphabet alphabet = DNAAlphabetFactory.create();
     // Run some unittests to check that Sequence can correctly read a sequence
@@ -192,16 +194,17 @@ public class TestSequence {
     // NLCM  = LCM(alphabet.bitsPerLetter, 8)/alphabet.bitsPerLetter
     // where LCM stands for least common multiple. This should cover all possible
     // cases for how much padding/overlap.
-    int bits_lcm = determineLCM(BITSPERITEM, alphabet.bitsPerLetter());   // DNASequence uses
+    int bits_lcm = determineLCM(BITSPERITEM, alphabet.bitsPerLetter()); // DNASequence uses
 
-    int max_length = (int) Math.ceil((double)bits_lcm / alphabet.bitsPerLetter());
+    int max_length = (int) Math.ceil((double) bits_lcm
+        / alphabet.bitsPerLetter());
 
-    for (int length = 1 ; length < max_length ; length ++){
+    for (int length = 1; length < max_length; length++) {
       // Generate a random sequence of the indicated length;
       char[] letters = new char[length];
       for (int pos = 0; pos < length; pos++) {
         // Randomly select the alphabet
-        int rnd_int = (int) Math.floor(Math.random() * (alphabet.size() -1));
+        int rnd_int = (int) Math.floor(Math.random() * (alphabet.size() - 1));
         letters[pos] = alphabet.validChars()[rnd_int];
       }
       // Create a sequence of bytes encoding the sequence in UTF8
@@ -212,12 +215,12 @@ public class TestSequence {
 
       assertEquals(sequence.size(), length);
       // Check the characters match.
-      for (int pos = 0 ; pos < length; pos++) {
+      for (int pos = 0; pos < length; pos++) {
         assertEquals(sequence.at(pos), letters[pos]);
       }
 
       // Check its padded.
-      for (int pos = length; pos < sequence.capacity(); pos++){
+      for (int pos = length; pos < sequence.capacity(); pos++) {
         assertEquals(sequence.at(pos), alphabet.EOS());
       }
 
@@ -226,7 +229,7 @@ public class TestSequence {
       sequence = new Sequence(alphabet);
       sequence.readUTF8(utf8_longer, length);
       assertEquals(sequence.size(), length);
-      for (int pos = 0 ; pos < length; pos++) {
+      for (int pos = 0; pos < length; pos++) {
         assertEquals(sequence.at(pos), letters[pos]);
       }
     }
@@ -240,18 +243,19 @@ public class TestSequence {
     // NLCM  = LCM(alphabet.bitsPerLetter, 8)/alphabet.bitsPerLetter
     // where LCM stands for least common multiple. This should cover all possible
     // cases for how much padding/overlap.
-    int bits_lcm = determineLCM(BITSPERITEM, alphabet.bitsPerLetter());   // DNASequence uses
+    int bits_lcm = determineLCM(BITSPERITEM, alphabet.bitsPerLetter()); // DNASequence uses
 
     if (bits_lcm <= 32) {
       bits_lcm = 96;
     }
-    int max_length = (int) Math.ceil((double)bits_lcm / alphabet.bitsPerLetter());
+    int max_length = (int) Math.ceil((double) bits_lcm
+        / alphabet.bitsPerLetter());
 
     // Generate a random sequence of the indicated length;
     char[] letters = new char[max_length];
     for (int pos = 0; pos < max_length; pos++) {
       // Randomly select the alphabet
-      int rnd_int = (int) Math.floor(Math.random() * (alphabet.size() -1));
+      int rnd_int = (int) Math.floor(Math.random() * (alphabet.size() - 1));
       letters[pos] = alphabet.validChars()[rnd_int];
     }
 
@@ -262,13 +266,13 @@ public class TestSequence {
         int[] letters_ints = new int[end - start];
         for (int pos = 0; pos < letters_ints.length; pos++) {
           // Randomly select the alphabet
-          int rnd_int = (int) Math.floor(Math.random() * (alphabet.size() -1));
+          int rnd_int = (int) Math.floor(Math.random() * (alphabet.size() - 1));
           letters_ints[pos] = rnd_int;
         }
 
         sequence.setAt(start, letters_ints);
 
-        for(int pos = start; pos < end; pos++) {
+        for (int pos = start; pos < end; pos++) {
           assertEquals(sequence.valAt(pos), letters_ints[pos - start]);
         }
       }
@@ -285,12 +289,13 @@ public class TestSequence {
     // NLCM  = LCM(alphabet.bitsPerLetter, 8)/alphabet.bitsPerLetter
     // where LCM stands for least common multiple. This should cover all possible
     // cases for how much padding/overlap.
-    int bits_lcm = determineLCM(BITSPERITEM, alphabet.bitsPerLetter());   // DNASequence uses
+    int bits_lcm = determineLCM(BITSPERITEM, alphabet.bitsPerLetter()); // DNASequence uses
 
     if (bits_lcm <= 32) {
       bits_lcm = 96;
     }
-    int max_length = (int) Math.ceil((double)bits_lcm / alphabet.bitsPerLetter());
+    int max_length = (int) Math.ceil((double) bits_lcm
+        / alphabet.bitsPerLetter());
 
     // Generate a random sequence of the indicated length;
     String letters = randomChars(max_length, alphabet);
@@ -300,16 +305,17 @@ public class TestSequence {
       for (int end = start + 1; end <= max_length; end++) {
         Sequence subsequence = sequence.subSequence(start, end);
         assertEquals(subsequence.size(), end - start);
-        for(int index = 0; index < subsequence.size(); index++) {
+        for (int index = 0; index < subsequence.size(); index++) {
           assertEquals(subsequence.at(index), sequence.at(start + index));
 
           // Make sure all unset bits in the last integer are zero.
           byte[] bytes = subsequence.toPackedBytes();
           int[] buffer = ByteUtil.bytesToInt(bytes);
-          long num_unset = buffer.length * 32 - subsequence.size() * alphabet.bitsPerLetter();
+          long num_unset = buffer.length * 32 - subsequence.size()
+              * alphabet.bitsPerLetter();
           assertTrue(num_unset < 32);
           if (num_unset > 0) {
-            int val_unset = buffer[buffer.length -1 ] >>> (32-num_unset);
+            int val_unset = buffer[buffer.length - 1] >>> (32 - num_unset);
             assertEquals(val_unset, 0);
           }
         }
@@ -345,15 +351,16 @@ public class TestSequence {
     // NLCM  = LCM(alphabet.bitsPerLetter, 8)/alphabet.bitsPerLetter
     // where LCM stands for least common multiple. This should cover all possible
     // cases for how much padding/overlap there is.
-    int bits_lcm = determineLCM(BITSPERITEM, alphabet.bitsPerLetter());   // DNASequence uses
+    int bits_lcm = determineLCM(BITSPERITEM, alphabet.bitsPerLetter()); // DNASequence uses
 
     if (bits_lcm <= 32) {
       bits_lcm = 96;
     }
 
-    final int max_length = (int) Math.ceil((double)bits_lcm / alphabet.bitsPerLetter());
+    final int max_length = (int) Math.ceil((double) bits_lcm
+        / alphabet.bitsPerLetter());
 
-    for (int src_length = 1; src_length < max_length;  src_length++) {
+    for (int src_length = 1; src_length < max_length; src_length++) {
       String src_letters = randomChars(src_length, alphabet);
 
       for (int dest_length = 1; dest_length < max_length; dest_length++) {
@@ -365,7 +372,8 @@ public class TestSequence {
         Sequence dest_sequence = new Sequence(dest_letters, alphabet);
 
         src_sequence.add(dest_sequence);
-        String true_sum = String.valueOf(src_letters) + String.valueOf(dest_letters);
+        String true_sum = String.valueOf(src_letters)
+            + String.valueOf(dest_letters);
 
         String sum_str = src_sequence.toString();
         assertEquals(src_sequence.size(), src_length + dest_length);
@@ -473,11 +481,10 @@ public class TestSequence {
       Sequence sequence = new Sequence(letters, DNAAlphabetFactory.create());
       String base64 = sequence.toBase64();
 
-      byte[] expectedBytes = Arrays.copyOf(
-          sequence.toPackedBytes(), sequence.numPackedBytes());
+      byte[] expectedBytes = Arrays.copyOf(sequence.toPackedBytes(),
+          sequence.numPackedBytes());
       byte[] decodedBytes = Base64.decodeBase64(base64);
       assertTrue(Arrays.equals(expectedBytes, decodedBytes));
-
 
       Sequence reconstructed = new Sequence(DNAAlphabetFactory.create());
       reconstructed.readBase64(base64, length);
