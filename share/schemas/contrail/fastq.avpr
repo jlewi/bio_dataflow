@@ -1,12 +1,12 @@
 {
- "namespace": "contrail.correct",
+ "namespace": "contrail.sequences",
  "protocol": "ContrailErrorCorrection",
  "doc": "Data structures for contrail",
 
 "types": [
 	{
  	"type":"record",
- 	"name":"fastqrecord",
+ 	"name":"FastQRecord",
  	"doc":"A Fastq Read",
  	"fields": [
 		  { "name":"id","type":"string"},
