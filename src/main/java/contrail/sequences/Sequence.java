@@ -1,6 +1,7 @@
 package contrail.sequences;
 
 import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 import java.util.Arrays;
 
 import org.apache.commons.codec.binary.Base64;
@@ -434,28 +435,7 @@ public class Sequence implements Comparable<Sequence> {
    * @param sequence: The sequence to read in.
    */
   public void readChars(char[] letters) {
-    growCapacity(letters.length);
-
-    // Zero out the array.
-    Arrays.fill(this.data, FILL_VALUE);
-
-    boolean has_eos = alphabet.hasEOS();
-
-    for (int pos = 0; pos < letters.length; pos++) {
-      if (has_eos && (letters[pos] == alphabet.EOS())) {
-        String error = "Sequence should not contain the null/end of sequence character ("
-            + alphabet.EOS() + "). Sequence is: " + new String(letters);
-        throw new RuntimeException(error);
-      }
-      setAt(pos, letters[pos]);
-    }
-    length = letters.length;
-
-    // Set null characters for all remaining characters in the array.
-    int max_length = capacity();
-    for (int pos = letters.length; pos < max_length; pos++) {
-      setAt(pos, alphabet.EOS());
-    }
+    readCharSequence(CharBuffer.wrap(letters));
   }
 
   /**
