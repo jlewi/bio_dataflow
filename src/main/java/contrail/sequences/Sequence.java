@@ -1,6 +1,7 @@
 package contrail.sequences;
 
 import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 import java.util.Arrays;
 
 import org.apache.commons.codec.binary.Base64;
@@ -10,11 +11,11 @@ import contrail.util.ByteUtil;
 /**
  * Provides a wrapper class for accessing the sequence compactly encoded in an
  * array of integers.
- * 
+ *
  * TODO(jlewi): We should be using long's when computing the number of bits in a
  * sequence to avoid any potential issues with really long sequences (e.g the
  * human genome has 2.9 bp) and inefficient coding schemes.
- * 
+ *
  * @author jlewi
  */
 public class Sequence implements Comparable<Sequence> {
@@ -27,10 +28,10 @@ public class Sequence implements Comparable<Sequence> {
   /**
    * The alphabet this sequence is using to encode the data.
    */
-  private Alphabet alphabet;
+  private final Alphabet alphabet;
   /**
    * The data we are pointing to
-   * 
+   *
    * @param data
    */
   private int[] data;
@@ -79,7 +80,7 @@ public class Sequence implements Comparable<Sequence> {
   /**
    * Construct a sequence for the given array of bytes. We steal a reference to
    * this byte array so make a copy if you want to keep the original.
-   * 
+   *
    * @param data
    * @param length - length of the sequence stored in data.
    * @param alphabet - Alphabet to use.
@@ -97,7 +98,7 @@ public class Sequence implements Comparable<Sequence> {
 
   /**
    * The actual size of the sequence encoded in the array.
-   * 
+   *
    * @return
    */
   public int size() {
@@ -107,7 +108,7 @@ public class Sequence implements Comparable<Sequence> {
   /**
    * The number of characters that could be stored in the current byte array.
    * The actual length of the sequence is probably less
-   * 
+   *
    * @return
    */
   public int capacity() {
@@ -115,7 +116,7 @@ public class Sequence implements Comparable<Sequence> {
         / alphabet.bitsPerLetter()));
   }
 
-  //Min3 gives minimum between 3 elements
+  // Min3 gives minimum between 3 elements
   private int Min3(int a, int b, int c) {
     a = Math.min(a, b);
     return Math.min(a, c);
@@ -123,7 +124,7 @@ public class Sequence implements Comparable<Sequence> {
 
   /**
    * Calculate the edit distance (Levenshtein Distance) between two sequences.
-   * 
+   *
    * see: http://en.wikipedia.org/wiki/String_metric
    * http://www.ling.ohio-state.edu/~cbrew/795M/string-distance.html
    * */
@@ -159,11 +160,11 @@ public class Sequence implements Comparable<Sequence> {
 
   /**
    * Set the character at the indicated position.
-   * 
+   *
    * @param pos - The position in the sequence [0,size) to set.
    * @param letter - The value of the letters that we want to set
-   * 
-   * 
+   *
+   *
    *          TODO (jeremy@lewi.us): What error checking should we do.
    */
   public void setAt(int pos, int[] letters) {
@@ -212,11 +213,11 @@ public class Sequence implements Comparable<Sequence> {
 
   /**
    * Set the character at the indicated position.
-   * 
+   *
    * @param pos - The position in the sequence [0,size) to set.
    * @param letter - The value of the letter that we want to set
-   * 
-   * 
+   *
+   *
    *          TODO (jeremy@lewi.us): What error checking should we do.
    */
   public void setAt(int pos, int letter) {
@@ -225,10 +226,10 @@ public class Sequence implements Comparable<Sequence> {
 
   /**
    * Set the character at the indicated position.
-   * 
+   *
    * @param letter - The letter in the alphabet to set at the indicated position
    * @param pos - The position in the sequence [0,size) to set.
-   * 
+   *
    *          TODO (jeremy@lewi.us): What error checking should we do.
    */
   public void setAt(int pos, char letter) {
@@ -237,10 +238,10 @@ public class Sequence implements Comparable<Sequence> {
 
   /**
    * Set the character at the indicated position.
-   * 
+   *
    * @param letter - The letter in the alphabet to set at the indicated position
    * @param pos - The position in the sequence [0,size) to set.
-   * 
+   *
    *          IMPORTANT: you must separatly adjust the length of the sequence.
    *          TODO(jlewi): Should we automatically increment the size of the
    *          sequence if it is exapnded? TODO (jeremy@lewi.us): What error
@@ -264,27 +265,17 @@ public class Sequence implements Comparable<Sequence> {
 
     data = new int[num_bytes];
 
-    boolean has_eos = alphabet.hasEOS();
-
-    for (int pos = 0; pos < letters.length; pos++) {
-      if (has_eos && (letters[pos] == alphabet.EOS())) {
-        String error = "Sequence should not contain the null/end of sequence character ("
-            + alphabet.EOS() + "). Sequence is: " + new String(letters);
-        throw new RuntimeException(error);
-      }
-      setAt(pos, letters[pos]);
-    }
-    length = letters.length;
-
-    // Set null characters for all remaining characters in the array.
-    int max_length = capacity();
-    for (int pos = letters.length; pos < max_length; pos++) {
-      setAt(pos, alphabet.EOS());
-    }
+    readChars(letters);
   }
 
   public Sequence(String letters, Alphabet alphabet) {
-    this(letters.toCharArray(), alphabet);
+    // Determine the number of bytes.
+    int num_bytes = (int) (Math.ceil(((double) (letters.length() * alphabet
+        .bitsPerLetter()) / BITSPERITEM)));
+
+    data = new int[num_bytes];
+    this.alphabet = alphabet;
+    readCharSequence(letters);
   }
 
   /**
@@ -296,7 +287,7 @@ public class Sequence implements Comparable<Sequence> {
 
   /**
    * Return the character at the indicated position.
-   * 
+   *
    * @param - The position [0,length) of the character to return.
    */
   public char at(int pos) {
@@ -308,7 +299,7 @@ public class Sequence implements Comparable<Sequence> {
   /**
    * Return the byte associated with the letter at the indicated position All
    * bits except the first alphabet.bitsPerLetter are 0.
-   * 
+   *
    * @param pos
    * @return
    */
@@ -320,7 +311,8 @@ public class Sequence implements Comparable<Sequence> {
     // Determine the first bit in the byte that belongs to this character.
     int bit_start = pos * alphabet.bitsPerLetter() - byte_start * BITSPERITEM;
 
-    // Shift the bits in the start byte to the right so that it starts in the right position.
+    // Shift the bits in the start byte to the right so that it starts in the
+    // right position.
     int val = data[byte_start] >>> bit_start;
 
     // Now get the bits from the next byte
@@ -342,9 +334,9 @@ public class Sequence implements Comparable<Sequence> {
 
   /**
    * Read a string containing the compressed bytes in base64.
-   * 
-   * @param base64: String containing the packed bytes in base64.
-   * @param length: The length of the dna sequence.
+   *
+   * @param base64 : String containing the packed bytes in base64.
+   * @param length : The length of the dna sequence.
    */
   public void readBase64(String base64, int length) {
     byte[] bytes = Base64.decodeBase64(base64);
@@ -362,7 +354,7 @@ public class Sequence implements Comparable<Sequence> {
    * Read the data in from an array of bytes encoding the data in UTF8 with one
    * byte per character in the alphabet. We read the data into an existing
    * object to avoid overhead of allocating a new object.
-   * 
+   *
    * @param utf_letters - The byte buffer to read
    * @param length - How many bytes to read
    */
@@ -393,7 +385,7 @@ public class Sequence implements Comparable<Sequence> {
   /**
    * Read in an array of packed bytes. The data is packed into the bytes such
    * that alphabet.bitsPerLetter() are used to encode each character.
-   * 
+   *
    * @param bytes - the buffer of bytes to read the data from.
    * @param length - the length of the sequence.
    */
@@ -408,8 +400,47 @@ public class Sequence implements Comparable<Sequence> {
   }
 
   /**
+   * Read the data in a string storing the raw sequence.
+   *
+   * @param sequence: A sequence of letters in the alphabet.
+   */
+  public void readCharSequence(CharSequence sequence) {
+    growCapacity(sequence.length());
+
+    // Zero out the array.
+    Arrays.fill(this.data, FILL_VALUE);
+
+    boolean has_eos = alphabet.hasEOS();
+
+    for (int pos = 0; pos < sequence.length(); pos++) {
+      if (has_eos && (sequence.charAt(pos) == alphabet.EOS())) {
+        String error = "Sequence should not contain the null/end of sequence character ("
+            + alphabet.EOS() + "). Sequence is: " + sequence.toString();
+        throw new RuntimeException(error);
+      }
+      setAt(pos, sequence.charAt(pos));
+    }
+    length = sequence.length();
+
+    // Set null characters for all remaining characters in the array.
+    int max_length = capacity();
+    for (int pos = sequence.length(); pos < max_length; pos++) {
+      setAt(pos, alphabet.EOS());
+    }
+  }
+
+  /**
+   * Read the data in a string storing the raw sequence.
+   *
+   * @param sequence: The sequence to read in.
+   */
+  public void readChars(char[] letters) {
+    readCharSequence(CharBuffer.wrap(letters));
+  }
+
+  /**
    * Return a new subsequence.
-   * 
+   *
    * The returned subsequence is [start, end). Thus the length of the sequences
    * is end-start.
    */
@@ -474,7 +505,7 @@ public class Sequence implements Comparable<Sequence> {
 
   /**
    * Return a string representing the packed bytes in base64.
-   * 
+   *
    * Note: Base64 adds 33% overhead because there are 4 output bytes for every
    * input byte. So for maximum compression store a byte array containing the
    * packed bytes.
@@ -502,17 +533,18 @@ public class Sequence implements Comparable<Sequence> {
 
   /**
    * Compare to sequences.
-   * 
+   *
    * TODO(jlewi): How should we handle sequences with different alphabets.
    * TODO(jlewi): Can we speed this up? Unfortunately, we can't just convert the
    * integers because we start filling in the integers starting with the least
    * significant bit. Thus, if we have two sequences of equal length, the most
    * significant bit in the int is actually the least significant bit with
    * regards to the comparison.
-   * 
+   *
    * @param seq
    * @return
    */
+  @Override
   public int compareTo(Sequence other) {
     Sequence seq = (other);
     if (!this.alphabet.equals(seq.alphabet)) {
@@ -542,6 +574,7 @@ public class Sequence implements Comparable<Sequence> {
   /**
    * Check if two alphabets are equal
    */
+  @Override
   public boolean equals(Object other) {
     if (!(other instanceof Sequence)) {
       throw new RuntimeException(
@@ -553,6 +586,7 @@ public class Sequence implements Comparable<Sequence> {
   /**
    * Construct a string representing the sequence.
    */
+  @Override
   public String toString() {
     StringBuilder builder = new StringBuilder(size());
     for (int i = 0; i < size(); i++) {
@@ -564,15 +598,14 @@ public class Sequence implements Comparable<Sequence> {
 
   /**
    * Grow the capacity of the sequence.
-   * 
+   *
    * If size is less than the current size, this function has no effect. We
    * return a reference to the buffer so if a new buffer is allocated the caller
    * can update any shared references.
-   * 
-   * @param newsize - The new capacity (number of letters) that the sequence
-   *          should be able to represent
+   *
+   * @param newsize : The new capacity (number of letters) that the sequence
+   *          should be able to represent.
    */
-  @SuppressWarnings("unused")
   public int[] growCapacity(int newsize) {
     if (newsize < this.capacity()) {
       return this.data;
@@ -581,7 +614,8 @@ public class Sequence implements Comparable<Sequence> {
     int new_numints = numItemsForSize(newsize);
     this.data = Arrays.copyOf(this.data, new_numints);
 
-    // Fill the newdata with the FILL_VALUE. copyOf should pad with zeros by default.
+    // Fill the newdata with the FILL_VALUE. copyOf should pad with zeros by
+    // default.
     if (FILL_VALUE != 0) {
       Arrays.fill(this.data, oldlength, new_numints, FILL_VALUE);
     }
@@ -590,10 +624,10 @@ public class Sequence implements Comparable<Sequence> {
 
   /**
    * Add the sequence to this sequence.
-   * 
+   *
    * We grow the buffer if needed to contain the new sequence if necessary. We
    * return a reference to the new buffer so the caller can update references.
-   * 
+   *
    * @param other - The sequence to add to this one
    * @return - Pointer to the buffer inside this Sequence which stores the sum.
    */
@@ -616,7 +650,8 @@ public class Sequence implements Comparable<Sequence> {
 
     final int this_old_size = this.size();
     final int this_new_size = this_old_size + other.size();
-    // Fill in the last partially filled item with letters from the other sequence.
+    // Fill in the last partially filled item with letters from the other
+    // sequence.
     int write_bit_num = alphabet.bitsPerLetter() * this_old_size;
 
     // The write position in this.data.
@@ -710,10 +745,10 @@ public class Sequence implements Comparable<Sequence> {
 
   /**
    * Return the number of items needed for sequences of the given length.
-   * 
+   *
    * TODO (jlewi): It may be faster to inline this function call in many places
    * where the code is repeatedly called
-   * 
+   *
    * @param num_letters - Number of letters we want to encode.
    * @return - The minimum number of items to encode sequences of the given
    *         length.
@@ -725,7 +760,7 @@ public class Sequence implements Comparable<Sequence> {
 
   /**
    * Sets the size for the current sequence.
-   * 
+   *
    * @param length
    */
   public void setSize(int length) {
@@ -749,7 +784,6 @@ public class Sequence implements Comparable<Sequence> {
     if (shift > 0) {
       int mask = 0xFFFFFFFF;
       mask = mask >>> shift;
-      //mask = mask >> 1;
       data[num_items - 1] = data[num_items - 1] & mask;
     }
     // Fill in the remaining items
