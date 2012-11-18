@@ -4,29 +4,31 @@
  "doc": "Data structures for contrail",
 
 "types": [
-	{
- 	"type":"record",
- 	"name":"FastQRecord",
- 	"doc":"A Fastq Read",
- 	"fields": [
-		  { "name":"id","type":"string"},
-		  { "name":"read", "type":"string"},
-		  { "name":"qvalue", "type":"string"}
-		]
-	},
-	{
- 	"type":"record",
- 	"name":"joinedfqrecord",
- 	"doc":"Foined FastQ File Structure",
-	 "fields": [
-		  { "name":"id1","type":"string"},
-		  { "name":"read1", "type":"string"},
-		  { "name":"qvalue1", "type":"string"},
-		  { "name":"id2","type":"string"},
-		  { "name":"read2", "type":"string"},
-		  { "name":"qvalue2", "type":"string"}
-		]
-	}
+        {
+        "type":"record",
+        "name":"FastQRecord",
+        "doc":"A FastQ Read",
+        "fields": [
+                  { "name":"id","type":"string"},
+                  { "name":"read", "type":"string"},
+                  { "name":"qvalue", "type":"string"}
+                  ]
+        },
+        {
+        "type": "record",
+        "name":"MatePair",
+        "doc":"Mate File Record Structure",
+        "fields": [
+                  {
+                  "name":"left",
+                  "type":"contrail.sequences.FastQRecord"
+                  },
+                  {
+                  "name":"right", 
+                  "type":"contrail.sequences.FastQRecord"
+                  }
+                  ]
+        }
 
-	] //end types
+        ] //end types
 }
