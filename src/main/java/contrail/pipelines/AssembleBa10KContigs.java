@@ -25,10 +25,11 @@ import org.apache.log4j.Logger;
  * An example which runs all stages required to process the Ba10K dataset.
  *
  */
-public class Ba10KExample extends AssembleContigs {
-  private static final Logger sLogger = Logger.getLogger(Ba10KExample.class);
+public class AssembleBa10KContigs extends AssembleContigs {
+  private static final Logger sLogger = Logger
+      .getLogger(AssembleBa10KContigs.class);
 
-  public Ba10KExample() {
+  public AssembleBa10KContigs() {
     // Initialize the stage options to the defaults. We do this here
     // because we want to make it possible to overload them from the command
     // line.
@@ -38,6 +39,7 @@ public class Ba10KExample extends AssembleContigs {
   /**
    * Set the default parameters for the ba10K dataset.
    */
+  @Override
   protected void setDefaultParameters() {
     // Set any parameters to the default value if they haven't already been
     // set.
@@ -63,7 +65,7 @@ public class Ba10KExample extends AssembleContigs {
 
   public static void main(String[] args) throws Exception {
     int res = ToolRunner.run(
-        new Configuration(), new Ba10KExample(), args);
+        new Configuration(), new AssembleBa10KContigs(), args);
     System.exit(res);
   }
 }
