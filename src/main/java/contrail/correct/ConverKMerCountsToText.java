@@ -63,7 +63,7 @@ public class ConverKMerCountsToText extends Stage{
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
    
-    JobConf conf = new JobConf(convertAvroFlashOutToFlatFastQ.class);
+    JobConf conf = new JobConf(ConverKMerCountsToText.class);
     Pair<CharSequence,Long> read = new Pair<CharSequence,Long>("", 0L);
     AvroJob.setInputSchema(conf, read.getSchema());
     conf.setJobName("Convert part file to non avro");
