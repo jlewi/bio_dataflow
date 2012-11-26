@@ -1,8 +1,5 @@
 #!/bin/bash
 # Simple script to build the code.
-if [ ! -d ./bin ]; then
-    mkdir bin
-fi
 javac ./src/java/*.java -d ./bin
 cp ./src/shell/* ./bin/
 cp ./src/perl/*  ./bin/
