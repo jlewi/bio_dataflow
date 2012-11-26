@@ -8,12 +8,12 @@ build.sh. This will build the code in directory bin.
 
 Detailed use instructions:
 1. Bowtie is used to align the original reads to the contigs. 
-2. The Bambus 2 pipeline is run using the goBambus2 executive
+2. The Bambus 2 pipeline is run using the goBambus2 script
    - This pipeline generates the final output and fasta sequences for the scaffolds and contigs files.
    - Bambus 2 does not recall consensus so if two unitigs overlap, only of their sequences will be represented in the overlapping region. 
 
 The main script (assembleScaffolds.sh) has the following parameters:
 1: The working directory.
-2: the prefix for your input/output (so it assumes there will be a PREFIX.libSizes, PREFIX.gkpStore, etc)
+2: the prefix for your input/output (so it assumes there will be a PREFIX.libSizes, etc)
 3: The location of the orginal fastq files to map to the contig. These are assumed to have a .1.fastq and a .2.fastq and the file name is what determines the library name to compute pairing. For non-mapping assemblies, this specifies whether you want to use unitigs or contigs (0 means unitigs, 1 means contigs).
 4: The suffix for the file you want to use for the mapping. So utg.fasta means it will look for the file named PREFIX.utg.fasta to map the reads to.
