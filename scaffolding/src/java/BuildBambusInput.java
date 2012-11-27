@@ -234,6 +234,52 @@ public class BuildBambusInput {
   }
 
   /**
+   * Create a library file.
+   * The library file lists each mate pair in each ibrary.
+   *
+   * @param libraryOutputFile: The file to write to.
+   * @param mates: A hash map specifying the mate pairs in each library.
+   *
+   * For each library fetch the library size or throw an error if there
+   * is no size for this library.
+   * Write out the library file. The library is a text file.
+   * For each library there is a line starting wtih "library" which
+   * contains the name of the library and the size for the library.
+   * For each mate pair in the library we write a line with the id's
+   * of the reads forming the pair and the name of the library they come
+   * from.
+   */
+  private void createLibraryFile(
+      File libraryOutputFile,
+      HashMap<String, HashMap<String, ArrayList<String>>> mates)
+      throws Exception {
+    PrintStream libOut = new PrintStream(libraryOutputFile);
+    for (String lib : mates.keySet()) {
+      HashMap<String, ArrayList<String>> libMates = mates.get(lib);
+      String libName = lib.replaceAll("_", "");
+      if (libSizes.get(libName) == null) {
+        System.err.println("No library sizes defined for library:" + libName);
+        String knownLibraries = "";
+        for (String library : libSizes.keySet()) {
+          knownLibraries += library + ",";
+        }
+        // Strip the last column.
+        knownLibraries = knownLibraries.substring(
+            0, knownLibraries.length() - 1);
+        System.err.println("Known libraries are: " + knownLibraries);
+        System.exit(1);
+      }
+      libOut.println("library " + libName + " " + libSizes.get(libName).first + " " + (int)libSizes.get(libName).second);
+      ArrayList<String> left = libMates.get("left");
+      ArrayList<String> right = libMates.get("right");
+      for (int whichMate = 0; whichMate < left.size(); whichMate++) {
+        libOut.println(left.get(whichMate) + " " + right.get(whichMate) + " " + libName);
+      }
+    }
+    libOut.close();
+  }
+
+  /**
    * Align the contigs to the reads.
    * @param args
    * @throws Exception
@@ -292,42 +338,10 @@ public class BuildBambusInput {
     System.err.println("Library file: " + libraryOutputFile.getName());
     System.err.println("Contig Aligned file: " + contigOutputFile.getName());
 
-    PrintStream libOut = new PrintStream(libraryOutputFile);
-
     HashMap<String, HashMap<String, ArrayList<String>>> mates =
         shortenReads(fastaOutputFile);
 
-    // For each library fetch the library size or throw an error if there
-    // is know size for this library.
-    // Write out the library file. The library is a text file.
-    // For each library there is a line starting wtih "library" which
-    // contains the name of the library and the size for the library.
-    // For each mate pair in the library we write a line with the id's
-    // of the reads forming the pair and the name of the library they come
-    // from.
-    for (String lib : mates.keySet()) {
-      HashMap<String, ArrayList<String>> libMates = mates.get(lib);
-      String libName = lib.replaceAll("_", "");
-      if (libSizes.get(libName) == null) {
-        System.err.println("No library sizes defined for library:" + libName);
-        String knownLibraries = "";
-        for (String library : libSizes.keySet()) {
-          knownLibraries += library + ",";
-        }
-        // Strip the last column.
-        knownLibraries = knownLibraries.substring(
-            0, knownLibraries.length() - 1);
-        System.err.println("Known libraries are: " + knownLibraries);
-        System.exit(1);
-      }
-      libOut.println("library " + libName + " " + libSizes.get(libName).first + " " + (int)libSizes.get(libName).second);
-      ArrayList<String> left = libMates.get("left");
-      ArrayList<String> right = libMates.get("right");
-      for (int whichMate = 0; whichMate < left.size(); whichMate++) {
-        libOut.println(left.get(whichMate) + " " + right.get(whichMate) + " " + libName);
-      }
-    }
-    libOut.close();
+    createLibraryFile(libraryOutputFile, mates);
     System.err.println("Library file built");
 
     // Run the bowtie aligner
