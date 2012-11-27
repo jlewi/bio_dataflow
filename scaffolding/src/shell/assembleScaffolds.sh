@@ -18,6 +18,8 @@ echo "Configuration summary:"
 echo "AMOS: $AMOS"
 echo "Java: $JAVA_PATH"
 
+# TODO(jeremy@lewi.us) We should be specifying the command line arguments
+# by name.
 WORKDIR=$1
 PREFIX=$2
 UTGCTG=$3
@@ -26,20 +28,46 @@ SUFFIX=$4
 echo "Working Directory: $WORKDIR"
 echo "Orignal reads directory: $UTGCTG"
 echo "Prefix: $PREFIX"
-echo "Suffic: $SUFFIX"
+echo "Suffix: $SUFFIX"
+
+# TODO(jlewi) We need to figure out someway to handle the fact that the contig
+# assembly code outputs fasta files named part-?????. One kludge would be
+# to simply concatenate all those files into an appropriately named fasta file here
+# in this script. The better approach will be to fix BuildBambusInput so BuildBambusInput
+# directly invokes bowtie. Then we can modify BuildBmabusInput so it uses a glob path
+# to match the contig files.
 
 # Use bowtie to align the contigs to the reads.
 echo java -cp $JAVA_PATH BuildBambusInput $WORKDIR $UTGCTG $SUFFIX $PREFIX.libSize $PREFIX.$SUFFIX
-time java -cp $JAVA_PATH BuildBambusInput $WORKDIR $UTGCTG $SUFFIX $PREFIX.libSize $PREFIX.$SUFFIX
+java -cp $JAVA_PATH BuildBambusInput $WORKDIR $UTGCTG $SUFFIX $PREFIX.libSize $PREFIX.$SUFFIX
+BUILDSTATUS=$?
+echo "Exit status for BuildBambusInput: " $BUILDSTATUS
+if [[ $BUILDSTATUS -ne 0 ]]; then
+    echo "ERROR: Failed to align the contigs to the reads."
+    exit 1
+fi
 
 # Load the aligned contigs into the amos bank.
 echo $AMOS/toAmos_new -s $PREFIX.$SUFFIX.fasta -m $PREFIX.$SUFFIX.library -c $PREFIX.$SUFFIX.contig -b $PREFIX.bnk
-time $AMOS/toAmos_new -s $PREFIX.$SUFFIX.fasta -m $PREFIX.$SUFFIX.library -c $PREFIX.$SUFFIX.contig -b $PREFIX.bnk
+$AMOS/toAmos_new -s $PREFIX.$SUFFIX.fasta -m $PREFIX.$SUFFIX.library -c $PREFIX.$SUFFIX.contig -b $PREFIX.bnk
+AMOSSTATUS=$?
+echo "Exit status for Amos load: " $AMOSSTATUS
+if [[ $AMOSSTATUS -ne 0 ]]; then
+    echo "ERROR: Failed to load the data into amos."
+    exit 1
+fi
+
 
 # run bambus
 echo "Running bambus"
 echo $AMOS/goBambus2 $PREFIX.bnk ${PREFIX}_output clk bundle reps,"-noPathRepeats" orient,"-maxOverlap 500 -redundancy 0" 2fasta printscaff
-time $AMOS/goBambus2 $PREFIX.bnk ${PREFIX}_output clk bundle reps,"-noPathRepeats" orient,"-maxOverlap 500 -redundancy 0" 2fasta printscaff
+$AMOS/goBambus2 $PREFIX.bnk ${PREFIX}_output clk bundle reps,"-noPathRepeats" orient,"-maxOverlap 500 -redundancy 0" 2fasta printscaff
+BAMBUSSTATUS=$?
+echo "Exit status for BAMBUS: " $BAMBUSSTATUS
+if [[ $BAMBUSSTATUS -ne 0 ]]; then
+    echo "ERROR: Bambus exited with an error."
+    exit 1
+fi
 
 # finally process the output
 java -cp $JAVA_PATH:. SizeFasta ${PREFIX}_output.contigs.fasta > lens
