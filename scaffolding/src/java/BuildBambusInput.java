@@ -6,6 +6,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 
+/**
+ * This class constructs the input needed to run Bambus for scaffolding.
+ *
+ * The input is the original reads and the assembled contigs. The reads
+ * are aligned to the contigs using the Bowtie aligner. The aligned reads
+ * and contigs are then outputted in the appropriate format for use with
+ * Bambus.
+ */
 public class BuildBambusInput {
   private static class MappingInfo {
     public String readID = null;
