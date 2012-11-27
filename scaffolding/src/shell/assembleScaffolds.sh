@@ -28,7 +28,14 @@ SUFFIX=$4
 echo "Working Directory: $WORKDIR"
 echo "Orignal reads directory: $UTGCTG"
 echo "Prefix: $PREFIX"
-echo "Suffic: $SUFFIX"
+echo "Suffix: $SUFFIX"
+
+# TODO(jlewi) We need to figure out someway to handle the fact that the contig
+# assembly code outputs fasta files named part-?????. One kludge would be
+# to simply concatenate all those files into an appropriately named fasta file here
+# in this script. The better approach will be to fix BuildBambusInput so BuildBambusInput
+# directly invokes bowtie. Then we can modify BuildBmabusInput so it uses a glob path
+# to match the contig files.
 
 # Use bowtie to align the contigs to the reads.
 echo java -cp $JAVA_PATH BuildBambusInput $WORKDIR $UTGCTG $SUFFIX $PREFIX.libSize $PREFIX.$SUFFIX
