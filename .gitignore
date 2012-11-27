@@ -14,6 +14,9 @@ target/*
 .*~
 *~
 
+# Ignore scaffolding bin files
+scaffolding/bin/*
+
 #=======
 #Ignore any log files
 *.log
