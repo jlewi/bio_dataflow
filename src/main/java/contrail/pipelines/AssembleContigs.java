@@ -26,11 +26,13 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
+
 import contrail.stages.BuildGraphAvro;
 import contrail.stages.CompressAndCorrect;
 import contrail.stages.ContrailParameters;
 import contrail.stages.FastqPreprocessorAvroCompressed;
 import contrail.stages.GraphStats;
+import contrail.stages.GraphToFasta;
 import contrail.stages.NotImplementedException;
 import contrail.stages.ParameterDefinition;
 import contrail.stages.QuickMergeAvro;
@@ -52,6 +54,7 @@ public class AssembleContigs extends Stage {
   /**
    * Get the parameters used by this stage.
    */
+  @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> definitions =
         new HashMap<String, ParameterDefinition>();
@@ -79,7 +82,7 @@ public class AssembleContigs extends Stage {
 
     Stage[] subStages =
       {new FastqPreprocessorAvroCompressed(), new BuildGraphAvro(),
-       new QuickMergeAvro(), new CompressAndCorrect()};
+       new QuickMergeAvro(), new CompressAndCorrect(), new GraphToFasta()};
 
     // The path to process for the next stage.
     String latestPath = (String) stage_options.get("inputpath");
@@ -110,7 +113,8 @@ public class AssembleContigs extends Stage {
       // We compute graph stats for each stage except the conversion
       // of Fastq files to Avro and BuildGraph.
       if (FastqPreprocessorAvroCompressed.class.isInstance(stage) ||
-          BuildGraphAvro.class.isInstance(stage)) {
+          BuildGraphAvro.class.isInstance(stage) ||
+          GraphToFasta.class.isInstance(stage)) {
         continue;
       }
 
