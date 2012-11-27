@@ -25,7 +25,7 @@ public class BuildBambusInput {
 
   /**
    * Read the bowtie output.
-   * 
+   *
    * @param fileName
    * @param prefix
    * @param map: This is a hashmap keyed by the id of each contig. The value
@@ -110,18 +110,18 @@ public class BuildBambusInput {
   // prefix of the FastQ files for that library. The value is a pair
   // which stores the lower and uppoer bound for the library size.
   private HashMap<String, Utils.Pair> libSizes;
-  
+
   // A list of prefixes for the FASTQ files containing the original reads.
   HashSet<String> prefixes;
-  
+
   private String assemblyDir;
   private String readDir;
-  
+
   // An array containing a list of the readFiles;
   private File[] readFiles;
-  
+
   /**
-   * Parse the library file and extract the library sizes. 
+   * Parse the library file and extract the library sizes.
    */
   private void parseLibSizes(String libFile) throws Exception {
     libSizes = new HashMap<String, Utils.Pair>();
@@ -133,7 +133,7 @@ public class BuildBambusInput {
     }
     libSizeFile.close();
   }
-  
+
   /**
    * Find the prefixes of all the FASTQ files.
    */
@@ -160,83 +160,40 @@ public class BuildBambusInput {
     }
     System.err.println("Prefixes for files I will read are " + prefixes);
   }
-  
+
   /**
-   * Align the contigs to the reads.
-   * @param args
-   * @throws Exception
+   * Create an index of mate pairs for each library and write fasta output.
+   *
+   * @param: The file to write the truncated reads to.
+   * @return: A hash map of the mate pairs for each library.
+   *  The key for the hash map is the prefix for the library and identifies
+   *  a set of mate pairs.
+   *  The value is a hashmap with two keys "left" and "right". Each key
+   *  stores one set of reads in the mate pairs for this library. The value
+   *  of "left" and "right" is an array of strings storing the ids of all
+   *  the reads. Thus
+   *  mates[prefix]["left"][i] and mates[prefix]["right"][i] should be the
+   *  id's of the the i'th mate pair in the library given by prefix.
+   *
+   * The code assumes that the reads in two mate pair files are already
+   * aligned. i.e The i'th record in frag_1.fastq is the mate pair for
+   * the i'th record in frag_2.fastq
+   *
+   * This function also processes all the reads, and truncates the reads to
+   * length SUB_LEN. All of the truncated reads are then written to
+   * fastaOutputFile. The reads are truncated because BOWTIE is a short
+   * read aligner.
    */
-  public void build(String[] args) throws Exception {
-    String resultDir = System.getProperty("user.dir") + "/";
-    if (args.length < 3) {
-      System.err.println("Please provide an asm and read directory");
-      System.exit(1);
-    }
-
-    String execPath = BuildBambusInput.class.getClassLoader().getResource(BuildBambusInput.class.getName().replace('.', File.separatorChar) + ".class").getPath();
-    String perlCommand = new File(execPath).getParent() + File.separatorChar + "get_singles.pl";
-
-    // First argument is the assembly directory.
-    assemblyDir = args[0];
-    // Second argument is the directory containing the original reads.
-    readDir = args[1];
-    String suffix = args[2];
-    String libFile = args[3];
-    
-    // All output files will start with outPrefix. The suffix depends on
-    // the type of file written.
-    String outPrefix = args[4];
-    
-    System.err.println("Arguments are:");
-    System.err.println("assemblyDir: " + assemblyDir);
-    System.err.println("readDir: " + readDir);
-    System.err.println("suffix: " + suffix);
-    System.err.println("libFile: " + libFile);
-    System.err.println("outprefix: " + outPrefix);
-
-    parseLibSizes(libFile);
-            
-    File dir = new File(assemblyDir);
-    if (!dir.isDirectory()) {
-      System.err.println(
-          "Error, assembly directory " + assemblyDir + " is not a directory");
-      System.exit(1);
-    }
-
-    dir = new File(readDir);
-    if (!dir.isDirectory()) {
-      System.err.println("Error, read directory " + readDir + " is not a directory");
-      System.exit(1);
-    }
-
-    findReadPrefixes();
-
-    File fastaOutputFile = new File(resultDir + outPrefix + ".fasta");
-    File libraryOutputFile = new File(resultDir + outPrefix + ".library");
-    File contigOutputFile = new File(resultDir + outPrefix + ".contig");
-    
-    System.err.println("Outputs will be written to:");
-    System.err.println("Fasta file: " + fastaOutputFile.getName());
-    System.err.println("Library file: " + libraryOutputFile.getName());
-    System.err.println("Contig Aligned file: " + contigOutputFile.getName());
-    
+  private HashMap<String, HashMap<String, ArrayList<String>>> shortenReads(
+      File fastaOutputFile) throws Exception {
     PrintStream out = new PrintStream(fastaOutputFile);
-    PrintStream libOut = new PrintStream(libraryOutputFile);
-    // index of mates, assuming files are in the same pairing order.
-    // The key for the hash map is the prefix for the library and identifies
-    // a set of mate pairs.
-    // The value is a hashmap with two keys "left" and "right". Each key
-    // stores one set of reads in the mate pairs for this library. The value
-    // of "left" and "right" is an array of strings storing the ids of all
-    // the reads. Thus
-    // mates[prefix]["left"][i] and mates[prefix]["right"][i] should be the
-    // id's of the the i'th mate pair in the library given by prefix.
-    HashMap<String, HashMap<String, ArrayList<String>>> mates = new HashMap<String, HashMap<String, ArrayList<String>>>();
+    HashMap<String, HashMap<String, ArrayList<String>>> mates =
+        new HashMap<String, HashMap<String, ArrayList<String>>>();
     for (File fs : readFiles) {
       // first trim to 25bp
-      // TODO(jlewi): It looks like the operands of the or operator are the 
+      // TODO(jlewi): It looks like the operands of the or operator are the
       // same rendering the or meaningless.
-      if (containsPrefix(prefixes, fs.getName(), "fastq") || containsPrefix(prefixes, fs.getName(), "fastq")) {
+      if (containsPrefix(prefixes, fs.getName(), "fastq")) {
         String myPrefix = fs.getName().replaceAll("1\\.", "X").replaceAll("2\\.", "X").replaceAll("X.*", "");
         System.err.println("Processing file " + fs.getName() + " prefix " + myPrefix + " FOR FASTA OUTPUT");
         if (mates.get(myPrefix) == null) {
@@ -250,7 +207,6 @@ public class BuildBambusInput {
           int counter = 0;
 
           while ((line = bf.readLine()) != null) {
-            StringBuffer b = new StringBuffer();
             if (counter % 4 == 0) {
               String name = line.replaceAll("@", ""+myPrefix).replaceAll("/", "_");
               out.println(">" + name);
@@ -274,6 +230,72 @@ public class BuildBambusInput {
       }
     }
     out.close();
+    return mates;
+  }
+
+  /**
+   * Align the contigs to the reads.
+   * @param args
+   * @throws Exception
+   */
+  public void build(String[] args) throws Exception {
+    String resultDir = System.getProperty("user.dir") + "/";
+    if (args.length < 3) {
+      System.err.println("Please provide an asm and read directory");
+      System.exit(1);
+    }
+
+    String execPath = BuildBambusInput.class.getClassLoader().getResource(BuildBambusInput.class.getName().replace('.', File.separatorChar) + ".class").getPath();
+    String perlCommand = new File(execPath).getParent() + File.separatorChar + "get_singles.pl";
+
+    // First argument is the assembly directory.
+    assemblyDir = args[0];
+    // Second argument is the directory containing the original reads.
+    readDir = args[1];
+    String suffix = args[2];
+    String libFile = args[3];
+
+    // All output files will start with outPrefix. The suffix depends on
+    // the type of file written.
+    String outPrefix = args[4];
+
+    System.err.println("Arguments are:");
+    System.err.println("assemblyDir: " + assemblyDir);
+    System.err.println("readDir: " + readDir);
+    System.err.println("suffix: " + suffix);
+    System.err.println("libFile: " + libFile);
+    System.err.println("outprefix: " + outPrefix);
+
+    parseLibSizes(libFile);
+
+    File dir = new File(assemblyDir);
+    if (!dir.isDirectory()) {
+      System.err.println(
+          "Error, assembly directory " + assemblyDir + " is not a directory");
+      System.exit(1);
+    }
+
+    dir = new File(readDir);
+    if (!dir.isDirectory()) {
+      System.err.println("Error, read directory " + readDir + " is not a directory");
+      System.exit(1);
+    }
+
+    findReadPrefixes();
+
+    File fastaOutputFile = new File(resultDir + outPrefix + ".fasta");
+    File libraryOutputFile = new File(resultDir + outPrefix + ".library");
+    File contigOutputFile = new File(resultDir + outPrefix + ".contig");
+
+    System.err.println("Outputs will be written to:");
+    System.err.println("Fasta file: " + fastaOutputFile.getName());
+    System.err.println("Library file: " + libraryOutputFile.getName());
+    System.err.println("Contig Aligned file: " + contigOutputFile.getName());
+
+    PrintStream libOut = new PrintStream(libraryOutputFile);
+
+    HashMap<String, HashMap<String, ArrayList<String>>> mates =
+        shortenReads(fastaOutputFile);
 
     // For each library fetch the library size or throw an error if there
     // is know size for this library.
@@ -337,7 +359,8 @@ public class BuildBambusInput {
     }
 
     // TODO(jlewi): This code will only read contigs from the first contig
-    // file that matches.
+    // file that matches. Is this reading the original contig files, or
+    // contigOutputFile.
     File contigFasta = null;
     for (File f: dir.listFiles()) {
       if (f.getName().endsWith(suffix)) {
@@ -346,7 +369,7 @@ public class BuildBambusInput {
       }
     }
 
-    out = new PrintStream(contigOutputFile);
+    PrintStream out = new PrintStream(contigOutputFile);
     BufferedReader bf = new BufferedReader(new FileReader(contigFasta));
     String line = null;
     String contigID = null;
@@ -377,10 +400,9 @@ public class BuildBambusInput {
     bf.close();
     out.close();
   }
-  
+
   public static void main(String[] args) throws Exception {
-    
     BuildBambusInput builder = new BuildBambusInput();
-    builder.build(args);            
+    builder.build(args);
   }
 }
