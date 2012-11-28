@@ -5,7 +5,6 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 
@@ -33,20 +32,6 @@ public class BuildBambusInput {
   private static final int SUB_LEN = 25;
   private static final int NUM_READS_PER_CTG = 200;
   private static final int NUM_CTGS = 200000;
-
-  /**
-   * Build the bowtie index by invoking bambus.
-   *
-   * @param bowtiePath
-   * @param contigFiles
-   * @param outBase
-   */
-  protected static void bowtieBuildIndex(
-      String bowtiePath, Collection<String> contigFiles, String outBase)
-          throws Exception{
-    Process p = Runtime.getRuntime().exec("");
-    p.waitFor();
-  }
 
   /**
    * Read the bowtie output.
