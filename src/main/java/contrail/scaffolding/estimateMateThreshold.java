@@ -1,11 +1,4 @@
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.InputStreamReader;
-import java.io.PrintStream;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
+package contrail.scaffolding;
 
 public class estimateMateThreshold {
         private static final double BAD_MATE_THRESHOLD = 0.25;
@@ -17,10 +10,10 @@ public class estimateMateThreshold {
             long totalBases = Long.parseLong(args[1]);
 
 System.err.println("Inputs are " + genomeSize + " " + totalBases);
-            double coverage = Math.round((double)totalBases / genomeSize);
+            double coverage = Math.round(totalBases / genomeSize);
 System.err.println("Computed coverage is " + coverage);
             int threshold = (int) Math.ceil(coverage * BAD_MATE_THRESHOLD - 0.5 - EPSILON);
 
 System.out.println("Threshold\t" + threshold);
 	}
-}	
+}

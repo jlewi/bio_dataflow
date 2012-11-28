@@ -1,16 +1,15 @@
+package contrail.scaffolding;
+
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 
 public class addMissingMates {
         public static void main(String[] args) throws Exception {
 	    String resultDir = System.getProperty("user.dir") + "/";
-	
+
 	    if (args.length < 1) {
 	       System.err.println("Please provide an asm and read directory");
 	       System.exit(1);
@@ -22,7 +21,7 @@ public class addMissingMates {
             while ((libLine = libSizeFile.readLine()) != null) {
                 String[] splitLine = libLine.trim().split("\\s+");
                 libSizes.put(splitLine[0], new Utils.Pair(Integer.parseInt(splitLine[1]), Integer.parseInt(splitLine[2])));
-            } 
+            }
             libSizeFile.close();
 
             PrintStream out = new PrintStream(new File(resultDir + args[0].replaceAll(".libSize", "") + ".mates"));
@@ -43,12 +42,12 @@ System.err.println("The lib name is " + libName);
                  }
                  last = splitLine[0];
                  count++;
-               } 
+               }
             }
             in.close();
 
 
-           } 
+           }
          out.close();
 }
 }

@@ -1,3 +1,5 @@
+package contrail.scaffolding;
+
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 

@@ -1,20 +1,17 @@
+package contrail.scaffolding;
+
 import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.InputStreamReader;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.regex.Pattern;
 import java.io.PrintStream;
 import java.io.File;
 import java.util.HashSet;
 
-public class mergeFastq {  
+public class mergeFastq {
   private static final NumberFormat nf = new DecimalFormat("############.#");
   public static final Pattern splitBySpaces = Pattern.compile("\\s+");
-   private static final String[] fileEnds = {"fastq", "txt"}; 
+   private static final String[] fileEnds = {"fastq", "txt"};
 
    private HashSet<String> idsIn1 = new HashSet<String>(10000000);
    private HashSet<String> idsIn2 = new HashSet<String>(10000000);
@@ -30,7 +27,7 @@ int chaf = 0;
 
 System.err.println("Outputting files to " + outputFile + " and unmated " + outputFile.replaceAll("txt", "unmated.txt"));
       BufferedReader bf1 = Utils.getFile(inputFile, fileEnds);
-      BufferedReader bf2 = Utils.getFile(secondFile, fileEnds); 
+      BufferedReader bf2 = Utils.getFile(secondFile, fileEnds);
       String line = null;
       String header = "";
       int count = 0;
@@ -126,8 +123,8 @@ System.err.println("Done " + chaf);
       System.err.println("This program sizes a fasta or fastq file. Multiple fasta files can be supplied by using a comma-separated list.");
       System.err.println("Example usage: mergeFastq fasta1.fasta,fasta2.fasta");
    }
-   
-   public static void main(String[] args) throws Exception {     
+
+   public static void main(String[] args) throws Exception {
       if (args.length < 2) { printUsage(); System.exit(1);}
 
       mergeFastq f = new mergeFastq();
