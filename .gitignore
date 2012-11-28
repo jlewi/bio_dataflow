@@ -17,6 +17,9 @@ target/*
 # Ignore scaffolding bin files
 scaffolding/bin/*
 
+# Ignore files created by merges.
+*.orig
+
 #=======
 #Ignore any log files
 *.log
