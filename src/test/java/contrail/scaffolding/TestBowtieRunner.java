@@ -1,12 +1,28 @@
+/**
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+// Author: Avijit Gupta (mailforavijit@gmail.com)
 package contrail.scaffolding;
 
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Random;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
 
 import contrail.sequences.AlphabetUtil;
@@ -24,6 +40,11 @@ import contrail.util.FileHelper;
  * doesn't have to specify the manually.
  */
 public class TestBowtieRunner {
+  private ArrayList<File> dirsToDelete;
+
+  public TestBowtieRunner() {
+    dirsToDelete = new ArrayList<File>();
+  }
 
   /**
    * Create the fasta files to use in the test.
@@ -67,11 +88,35 @@ public class TestBowtieRunner {
         parameters.get("bowtie_path"), parameters.get("bowtiebuild_path"));
 
     File tempDir = FileHelper.createLocalTempDir();
+    dirsToDelete.add(tempDir);
+
     ArrayList<String> fastaFiles = createFastaFiles(tempDir, 3);
-    FileUtils.deleteDirectory(tempDir);
 
     String outBase = new File(tempDir, "index").getAbsolutePath();
-    runner.bowtieBuildIndex(fastaFiles, outBase);
+    boolean success = runner.bowtieBuildIndex(fastaFiles, outBase, "index");
+    if (!success) {
+      throw new RuntimeException("bowtie failed to build the index");
+    }
+  }
+
+  protected void finalize() {
+    // Cleanup the test.
+    ArrayList<String> errors = new ArrayList<String> ();
+    for (File dir : dirsToDelete) {
+      try {
+        FileUtils.deleteDirectory(dir);
+      } catch (IOException e) {
+        errors.add(
+            "Couldn't delete the temporary directory: " +
+            dir.getAbsolutePath() + " \n. Exception was:" + e.getMessage());
+      }
+    }
+
+    if (errors.size() >0 ) {
+      throw new RuntimeException(
+          "There was a problem cleaning up the test errors:" +
+          StringUtils.join(errors, "\n"));
+    }
   }
 
   public static void main(String[] args) {
@@ -82,7 +127,8 @@ public class TestBowtieRunner {
       HashMap<String, String> parameters = new HashMap<String, String>();
 
       for (String arg : args) {
-        String[] pieces = arg.split("=", 1);
+        String[] pieces = arg.split("=", 2);
+        pieces[0] = pieces[0].replaceFirst("-*", "");
         parameters.put(pieces[0], pieces[1]);
       }
 
