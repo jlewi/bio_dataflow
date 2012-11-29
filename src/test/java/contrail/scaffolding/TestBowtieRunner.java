@@ -46,41 +46,77 @@ public class TestBowtieRunner {
     dirsToDelete = new ArrayList<File>();
   }
 
+  private static class TestData {
+    public TestData() {
+      referenceFiles = new ArrayList<String>();
+      readFiles = new ArrayList<String>();
+    }
+    // Files containing the sequences we want to align to.
+    public ArrayList<String> referenceFiles;
+
+    // The short reads to align to the reference.
+    public ArrayList<String> readFiles;
+  }
+
+  private void writeFastQRecord(
+      BufferedWriter out, String readId, String sequence) throws IOException {
+    out.write("@" + readId + "\n");
+    out.write(sequence + "\n");
+    out.write("+\n");
+    out.write(StringUtils.repeat("I", sequence.length()) + "\n");
+  }
+
   /**
    * Create the fasta files to use in the test.
    * @param num: Number of files
    * @return
    */
-  private ArrayList<String> createFastaFiles(File directory, int num) {
-    ArrayList<String> files = new ArrayList<String>();
-
+  private TestData createFastaFiles(File directory, int num) {
+    TestData output = new TestData();
     Random generator = new Random();
 
     for (int i = 0; i < num; ++i) {
       try {
-        File filePath = new File(directory, String.format("contigs_%d.fa", i));
-        files.add(filePath.toString());
-        FileWriter fstream = new FileWriter(filePath, true);
-        BufferedWriter out = new BufferedWriter(fstream);
+        File referencePath =
+            new File(directory, String.format("contigs_%d.fa", i));
+        output.referenceFiles.add(referencePath.toString());
+
+        File readPath =
+            new File(directory, String.format("reads_%d.fastq", i));
+        output.readFiles.add(readPath.toString());
+
+        FileWriter referenceStream = new FileWriter(referencePath, true);
+        BufferedWriter referenceOut = new BufferedWriter(referenceStream);
+
+        FileWriter readStream = new FileWriter(readPath, true);
+        BufferedWriter readOut = new BufferedWriter(readStream);
 
         for (int r = 0; r < 3; r++) {
+          String contigId = String.format("contig_%d_%d\n", i, r);
           String sequence =
               AlphabetUtil.randomString(
                   generator, 100, DNAAlphabetFactory.create());
 
-          out.write(String.format(">read_%d_%d\n", i, r));
-          out.write(sequence);
-          out.write("\n");
+          for (int offset : new int[] {0, 25, 50, 75}) {
+            String readId = String.format("read_%d_%d_%d", i, r, offset);
+            writeFastQRecord(
+                readOut, readId, sequence.substring(offset, offset + 25));
+          }
+
+          referenceOut.write(">" + contigId);
+          referenceOut.write(sequence);
+          referenceOut.write("\n");
         }
 
-        out.close();
-        fstream.close();
-      }
-      catch (Exception e) {
+        referenceOut.close();
+        referenceStream.close();
+        readOut.close();
+        readStream.close();
+      }catch (Exception e) {
         e.printStackTrace();
       }
     }
-    return files;
+    return output;
   }
 
   public void runTests(HashMap<String, String> parameters) {
@@ -90,12 +126,25 @@ public class TestBowtieRunner {
     File tempDir = FileHelper.createLocalTempDir();
     dirsToDelete.add(tempDir);
 
-    ArrayList<String> fastaFiles = createFastaFiles(tempDir, 3);
+    TestData testData = createFastaFiles(tempDir, 3);
 
-    String outBase = new File(tempDir, "index").getAbsolutePath();
-    boolean success = runner.bowtieBuildIndex(fastaFiles, outBase, "index");
+    String indexDir = new File(tempDir, "index").getAbsolutePath();
+    String indexBase = "index";
+    boolean success = runner.bowtieBuildIndex(
+        testData.referenceFiles, indexDir, indexBase);
     if (!success) {
-      throw new RuntimeException("bowtie failed to build the index");
+      throw new RuntimeException("bowtie failed to build the index.");
+    }
+
+    String alignDir = new File(tempDir, "aligned").getAbsolutePath();
+    BowtieRunner.AlignResult alignResult = runner.alignReads(
+        indexDir, indexBase, testData.readFiles, alignDir);
+
+    // TODO(jeremy@lewi.us) we could verify the alignment succeeded because
+    // each read is a substring of a contig and the name of the read tells us
+    // which contig and the offset in the contig.
+    if (!alignResult.success) {
+      throw new RuntimeException("bowtie failed to align the reads.");
     }
   }
 
