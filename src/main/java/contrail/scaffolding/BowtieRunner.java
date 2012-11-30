@@ -33,8 +33,8 @@ import org.apache.log4j.Logger;
  */
 public class BowtieRunner {
   private static final Logger sLogger = Logger.getLogger(BowtieRunner.class);
-  private String bowtiePath;
-  private String bowtieBuildPath;
+  private final String bowtiePath;
+  private final String bowtieBuildPath;
 
   // The initial capacity for the array to store the alignments to each
   // reference contig.
@@ -106,11 +106,11 @@ public class BowtieRunner {
     } catch (IOException e) {
       throw new RuntimeException(
           "There was a problem executing bowtie. The command was:\n" +
-          command + "\n. The Exception was:\n" + e.getMessage());
+              command + "\n. The Exception was:\n" + e.getMessage());
     } catch (InterruptedException e) {
       throw new RuntimeException(
           "Bowtie execution was interupted. The command was:\n" +
-          command + "\n. The Exception was:\n" + e.getMessage());
+              command + "\n. The Exception was:\n" + e.getMessage());
     }
     return success;
   }
@@ -172,8 +172,8 @@ public class BowtieRunner {
         // a suffix to make the filename unique.
         String message =
             "Error output: " + outFile + " would overwrite the output for a " +
-            "previous input. This can happen if two input files have the " +
-            "same base name.";
+                "previous input. This can happen if two input files have the " +
+                "same base name.";
         sLogger.error(message);
         throw new RuntimeException(message);
       }
@@ -212,11 +212,11 @@ public class BowtieRunner {
       } catch (IOException e) {
         throw new RuntimeException(
             "There was a problem executing bowtie. The command was:\n" +
-            command + "\n. The Exception was:\n" + e.getMessage());
+                command + "\n. The Exception was:\n" + e.getMessage());
       } catch (InterruptedException e) {
         throw new RuntimeException(
             "Bowtie execution was interupted. The command was:\n" +
-            command + "\n. The Exception was:\n" + e.getMessage());
+                command + "\n. The Exception was:\n" + e.getMessage());
       }
     }
 
@@ -239,13 +239,14 @@ public class BowtieRunner {
    * Read the bowtie output.
    *
    * @param bowtieFiles: A list of the files containing the bowtie output.
+   * @param subLen: TODO(jeremy@lewi.us) figure out what this parameters is.
    * @param return: This is a hashmap keyed by the id of each contig. The value
    *   is an array of MappingInfo. Each MappingInfo stores information about
    *   a read aligned to contig given by the key.
    * @throws Exception
    */
   public HashMap<String, ArrayList<MappingInfo>> readBowtieResults(
-      Collection<String> bowtieFiles) throws Exception {
+      Collection<String> bowtieFiles, int subLen) throws Exception {
     HashMap<String, ArrayList<MappingInfo>> map =
         new HashMap<String, ArrayList<MappingInfo>>();
 
@@ -257,85 +258,97 @@ public class BowtieRunner {
       String filePrefix = FilenameUtils.getBaseName(bowtieFile);
 
       sLogger.info("Reading alignments from:" + bowtieFile);
-        String line = null;
-        int counter = 0;
-        while ((line = reader.readLine()) != null) {
-          if ((counter % 1000000 == 0) && (counter > 0)) {
-            sLogger.info(
-                "Read " + counter + " mapping records from " + baseName);
-          }
 
-          String[] splitLine = line.trim().split("\\s+");
-          MappingInfo m = new MappingInfo();
-
-          int position = 1;
-          // skip crud
-          // The first field in the output is the name of the read that was
-          // aligned. The second field is a + or - indicating which strand
-          // the read aligned to. We identify the position of the +/- in
-          // the split line and use this to determine the mapping of output
-          // fields to indexes in splitLine.
-          while (!splitLine[position].equalsIgnoreCase("+") &&
-                 !splitLine[position].equalsIgnoreCase("-")) {
-            position++;
-          }
-
-          String readID = splitLine[position - 1];
-          String strand = splitLine[position];
-          String contigID = splitLine[position + 1];
-
-          // 0-based offset into the forward reference strand where leftmost
-          // character of the alignment occurs.
-          String forwardOffset = splitLine[position + 2];
-          String readSequence = splitLine[position + 3];
-
-          // isFWD indicates the read was aligned to the forward strand of
-          // the reference genome.
-          Boolean isFwd = null;
-          if (strand.contains("-")) {
-            isFwd = false;
-          } else if (strand.contains("+")) {
-            isFwd = true;
-          } else {
-            throw new RuntimeException("Couldn't parse the alignment strand");
-          }
-
-          // The first field in the output is the readId. We prefix this
-          // with information about which file the read came from.
-          //
-          // TODO(jeremy@lewi.us): It looks like the original code prefixed
-          // the read id's with the library name. We need to figure out if
-          // thats a requirement and if so figure out how to deal with it.
-          m.readID = libraryName + readID.replaceAll("/", "_");
-          m.start = 1;
-          // TODO(jeremy@lewi.us): Need to check whether the length should be
-          // zero based or 1 based. The original code set this to SUB_LEN
-          // which was the length of the truncated reads which were aligned.
-          //m.end = readSequence.length();
-          // TODO(jerem@lewi.US): Do we have to pass in SUB_LEN or can we determine
-          // it from the output.
-          m.end = SUB_LEN;
-
-
-          m.contigStart = Integer.parseInt(forwardOffset);
-          if (isFwd) {
-            m.contigEnd = m.contigStart + readSequence.length() - 1;
-          } else {
-            m.contigEnd = m.contigStart;
-            m.contigStart = m.contigEnd + readSequence.length() - 1;
-          }
-
-          if (map.get(contigID) == null) {
-            map.put(contigID, new ArrayList<MappingInfo>(NUM_READS_PER_CTG));
-          }
-          map.get(contigID).add(m);
-          counter++;
+      // Compute the library name. We need to strip the "_#" suffix from
+      // the basename.
+      String libraryName;
+      if (filePrefix.contains("_")) {
+        libraryName = filePrefix.split("_", 2)[0];
+      } else {
+        libraryName = filePrefix;
+      }
+      sLogger.info("File belongs to library:" + libraryName);
+      String line = null;
+      int counter = 0;
+      while ((line = reader.readLine()) != null) {
+        if ((counter % PROGRESS_INCREMENT == 0) && (counter > 0)) {
+          sLogger.info(
+              "Read " + counter + " mapping records from " + baseName);
         }
-        reader.close();
-        // Print out the final record count.
-        sLogger.info(
-            "Total of " + counter + " mapping records were found in " +
-            baseName);
+
+        String[] splitLine = line.trim().split("\\s+");
+        MappingInfo m = new MappingInfo();
+
+        int position = 1;
+        // skip crud
+        // The first field in the output is the name of the read that was
+        // aligned. The second field is a + or - indicating which strand
+        // the read aligned to. We identify the position of the +/- in
+        // the split line and use this to determine the mapping of output
+        // fields to indexes in splitLine.
+        while (!splitLine[position].equalsIgnoreCase("+") &&
+            !splitLine[position].equalsIgnoreCase("-")) {
+          position++;
+        }
+
+        String readID = splitLine[position - 1];
+        String strand = splitLine[position];
+        String contigID = splitLine[position + 1];
+
+        // 0-based offset into the forward reference strand where leftmost
+        // character of the alignment occurs.
+        String forwardOffset = splitLine[position + 2];
+        String readSequence = splitLine[position + 3];
+
+        // isFWD indicates the read was aligned to the forward strand of
+        // the reference genome.
+        Boolean isFwd = null;
+        if (strand.contains("-")) {
+          isFwd = false;
+        } else if (strand.contains("+")) {
+          isFwd = true;
+        } else {
+          throw new RuntimeException("Couldn't parse the alignment strand");
+        }
+
+        // The first field in the output is the readId. We prefix this
+        // with information about which file the read came from.
+        //
+        // TODO(jeremy@lewi.us): It looks like the original code prefixed
+        // the read id's with the library name. We need to figure out if
+        // thats a requirement and if so figure out how to deal with it.
+        m.readID = libraryName + readID.replaceAll("/", "_");
+        m.start = 1;
+        // TODO(jeremy@lewi.us): Need to check whether the length should be
+        // zero based or 1 based. The original code set this to SUB_LEN
+        // which was the length of the truncated reads which were aligned.
+        //m.end = readSequence.length();
+        // TODO(jerem@lewi.US): Do we have to pass in SUB_LEN or can we determine
+        // it from the output.
+        sLogger.warn("Setting the end of the contig map to:" + subLen + "  this code may be incorrect.");
+        m.end = subLen;
+
+
+        m.contigStart = Integer.parseInt(forwardOffset);
+        if (isFwd) {
+          m.contigEnd = m.contigStart + readSequence.length() - 1;
+        } else {
+          m.contigEnd = m.contigStart;
+          m.contigStart = m.contigEnd + readSequence.length() - 1;
+        }
+
+        if (map.get(contigID) == null) {
+          map.put(contigID, new ArrayList<MappingInfo>(NUM_READS_PER_CTG));
+        }
+        map.get(contigID).add(m);
+        counter++;
+      }
+      reader.close();
+      // Print out the final record count.
+      sLogger.info(
+          "Total of " + counter + " mapping records were found in " +
+              baseName);
     }
+    return map;
   }
 }
