@@ -1,4 +1,21 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+// Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.stages;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -8,50 +25,45 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.avro.mapred.Pair;
+import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.Reporter;
+import org.junit.Test;
+
 import contrail.CompressedRead;
 import contrail.ContrailConfig;
 import contrail.ReadState;
 import contrail.ReporterMock;
-
 import contrail.graph.EdgeData;
-import contrail.graph.NeighborData;
-import contrail.graph.KMerEdge;
 import contrail.graph.GraphNodeData;
-
+import contrail.graph.KMerEdge;
+import contrail.graph.NeighborData;
 import contrail.sequences.Alphabet;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAStrandUtil;
 import contrail.sequences.DNAUtil;
+import contrail.sequences.FastQRecord;
 import contrail.sequences.Sequence;
 import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import org.junit.Test;
-
-import org.apache.avro.mapred.Pair;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.Reporter;
-
 
 public class TestBuildGraphAvro {
 
   /**
    * Generate a list of all edges coming from the forward read.
-   *
+   * 
    * @param read: String representing the read
    * @param K: Length of the KMers. Generated edges will have length K+1;
-   * @param edges: HasMap String -> Int. Edges are added to this hash map
-   *    The keys are strings representing the K + 1 length sequences
-   *    corresponding to the edges. We consider only edges coming from
-   *    the forward direction of the read and not its reverse complement.
-   *    The integer represents a count indicating how often that edge appeared.
+   * @param edges: HasMap String -> Int. Edges are added to this hash map The
+   *          keys are strings representing the K + 1 length sequences
+   *          corresponding to the edges. We consider only edges coming from the
+   *          forward direction of the read and not its reverse complement. The
+   *          integer represents a count indicating how often that edge
+   *          appeared.
    */
-  public void allEdgesForForwardRead(
-      String read, int K, HashMap<String, java.lang.Integer> edges) {
+  public void allEdgesForForwardRead(String read, int K,
+      HashMap<String, java.lang.Integer> edges) {
     for (int i = 0; i <= read.length() - K - 1; i++) {
       String e = read.substring(i, i + K + 1);
       if (!edges.containsKey(e)) {
@@ -62,17 +74,17 @@ public class TestBuildGraphAvro {
   }
 
   /**
-   * Generate a list of all edges coming from the read and its reverse complement.
-   *
+   * Generate a list of all edges coming from the read and its reverse
+   * complement.
+   * 
    * @param read: String representing the read
    * @return HasMap String -> Int. The keys are strings representing the K+1
-   *    sequences corresponding to the edges. We consider both the read
-   *    and its reverse complement. The integer represents a count indicating
-   *    how often that edge appeared.
+   *         sequences corresponding to the edges. We consider both the read and
+   *         its reverse complement. The integer represents a count indicating
+   *         how often that edge appeared.
    */
   public HashMap<String, java.lang.Integer> allEdgesForRead(String read, int K) {
-    HashMap<String, java.lang.Integer> edges =
-        new HashMap<String, java.lang.Integer>();
+    HashMap<String, java.lang.Integer> edges = new HashMap<String, java.lang.Integer>();
 
     allEdgesForForwardRead(read, K, edges);
 
@@ -85,7 +97,7 @@ public class TestBuildGraphAvro {
   /**
    * Return a random a random string of the specified length using the given
    * alphabet.
-   *
+   * 
    * @param length
    * @param alphabet
    * @return
@@ -95,7 +107,7 @@ public class TestBuildGraphAvro {
     char[] letters = new char[length];
     for (int pos = 0; pos < length; pos++) {
       // Randomly select the character in the alpahbet.
-      int rnd_int = (int) Math.floor(Math.random() * (alphabet.size() -1));
+      int rnd_int = (int) Math.floor(Math.random() * (alphabet.size() - 1));
       letters[pos] = alphabet.validChars()[rnd_int];
     }
     return String.valueOf(letters);
@@ -108,8 +120,10 @@ public class TestBuildGraphAvro {
     private CompressedRead read;
     private int K;
     private String uncompressed;
+
     /**
      * Create a specific test case.
+     * 
      * @param K: Length of the KMer.
      * @param uncompressed: The uncompressed sequence to read.
      */
@@ -125,8 +139,9 @@ public class TestBuildGraphAvro {
     }
 
     /**
-     * Create a random test consisting of a random length read and random
-     * value for K.
+     * Create a random test consisting of a random length read and random value
+     * for K.
+     * 
      * @return An instance of MapTestData cntaining the data for the test.
      */
     public static MapTestData RandomTest() {
@@ -134,7 +149,7 @@ public class TestBuildGraphAvro {
       final int MIN_K = 2;
       final int MAX_LENGTH = 100;
       Alphabet alphabet = DNAAlphabetFactory.create();
-      int K = (int)Math.ceil(Math.random()*MAX_K) + 1;
+      int K = (int) Math.ceil(Math.random() * MAX_K) + 1;
       K = K > MIN_K ? K : MIN_K;
       // Create a compressed read.
       int length = (int) (Math.floor(Math.random() * MAX_LENGTH) + K + 1);
@@ -155,151 +170,177 @@ public class TestBuildGraphAvro {
     }
   }
 
-  @Test
-  // TODO(jlewi): We should probably test that chunk is set correctly.
-  public void TestMap() {
-    int ntrials = 10;
+  /**
+   * Run the test on the mapper.
+   * 
+   * @param useCompressedRead: Whether the input should be a comprssedRead or a
+   *          FastQRecord. TODO(jlewi): We should probably test that chunk is
+   *          set correctly.
+   */
+  private void runMapTest(boolean useCompressedRead) {
     Alphabet alphabet = DNAAlphabetFactory.create();
 
     BuildGraphAvro stage = new BuildGraphAvro();
-    Map<String, ParameterDefinition> definitions =
-        stage.getParameterDefinitions();
+    Map<String, ParameterDefinition> definitions = stage
+        .getParameterDefinitions();
+
+    MapTestData test_data = MapTestData.RandomTest();
+
+    AvroCollectorMock<Pair<ByteBuffer, KMerEdge>> collector_mock = new AvroCollectorMock<Pair<ByteBuffer, KMerEdge>>();
+
+    ReporterMock reporter_mock = new ReporterMock();
+    Reporter reporter = reporter_mock;
+
+    BuildGraphAvro.BuildGraphMapper mapper = new BuildGraphAvro.BuildGraphMapper();
+
+    int K = test_data.getK();
+    JobConf job = new JobConf(BuildGraphAvro.BuildGraphMapper.class);
+    definitions.get("K").addToJobConf(job, new Integer(test_data.K));
+    mapper.configure(job);
+
+    try {
+      Object inputRecord;
+      if (useCompressedRead) {
+        inputRecord = test_data.getRead();
+      } else {
+        FastQRecord record = new FastQRecord();
+        record.setId(test_data.getRead().getId());
+        Sequence seq = new Sequence(alphabet);
+        seq.readPackedBytes(test_data.getRead().getDna().array(), test_data
+            .getRead().getLength());
+        record.setRead(seq.toString());
+        inputRecord = record;
+      }
+
+      mapper.map(inputRecord, collector_mock, reporter);
+    } catch (IOException exception) {
+      fail("IOException occured in map: " + exception.getMessage());
+    }
+
+    // Keep track of the full K + 1 strings corresponding to the
+    // edges we read. We keep a count of each edge because it could
+    // appear more than once
+    HashMap<String, java.lang.Integer> edges = new HashMap<String, java.lang.Integer>();
+
+    // Reconstruct all possible edges coming from the outputs of the mapper.
+    for (Iterator<Pair<ByteBuffer, KMerEdge>> it = collector_mock.data
+        .iterator(); it.hasNext();) {
+      Pair<ByteBuffer, KMerEdge> pair = it.next();
+
+      Sequence canonical_key = new Sequence(DNAAlphabetFactory.create(),
+          (int) ContrailConfig.K);
+      canonical_key.readPackedBytes(pair.key().array(), test_data.getK());
+      Sequence rc_key = DNAUtil.reverseComplement(canonical_key);
+
+      KMerEdge edge = pair.value();
+
+      DNAStrand src_strand = StrandsUtil.src(edge.getStrands());
+      DNAStrand dest_strand = StrandsUtil.dest(edge.getStrands());
+
+      // Reconstruct the K+1 string this edge came from.
+      Sequence last_base = new Sequence(alphabet);
+      last_base.readPackedBytes(edge.getLastBase().array(), 1);
+
+      Sequence edge_seq = new Sequence(alphabet);
+      if (src_strand == DNAStrand.FORWARD) {
+        edge_seq.add(canonical_key);
+      } else {
+        edge_seq.add(DNAUtil.reverseComplement(canonical_key));
+      }
+      edge_seq.add(last_base);
+
+      Sequence dest_kmer = edge_seq.subSequence(1, test_data.getK() + 1);
+      // Check that the direction of the destination node is properly encoded.
+      // If the sequence and its reverse complement are equal then the link
+      // direction could be either forward or reverse because of
+      // StransUtil.flip_link.
+      if (dest_kmer.equals(DNAUtil.reverseComplement(dest_kmer))) {
+        assertTrue(dest_strand == DNAStrand.FORWARD
+            || dest_strand == DNAStrand.REVERSE);
+      } else {
+        assertEquals(DNAUtil.canonicaldir(dest_kmer), dest_strand);
+      }
+
+      {
+        // Add the edge (K + 1) sequence that would ahve genereated this
+        // KMerEdge to the list of edges.
+        String edge_str = edge_seq.toString();
+        if (!edges.containsKey(edge_str)) {
+          edges.put(edge_str, 0);
+        }
+        edges.put(edge_str, edges.get(edge_str) + 1);
+      }
+
+      String uncompressed = test_data.getUncompressed();
+      // Check the state as best we can.
+      if (edge.getState() == ReadState.END5) {
+        assertEquals(src_strand, DNAStrand.FORWARD);
+        // The first characters in the string should match this edge.
+        assertEquals(canonical_key.toString(), uncompressed.substring(0, K));
+      } else if (edge.getState() == ReadState.END6) {
+        assertEquals(src_strand, DNAStrand.REVERSE);
+        // The first characters in the string should be the reverse complement
+        // of the start node.
+        assertEquals(rc_key.toString(), uncompressed.substring(0, K));
+      } else if (edge.getState() == ReadState.END3) {
+        // The canonical version of the sequence should match the canonical
+        // version of the last Kmer in the read.
+        // Get the canonical version of the last K + 1 based in the read.
+        Sequence last_kmer = new Sequence(uncompressed.substring(uncompressed
+            .length() - K), alphabet);
+        last_kmer = DNAUtil.canonicalseq(last_kmer);
+        assertEquals(last_kmer, canonical_key);
+      }
+    }
+
+    // Generate a list of all edges, (substrings of length K + 1), that should
+    // be generated by the read.
+    HashMap<String, java.lang.Integer> true_edges = allEdgesForRead(
+        test_data.getUncompressed(), K);
+
+    // Check that the list of edges from the read matches the set of edges
+    // created from the KMerEdges outputted by the mapper.
+    assertEquals(true_edges.entrySet(), edges.entrySet());
+  }
+
+  // Test the mapper operates correctly when the input is a CompressedRead
+  // record.
+  @Test
+  public void testMapCompressedRead() {
+    int ntrials = 10;
     for (int trial = 0; trial < ntrials; trial++) {
-      MapTestData test_data = MapTestData.RandomTest();
+      runMapTest(true);
+    }
+  }
 
-      AvroCollectorMock<Pair<ByteBuffer, KMerEdge>> collector_mock =
-          new AvroCollectorMock<Pair<ByteBuffer, KMerEdge>>();
-
-      ReporterMock reporter_mock = new ReporterMock();
-      Reporter reporter = reporter_mock;
-
-      BuildGraphAvro.BuildGraphMapper mapper =
-          new BuildGraphAvro.BuildGraphMapper();
-
-
-      int K = test_data.getK();
-      JobConf job = new JobConf(BuildGraphAvro.BuildGraphMapper.class);
-      definitions.get("K").addToJobConf(job, new Integer(test_data.K));
-      mapper.configure(job);
-
-      try {
-        mapper.map(
-            test_data.getRead(),
-            collector_mock, reporter);
-      }
-      catch (IOException exception){
-        fail("IOException occured in map: " + exception.getMessage());
-      }
-
-      // Keep track of the full K + 1 strings corresponding to the
-      // edges we read. We keep a count of each edge because it could
-      // appear more than once
-      HashMap<String, java.lang.Integer> edges =
-          new HashMap<String, java.lang.Integer>();
-
-      // Reconstruct all possible edges coming from the outputs of the mapper.
-      for (Iterator<Pair<ByteBuffer, KMerEdge>> it = collector_mock.data.iterator();
-          it.hasNext(); ) {
-        Pair<ByteBuffer, KMerEdge> pair = it.next();
-
-
-        Sequence canonical_key =
-            new Sequence(DNAAlphabetFactory.create(), (int)ContrailConfig.K);
-        canonical_key.readPackedBytes(pair.key().array(), test_data.getK());
-        Sequence rc_key = DNAUtil.reverseComplement(canonical_key);
-
-        KMerEdge edge = pair.value();
-
-        DNAStrand src_strand = StrandsUtil.src(edge.getStrands());
-        DNAStrand dest_strand = StrandsUtil.dest(edge.getStrands());
-
-        // Reconstruct the K+1 string this edge came from.
-        Sequence last_base = new Sequence(alphabet);
-        last_base.readPackedBytes(edge.getLastBase().array(), 1);
-
-        Sequence edge_seq = new Sequence(alphabet);
-        if (src_strand == DNAStrand.FORWARD) {
-        	edge_seq.add(canonical_key);
-        } else {
-        	edge_seq.add(DNAUtil.reverseComplement(canonical_key));
-        }
-        edge_seq.add(last_base);
-
-        Sequence dest_kmer = edge_seq.subSequence(1, test_data.getK() + 1);
-        // Check that the direction of the destination node is properly encoded.
-        // If the sequence and its reverse complement are equal then the link
-        // direction could be either forward or reverse because of
-        // StransUtil.flip_link.
-        if (dest_kmer.equals(DNAUtil.reverseComplement(dest_kmer))) {
-          assertTrue(dest_strand == DNAStrand.FORWARD ||
-                     dest_strand == DNAStrand.REVERSE);
-        } else {
-          assertEquals(DNAUtil.canonicaldir(dest_kmer), dest_strand);
-        }
-
-
-        {
-          // Add the edge (K + 1) sequence that would ahve genereated this
-          // KMerEdge to the list of edges.
-          String edge_str = edge_seq.toString();
-          if (!edges.containsKey(edge_str)) {
-            edges.put(edge_str, 0);
-          }
-          edges.put(edge_str, edges.get(edge_str) + 1);
-        }
-
-        String uncompressed = test_data.getUncompressed();
-        // Check the state as best we can.
-        if (edge.getState() == ReadState.END5) {
-          assertEquals(src_strand, DNAStrand.FORWARD);
-          // The first characters in the string should match this edge.
-          assertEquals(canonical_key.toString(), uncompressed.substring(0, K));
-        } else if (edge.getState() == ReadState.END6) {
-          assertEquals(src_strand, DNAStrand.REVERSE);
-          // The first characters in the string should be the reverse complement
-          // of the start node.
-          assertEquals(rc_key.toString(), uncompressed.substring(0, K));
-        } else if (edge.getState() == ReadState.END3) {
-          // The canonical version of the sequence should match the canonical
-          // version of the last Kmer in the read.
-          // Get the canonical version of the last K + 1 based in the read.
-          Sequence last_kmer =
-              new Sequence(uncompressed.substring(uncompressed.length()- K),
-                           alphabet);
-          last_kmer = DNAUtil.canonicalseq(last_kmer);
-          assertEquals(last_kmer, canonical_key);
-        }
-      }
-
-      // Generate a list of all edges, (substrings of length K + 1), that should
-      // be generated by the read.
-      HashMap<String, java.lang.Integer> true_edges =
-          allEdgesForRead(test_data.getUncompressed(), K);
-
-      // Check that the list of edges from the read matches the set of edges
-      // created from the KMerEdges outputted by the mapper.
-      assertEquals(true_edges.entrySet(), edges.entrySet());
+  // Test the mapper operates correctly when the input is a FastQRecord
+  // record.
+  @Test
+  public void testMapFastQrecord() {
+    int ntrials = 10;
+    for (int trial = 0; trial < ntrials; trial++) {
+      runMapTest(false);
     }
   }
 
   /**
-   * Used by the testReduce to find a KMerEdge which would have produced
-   * an edge between the given source and destination.
-   *
+   * Used by the testReduce to find a KMerEdge which would have produced an edge
+   * between the given source and destination.
+   * 
    * @param nodeid: The id for the source node. This will be a base64
-   *   representation of the canonical sequence.
+   *          representation of the canonical sequence.
    * @param K: The length of the KMers.
    * @param neighbor_id: Id for the neighbor.
    * @param strands: Which strands each end of the edge comes from.
-   * @param read_tag: The read tag to match. null if you don't want it to
-   *   be taken into acount
+   * @param read_tag: The read tag to match. null if you don't want it to be
+   *          taken into acount
    * @param Edges: The list of KMerEdges to search to see if it contains one
-   *   that could have produced the edge defined by the tuple
-   *   (canonical_src, dest_node, link_dir).
+   *          that could have produced the edge defined by the tuple
+   *          (canonical_src, dest_node, link_dir).
    */
-  private static boolean foundKMerEdge(
-      String nodeid, int K, String neighbor_id, StrandsForEdge strands,
-      String read_tag, ArrayList<KMerEdge> edges) {
+  private static boolean foundKMerEdge(String nodeid, int K,
+      String neighbor_id, StrandsForEdge strands, String read_tag,
+      ArrayList<KMerEdge> edges) {
     Alphabet alphabet = DNAAlphabetFactory.create();
 
     // Keep track of the positions in edges of the edges that we matched.
@@ -362,13 +403,14 @@ public class TestBuildGraphAvro {
 
     /**
      * Construct a specific test case.
+     * 
      * @param uncompressed: The uncompressed K-mer for the source sequence.
      * @param src_strand: Strand of the source KMer.
-     * @param last_base: The base we need to add to the soruce KMer to
-     *   get the destination KMer.
+     * @param last_base: The base we need to add to the soruce KMer to get the
+     *          destination KMer.
      */
     public ReduceTest(String uncompressed, DNAStrand src_strand,
-                      String last_base) {
+        String last_base) {
       this.uncompressed = uncompressed;
       this.K = uncompressed.length();
       input_edges = new ArrayList<KMerEdge>();
@@ -381,10 +423,9 @@ public class TestBuildGraphAvro {
 
       // The destination direction depends on the source direction
       // and the K-1 overlap
-      Sequence dest_kmer =
-          DNAUtil.sequenceToDir(src_canonical, src_strand);
+      Sequence dest_kmer = DNAUtil.sequenceToDir(src_canonical, src_strand);
 
-      dest_kmer = dest_kmer.subSequence(1,  dest_kmer.size());
+      dest_kmer = dest_kmer.subSequence(1, dest_kmer.size());
       dest_kmer.add(seq_last_base);
 
       DNAStrand dest_strand = DNAUtil.canonicaldir(dest_kmer);
@@ -392,8 +433,8 @@ public class TestBuildGraphAvro {
       StrandsForEdge strands = StrandsUtil.form(src_strand, dest_strand);
       node.setStrands(strands);
 
-      node.setLastBase(ByteBuffer.wrap(
-          seq_last_base.toPackedBytes(), 0, seq_last_base.numPackedBytes()));
+      node.setLastBase(ByteBuffer.wrap(seq_last_base.toPackedBytes(), 0,
+          seq_last_base.numPackedBytes()));
 
       node.setTag("read_0");
       node.setState(ReadState.MIDDLE);
@@ -403,9 +444,10 @@ public class TestBuildGraphAvro {
 
     /**
      * Construct a reduce test.
+     * 
      * @param uncompressed: The uncompressed KMer for the source sequence.
-     * @param input_edges: A list of KMerEdges describing edges coming from
-     *   this KMer.
+     * @param input_edges: A list of KMerEdges describing edges coming from this
+     *          KMer.
      * @param K: The length of KMers.
      */
     public ReduceTest(String uncompressed, List<KMerEdge> input_edges, int K) {
@@ -429,12 +471,12 @@ public class TestBuildGraphAvro {
      */
     public static ReduceTest RandomTest(int MIN_K, int MAX_K, int MAX_EDGES) {
       int K;
-      K = (int)Math.ceil(Math.random()*MAX_K) + 1;
+      K = (int) Math.ceil(Math.random() * MAX_K) + 1;
       K = K > MIN_K ? K : MIN_K;
 
       Alphabet alphabet = DNAAlphabetFactory.create();
       // Generate the source KMer.
-      List<KMerEdge> input_edges = new ArrayList<KMerEdge> ();
+      List<KMerEdge> input_edges = new ArrayList<KMerEdge>();
       int num_edges = (int) Math.ceil(Math.random() * MAX_EDGES) + 1;
 
       String uncompressed = randomString(K, alphabet);
@@ -453,9 +495,8 @@ public class TestBuildGraphAvro {
 
         // The destination direction depends on the source direction
         // and the K-1 overlap
-        Sequence dest_kmer =
-            DNAUtil.sequenceToDir(src_canonical, src_strand);
-        dest_kmer = dest_kmer.subSequence(1,  dest_kmer.size());
+        Sequence dest_kmer = DNAUtil.sequenceToDir(src_canonical, src_strand);
+        dest_kmer = dest_kmer.subSequence(1, dest_kmer.size());
         dest_kmer.add(last_base);
 
         DNAStrand dest_strand = DNAUtil.canonicaldir(dest_kmer);
@@ -463,8 +504,8 @@ public class TestBuildGraphAvro {
 
         node.setStrands(strands);
 
-        node.setLastBase(ByteBuffer.wrap(
-            last_base.toPackedBytes(), 0, last_base.numPackedBytes()));
+        node.setLastBase(ByteBuffer.wrap(last_base.toPackedBytes(), 0,
+            last_base.numPackedBytes()));
         node.setTag("read_" + eindex);
         // TODO(jlewi): We should pick values for the state and chunk
         // that would make it easy to verify that the reducer properly
@@ -493,8 +534,8 @@ public class TestBuildGraphAvro {
     Alphabet alphabet = DNAAlphabetFactory.create();
 
     BuildGraphAvro stage = new BuildGraphAvro();
-    Map<String, ParameterDefinition> definitions =
-        stage.getParameterDefinitions();
+    Map<String, ParameterDefinition> definitions = stage
+        .getParameterDefinitions();
 
     for (int trial = 0; trial < NTRIALS; trial++) {
       reduce_data = ReduceTest.RandomTest(MIN_K, MAX_K, MAX_EDGES);
@@ -503,23 +544,20 @@ public class TestBuildGraphAvro {
 
       definitions.get("K").addToJobConf(job, new Integer(reduce_data.K));
 
-      BuildGraphAvro.BuildGraphReducer reducer =
-          new BuildGraphAvro.BuildGraphReducer();
+      BuildGraphAvro.BuildGraphReducer reducer = new BuildGraphAvro.BuildGraphReducer();
       reducer.configure(job);
 
-      AvroCollectorMock<GraphNodeData> collector_mock =
-          new AvroCollectorMock<GraphNodeData>();
+      AvroCollectorMock<GraphNodeData> collector_mock = new AvroCollectorMock<GraphNodeData>();
 
       ReporterMock reporter_mock = new ReporterMock();
       Reporter reporter = reporter_mock;
 
-      Sequence src_canonical =
-          DNAUtil.canonicalseq(reduce_data.getSrcSequence());
+      Sequence src_canonical = DNAUtil.canonicalseq(reduce_data
+          .getSrcSequence());
       try {
         reducer.reduce(ByteBuffer.wrap(src_canonical.toPackedBytes()),
             reduce_data.getInputEdges(), collector_mock, reporter);
-      }
-      catch (IOException exception){
+      } catch (IOException exception) {
         fail("IOException occured in reduce: " + exception.getMessage());
       }
 
@@ -541,25 +579,23 @@ public class TestBuildGraphAvro {
         // generated that edge. We also count the number of edges to make sure
         // we don't have extra edges. As we go we delete KMerEdges so we don't
         // count any twice.
-        for (Iterator<NeighborData> it_dest = graph_data.getNeighbors().iterator();
-            it_dest.hasNext();) {
+        for (Iterator<NeighborData> it_dest = graph_data.getNeighbors()
+            .iterator(); it_dest.hasNext();) {
 
           NeighborData dest_node = it_dest.next();
 
-          for (Iterator<EdgeData> it_instances =
-               dest_node.getEdges().iterator(); it_instances.hasNext();) {
+          for (Iterator<EdgeData> it_instances = dest_node.getEdges()
+              .iterator(); it_instances.hasNext();) {
             EdgeData edge_data = it_instances.next();
 
-            for (Iterator<CharSequence> it_tag =
-            		edge_data.getReadTags().iterator();
-            	 it_tag.hasNext();) {
-            	String tag= it_tag.next().toString();
-	            // FoundKMerEdge will search for the edge in edges_to_find and
-	            // remove it if its found.
-	            assertTrue(foundKMerEdge(
-	                graph_data.getNodeId().toString(), reduce_data.K,
-	                dest_node.getNodeId().toString(),
-	                edge_data.getStrands(), tag,  edges_to_find));
+            for (Iterator<CharSequence> it_tag = edge_data.getReadTags()
+                .iterator(); it_tag.hasNext();) {
+              String tag = it_tag.next().toString();
+              // FoundKMerEdge will search for the edge in edges_to_find and
+              // remove it if its found.
+              assertTrue(foundKMerEdge(graph_data.getNodeId().toString(),
+                  reduce_data.K, dest_node.getNodeId().toString(),
+                  edge_data.getStrands(), tag, edges_to_find));
             }
           } // for it_instances
         } // for edge_dir
