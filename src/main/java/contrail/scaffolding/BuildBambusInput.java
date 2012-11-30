@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 
+import contrail.scaffolding.BowtieRunner.MappingInfo;
+
 /**
  * This class constructs the input needed to run Bambus for scaffolding.
  *
@@ -17,24 +19,15 @@ import java.util.HashSet;
  * Bambus.
  */
 public class BuildBambusInput {
-  private static class MappingInfo {
-    public String readID = null;
-
-    // position on the read
-    int start = 0;
-    int end = 0;
-
-    // position on the contig
-    int contigStart = 0;
-    int contigEnd = 0;
-  }
-
   private static final int SUB_LEN = 25;
   private static final int NUM_READS_PER_CTG = 200;
   private static final int NUM_CTGS = 200000;
 
   /**
    * Read the bowtie output.
+   *
+   * For information about the output format of bowtie see:
+   * http://bowtie-bio.sourceforge.net/manual.shtml#output
    *
    * @param fileName
    * @param prefix
@@ -59,27 +52,55 @@ public class BuildBambusInput {
 
         int position = 1;
         // skip crud
-        while (!splitLine[position].equalsIgnoreCase("+") && !splitLine[position].equalsIgnoreCase("-")) {
+        // The first field in the output is the name of the read that was
+        // aligned. The second field is a + or - indicating which strand
+        // the read aligned to. We identify the position of the +/- in
+        // the split line and use this to determine the mapping of output
+        // fields to indexes in splitLine.
+        while (!splitLine[position].equalsIgnoreCase("+") &&
+               !splitLine[position].equalsIgnoreCase("-")) {
           position++;
         }
 
-        String contigID = splitLine[position+1];
+        String readID = splitLine[position - 1];
+        String strand = splitLine[position];
+        String contigID = splitLine[position + 1];
+
+        // 0-based offset into the forward reference strand where leftmost
+        // character of the alignment occurs.
+        String forwardOffset = splitLine[position + 2];
+        String readSequence = splitLine[position + 3];
+
+        // isFWD indicates the read was aligned to the forward strand of
+        // the reference genome.
         Boolean isFwd = null;
-        if (splitLine[position].contains("-")) {
+        if (strand.contains("-")) {
           isFwd = false;
-        } else if (splitLine[position].contains("+")) {
+        } else if (strand.contains("+")) {
           isFwd = true;
+        } else {
+          throw new RuntimeException("Couldn't parse the alignment strand");
         }
 
-        m.readID = prefix + splitLine[0].replaceAll("/", "_");
+        // The first field in the output is the readId. We prefix this
+        // with information about which file the read came from.
+        m.readID = prefix + readID.replaceAll("/", "_");
         m.start = 1;
+        // TODO(jeremy@lewi.us): Need to check whether the length should be
+        // zero based or 1 based. The original code set this to SUB_LEN
+        // which was the length of the truncated reads which were aligned.
+        //m.end = readSequence.length();
+        // TODO(jerem@lewi.US): Do we have to pass in SUB_LEN or can we determine
+        // it from the output.
         m.end = SUB_LEN;
-        m.contigStart = Integer.parseInt(splitLine[position+2]);
+
+
+        m.contigStart = Integer.parseInt(forwardOffset);
         if (isFwd) {
-          m.contigEnd = m.contigStart + splitLine[position+3].length() - 1;
+          m.contigEnd = m.contigStart + readSequence.length() - 1;
         } else {
           m.contigEnd = m.contigStart;
-          m.contigStart = m.contigEnd + splitLine[position+3].length() - 1;
+          m.contigStart = m.contigEnd + readSequence.length() - 1;
         }
 
         if (map.get(contigID) == null) {
