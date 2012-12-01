@@ -314,10 +314,6 @@ public class WriteGephiFile extends Stage {
     // Determine the input type by reading the first record in one of the
     // file.
     GenericDatumReader reader = new GenericDatumReader<GenericRecord>();
-<<<<<<< HEAD
-    //SpecificDatumReader<GraphNodeData> reader = new SpecificDatumReader<GraphNodeData>();
-=======
->>>>>>> forge_master
     try {
       FileInputStream in_stream = new FileInputStream(inFile);
 
