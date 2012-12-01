@@ -23,17 +23,15 @@ import java.util.Iterator;
 /**
  * Reader for FASTA files.
  */
-// TODO(jeremy@lewi.us) We should refactor this code
-// so that we can reuse the same parsing code as a hadoop input format
-// for reading fasta files. One way to do this would be to represent
-// the fasta file input as a stream. The next method then takes that stream
-// and reads the next record.
-//
-// How should we handle exceptions?
+// TODO(jeremy@lewi.us) How should we handle exceptions? There are various
+// options. 1) Propogate them, 2) convert them to RuntimeExceptions and 3)
+// catch them and log them.
 public class FastaFileReader implements Iterator<FastaRecord> {
   private String fastaFile;
   private BufferedReader reader;
   private FastaRecord record;
+
+  // Variables used for buffering the input.
   private String line;
   private StringBuffer contigSequence = null;
 
@@ -68,6 +66,7 @@ public class FastaFileReader implements Iterator<FastaRecord> {
         break;
       }
 
+      // Continue reading until we find a contig id.
       try {
         line = reader.readLine();
       } catch (IOException e) {
@@ -79,7 +78,7 @@ public class FastaFileReader implements Iterator<FastaRecord> {
   }
 
   /**
-   * Returns the next Fasta record or null if no more records.
+   * Returns the next Fasta record or null if there are no more records.
    *
    * Each call to next uses the same instance of the FastaRecord so data
    * is overwritten on each call.
@@ -124,7 +123,6 @@ public class FastaFileReader implements Iterator<FastaRecord> {
     }
 
     record.setRead(contigSequence);
-
     return record;
   }
 

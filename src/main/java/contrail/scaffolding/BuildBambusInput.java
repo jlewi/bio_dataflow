@@ -3,7 +3,6 @@ package contrail.scaffolding;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileFilter;
-import java.io.FileReader;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -18,7 +17,8 @@ import org.apache.hadoop.mapred.RunningJob;
 import org.apache.log4j.Logger;
 
 import contrail.scaffolding.BowtieRunner.MappingInfo;
-import contrail.stages.NotImplementedException;
+import contrail.sequences.FastaFileReader;
+import contrail.sequences.FastaRecord;
 import contrail.stages.ParameterDefinition;
 import contrail.stages.Stage;
 
@@ -129,15 +129,28 @@ public class BuildBambusInput extends Stage {
     }
   }
 
-  private static void outputContigRecord(PrintStream out, String contigID, String sequence, ArrayList<MappingInfo> reads) {
-    out.println("##" + contigID + " " + (reads == null ? 0 : reads.size()) + " 0 bases 00000000 checksum.");
-    out.print(sequence);
+  /**
+   * Outputs a contig record in tigr format.
+   *
+   * tigr format includes the contig and information about how reads align
+   * to that contig.
+   *
+   * @param out
+   * @param contigID
+   * @param sequence
+   * @param reads
+   */
+  private static void outputContigRecord(
+      PrintStream out, FastaRecord contig, ArrayList<MappingInfo> reads) {
+    out.println("##" + contig.getId() + " " + (reads == null ? 0 : reads.size()) + " 0 bases 00000000 checksum.");
+    out.print(contig.getRead());
     if (reads != null) {
       for (MappingInfo m : reads) {
         out.println("#" + m.readID + "(" + Math.min(m.contigEnd, m.contigStart) + ") " + (m.contigEnd >= m.contigStart ? "[]" : "[RC]") + " " + (m.end - m.start + 1) + " bases, 00000000 checksum. {" + " " + (m.contigEnd >= m.contigStart ? m.start + " " + m.end : m.end + " " + m.start) + "} <" + (m.contigEnd >= m.contigStart ? (m.contigStart+1) + " " + (m.contigEnd+1) : (m.contigEnd+1) + " " + (m.contigStart+1)) + ">");
       }
     }
   }
+
   private static boolean containsPrefix(HashSet<String> prefix, String name, String postfix) {
     boolean contains = false;
 
@@ -442,45 +455,30 @@ public class BuildBambusInput extends Stage {
     BowtieRunner.AlignResult alignResult = runner.alignReads(
         bowtieIndexDir, bowtieIndexBase, readFiles, alignDir);
 
+    HashMap<String, ArrayList<BowtieRunner.MappingInfo>> alignments =
+        runner.readBowtieResults(alignResult.outputs.values(), SUB_LEN);
     // Finally run through all the contig files and build the TIGR .contig file
 
     PrintStream tigrOut= new PrintStream(contigOutputFile);
 
-
     for (String contigFile : contigFiles) {
-      BufferedReader contigReader = new BufferedReader(
-          new FileReader(contigFile));
-      String line = null;
-      String contigID = null;
-      StringBuffer contigSequence = null;
       int counter = 0;
-      while ((line = bf.readLine()) != null) {
-        String[] splitLine = line.trim().split("\\s+");
-        if (splitLine[0].startsWith(">")) {
-          if (contigID != null) {
-            if (counter % 10000 == 0) {
-              System.err.println("Processed in " + counter + " contig records");
-            }
-            counter++;
-
-            outputContigRecord(out, contigID, contigSequence.toString(), map.get(contigID));
-          }
-          contigID = splitLine[0].replaceAll(">", "");
-          contigSequence = new StringBuffer();
-        } else {
-          contigSequence.append(line + "\n");
+      sLogger.info("Writing tigr output for contig file:" + contigFile);
+      FastaFileReader reader = new FastaFileReader(contigFile);
+      while (reader.hasNext()) {
+        ++counter;
+        if (counter % 10000 == 0) {
+          sLogger.info("Processed in " + counter + " contig records.");
         }
+        FastaRecord contig = reader.next();
+
+        outputContigRecord(tigrOut, contig, alignments.get(contig.getId()));
       }
 
-      if (contigID != null) {
-        outputContigRecord(out, contigID, contigSequence.toString(), map.get(contigID));
-      }
-
-      contigReader.close();
+      reader.close();
     }
 
-
-    out.close();
+    tigrOut.close();
   }
 
   /**
