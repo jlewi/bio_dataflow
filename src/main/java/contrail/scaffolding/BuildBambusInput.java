@@ -2,13 +2,25 @@ package contrail.scaffolding;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileFilter;
 import java.io.FileReader;
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
+
+import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.io.filefilter.WildcardFileFilter;
+import org.apache.hadoop.mapred.RunningJob;
+import org.apache.log4j.Logger;
 
 import contrail.scaffolding.BowtieRunner.MappingInfo;
+import contrail.stages.NotImplementedException;
+import contrail.stages.ParameterDefinition;
+import contrail.stages.Stage;
 
 /**
  * This class constructs the input needed to run Bambus for scaffolding.
@@ -18,7 +30,9 @@ import contrail.scaffolding.BowtieRunner.MappingInfo;
  * and contigs are then outputted in the appropriate format for use with
  * Bambus.
  */
-public class BuildBambusInput {
+public class BuildBambusInput extends Stage {
+  private static final Logger sLogger =
+      Logger.getLogger(BuildBambusInput.class);
   private static final int SUB_LEN = 25;
   private static final int NUM_READS_PER_CTG = 200;
   private static final int NUM_CTGS = 200000;
@@ -168,14 +182,12 @@ public class BuildBambusInput {
   /**
    * Find the prefixes of all the FASTQ files.
    */
-  private void findReadPrefixes() {
-    // Process the original read files.
-    File dir = new File(readDir);
-    readFiles = dir.listFiles();
+  private void findReadPrefixes(Collection<String> readFiles) {
     prefixes = new HashSet<String>();
 
     // Find FASTQ files containing mate pairs and extract the filename prefix.
-    for (File fs : readFiles) {
+    for (String filePath : readFiles) {
+      File fs = new File(filePath);
       // TODO(jlewi): Why do we ignore files with SRR in their name?
       if (fs.getName().contains("SRR")) { continue; }
       // TODO(jeremy@lewi.us): This regular expression can match temporary
@@ -189,7 +201,7 @@ public class BuildBambusInput {
                             "2$", "X"));
       }
     }
-    System.err.println("Prefixes for files I will read are " + prefixes);
+    sLogger.info("Prefixes for files I will read are " + prefixes);
   }
 
   /**
@@ -217,6 +229,10 @@ public class BuildBambusInput {
    */
   private HashMap<String, HashMap<String, ArrayList<String>>> shortenReads(
       File fastaOutputFile) throws Exception {
+    sLogger.info(
+        String.format(
+            "Shortening the reads to align to %d bases and writing them " +
+             "to: %s", SUB_LEN, fastaOutputFile.getPath()));
     PrintStream out = new PrintStream(fastaOutputFile);
     HashMap<String, HashMap<String, ArrayList<String>>> mates =
         new HashMap<String, HashMap<String, ArrayList<String>>>();
@@ -251,7 +267,7 @@ public class BuildBambusInput {
               out.println(line.substring(0, SUB_LEN));
             }
             if (counter % 1000000 == 0) {
-              System.err.println("Processed " + counter + " reads");
+              sLogger.info("Processed " + counter + " reads");
               out.flush();
             }
             counter++;
@@ -311,143 +327,232 @@ public class BuildBambusInput {
   }
 
   /**
+   * Find files matching the glob expression.
+   * @param glob
+   * @return
+   */
+  private ArrayList<String> matchFiles(String glob) {
+    // We assume glob is a directory + a wild card expression
+    // e.g /some/dir/*.fastq
+    File dir = new File(FilenameUtils.getPath(glob));
+    FileFilter fileFilter = new WildcardFileFilter(
+        FilenameUtils.getName(glob));
+
+    File[] files =  dir.listFiles(fileFilter);
+
+    ArrayList<String> result = new ArrayList<String>();
+    for (File file : files) {
+      result.add(file.getPath());
+    }
+    return result;
+  }
+
+  /**
    * Align the contigs to the reads.
+   *
    * @param args
    * @throws Exception
    */
-  public void build(String[] args) throws Exception {
-    String resultDir = System.getProperty("user.dir") + "/";
-    if (args.length < 3) {
-      System.err.println("Please provide an asm and read directory");
-      System.exit(1);
-    }
+  public void build() throws Exception {
+//    // First argument is the assembly directory.
+//    assemblyDir = args[0];
+//    // Second argument is the directory containing the original reads.
+//    readDir = args[1];
+//    String suffix = args[2];
+//    String libFile = args[3];
+//
+//    // All output files will start with outPrefix. The suffix depends on
+//    // the type of file written.
+//    String outPrefix = args[4];
+//
+//    System.err.println("Arguments are:");
+//    System.err.println("assemblyDir: " + assemblyDir);
+//    System.err.println("readDir: " + readDir);
+//    System.err.println("suffix: " + suffix);
+//    System.err.println("libFile: " + libFile);
+//    System.err.println("outprefix: " + outPrefix);
 
-    String execPath = BuildBambusInput.class.getClassLoader().getResource(BuildBambusInput.class.getName().replace('.', File.separatorChar) + ".class").getPath();
-    String perlCommand = new File(execPath).getParent() + File.separatorChar + "get_singles.pl";
-
-    // First argument is the assembly directory.
-    assemblyDir = args[0];
-    // Second argument is the directory containing the original reads.
-    readDir = args[1];
-    String suffix = args[2];
-    String libFile = args[3];
-
-    // All output files will start with outPrefix. The suffix depends on
-    // the type of file written.
-    String outPrefix = args[4];
-
-    System.err.println("Arguments are:");
-    System.err.println("assemblyDir: " + assemblyDir);
-    System.err.println("readDir: " + readDir);
-    System.err.println("suffix: " + suffix);
-    System.err.println("libFile: " + libFile);
-    System.err.println("outprefix: " + outPrefix);
+    String libFile = (String) this.stage_options.get("libsize");
 
     parseLibSizes(libFile);
 
-    File dir = new File(assemblyDir);
-    if (!dir.isDirectory()) {
-      System.err.println(
-          "Error, assembly directory " + assemblyDir + " is not a directory");
-      System.exit(1);
+//    File dir = new File(assemblyDir);
+//    if (!dir.isDirectory()) {
+//      System.err.println(
+//          "Error, assembly directory " + assemblyDir + " is not a directory");
+//      System.exit(1);
+//    }
+//
+//    dir = new File(readDir);
+//    if (!dir.isDirectory()) {
+//      System.err.println("Error, read directory " + readDir + " is not a directory");
+//      System.exit(1);
+//    }
+
+    ArrayList<String> readFiles = matchFiles(
+        (String) this.stage_options.get("reads_glob"));
+
+    sLogger.info("Files containing reads to align are:");
+    for (String file : readFiles) {
+      sLogger.info("read file:" + file);
     }
 
-    dir = new File(readDir);
-    if (!dir.isDirectory()) {
-      System.err.println("Error, read directory " + readDir + " is not a directory");
-      System.exit(1);
+    ArrayList<String> contigFiles = matchFiles(
+        (String) this.stage_options.get("reference_glob"));
+
+    sLogger.info("Files containing contings to align reads to are:");
+    for (String file : contigFiles) {
+      sLogger.info("contig file:" + file);
     }
 
-    findReadPrefixes();
+    findReadPrefixes(readFiles);
 
+    String resultDir = (String) stage_options.get("outputpath");
+    String outPrefix = (String) stage_options.get("outprefix");
     File fastaOutputFile = new File(resultDir + outPrefix + ".fasta");
     File libraryOutputFile = new File(resultDir + outPrefix + ".library");
     File contigOutputFile = new File(resultDir + outPrefix + ".contig");
 
-    System.err.println("Outputs will be written to:");
-    System.err.println("Fasta file: " + fastaOutputFile.getName());
-    System.err.println("Library file: " + libraryOutputFile.getName());
-    System.err.println("Contig Aligned file: " + contigOutputFile.getName());
+    sLogger.info("Outputs will be written to:");
+    sLogger.info("Fasta file: " + fastaOutputFile.getName());
+    sLogger.info("Library file: " + libraryOutputFile.getName());
+    sLogger.info("Contig Aligned file: " + contigOutputFile.getName());
 
     HashMap<String, HashMap<String, ArrayList<String>>> mates =
         shortenReads(fastaOutputFile);
 
     createLibraryFile(libraryOutputFile, mates);
-    System.err.println("Library file built");
+    sLogger.info("Library file written:" + libraryOutputFile.getPath());
 
     // Run the bowtie aligner
-    System.err.println("Launching bowtie aligner: " + perlCommand + " -reads " + readDir + " -assembly " + assemblyDir + " -suffix " + suffix + " --threads 2");
-    Process p = Runtime.getRuntime().exec("perl " + perlCommand + " -reads " + readDir + " -assembly " + assemblyDir + " -suffix " + suffix + " --threads 2");
-    p.waitFor();
-    System.err.println("Bowtie finished");
-    HashMap<String, ArrayList<MappingInfo>> map = new HashMap<String, ArrayList<MappingInfo>>(NUM_CTGS);
-    for (String prefix : prefixes) {
-      String first = resultDir + prefix.replaceAll("X", "1") + ".bout";
-      String second  = resultDir + prefix.replaceAll("X", "2") + ".bout";
-      if (!new File(first).exists()) {
-        first = first + ".bz2";
-        second = second + ".bz2";
-        if (!new File(first).exists()) {
-          System.err.println("Cannot find bowtie output, expected " + resultDir + prefix + ".1.bout[.bz2]");
-          System.exit(1);
-        }
-      }
-      readBowtieResults(first, prefix, map);
-      readBowtieResults(second, prefix, map);
+    BowtieRunner runner = new BowtieRunner(
+        (String)stage_options.get("bowtie_path"),
+        (String)stage_options.get("bowtiebuild_path"));
+
+    String bowtieIndexDir = FilenameUtils.concat(resultDir, "bowtie-index");
+    String bowtieIndexBase = "index";
+    if (!runner.bowtieBuildIndex(
+        contigFiles, bowtieIndexDir, bowtieIndexBase)) {
+      sLogger.fatal(
+          "There was a problem building the bowtie index.");
+
     }
 
-    // finally run through all the contig files and build the TIGR .contig file
-    dir = new File(assemblyDir);
-    if (!dir.isDirectory()) {
-      System.err.println("Error, read directory " + assemblyDir + " is not a directory");
-      System.exit(1);
-    }
+    String alignDir = FilenameUtils.concat(resultDir, "bowtie-alignments");
+    BowtieRunner.AlignResult alignResult = runner.alignReads(
+        bowtieIndexDir, bowtieIndexBase, readFiles, alignDir);
 
-    // TODO(jlewi): This code will only read contigs from the first contig
-    // file that matches. Is this reading the original contig files, or
-    // contigOutputFile.
-    File contigFasta = null;
-    for (File f: dir.listFiles()) {
-      if (f.getName().endsWith(suffix)) {
-        contigFasta = f;
-        break;
-      }
-    }
+    // Finally run through all the contig files and build the TIGR .contig file
 
-    PrintStream out = new PrintStream(contigOutputFile);
-    BufferedReader bf = new BufferedReader(new FileReader(contigFasta));
-    String line = null;
-    String contigID = null;
-    StringBuffer contigSequence = null;
-    int counter = 0;
-    while ((line = bf.readLine()) != null) {
-      String[] splitLine = line.trim().split("\\s+");
-      if (splitLine[0].startsWith(">")) {
-        if (contigID != null) {
-          if (counter % 10000 == 0) {
-            System.err.println("Processed in " + counter + " contig records");
+    PrintStream tigrOut= new PrintStream(contigOutputFile);
+
+
+    for (String contigFile : contigFiles) {
+      BufferedReader contigReader = new BufferedReader(
+          new FileReader(contigFile));
+      String line = null;
+      String contigID = null;
+      StringBuffer contigSequence = null;
+      int counter = 0;
+      while ((line = bf.readLine()) != null) {
+        String[] splitLine = line.trim().split("\\s+");
+        if (splitLine[0].startsWith(">")) {
+          if (contigID != null) {
+            if (counter % 10000 == 0) {
+              System.err.println("Processed in " + counter + " contig records");
+            }
+            counter++;
+
+            outputContigRecord(out, contigID, contigSequence.toString(), map.get(contigID));
           }
-          counter++;
-
-          outputContigRecord(out, contigID, contigSequence.toString(), map.get(contigID));
+          contigID = splitLine[0].replaceAll(">", "");
+          contigSequence = new StringBuffer();
+        } else {
+          contigSequence.append(line + "\n");
         }
-        contigID = splitLine[0].replaceAll(">", "");
-        contigSequence = new StringBuffer();
-      } else {
-        contigSequence.append(line + "\n");
       }
+
+      if (contigID != null) {
+        outputContigRecord(out, contigID, contigSequence.toString(), map.get(contigID));
+      }
+
+      contigReader.close();
     }
 
-    if (contigID != null) {
-      outputContigRecord(out, contigID, contigSequence.toString(), map.get(contigID));
-    }
 
-    bf.close();
     out.close();
   }
 
+  /**
+   * Get the parameters used by this stage.
+   */
+  protected Map<String, ParameterDefinition> createParameterDefinitions() {
+    HashMap<String, ParameterDefinition> definitions =
+        new HashMap<String, ParameterDefinition>();
+
+    ParameterDefinition bowtiePath =
+        new ParameterDefinition(
+            "bowtie_path", "The path to the bowtie binary.",
+            String.class, null);
+
+    ParameterDefinition bowtieBuildPath =
+        new ParameterDefinition(
+            "bowtiebuild_path", "The path to the bowtie-build binary.",
+            String.class, null);
+
+    ParameterDefinition readsGlob =
+        new ParameterDefinition(
+            "reads_glob", "A glob expression matching the path to the fastq " +
+            "files containg the reads to align to the reference genome.",
+            String.class, null);
+
+    ParameterDefinition contigsGlob =
+        new ParameterDefinition(
+            "reference_glob", "A glob expression matching the path to the " +
+            "fasta files containg the reference genome.",
+            String.class, null);
+
+    ParameterDefinition libsizePath =
+        new ParameterDefinition(
+            "libsize", "The path to the file containing the sizes for each " +
+            "library",
+            String.class, null);
+
+    ParameterDefinition outputPath =
+        new ParameterDefinition(
+            "outputpath", "The directory to write the outputs which are " +
+            "the files to pass to bambus for scaffolding.",
+            String.class, null);
+
+    ParameterDefinition outputPrefix =
+        new ParameterDefinition(
+            "outprefix", "The prefix for the output files defaults to " +
+            "(bambus_input).",
+            String.class, "bambus_input");
+
+    for (ParameterDefinition def:
+      new ParameterDefinition[] {
+        bowtiePath, bowtieBuildPath, readsGlob, contigsGlob, libsizePath,
+        outputPath, outputPrefix}) {
+      definitions.put(def.getName(), def);
+    }
+
+    return Collections.unmodifiableMap(definitions);
+  }
+
+  @Override
+  public RunningJob runJob() throws Exception {
+    String[] required_args = {
+        "bowtie_path", "bowtiebuild_path", "reads_glob", "reference_glob",
+        "libsize", "outputpath"};
+    checkHasParametersOrDie(required_args);
+    build();
+    return null;
+  }
+
   public static void main(String[] args) throws Exception {
-    BuildBambusInput builder = new BuildBambusInput();
-    builder.build(args);
+    BuildBambusInput stage = new BuildBambusInput();
+    int res = stage.run(args);
+    System.exit(res);
   }
 }
