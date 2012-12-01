@@ -6,6 +6,15 @@
 "types": [
         {
         "type":"record",
+        "name":"FastaRecord",
+        "doc":"A Fasta Read",
+        "fields": [
+                  { "name":"id","type":"string"},
+                  { "name":"read", "type":"string"}
+                  ]
+        },
+        {
+        "type":"record",
         "name":"FastQRecord",
         "doc":"A FastQ Read",
         "fields": [
