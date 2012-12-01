@@ -89,6 +89,7 @@ public class FastaFileReader implements Iterator<FastaRecord> {
     }
 
     record.setId(nextId);
+    record.setRead(null);
     nextId = null;
 
     contigSequence = new StringBuffer();
@@ -104,10 +105,9 @@ public class FastaFileReader implements Iterator<FastaRecord> {
           e.getMessage());
     }
     while (line != null) {
-      String[] splitLine = line.trim().split("\\s+");
-      if (splitLine[0].startsWith(">")) {
+      if (line.startsWith(">")) {
         // Store the contigId of the next record.
-        nextId = splitLine[0].replaceAll(">", "");
+        nextId = line.substring(1);;
         // Terminate the loop.
         break;
       } else {
