@@ -40,7 +40,7 @@ import contrail.util.FileHelper;
  * doesn't have to specify the manually.
  */
 public class TestBowtieRunner {
-  private ArrayList<File> dirsToDelete;
+  private final ArrayList<File> dirsToDelete;
 
   public TestBowtieRunner() {
     dirsToDelete = new ArrayList<File>();
@@ -71,7 +71,7 @@ public class TestBowtieRunner {
    * @param num: Number of files
    * @return
    */
-  private TestData createFastaFiles(File directory, int num) {
+  private TestData createFastaFiles(File directory, int num, int num_contigs) {
     TestData output = new TestData();
     Random generator = new Random();
 
@@ -91,7 +91,7 @@ public class TestBowtieRunner {
         FileWriter readStream = new FileWriter(readPath, true);
         BufferedWriter readOut = new BufferedWriter(readStream);
 
-        for (int r = 0; r < 3; r++) {
+        for (int r = 0; r < num_contigs; r++) {
           String contigId = String.format("contig_%d_%d\n", i, r);
           String sequence =
               AlphabetUtil.randomString(
@@ -126,7 +126,9 @@ public class TestBowtieRunner {
     File tempDir = FileHelper.createLocalTempDir();
     dirsToDelete.add(tempDir);
 
-    TestData testData = createFastaFiles(tempDir, 3);
+    final int NUM_REFERENCE_FILES = 3;
+    final int NUM_CONTIGS_PER_FILE = 3;
+    TestData testData = createFastaFiles(tempDir, NUM_REFERENCE_FILES, NUM_CONTIGS_PER_FILE);
 
     String indexDir = new File(tempDir, "index").getAbsolutePath();
     String indexBase = "index";
@@ -146,8 +148,31 @@ public class TestBowtieRunner {
     if (!alignResult.success) {
       throw new RuntimeException("bowtie failed to align the reads.");
     }
+
+    HashMap<String, ArrayList<BowtieRunner.MappingInfo>> map =
+        runner.readBowtieResults(alignResult.outputs.values(), 25);
+
+    // Check the outputs.
+    for (int fileIndex = 0; fileIndex < NUM_REFERENCE_FILES; ++fileIndex) {
+      for (int contigIndex = 0; contigIndex < NUM_CONTIGS_PER_FILE; ++contigIndex) {
+        String contigId = String.format("contig_%d_%d", fileIndex, contigIndex);
+        if (!map.containsKey(contigId)) {
+          throw new RuntimeException("Missing alignment for contig:" + contigId);
+        }
+        // TODO(jeremy@lewi.us): We should do more extensive testing to verify the actual
+        // alignments are correct.
+        int numExpected = 4;
+        if (map.get(contigId).size() != numExpected) {
+          throw new RuntimeException(
+              String.format(
+                  "Expected %d reads to align to contig %s but only %d were read from the bowtie output",
+                  numExpected, contigId, map.get(contigId).size()));
+        }
+      }
+    }
   }
 
+  @Override
   protected void finalize() {
     // Cleanup the test.
     ArrayList<String> errors = new ArrayList<String> ();

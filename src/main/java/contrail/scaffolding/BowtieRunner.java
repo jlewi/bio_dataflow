@@ -199,7 +199,9 @@ public class BowtieRunner {
           sLogger.info("bowtie: " + line);
         }
         while ((line = stdError.readLine()) != null) {
-          sLogger.error("bowtie: " + line);
+          // bowtie appears to write non error messages to the error stream so we use info
+          // to log the contents of the error stream.
+          sLogger.info("bowtie: " + line);
         }
 
         sLogger.info("bowtie: Exit Value: " + p.exitValue());
@@ -246,13 +248,21 @@ public class BowtieRunner {
    * @throws Exception
    */
   public HashMap<String, ArrayList<MappingInfo>> readBowtieResults(
-      Collection<String> bowtieFiles, int subLen) throws Exception {
+      Collection<String> bowtieFiles, int subLen) {
     HashMap<String, ArrayList<MappingInfo>> map =
         new HashMap<String, ArrayList<MappingInfo>>();
 
     final int PROGRESS_INCREMENT = 1000000;
+    sLogger.warn("Setting the end of the contig map to:" + subLen + "  this code may be incorrect.");
     for (String bowtieFile : bowtieFiles) {
-      BufferedReader reader = new BufferedReader(new FileReader(bowtieFile));
+      BufferedReader reader;
+      try {
+        reader = new BufferedReader(new FileReader(bowtieFile));
+      } catch (Exception e) {
+        throw new RuntimeException(
+            "Could not open file for reading: " + bowtieFile +
+            "exception was: " + e.getMessage());
+      }
 
       String baseName = FilenameUtils.getName(bowtieFile);
       String filePrefix = FilenameUtils.getBaseName(bowtieFile);
@@ -270,7 +280,12 @@ public class BowtieRunner {
       sLogger.info("File belongs to library:" + libraryName);
       String line = null;
       int counter = 0;
-      while ((line = reader.readLine()) != null) {
+      try {
+        line = reader.readLine();
+      } catch (IOException e) {
+        throw new RuntimeException(e.getMessage());
+      }
+      while (line != null) {
         if ((counter % PROGRESS_INCREMENT == 0) && (counter > 0)) {
           sLogger.info(
               "Read " + counter + " mapping records from " + baseName);
@@ -325,7 +340,6 @@ public class BowtieRunner {
         //m.end = readSequence.length();
         // TODO(jerem@lewi.US): Do we have to pass in SUB_LEN or can we determine
         // it from the output.
-        sLogger.warn("Setting the end of the contig map to:" + subLen + "  this code may be incorrect.");
         m.end = subLen;
 
 
@@ -342,8 +356,17 @@ public class BowtieRunner {
         }
         map.get(contigID).add(m);
         counter++;
+        try {
+          line = reader.readLine();
+        } catch (IOException e) {
+          throw new RuntimeException(e.getMessage());
+        }
       }
-      reader.close();
+      try {
+        reader.close();
+      } catch (IOException e) {
+        throw new RuntimeException(e.getMessage());
+      }
       // Print out the final record count.
       sLogger.info(
           "Total of " + counter + " mapping records were found in " +
