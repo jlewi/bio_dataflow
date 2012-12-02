@@ -61,53 +61,68 @@ public class TestBuildBambusInput {
    * Create the fastq files containing the reads and the fasta files containing
    * the reference genome.
    *
-   * @param num: Number of files
+   * @param num_mate_pairs: Number of mate pair files
+   * @param num_contigs: Number of contigs per file.
    * @return
    */
-  private TestData createInputs(File directory, int num, int num_contigs) {
+  private TestData createInputs(
+      File directory, int num_mate_pairs, int num_contigs) {
     TestData output = new TestData();
     Random generator = new Random();
 
-    for (int i = 0; i < num; ++i) {
-      try {
-        File referencePath =
-            new File(directory, String.format("contigs_%d.fa", i));
-        output.referenceFiles.add(referencePath.toString());
+    for (int i = 0; i < num_mate_pairs; ++i) {
+        try {
+          File referencePath =
+              new File(directory, String.format("contigs_%d.fa", i));
+          output.referenceFiles.add(referencePath.toString());
 
-        File readPath =
-            new File(directory, String.format("reads_%d.fastq", i));
-        output.readFiles.add(readPath.toString());
+          File leftPath =
+              new File(directory, String.format("reads_0.fastq", i));
+          output.readFiles.add(leftPath.toString());
 
-        FileWriter referenceStream = new FileWriter(referencePath, true);
-        BufferedWriter referenceOut = new BufferedWriter(referenceStream);
+          File rightPath =
+              new File(directory, String.format("reads_1.fastq", i));
+          output.readFiles.add(rightPath.toString());
 
-        FileWriter readStream = new FileWriter(readPath, true);
-        BufferedWriter readOut = new BufferedWriter(readStream);
+          FileWriter referenceStream = new FileWriter(referencePath, true);
+          BufferedWriter referenceOut = new BufferedWriter(referenceStream);
 
-        for (int r = 0; r < num_contigs; r++) {
-          String contigId = String.format("contig_%d_%d\n", i, r);
-          String sequence =
-              AlphabetUtil.randomString(
-                  generator, 100, DNAAlphabetFactory.create());
+          FileWriter leftStream = new FileWriter(leftPath, true);
+          BufferedWriter leftOut = new BufferedWriter(leftStream);
 
-          for (int offset : new int[] {0, 25, 50, 75}) {
-            String readId = String.format("read_%d_%d_%d", i, r, offset);
+          FileWriter rightStream = new FileWriter(rightPath, true);
+          BufferedWriter rightOut = new BufferedWriter(rightStream);
+
+          // TODO(jlewi): To create a better test we should make the reads
+          // come from different contigs.
+          for (int r = 0; r < num_contigs; r++) {
+            String contigId = String.format("contig_%d_%d\n", i, r);
+            String sequence =
+                AlphabetUtil.randomString(
+                    generator, 100, DNAAlphabetFactory.create());
+
+            String leftId = String.format("read_left_%d_%d", i, r);
             writeFastQRecord(
-                readOut, readId, sequence.substring(offset, offset + 25));
+                leftOut, leftId, sequence.substring(0, 30));
+
+            String rightId = String.format("read_right_%d_%d", i, r);
+            writeFastQRecord(
+                rightOut, rightId, sequence.substring(70, 100));
+
+            referenceOut.write(">" + contigId);
+            referenceOut.write(sequence);
+            referenceOut.write("\n");
           }
 
-          referenceOut.write(">" + contigId);
-          referenceOut.write(sequence);
-          referenceOut.write("\n");
+          referenceOut.close();
+          referenceStream.close();
+          leftOut.close();
+          leftStream.close();
+          rightOut.close();
+          rightStream.close();
+        } catch (Exception e) {
+          e.printStackTrace();
         }
-
-        referenceOut.close();
-        referenceStream.close();
-        readOut.close();
-        readStream.close();
-      } catch (Exception e) {
-        e.printStackTrace();
-      }
     }
     output.readsGlob = FilenameUtils.concat(
         directory.getPath(), "*fastq");
@@ -159,6 +174,17 @@ public class TestBuildBambusInput {
     } catch (Exception e) {
       e.printStackTrace();
       throw new RuntimeException("test failed!");
+    }
+
+    // Check the output files exist.
+    if (!stage.getFastaOutputFile().exists()) {
+      throw new RuntimeException("test failed");
+    }
+    if (!stage.getLibraryOutputFile().exists()) {
+      throw new RuntimeException("test failed");
+    }
+    if (!stage.getContigOutputFile().exists()) {
+      throw new RuntimeException("test failed");
     }
   }
 

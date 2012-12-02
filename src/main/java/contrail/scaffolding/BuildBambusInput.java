@@ -9,15 +9,17 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.filefilter.WildcardFileFilter;
+import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.log4j.Logger;
 
 import contrail.scaffolding.BowtieRunner.MappingInfo;
+import contrail.sequences.FastQFileReader;
+import contrail.sequences.FastQRecord;
 import contrail.sequences.FastaFileReader;
 import contrail.sequences.FastaRecord;
 import contrail.stages.ParameterDefinition;
@@ -35,98 +37,24 @@ public class BuildBambusInput extends Stage {
   private static final Logger sLogger =
       Logger.getLogger(BuildBambusInput.class);
   private static final int SUB_LEN = 25;
-  private static final int NUM_READS_PER_CTG = 200;
-  private static final int NUM_CTGS = 200000;
+
+  private File fastaOutputFile;
+  private File libraryOutputFile;
+  private File contigOutputFile;
 
   /**
-   * Read the bowtie output.
-   *
-   * For information about the output format of bowtie see:
-   * http://bowtie-bio.sourceforge.net/manual.shtml#output
-   *
-   * @param fileName
-   * @param prefix
-   * @param map: This is a hashmap keyed by the id of each contig. The value
-   *   is an array of MappingInfo. Each MappingInfo stores information about
-   *   a read aligned to contig given by the key.
-   * @throws Exception
+   * This class stores a pair of files containing mate pairs.
    */
-  private static void readBowtieResults(String fileName, String prefix, HashMap<String, ArrayList<MappingInfo>> map) throws Exception {
-    prefix = prefix.replaceAll("X.*", "");
-    System.err.println("For file " + fileName + " prefix is " + prefix);
-    BufferedReader bf = Utils.getFile(fileName, "bout");
-    if (bf != null) {
-      String line = null;
-      int counter = 0;
-      while ((line = bf.readLine()) != null) {
-        if (counter % 1000000 == 0) {
-          System.err.println("Read " + counter + " mapping records from " + fileName);
-        }
-        String[] splitLine = line.trim().split("\\s+");
-        MappingInfo m = new MappingInfo();
+  private static class MateFilePair {
+    public String leftFile;
+    public String rightFile;
+    public String libraryName;
 
-        int position = 1;
-        // skip crud
-        // The first field in the output is the name of the read that was
-        // aligned. The second field is a + or - indicating which strand
-        // the read aligned to. We identify the position of the +/- in
-        // the split line and use this to determine the mapping of output
-        // fields to indexes in splitLine.
-        while (!splitLine[position].equalsIgnoreCase("+") &&
-               !splitLine[position].equalsIgnoreCase("-")) {
-          position++;
-        }
-
-        String readID = splitLine[position - 1];
-        String strand = splitLine[position];
-        String contigID = splitLine[position + 1];
-
-        // 0-based offset into the forward reference strand where leftmost
-        // character of the alignment occurs.
-        String forwardOffset = splitLine[position + 2];
-        String readSequence = splitLine[position + 3];
-
-        // isFWD indicates the read was aligned to the forward strand of
-        // the reference genome.
-        Boolean isFwd = null;
-        if (strand.contains("-")) {
-          isFwd = false;
-        } else if (strand.contains("+")) {
-          isFwd = true;
-        } else {
-          throw new RuntimeException("Couldn't parse the alignment strand");
-        }
-
-        // The first field in the output is the readId. We prefix this
-        // with information about which file the read came from.
-        m.readID = prefix + readID.replaceAll("/", "_");
-        m.start = 1;
-        // TODO(jeremy@lewi.us): Need to check whether the length should be
-        // zero based or 1 based. The original code set this to SUB_LEN
-        // which was the length of the truncated reads which were aligned.
-        //m.end = readSequence.length();
-        // TODO(jerem@lewi.US): Do we have to pass in SUB_LEN or can we determine
-        // it from the output.
-        m.end = SUB_LEN;
-
-
-        m.contigStart = Integer.parseInt(forwardOffset);
-        if (isFwd) {
-          m.contigEnd = m.contigStart + readSequence.length() - 1;
-        } else {
-          m.contigEnd = m.contigStart;
-          m.contigStart = m.contigEnd + readSequence.length() - 1;
-        }
-
-        if (map.get(contigID) == null) {
-          map.put(contigID, new ArrayList<MappingInfo>(NUM_READS_PER_CTG));
-        }
-        map.get(contigID).add(m);
-        counter++;
-      }
-      bf.close();
-      // Print out the final record count.
-      System.err.println("Read " + counter + " mapping records from " + fileName);
+    public MateFilePair(
+        String libraryName, String leftFile, String rightFile) {
+      this.libraryName = libraryName;
+      this.leftFile = leftFile;
+      this.rightFile = rightFile;
     }
   }
 
@@ -152,29 +80,10 @@ public class BuildBambusInput extends Stage {
     }
   }
 
-  private static boolean containsPrefix(HashSet<String> prefix, String name, String postfix) {
-    boolean contains = false;
-
-    for (String s : prefix) {
-      System.err.println("Checking for " + s.replaceAll("X", ".") + "." + postfix);
-      if (name.matches(s.replaceAll("X", ".") + "." + postfix)) {
-        contains = true;
-        break;
-      }
-    }
-    return contains;
-  }
-
   // libSizes stores the sizes for each read library. The key is the
   // prefix of the FastQ files for that library. The value is a pair
   // which stores the lower and uppoer bound for the library size.
   private HashMap<String, Utils.Pair> libSizes;
-
-  // A list of prefixes for the FASTQ files containing the original reads.
-  HashSet<String> prefixes;
-
-  private String assemblyDir;
-  private String readDir;
 
   /**
    * Parse the library file and extract the library sizes.
@@ -196,28 +105,57 @@ public class BuildBambusInput extends Stage {
   }
 
   /**
-   * Find the prefixes of all the FASTQ files.
+   * Given a set of read files, group them into mate pairs.
+   *
+   * @param readFiles
    */
-  private void findReadPrefixes(Collection<String> readFiles) {
-    prefixes = new HashSet<String>();
+  private ArrayList<MateFilePair> buildMatePairs(Collection<String> readFiles) {
+    HashMap<String, ArrayList<String>> libraryFiles =
+        new HashMap<String, ArrayList<String>>();
 
-    // Find FASTQ files containing mate pairs and extract the filename prefix.
+    ArrayList<MateFilePair> matePairs = new ArrayList<MateFilePair>();
+    // Group the reads into mate pairs. Each mate pair belongs to a library.
+    // The library name is given by the prefix of the filename.
     for (String filePath : readFiles) {
-      File fs = new File(filePath);
-      // TODO(jlewi): Why do we ignore files with SRR in their name?
-      if (fs.getName().contains("SRR")) { continue; }
-      // TODO(jeremy@lewi.us): This regular expression can match temporary
-      // files e.g files that begin and end with '#'.
-      if (fs.getName().matches(".*_[12]\\..*fastq.*")) {
-        prefixes.add(fs.getName().replaceAll("\\.fastq", "").replaceAll(
-            "\\.bz2", "").replaceAll(
-                "1\\.", "X.").replaceAll(
-                    "2\\.", "X.").replaceAll(
-                        "1$", "X").replaceAll(
-                            "2$", "X"));
+      String name = FilenameUtils.getBaseName(filePath);
+      // We expect the filename to be something like "libraryName_1.fastq"
+      // or "libraryName_2.fastq".
+      if (!name.matches((".*_[012]"))) {
+        sLogger.fatal(
+            "File: " + filePath + " doesn't match the patern .*_[012] so we " +
+            "couldn't determine the library name",
+            new RuntimeException());
       }
+      // We want to strip off the trailing _[12]
+      String libraryName = name.substring(0, name.length() - 2);
+
+      if (!libraryFiles.containsKey(libraryName)) {
+        libraryFiles.put(libraryName, new ArrayList<String>());
+      }
+      libraryFiles.get(libraryName).add(filePath);
     }
-    sLogger.info("Prefixes for files I will read are " + prefixes);
+
+    for (String libraryName : libraryFiles.keySet()) {
+      ArrayList<String> files = libraryFiles.get(libraryName);
+      if (files.size() != 2) {
+        String message =
+            "There was a problem grouping the reads into mate pairs. Each " +
+            "library (filename prefix) should match two files. But for " +
+            "library:" + libraryName + " the number of matching files was:" +
+            files.size() + ".";
+        if (files.size() > 0) {
+          message =
+              "The files that matched were: " + StringUtils.join(files, ",");
+        }
+        sLogger.fatal(message, new RuntimeException(message));
+      }
+      MateFilePair pair = new MateFilePair(
+          libraryName, files.get(0), files.get(1));
+      matePairs.add(pair);
+
+      sLogger.info("Found mate pairs for library:" + libraryName);
+    }
+    return matePairs;
   }
 
   /**
@@ -244,7 +182,8 @@ public class BuildBambusInput extends Stage {
    * read aligner.
    */
   private HashMap<String, HashMap<String, ArrayList<String>>> shortenReads(
-      Collection<String> readFiles, File fastaOutputFile) throws Exception {
+      Collection<MateFilePair> matePairs,
+      File fastaOutputFile) throws Exception {
     sLogger.info(
         String.format(
             "Shortening the reads to align to %d bases and writing them " +
@@ -252,44 +191,58 @@ public class BuildBambusInput extends Stage {
     PrintStream out = new PrintStream(fastaOutputFile);
     HashMap<String, HashMap<String, ArrayList<String>>> mates =
         new HashMap<String, HashMap<String, ArrayList<String>>>();
-    for (String readFile : readFiles) {
-      File fs = new File(readFile);
-      // first trim to 25bp
-      // TODO(jlewi): It looks like the operands of the or operator are the
-      // same rendering the or meaningless.
-      if (containsPrefix(prefixes, fs.getName(), "fastq")) {
-        String myPrefix = fs.getName().replaceAll("1\\.", "X").replaceAll("2\\.", "X").replaceAll("X.*", "");
-        System.err.println("Processing file " + fs.getName() + " prefix " + myPrefix + " FOR FASTA OUTPUT");
-        if (mates.get(myPrefix) == null) {
-          mates.put(myPrefix, new HashMap<String, ArrayList<String>>());
-          mates.get(myPrefix).put("left", new ArrayList<String>());
-          mates.get(myPrefix).put("right", new ArrayList<String>());
-        }
-        BufferedReader bf = Utils.getFile(fs.getAbsolutePath(), "fastq");
-        if (bf != null) {
-          String line = null;
-          int counter = 0;
 
-          while ((line = bf.readLine()) != null) {
-            if (counter % 4 == 0) {
-              String name = line.replaceAll("@", ""+myPrefix).replaceAll("/", "_");
-              out.println(">" + name);
-              String[] split = name.trim().split("\\s+");
-              if (fs.getName().matches(".*1\\..*")) {
-                mates.get(myPrefix).get("left").add(split[0]);
-              } else if (fs.getName().matches(".*2\\..*")) {
-                mates.get(myPrefix).get("right").add(split[0]);
-              }
-            } else if ((counter - 1) % 4 == 0) {
-              out.println(line.substring(0, SUB_LEN));
-            }
-            if (counter % 1000000 == 0) {
-              sLogger.info("Processed " + counter + " reads");
-              out.flush();
-            }
-            counter++;
+    FastaRecord fastaRecord = new FastaRecord();
+
+    final int NUM_READS = 200;
+    for (MateFilePair matePair : matePairs) {
+      // first trim to 25bp
+      sLogger.info(
+          "Processing reads for library:" + matePair.libraryName);
+      mates.put(matePair.libraryName, new HashMap<String, ArrayList<String>>());
+      mates.get(matePair.libraryName).put(
+          "left", new ArrayList<String>(NUM_READS));
+      mates.get(matePair.libraryName).put(
+          "right", new ArrayList<String>(NUM_READS));
+
+      for (int i = 0; i < 2; ++i) {
+        String readFile = null;
+        ArrayList<String> readIds = null;
+        if (i == 0) {
+          readFile = matePair.leftFile;
+          readIds = mates.get(matePair.libraryName).get("left");
+        } else {
+          readFile = matePair.rightFile;
+          readIds = mates.get(matePair.libraryName).get("right");
+        }
+        FastQFileReader reader = new FastQFileReader(readFile);
+
+        int counter = 0;
+        while (reader.hasNext()) {
+          FastQRecord record = reader.next();
+
+          // Prefix the id by the libraryName.
+          // TODO(jeremy@lewi.us): The original code add the library name
+          // as a prefix to the read id and then replaced "/" with "_".
+          // I think manipulating the readId's is risky because we need to
+          // be consistent. For example, if we alter the read here, it won't
+          // agree with the read ids in the bowtie output.
+          fastaRecord.setId(record.getId());
+
+          // Truncate the read because bowtie can only handle short reads.
+          fastaRecord.setRead(record.getRead().subSequence(0, SUB_LEN));
+
+          out.println(">" +  fastaRecord.getId());
+          out.println(fastaRecord.getRead());
+
+          readIds.add(fastaRecord.getId().toString());
+
+          ++counter;
+          if (counter % 1000000 == 0) {
+            sLogger.info("Processed " + counter + " reads");
+            out.flush();
           }
-          bf.close();
+          counter++;
         }
       }
     }
@@ -322,7 +275,6 @@ public class BuildBambusInput extends Stage {
       HashMap<String, ArrayList<String>> libMates = mates.get(lib);
       String libName = lib.replaceAll("_", "");
       if (libSizes.get(libName) == null) {
-        System.err.println("No library sizes defined for library:" + libName);
         String knownLibraries = "";
         for (String library : libSizes.keySet()) {
           knownLibraries += library + ",";
@@ -330,10 +282,15 @@ public class BuildBambusInput extends Stage {
         // Strip the last column.
         knownLibraries = knownLibraries.substring(
             0, knownLibraries.length() - 1);
-        System.err.println("Known libraries are: " + knownLibraries);
-        System.exit(1);
+        System.err.println("No library sizes defined for library:" + libName);
+        sLogger.fatal(
+            "No library sizes are defined for libray:" + libName + " . Known " +
+            "libraries are: " + knownLibraries,
+            new RuntimeException("No library sizes for libray:" + libName));
       }
-      libOut.println("library " + libName + " " + libSizes.get(libName).first + " " + (int)libSizes.get(libName).second);
+      libOut.println(
+          "library " + libName + " " + libSizes.get(libName).first + " " +
+          (int)libSizes.get(libName).second);
       ArrayList<String> left = libMates.get("left");
       ArrayList<String> right = libMates.get("right");
       for (int whichMate = 0; whichMate < left.size(); whichMate++) {
@@ -375,40 +332,8 @@ public class BuildBambusInput extends Stage {
    * @throws Exception
    */
   public void build() throws Exception {
-//    // First argument is the assembly directory.
-//    assemblyDir = args[0];
-//    // Second argument is the directory containing the original reads.
-//    readDir = args[1];
-//    String suffix = args[2];
-//    String libFile = args[3];
-//
-//    // All output files will start with outPrefix. The suffix depends on
-//    // the type of file written.
-//    String outPrefix = args[4];
-//
-//    System.err.println("Arguments are:");
-//    System.err.println("assemblyDir: " + assemblyDir);
-//    System.err.println("readDir: " + readDir);
-//    System.err.println("suffix: " + suffix);
-//    System.err.println("libFile: " + libFile);
-//    System.err.println("outprefix: " + outPrefix);
-
     String libFile = (String) this.stage_options.get("libsize");
-
     parseLibSizes(libFile);
-
-//    File dir = new File(assemblyDir);
-//    if (!dir.isDirectory()) {
-//      System.err.println(
-//          "Error, assembly directory " + assemblyDir + " is not a directory");
-//      System.exit(1);
-//    }
-//
-//    dir = new File(readDir);
-//    if (!dir.isDirectory()) {
-//      System.err.println("Error, read directory " + readDir + " is not a directory");
-//      System.exit(1);
-//    }
 
     ArrayList<String> readFiles = matchFiles(
         (String) this.stage_options.get("reads_glob"));
@@ -417,6 +342,7 @@ public class BuildBambusInput extends Stage {
     for (String file : readFiles) {
       sLogger.info("read file:" + file);
     }
+    ArrayList<MateFilePair> matePairs = buildMatePairs(readFiles);
 
     ArrayList<String> contigFiles = matchFiles(
         (String) this.stage_options.get("reference_glob"));
@@ -426,13 +352,12 @@ public class BuildBambusInput extends Stage {
       sLogger.info("contig file:" + file);
     }
 
-    findReadPrefixes(readFiles);
-
     String resultDir = (String) stage_options.get("outputpath");
     String outPrefix = (String) stage_options.get("outprefix");
-    File fastaOutputFile = new File(resultDir + outPrefix + ".fasta");
-    File libraryOutputFile = new File(resultDir + outPrefix + ".library");
-    File contigOutputFile = new File(resultDir + outPrefix + ".contig");
+
+    fastaOutputFile = new File(resultDir + outPrefix + ".fasta");
+    libraryOutputFile = new File(resultDir + outPrefix + ".library");
+    contigOutputFile = new File(resultDir + outPrefix + ".contig");
 
     sLogger.info("Outputs will be written to:");
     sLogger.info("Fasta file: " + fastaOutputFile.getName());
@@ -440,7 +365,7 @@ public class BuildBambusInput extends Stage {
     sLogger.info("Contig Aligned file: " + contigOutputFile.getName());
 
     HashMap<String, HashMap<String, ArrayList<String>>> mates =
-        shortenReads(readFiles, fastaOutputFile);
+        shortenReads(matePairs, fastaOutputFile);
 
     createLibraryFile(libraryOutputFile, mates);
     sLogger.info("Library file written:" + libraryOutputFile.getPath());
@@ -455,7 +380,8 @@ public class BuildBambusInput extends Stage {
     if (!runner.bowtieBuildIndex(
         contigFiles, bowtieIndexDir, bowtieIndexBase)) {
       sLogger.fatal(
-          "There was a problem building the bowtie index.");
+          "There was a problem building the bowtie index.",
+          new RuntimeException("Failed to build bowtie index."));
 
     }
 
@@ -544,6 +470,39 @@ public class BuildBambusInput extends Stage {
     }
 
     return Collections.unmodifiableMap(definitions);
+  }
+
+  /**
+   * Returns the name of the output file containing the shortened fasta reads.
+   * @return
+   */
+  public File getFastaOutputFile() {
+    return fastaOutputFile;
+  }
+
+  /**
+   * Returns the name of the output file containing the contigs in tigr format.
+   * @return
+   */
+  public File getContigOutputFile() {
+    return contigOutputFile;
+  }
+
+  /**
+   * Returns the name of the output file containing library.
+   * @return
+   */
+  public File getLibraryOutputFile() {
+    return libraryOutputFile;
+  }
+
+
+  /**
+   * Returns the name of the output file containing the shortened fasta reads.
+   * @return
+   */
+  public File getFastOutputFile() {
+    return fastaOutputFile;
   }
 
   @Override

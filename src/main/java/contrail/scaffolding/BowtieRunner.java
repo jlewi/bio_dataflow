@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
@@ -71,7 +72,13 @@ public class BowtieRunner {
     // TODO(jeremy@lewi.us): What should we do if the index directory
     // already exists?
     if (!outDirFile.exists()) {
-      outDirFile.mkdir();
+      try {
+        FileUtils.forceMkdir(outDirFile);
+      } catch (IOException e) {
+        sLogger.fatal(
+            "Could not create the output directory for the bowtie index:" +
+            outDirFile.getPath(), e);
+      }
     } else {
       sLogger.warn(
           "Directory to store the bowtie index already exists: " + outDir);
@@ -101,6 +108,7 @@ public class BowtieRunner {
         success = true;
       } else {
         sLogger.error("bowtie-build failed command was: " + command);
+        success = false;
       }
 
     } catch (IOException e) {
