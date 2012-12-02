@@ -3,6 +3,7 @@ package contrail.scaffolding;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileFilter;
+import java.io.FileReader;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -175,19 +176,21 @@ public class BuildBambusInput extends Stage {
   private String assemblyDir;
   private String readDir;
 
-  // An array containing a list of the readFiles;
-  private File[] readFiles;
-
   /**
    * Parse the library file and extract the library sizes.
    */
   private void parseLibSizes(String libFile) throws Exception {
     libSizes = new HashMap<String, Utils.Pair>();
-    BufferedReader libSizeFile = Utils.getFile(libFile, "libSize");
+    BufferedReader libSizeFile =
+        new BufferedReader(new FileReader(new File(libFile)));
     String libLine = null;
     while ((libLine = libSizeFile.readLine()) != null) {
       String[] splitLine = libLine.trim().split("\\s+");
-      libSizes.put(splitLine[0], new Utils.Pair(Integer.parseInt(splitLine[1]), Integer.parseInt(splitLine[2])));
+      libSizes.put(
+          splitLine[0],
+          new Utils.Pair(
+              Integer.parseInt(splitLine[1]),
+              Integer.parseInt(splitLine[2])));
     }
     libSizeFile.close();
   }
@@ -241,7 +244,7 @@ public class BuildBambusInput extends Stage {
    * read aligner.
    */
   private HashMap<String, HashMap<String, ArrayList<String>>> shortenReads(
-      File fastaOutputFile) throws Exception {
+      Collection<String> readFiles, File fastaOutputFile) throws Exception {
     sLogger.info(
         String.format(
             "Shortening the reads to align to %d bases and writing them " +
@@ -249,7 +252,8 @@ public class BuildBambusInput extends Stage {
     PrintStream out = new PrintStream(fastaOutputFile);
     HashMap<String, HashMap<String, ArrayList<String>>> mates =
         new HashMap<String, HashMap<String, ArrayList<String>>>();
-    for (File fs : readFiles) {
+    for (String readFile : readFiles) {
+      File fs = new File(readFile);
       // first trim to 25bp
       // TODO(jlewi): It looks like the operands of the or operator are the
       // same rendering the or meaningless.
@@ -347,13 +351,17 @@ public class BuildBambusInput extends Stage {
   private ArrayList<String> matchFiles(String glob) {
     // We assume glob is a directory + a wild card expression
     // e.g /some/dir/*.fastq
-    File dir = new File(FilenameUtils.getPath(glob));
-    FileFilter fileFilter = new WildcardFileFilter(
-        FilenameUtils.getName(glob));
+    File dir = new File(FilenameUtils.getFullPath(glob));
+    String pattern = FilenameUtils.getName(glob);
+    FileFilter fileFilter = new WildcardFileFilter(pattern);
 
     File[] files =  dir.listFiles(fileFilter);
-
     ArrayList<String> result = new ArrayList<String>();
+
+    if (files.length == 0) {
+      return result;
+    }
+
     for (File file : files) {
       result.add(file.getPath());
     }
@@ -432,7 +440,7 @@ public class BuildBambusInput extends Stage {
     sLogger.info("Contig Aligned file: " + contigOutputFile.getName());
 
     HashMap<String, HashMap<String, ArrayList<String>>> mates =
-        shortenReads(fastaOutputFile);
+        shortenReads(readFiles, fastaOutputFile);
 
     createLibraryFile(libraryOutputFile, mates);
     sLogger.info("Library file written:" + libraryOutputFile.getPath());
