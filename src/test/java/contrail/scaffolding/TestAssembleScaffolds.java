@@ -107,7 +107,7 @@ public class TestAssembleScaffolds {
 
     // Create the reference genome.
     test.expectedScaffold = AlphabetUtil.randomString
-        (generator, 200, DNAAlphabetFactory.create());
+        (generator, 1000, DNAAlphabetFactory.create());
 
     // Split the genome into contigs.
     int contigLength = 100;
@@ -127,12 +127,12 @@ public class TestAssembleScaffolds {
       int offset = 25;
 
       FastQRecord left = new FastQRecord();
-      left.setId(String.format("pair_%d_0", i));
+      left.setId(String.format("read_%d_0", i));
       left.setRead(contigs.get(i).substring(offset, offset + readLength));
       left.setQvalue(StringUtils.repeat("!", readLength));
 
       FastQRecord right = new FastQRecord();
-      right.setId(String.format("pair_%d_1", i));
+      right.setId(String.format("read_%d_1", i));
       right.setRead(contigs.get(i + 1).substring(offset, offset + readLength));
       right.setQvalue(StringUtils.repeat("!", readLength));
 

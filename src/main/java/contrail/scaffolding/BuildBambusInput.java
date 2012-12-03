@@ -296,7 +296,6 @@ public class BuildBambusInput extends Stage {
         // Strip the last column.
         knownLibraries = knownLibraries.substring(
             0, knownLibraries.length() - 1);
-        System.err.println("No library sizes defined for library:" + libName);
         sLogger.fatal(
             "No library sizes are defined for libray:" + libName + " . Known " +
             "libraries are: " + knownLibraries,
@@ -307,8 +306,31 @@ public class BuildBambusInput extends Stage {
           (int)libSizes.get(libName).second);
       ArrayList<String> left = libMates.get("left");
       ArrayList<String> right = libMates.get("right");
+
+      if (left.size() != right.size()) {
+        sLogger.fatal(
+            "Not all reads in library " + libName + " have a mat.",
+            new RuntimeException("Not all reads are paired."));
+      }
+
       for (int whichMate = 0; whichMate < left.size(); whichMate++) {
-        libOut.println(left.get(whichMate) + " " + right.get(whichMate) + " " + libName);
+        // If the left read name starts with "l", "p" or "#" because
+        // the binary toAmos_new in the amos package reserves uses these
+        // characters to identify special types of rows in the file.
+        String leftRead = left.get(whichMate);
+        if (leftRead.startsWith("l") || leftRead.startsWith("p") ||
+            leftRead.startsWith("#")) {
+          sLogger.fatal(
+              "The read named:" + leftRead + " will cause problems with the " +
+              "amos binary toAmos_new. The amos binary attributes special " +
+              "meaning to rows in the library file starting with 'p', 'l' or " +
+              "'#' so if the id for a read starts with any of those " +
+              "characters it will mess up amos.",
+              new RuntimeException("Invalid read name"));
+          System.exit(-1);
+        }
+        libOut.println(
+            left.get(whichMate) + " " + right.get(whichMate) + " " + libName);
       }
     }
     libOut.close();
@@ -396,7 +418,6 @@ public class BuildBambusInput extends Stage {
       sLogger.fatal(
           "There was a problem building the bowtie index.",
           new RuntimeException("Failed to build bowtie index."));
-
     }
 
     String alignDir = FilenameUtils.concat(resultDir, "bowtie-alignments");

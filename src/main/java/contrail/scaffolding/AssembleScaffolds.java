@@ -14,11 +14,15 @@
 // Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.scaffolding;
 
+import java.io.File;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.log4j.Logger;
 
@@ -70,7 +74,8 @@ public class AssembleScaffolds extends Stage {
 
     String amosPath = (String) stage_options.get("amos_path");
     String outputPath = (String) stage_options.get("outputpath");
-    String bankPath = FilenameUtils.concat(outputPath, "bank.bnk");
+    String bankName = "bank.bnk";
+    String bankPath = FilenameUtils.concat(outputPath, bankName);
 
     sLogger.info("Load the data into amos.");
     String loadCommand = String.format(
@@ -88,17 +93,72 @@ public class AssembleScaffolds extends Stage {
     sLogger.info("Executing bambus.");
     // TODO(jeremy@lewi.us): We should write all bambus output to a
     // subdirectory of output.
-    String bambusCommand = String.format(
-        "%s/goBambus2 %s bambus_output clk bundle reps, " +
-        "-\"noPathRepeats\" orient, \"-maxOverlap 500 -redundancy 0\" " +
-        "2fsta printscaff", amosPath, bankPath);
 
+    // It looks like goBambus2 can't take the path to the bank. The script
+    // needs to be executed from the directory containing the bank.
+    ArrayList<String> bambusCommand = new ArrayList<String>();
+    bambusCommand.add(FilenameUtils.concat(amosPath, "goBambus2"));
+    bambusCommand.add(bankName);
+    bambusCommand.add("bambus_output");
+    bambusCommand.add("clk");
+    bambusCommand.add("bundle");
+    bambusCommand.add("reps,\"-noPathRepeats\"");
+    //bambusCommand.add("orient,\"-maxOverlap 500 -redundancy 0\"");
+    //bambusCommand.add("orient,\"-redundancy 0\"");
+    //bambusCommand.add("2fasta");
+    //bambusCommand.add("printscaff");
 
-    if (ShellUtil.execute(bambusCommand, "goBambus2:", sLogger) != 0) {
+    String debug = StringUtils.join(bambusCommand, " ");
+    if (ShellUtil.execute(
+            bambusCommand, outputPath, "goBambus2:", sLogger) != 0) {
       sLogger.fatal(
           "Bambus failed.",
           new RuntimeException("Bambus failed."));
+      System.exit(-1);
     }
+    // Make a copy of the bambus log because when we rerun bambus below
+    // the log will get overwritten.
+    FileUtils.copyFile(
+        new File(outputPath, "bambus2.log"),
+        new File(outputPath, "bambus2.log.initial_stages"));
+    // We manually run the oriengt, 2fasta, and printscaff stages rather
+    // than using the goBambus binary because we ran into issues with
+    // the goBambus script and the parsing of the arguments for the orient
+    // stage.
+    ArrayList<String> orientCommand = new ArrayList<String>();
+    orientCommand.add(FilenameUtils.concat(amosPath, "OrientContigs"));
+    orientCommand.add("-b");
+    orientCommand.add(bankPath);
+    orientCommand.add("-maxOverlap");
+    orientCommand.add("500");
+    orientCommand.add("-redundancy");
+    orientCommand.add("0");
+
+    if (ShellUtil.execute(
+        orientCommand, outputPath, "goBambus2:", sLogger) != 0) {
+        sLogger.fatal(
+            "Bambus OrientContigs failed.",
+            new RuntimeException("Bambus failed."));
+        System.exit(-1);
+    }
+
+    // Run the stages to print the output.
+    ArrayList<String> bambusOutput = new ArrayList<String>();
+    bambusOutput.add(FilenameUtils.concat(amosPath, "goBambus2"));
+    bambusOutput.add(bankName);
+    bambusOutput.add("bambus_output");
+    bambusOutput.add("2fasta");
+    bambusOutput.add("printscaff");
+
+    if (ShellUtil.execute(
+        bambusOutput, outputPath, "goBambus2:", sLogger) != 0) {
+      sLogger.fatal(
+          "Bambus failed.",
+          new RuntimeException("Bambus failed."));
+      System.exit(-1);
+    }
+
+    // Run the stages
     // TODO(jeremy@lewi.us): Process the data.
     return null;
   }
