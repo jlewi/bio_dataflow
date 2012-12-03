@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 // Author: Jeremy Lewi (jeremy@lewi.us)
+
 package contrail.scaffolding;
 
 import java.io.BufferedWriter;
@@ -24,26 +25,27 @@ import java.util.Random;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import contrail.sequences.AlphabetUtil;
 import contrail.sequences.DNAAlphabetFactory;
+import contrail.sequences.FastQRecord;
 import contrail.util.FileHelper;
 
 /**
  * A binary useful for testing the code for building the bambus input.
  *
  * This class needs to be run manually because you need to specify the
- * path to bowtie.
+ * paths for the various binaries (e.g bowtie, bowtie-build, goBambus2, etc...)
  *
  * TODO(jeremy@lewi.us): We could try to make this an automatic unittest
- * by searching the path for bowtie and bowtie-build so that the user
+ * by searching the path for bowtie and bowtie-build and bambus so that the user
  * doesn't have to specify the manually.
  */
-public class TestBuildBambusInput {
+public class TestAssembleScaffolds {
   private final ArrayList<File> dirsToDelete;
 
-  public TestBuildBambusInput() {
+  public TestAssembleScaffolds() {
     dirsToDelete = new ArrayList<File>();
   }
 
@@ -61,102 +63,132 @@ public class TestBuildBambusInput {
     public String readsGlob;
     public String referenceGlob;
     public String libSizeFile;
+
+    // The true sequence for the scaffold.
+    public String expectedScaffold;
   }
 
-  private void writeFastQRecord(
-      BufferedWriter out, String readId, String sequence) throws IOException {
-    out.write("@" + readId + "\n");
-    out.write(sequence + "\n");
-    out.write("+\n");
-    out.write(StringUtils.repeat("I", sequence.length()) + "\n");
+  private void writeFastQFile(File path, ArrayList<FastQRecord> records) {
+    try {
+    FileWriter stream = new FileWriter(path, true);
+    BufferedWriter out = new BufferedWriter(stream);
+
+    for (FastQRecord record : records) {
+      out.write("@" + record.getId() + "\n");
+      out.write(record.getRead() + "\n");
+      out.write("+\n");
+      out.write(record.getQvalue() + "\n");
+    }
+    out.close();
+    stream.close();
+    } catch (Exception e) {
+      e.printStackTrace();
+      throw new RuntimeException("Failed to write the fastq file.");
+    }
   }
 
   /**
-   * Create the fastq files containing the reads and the fasta files containing
-   * the reference genome.
+   * Create the test data.
+   *
+   * We start by creating a long DNA string to act as the reference genome.
+   * We then divide this genome into non-overlapping, sequential contigs.
+   * These contigs are then written out to the fasta files used as one input
+   * to the scaffolding scage. We then extract from the contigs mate pairs,
+   * choosing one read for each pair from sequential contigs.
    *
    * @param num_mate_pairs: Number of mate pair files
    * @param num_contigs: Number of contigs per file.
    * @return
    */
-  private TestData createInputs(
+  private TestData createTest(
       File directory, int num_mate_pairs, int num_contigs) {
-    TestData output = new TestData();
+    TestData test = new TestData();
     Random generator = new Random();
 
-    for (int i = 0; i < num_mate_pairs; ++i) {
-        try {
-          File referencePath =
-              new File(directory, String.format("contigs_%d.fa", i));
-          output.referenceFiles.add(referencePath.toString());
+    // Create the reference genome.
+    test.expectedScaffold = AlphabetUtil.randomString
+        (generator, 200, DNAAlphabetFactory.create());
 
-          File leftPath =
-              new File(directory, String.format("reads_0.fastq", i));
-          output.readFiles.add(leftPath.toString());
-
-          File rightPath =
-              new File(directory, String.format("reads_1.fastq", i));
-          output.readFiles.add(rightPath.toString());
-
-          FileWriter referenceStream = new FileWriter(referencePath, true);
-          BufferedWriter referenceOut = new BufferedWriter(referenceStream);
-
-          FileWriter leftStream = new FileWriter(leftPath, true);
-          BufferedWriter leftOut = new BufferedWriter(leftStream);
-
-          FileWriter rightStream = new FileWriter(rightPath, true);
-          BufferedWriter rightOut = new BufferedWriter(rightStream);
-
-          // TODO(jlewi): To create a better test we should make the reads
-          // come from different contigs.
-          for (int r = 0; r < num_contigs; r++) {
-            String contigId = String.format("contig_%d_%d\n", i, r);
-            String sequence =
-                AlphabetUtil.randomString(
-                    generator, 100, DNAAlphabetFactory.create());
-
-            String leftId = String.format("read_left_%d_%d", i, r);
-            writeFastQRecord(
-                leftOut, leftId, sequence.substring(0, 30));
-
-            String rightId = String.format("read_right_%d_%d", i, r);
-            writeFastQRecord(
-                rightOut, rightId, sequence.substring(70, 100));
-
-            referenceOut.write(">" + contigId);
-            referenceOut.write(sequence);
-            referenceOut.write("\n");
-          }
-
-          referenceOut.close();
-          referenceStream.close();
-          leftOut.close();
-          leftStream.close();
-          rightOut.close();
-          rightStream.close();
-        } catch (Exception e) {
-          e.printStackTrace();
-        }
+    // Split the genome into contigs.
+    int contigLength = 100;
+    ArrayList<String> contigs = new ArrayList<String>();
+    int position = 0;
+    while (position < test.expectedScaffold.length()) {
+      contigs.add(test.expectedScaffold.substring(
+          position, position + contigLength));
+      position += contigLength;
     }
-    output.readsGlob = FilenameUtils.concat(
-        directory.getPath(), "*fastq");
-    output.referenceGlob = FilenameUtils.concat(
-        directory.getPath(), "*fa");
+
+    // Split the contigs into mate pair reads.
+    ArrayList<FastQRecord> leftReads = new ArrayList<FastQRecord>();
+    ArrayList<FastQRecord> rightReads = new ArrayList<FastQRecord>();
+    int readLength = 30;
+    for (int i=0; i < contigs.size() - 1; ++i) {
+      int offset = 25;
+
+      FastQRecord left = new FastQRecord();
+      left.setId(String.format("pair_%d_0", i));
+      left.setRead(contigs.get(i).substring(offset, offset + readLength));
+      left.setQvalue(StringUtils.repeat("!", readLength));
+
+      FastQRecord right = new FastQRecord();
+      right.setId(String.format("pair_%d_1", i));
+      right.setRead(contigs.get(i + 1).substring(offset, offset + readLength));
+      right.setQvalue(StringUtils.repeat("!", readLength));
+
+      leftReads.add(left);
+      rightReads.add(right);
+    }
+
+    // Write the contigs to a fasta file.
+    try {
+      File referencePath = new File(directory, "contigs.fa");
+      test.referenceFiles.add(referencePath.toString());
+
+      FileWriter referenceStream = new FileWriter(referencePath, true);
+      BufferedWriter referenceOut = new BufferedWriter(referenceStream);
+
+      for (int i = 0; i < contigs.size(); ++i) {
+        String contigId = String.format("contig_%d\n", i);
+        referenceOut.write(">" + contigId);
+        referenceOut.write(contigs.get(i));
+        referenceOut.write("\n");
+      }
+      referenceOut.close();
+      referenceStream.close();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    // Write the reads to FastQ files.
+    File leftPath = new File(directory, "reads_0.fastq");
+    test.readFiles.add(leftPath.toString());
+
+    File rightPath = new File(directory, "reads_1.fastq");
+    test.readFiles.add(rightPath.toString());
+
+    writeFastQFile(leftPath, leftReads);
+    writeFastQFile(rightPath, rightReads);
 
     // Create the library size file.
     try {
-      output.libSizeFile = FilenameUtils.concat(
+      test.libSizeFile = FilenameUtils.concat(
           directory.getPath(), "libsize");
-      FileWriter stream = new FileWriter(output.libSizeFile, true);
+      FileWriter stream = new FileWriter(test.libSizeFile, false);
       BufferedWriter out = new BufferedWriter(stream);
 
-      out.write("reads 25 125\n");
+      out.write("reads 25 150\n");
       out.close();
       stream.close();
     } catch (Exception e) {
       e.printStackTrace();
     }
-    return output;
+
+    test.readsGlob = FilenameUtils.concat(
+        directory.getPath(), "*fastq");
+    test.referenceGlob = FilenameUtils.concat(
+        directory.getPath(), "*fa");
+    return test;
   }
 
   public void runTests(HashMap<String, String> args) {
@@ -165,11 +197,8 @@ public class TestBuildBambusInput {
 
     final int NUM_REFERENCE_FILES = 3;
     final int NUM_CONTIGS_PER_FILE = 3;
-    TestData testData = createInputs(
+    TestData testData = createTest(
         tempDir, NUM_REFERENCE_FILES, NUM_CONTIGS_PER_FILE);
-
-
-    BuildBambusInput stage = new BuildBambusInput();
 
     HashMap<String, Object> parameters = new HashMap<String, Object>();
     parameters.putAll(args);
@@ -179,26 +208,17 @@ public class TestBuildBambusInput {
     parameters.put(
         "outputpath", FilenameUtils.concat(
             tempDir.getPath(), "output"));
-    stage.setParameters(parameters);
     parameters.put("outprefix", "output");
 
+    AssembleScaffolds stage = new AssembleScaffolds();
     stage.setParameters(parameters);
+
+
     try {
       stage.runJob();
     } catch (Exception e) {
       e.printStackTrace();
       throw new RuntimeException("test failed!");
-    }
-
-    // Check the output files exist.
-    if (!stage.getFastaOutputFile().exists()) {
-      throw new RuntimeException("test failed");
-    }
-    if (!stage.getLibraryOutputFile().exists()) {
-      throw new RuntimeException("test failed");
-    }
-    if (!stage.getContigOutputFile().exists()) {
-      throw new RuntimeException("test failed");
     }
   }
 
@@ -224,9 +244,9 @@ public class TestBuildBambusInput {
   }
 
   public static void main(String[] args) {
-    if(args.length !=2 ){
+    if(args.length !=3 ){
       throw new RuntimeException(
-          "Expected two arguments bowtie_path and bowtiebuild_path");
+          "Expected 3 arguments bowtie_path, bowtiebuild_path, and amos_path");
     }
     HashMap<String, String> parameters = new HashMap<String, String>();
 
@@ -236,7 +256,7 @@ public class TestBuildBambusInput {
       parameters.put(pieces[0], pieces[1]);
     }
 
-    String[] required = {"bowtie_path", "bowtiebuild_path"};
+    String[] required = {"bowtie_path", "bowtiebuild_path", "amos_path"};
     ArrayList<String> missing = new ArrayList<String> ();
 
     for (String arg : required) {
@@ -250,7 +270,7 @@ public class TestBuildBambusInput {
       throw new RuntimeException(
           "Missing arguments:" + StringUtils.join(missing, ","));
     }
-    TestBuildBambusInput test = new TestBuildBambusInput();
+    TestAssembleScaffolds test = new TestAssembleScaffolds();
     test.runTests(parameters);
   }
 }

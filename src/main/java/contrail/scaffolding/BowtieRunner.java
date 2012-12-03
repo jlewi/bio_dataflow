@@ -340,7 +340,11 @@ public class BowtieRunner {
         // TODO(jeremy@lewi.us): It looks like the original code prefixed
         // the read id's with the library name. We need to figure out if
         // thats a requirement and if so figure out how to deal with it.
-        m.readID = libraryName + readID.replaceAll("/", "_");
+        //m.readID = libraryName + readID.replaceAll("/", "_");
+        // TODO(jeremy@lewi.us): We don't prefix the read with the library
+        // name because we think that's more likely to cause problems because
+        // the read ids would need to be changed consistently everywhere.
+        m.readID = readID.replaceAll("/", "_");
         m.start = 1;
         // TODO(jeremy@lewi.us): Need to check whether the length should be
         // zero based or 1 based. The original code set this to SUB_LEN
