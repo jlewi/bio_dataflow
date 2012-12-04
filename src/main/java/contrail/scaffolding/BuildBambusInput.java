@@ -35,8 +35,6 @@ import contrail.scaffolding.BowtieRunner.MappingInfo;
 import contrail.sequences.FastQFileReader;
 import contrail.sequences.FastQRecord;
 import contrail.sequences.FastaFileReader;
-import contrail.sequences.FastaRecord;
-import contrail.stages.ContrailParameters;
 import contrail.stages.ParameterDefinition;
 import contrail.stages.Stage;
 
@@ -454,9 +452,12 @@ public class BuildBambusInput extends Stage {
   /**
    * Get the parameters used by this stage.
    */
+  @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> definitions =
         new HashMap<String, ParameterDefinition>();
+
+    definitions.putAll(super.createParameterDefinitions());
 
     ParameterDefinition bowtiePath =
         new ParameterDefinition(
@@ -505,12 +506,6 @@ public class BuildBambusInput extends Stage {
       definitions.put(def.getName(), def);
     }
 
-    ParameterDefinition logFile = ContrailParameters.getCommonMap().get(
-        "log_file");
-    ParameterDefinition help = ContrailParameters.getCommonMap().get(
-        "help");
-    definitions.put(logFile.getName(), logFile);
-    definitions.put(help.getName(), help);
     return Collections.unmodifiableMap(definitions);
   }
 
