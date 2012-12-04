@@ -84,6 +84,22 @@ public class ContrailParameters {
   }
 
   /**
+   * Returns a map containing common parameters. Useful if you only want to
+   * select a subset of common parameters.
+   *
+   * @return
+   */
+  public static HashMap<String, ParameterDefinition> getCommonMap() {
+    HashMap<String,  ParameterDefinition> common =
+        new HashMap<String,  ParameterDefinition>();
+
+    for (ParameterDefinition definition : getCommon()) {
+      common.put(definition.getName(), definition);
+    }
+    return common;
+  }
+
+  /**
    * The option computing the graph stats.
    */
   public static ParameterDefinition getComputeStats() {

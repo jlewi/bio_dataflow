@@ -36,6 +36,7 @@ import contrail.sequences.FastQFileReader;
 import contrail.sequences.FastQRecord;
 import contrail.sequences.FastaFileReader;
 import contrail.sequences.FastaRecord;
+import contrail.stages.ContrailParameters;
 import contrail.stages.ParameterDefinition;
 import contrail.stages.Stage;
 
@@ -504,6 +505,12 @@ public class BuildBambusInput extends Stage {
       definitions.put(def.getName(), def);
     }
 
+    ParameterDefinition logFile = ContrailParameters.getCommonMap().get(
+        "log_file");
+    ParameterDefinition help = ContrailParameters.getCommonMap().get(
+        "help");
+    definitions.put(logFile.getName(), logFile);
+    definitions.put(help.getName(), help);
     return Collections.unmodifiableMap(definitions);
   }
 
