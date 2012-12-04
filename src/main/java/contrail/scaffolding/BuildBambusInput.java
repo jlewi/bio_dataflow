@@ -35,6 +35,7 @@ import contrail.scaffolding.BowtieRunner.MappingInfo;
 import contrail.sequences.FastQFileReader;
 import contrail.sequences.FastQRecord;
 import contrail.sequences.FastaFileReader;
+import contrail.sequences.FastaRecord;
 import contrail.stages.ParameterDefinition;
 import contrail.stages.Stage;
 

@@ -28,6 +28,7 @@ import org.apache.log4j.Logger;
 import contrail.stages.ContrailParameters;
 import contrail.stages.ParameterDefinition;
 import contrail.stages.Stage;
+import contrail.util.ShellUtil;
 
 /**
  * Assembly the scaffolds.
