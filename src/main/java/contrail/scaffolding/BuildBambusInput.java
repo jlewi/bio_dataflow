@@ -453,9 +453,12 @@ public class BuildBambusInput extends Stage {
   /**
    * Get the parameters used by this stage.
    */
+  @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> definitions =
         new HashMap<String, ParameterDefinition>();
+
+    definitions.putAll(super.createParameterDefinitions());
 
     ParameterDefinition bowtiePath =
         new ParameterDefinition(
