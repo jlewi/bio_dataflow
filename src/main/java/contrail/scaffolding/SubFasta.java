@@ -1,20 +1,21 @@
+package contrail.scaffolding;
+
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 
-public class SubFasta {  
+public class SubFasta {
   private static final NumberFormat nf = new DecimalFormat("############.#");
-   
+
   private static class Position {
       public int start;
       public int end;
       public String name = null;
- 
+
       public Position() {
       }
 
@@ -32,7 +33,7 @@ public class SubFasta {
    private HashMap<String, Boolean> outputIDs = new HashMap<String, Boolean>();
    private int minValue = Integer.MAX_VALUE;
    private int maxValue = Integer.MIN_VALUE;
- 
+
    public SubFasta() {
    }
 
@@ -89,7 +90,7 @@ public class SubFasta {
          if (p == null) { p = new Position(); p.start = 0; p.end = fastaSeq.length(); }
          if (p.start < 0) { p.start = 0; }
          if (p.end == 0 || p.end > fastaSeq.length()) { System.err.println("FOR ID " + ID + " ADJUSTED END"); p.end = fastaSeq.length(); }
- 
+
          System.out.println(fastaSeparator + (p.name == null ? ID : p.name));
          System.out.println((convert == true ? Utils.convertToFasta(fastaSeq.substring(p.start, p.end)) : fastaSeq.substring(p.start, p.end)));
 
@@ -99,14 +100,14 @@ public class SubFasta {
          }
       }
    }
- 
+
    public void processFasta(String inputFile) throws Exception {
       BufferedReader bf = Utils.getFile(inputFile, "fasta");
-      
+
       String line = null;
       StringBuffer fastaSeq = new StringBuffer();
       String header = "";
-      
+
       while ((line = bf.readLine()) != null) {
          if (line.startsWith(">")) {
             outputFasta(fastaSeq.toString(), header);
@@ -151,8 +152,8 @@ public class SubFasta {
       System.err.println("This program subsets a fasta or fastq file by a specified list. The default sequence is N. Multiple fasta files can be supplied by using a comma-separated list.");
       System.err.println("Example usage: SubFasta subsetFile fasta1.fasta,fasta2.fasta");
    }
-   
-   public static void main(String[] args) throws Exception {     
+
+   public static void main(String[] args) throws Exception {
       if (args.length < 1) { printUsage(); System.exit(1);}
 
       SubFasta f = new SubFasta();

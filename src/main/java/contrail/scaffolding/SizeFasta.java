@@ -1,16 +1,13 @@
+package contrail.scaffolding;
+
 import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.InputStreamReader;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 
-public class SizeFasta {  
+public class SizeFasta {
   private static final NumberFormat nf = new DecimalFormat("############.#");
    private boolean ungapped = false;
-   
+
    public SizeFasta() {
    }
 
@@ -20,11 +17,11 @@ public class SizeFasta {
 
    public void processFasta(String inputFile) throws Exception {
       BufferedReader bf = Utils.getFile(inputFile, "fasta");
-      
+
       String line = null;
       StringBuffer fastaSeq = new StringBuffer();
       String header = "";
-      
+
       while ((line = bf.readLine()) != null) {
          if (line.startsWith(">")) {
             if (fastaSeq.length() != 0) {System.out.println(header + "\t" + getFastaStringLength(fastaSeq)); }
@@ -68,13 +65,13 @@ public class SizeFasta {
       System.err.println("This program sizes a fasta or fastq file. Multiple fasta files can be supplied by using a comma-separated list.");
       System.err.println("Example usage: SizeFasta fasta1.fasta,fasta2.fasta");
    }
-   
-   public static void main(String[] args) throws Exception {     
+
+   public static void main(String[] args) throws Exception {
       if (args.length < 1) { printUsage(); System.exit(1);}
 
       SizeFasta f = new SizeFasta();
       if (args.length >= 2) { f.ungapped = Boolean.parseBoolean(args[1]); }
- 
+
       String[] splitLine = args[0].trim().split(",");
       for (int j = 0; j < splitLine.length; j++) {
 System.err.println("Processing file " + splitLine[j]);

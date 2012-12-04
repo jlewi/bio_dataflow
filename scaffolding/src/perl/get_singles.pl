@@ -60,8 +60,8 @@ closedir(RDS);
 
 foreach my $file (@rds){
     # first trim to 25bp
-    # TODO(jeremy@lewi.us): We shouldn't need to trim to 25 bp because BuildBambusInput should
-    # already take care of this.
+    # TODO(jeremy@lewi.us): BuildBambusInput does trim the reads to 25 bp but those
+    # trimmed reads aren't passed as input to this script. Which is why they get retrimmed here.
     if ($file =~ m/SRR/) { next; }
     $file =~ /(.*_[12].*)\.fastq.*/;
 
