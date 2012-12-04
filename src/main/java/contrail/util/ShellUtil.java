@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.List;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 
 /**
@@ -67,7 +68,7 @@ public class ShellUtil {
   public static int execute(
       List<String> command, String directory, String prefix, Logger logger) {
     try {
-      logger.info("Executing command:" + command);
+      logger.info("Executing command: " + StringUtils.join(command, " "));
       ProcessBuilder builder = new ProcessBuilder(command);
       if ((directory != null) && (directory.length()) > 0) {
         builder.directory(new File(directory));

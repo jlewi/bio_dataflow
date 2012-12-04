@@ -22,7 +22,6 @@ import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.log4j.Logger;
 
@@ -33,6 +32,26 @@ import contrail.util.ShellUtil;
 
 /**
  * Assembly the scaffolds.
+ *
+ * Assembly uses bowtie to align the original reads to the contigs.
+ * We convert the bowtie output, contigs, and reads into a format that
+ * Bambus can use for scaffolding.
+ *
+ * Bambus takes as input 3 files. The first file is the contig file in
+ * TIGR/GDE format:
+ * see http://sourceforge.net/apps/mediawiki/amos/index.php?title=Bank2contig
+ *
+ * The TIGR file contains the contigs as well as information about the reads
+ * aligned to each contig.
+ *
+ * The library file is a text file which lists the name of each mate pair
+ * library along with its size (min/max length for reads in the library).
+ * It also lists each mate pair and the library the mate pair comes from.
+ * The library file is used to build the links between contigs.
+ *
+ * The final input is a fasta file containing shortened versions of all of
+ * the original reads. The shortened reads are the subsequences
+ * used with bowtie to align the reads to the contigs.
  */
 public class AssembleScaffolds extends Stage {
   private static final Logger sLogger = Logger.getLogger(
@@ -92,7 +111,7 @@ public class AssembleScaffolds extends Stage {
 
     sLogger.info("Executing bambus.");
     // TODO(jeremy@lewi.us): We should write all bambus output to a
-    // subdirectory of output.
+    // subdirectory of the outputpath.
 
     // It looks like goBambus2 can't take the path to the bank. The script
     // needs to be executed from the directory containing the bank.
@@ -103,12 +122,7 @@ public class AssembleScaffolds extends Stage {
     bambusCommand.add("clk");
     bambusCommand.add("bundle");
     bambusCommand.add("reps,\"-noPathRepeats\"");
-    //bambusCommand.add("orient,\"-maxOverlap 500 -redundancy 0\"");
-    //bambusCommand.add("orient,\"-redundancy 0\"");
-    //bambusCommand.add("2fasta");
-    //bambusCommand.add("printscaff");
 
-    String debug = StringUtils.join(bambusCommand, " ");
     if (ShellUtil.execute(
             bambusCommand, outputPath, "goBambus2:", sLogger) != 0) {
       sLogger.fatal(
@@ -158,8 +172,8 @@ public class AssembleScaffolds extends Stage {
       System.exit(-1);
     }
 
-    // Run the stages
-    // TODO(jeremy@lewi.us): Process the data.
+    // Run the stage.
+    // TODO(jeremy@lewi.us): Process the data and generate a report.
     return null;
   }
 
