@@ -351,7 +351,7 @@ public class BuildBambusInput extends Stage {
     File[] files =  dir.listFiles(fileFilter);
     ArrayList<String> result = new ArrayList<String>();
 
-    if (files.length == 0) {
+    if (files == null || files.length == 0) {
       return result;
     }
 
@@ -374,14 +374,29 @@ public class BuildBambusInput extends Stage {
     ArrayList<String> readFiles = matchFiles(
         (String) this.stage_options.get("reads_glob"));
 
+    if (readFiles.isEmpty()) {
+      sLogger.fatal(
+          "No read files matched:"  +
+          (String) this.stage_options.get("reads_glob"),
+          new RuntimeException("Missing inputs."));
+      System.exit(-1);
+    }
+
     sLogger.info("Files containing reads to align are:");
     for (String file : readFiles) {
       sLogger.info("read file:" + file);
     }
     ArrayList<MateFilePair> matePairs = buildMatePairs(readFiles);
 
-    ArrayList<String> contigFiles = matchFiles(
-        (String) this.stage_options.get("reference_glob"));
+    String referenceGlob = (String) this.stage_options.get("reference_glob");
+    ArrayList<String> contigFiles = matchFiles(referenceGlob);
+
+    if (contigFiles.isEmpty()) {
+      sLogger.fatal(
+          "No contig files matched:"  + referenceGlob,
+          new RuntimeException("Missing inputs."));
+      System.exit(-1);
+    }
 
     sLogger.info("Files containing contings to align reads to are:");
     for (String file : contigFiles) {
