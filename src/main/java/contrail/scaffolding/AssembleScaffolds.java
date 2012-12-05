@@ -56,9 +56,12 @@ import contrail.util.ShellUtil;
 public class AssembleScaffolds extends Stage {
   private static final Logger sLogger = Logger.getLogger(
       AssembleScaffolds.class);
+  @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> definitions =
         new HashMap<String, ParameterDefinition>();
+
+    definitions.putAll(super.createParameterDefinitions());
 
     BuildBambusInput bambusInputStage = new BuildBambusInput();
     definitions.putAll(bambusInputStage.getParameterDefinitions());
