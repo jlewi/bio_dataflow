@@ -128,6 +128,7 @@ public class TestBowtieRunner {
 
     final int NUM_REFERENCE_FILES = 3;
     final int NUM_CONTIGS_PER_FILE = 3;
+    final int READ_LENGTH = 20;
     TestData testData = createFastaFiles(tempDir, NUM_REFERENCE_FILES, NUM_CONTIGS_PER_FILE);
 
     String indexDir = new File(tempDir, "index").getAbsolutePath();
@@ -140,7 +141,7 @@ public class TestBowtieRunner {
 
     String alignDir = new File(tempDir, "aligned").getAbsolutePath();
     BowtieRunner.AlignResult alignResult = runner.alignReads(
-        indexDir, indexBase, testData.readFiles, alignDir);
+        indexDir, indexBase, testData.readFiles, alignDir, READ_LENGTH);
 
     // TODO(jeremy@lewi.us) we could verify the alignment succeeded because
     // each read is a substring of a contig and the name of the read tells us

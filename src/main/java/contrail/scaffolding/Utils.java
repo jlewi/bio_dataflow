@@ -346,4 +346,14 @@ public class Utils {
 
     return (minB < minA && maxB > maxA);
   }
+
+  /**
+   * Converts unsafe characters in read ids to safe characters.
+   *
+   * @param readId
+   * @return
+   */
+  public static String safeReadId(String readId) {
+    return readId.replaceAll("/", "_");
+  }
 }
