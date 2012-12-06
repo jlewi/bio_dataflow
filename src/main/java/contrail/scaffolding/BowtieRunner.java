@@ -19,6 +19,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -28,6 +29,10 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
+
+import contrail.sequences.FastQFileReader;
+import contrail.sequences.FastQRecord;
+import contrail.sequences.FastUtil;
 
 /**
  * This class is used to run the bowtie short read aligner.
@@ -139,17 +144,55 @@ public class BowtieRunner {
   }
 
   /**
+   * Shorten the fastq entries in the file to the specified length output them.
+   * @param inFile
+   * @param outFile
+   * @param readLength
+   */
+  private void shortenFastQFile(String inFile, File outFile, int readLength) {
+    try {
+      PrintStream out = new PrintStream(outFile);
+      FastQFileReader reader = new FastQFileReader(inFile);
+
+      while (reader.hasNext()) {
+        FastQRecord record = reader.next();
+
+        // We need to make the read ids safe.
+        record.setId(Utils.safeReadId(record.getId().toString()));
+        if (readLength < record.getRead().length()) {
+          record.setRead(
+              record.getRead().toString().subSequence(0, readLength));
+          record.setQvalue(
+              record.getQvalue().toString().subSequence(0, readLength));
+        }
+        FastUtil.writeFastQRecord(out, record);
+      }
+      if (out.checkError()) {
+        sLogger.fatal(
+            "There was a problem writing the shortened reads.",
+            new RuntimeException("Could not write shortened reads."));
+        System.exit(-1);
+      }
+    } catch (Exception e) {
+      sLogger.fatal("Could not write shortened reads." , e);
+      System.exit(-1);
+    }
+  }
+
+  /**
    * Run the bowtie aligner.
    * @param indexDir: The base directory for the bowtie index.
    * @param indexBase: The prefix for the bowtie index files.
    * @param fastqFiles: Collection of the fastq files to align.
    *   The reads should already have been truncated to a suitable length.
+   * @param readLength: Reads are shortened to this length before aligning
+   *   them. This is neccessary because bowtie can only handle short reads.
    * @param outDir: The directory where the bowtie output should be written.
    * @return: An instance of AlignResult containing the results.
    */
   public AlignResult alignReads(
       String indexDir, String indexBase, Collection<String> fastqFiles,
-      String outDir) {
+      String outDir, int readLength) {
     AlignResult result = new AlignResult();
     result.success = false;
 
@@ -172,8 +215,17 @@ public class BowtieRunner {
     for (String fastqFile : fastqFiles) {
       sLogger.info("Aligning the reads in file: " + fastqFile);
       String baseName = FilenameUtils.getBaseName(fastqFile);
-
       String outFile = FilenameUtils.concat(outDir, baseName + ".bout");
+
+      File shortFastq = null;
+
+      try {
+        shortFastq = File.createTempFile("temp", baseName + ".fastq");
+      } catch (IOException e) {
+        sLogger.fatal(
+            "Couldn't create temporary file for shortened reads.", e);
+      }
+      shortenFastQFile(fastqFile, shortFastq, readLength);
 
       if (outputs.contains(outFile)) {
         // TODO(jeremy@lewi.us). We could handle this just by appending
@@ -182,15 +234,17 @@ public class BowtieRunner {
             "Error output: " + outFile + " would overwrite the output for a " +
                 "previous input. This can happen if two input files have the " +
                 "same base name.";
-        sLogger.error(message);
-        throw new RuntimeException(message);
+        sLogger.fatal(message, new RuntimeException(message));
+        System.exit(-1);
       }
+
       outputs.add(outFile);
       result.outputs.put(fastqFile, outFile);
       String command = String.format(
-          "%s -v 1 -M 2  %s %s %s", bowtiePath, bowtieIndex, fastqFile,
-          outFile);
+          "%s -v 1 -M 2  %s %s %s", bowtiePath, bowtieIndex,
+          shortFastq.getPath(), outFile);
 
+      // TODO(jeremy@lewi.us) use one of the functions in ShellUtil.
       try {
         sLogger.info("Running bowtie to align the reads:" + command);
         Process p = Runtime.getRuntime().exec(command);
@@ -228,6 +282,8 @@ public class BowtieRunner {
             "Bowtie execution was interupted. The command was:\n" +
                 command + "\n. The Exception was:\n" + e.getMessage());
       }
+
+      shortFastq.delete();
     }
 
     return result;
@@ -261,7 +317,9 @@ public class BowtieRunner {
         new HashMap<String, ArrayList<MappingInfo>>();
 
     final int PROGRESS_INCREMENT = 1000000;
-    sLogger.warn("Setting the end of the contig map to:" + subLen + "  this code may be incorrect.");
+    sLogger.warn(
+        "Setting the end of the contig map to:" + subLen + " this code may " +
+        "be incorrect.");
     for (String bowtieFile : bowtieFiles) {
       BufferedReader reader;
       try {
@@ -344,7 +402,8 @@ public class BowtieRunner {
         // TODO(jeremy@lewi.us): We don't prefix the read with the library
         // name because we think that's more likely to cause problems because
         // the read ids would need to be changed consistently everywhere.
-        m.readID = readID.replaceAll("/", "_");
+        //m.readID = readID.replaceAll("/", "_");
+        m.readID = readID;
         m.start = 1;
         // TODO(jeremy@lewi.us): Need to check whether the length should be
         // zero based or 1 based. The original code set this to SUB_LEN

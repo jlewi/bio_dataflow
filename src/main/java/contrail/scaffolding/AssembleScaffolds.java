@@ -99,6 +99,12 @@ public class AssembleScaffolds extends Stage {
         ContrailParameters.extractParameters(
             this.stage_options,
             bambusInputStage.getParameterDefinitions().values());
+
+    // Set the directory for the bambus inputs to be a subdirectory
+    // of the output directory.
+    String bambusOutputDir = FilenameUtils.concat(
+        (String)stage_options.get("outputpath"), "bambus-input");
+    stageOptions.put("outputpath", bambusOutputDir);
     bambusInputStage.setParameters(stageOptions);
     bambusInputStage.runJob();
 

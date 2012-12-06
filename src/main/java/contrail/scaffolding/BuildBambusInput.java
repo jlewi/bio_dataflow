@@ -239,9 +239,12 @@ public class BuildBambusInput extends Stage {
           // TODO(jeremy@lewi.us): The original code add the library name
           // as a prefix to the read id and then replaced "/" with "_".
           // I think manipulating the readId's is risky because we need to
-          // be consistent. For example, if we alter the read here, it won't
-          // agree with the read ids in the bowtie output.
-          fastaRecord.setId(record.getId());
+          // be consistent. So we don't prepend the library name.
+          // However, some programs e.g bowtie cut the "/" off and set a
+          // a special code. So to be consistent we use the function
+          // safeReadId to convert readId's to a version that can be safely
+          // used everywhere.
+          fastaRecord.setId(Utils.safeReadId(record.getId().toString()));
 
           // Truncate the read because bowtie can only handle short reads.
           fastaRecord.setRead(record.getRead().subSequence(0, SUB_LEN));
@@ -406,9 +409,18 @@ public class BuildBambusInput extends Stage {
     String resultDir = (String) stage_options.get("outputpath");
     String outPrefix = (String) stage_options.get("outprefix");
 
-    fastaOutputFile = new File(resultDir + outPrefix + ".fasta");
-    libraryOutputFile = new File(resultDir + outPrefix + ".library");
-    contigOutputFile = new File(resultDir + outPrefix + ".contig");
+    File resultDirFile = new File(resultDir);
+    if (!resultDirFile.exists()) {
+      sLogger.info("Creating output directory:" + resultDir);
+
+      if (!resultDirFile.mkdirs()) {
+        sLogger.fatal("Could not create directory:" + resultDir);
+        System.exit(-1);
+      }
+    }
+    fastaOutputFile = new File(resultDir, outPrefix + ".fasta");
+    libraryOutputFile = new File(resultDir, outPrefix + ".library");
+    contigOutputFile = new File(resultDir, outPrefix + ".contig");
 
     sLogger.info("Outputs will be written to:");
     sLogger.info("Fasta file: " + fastaOutputFile.getName());
@@ -437,7 +449,8 @@ public class BuildBambusInput extends Stage {
 
     String alignDir = FilenameUtils.concat(resultDir, "bowtie-alignments");
     BowtieRunner.AlignResult alignResult = runner.alignReads(
-        bowtieIndexDir, bowtieIndexBase, readFiles, alignDir);
+        bowtieIndexDir, bowtieIndexBase, readFiles, alignDir,
+        SUB_LEN);
 
     HashMap<String, ArrayList<BowtieRunner.MappingInfo>> alignments =
         runner.readBowtieResults(alignResult.outputs.values(), SUB_LEN);
