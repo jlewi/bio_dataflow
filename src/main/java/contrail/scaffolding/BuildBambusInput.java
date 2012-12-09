@@ -86,7 +86,7 @@ public class BuildBambusInput extends Stage {
   private static void outputContigRecord(
       PrintStream out, FastaRecord contig, ArrayList<MappingInfo> reads) {
     out.println("##" + contig.getId() + " " + (reads == null ? 0 : reads.size()) + " 0 bases 00000000 checksum.");
-    out.print(contig.getRead());
+    out.println(contig.getRead());
     if (reads != null) {
       for (MappingInfo m : reads) {
         out.println("#" + m.readID + "(" + Math.min(m.contigEnd, m.contigStart) + ") " + (m.contigEnd >= m.contigStart ? "[]" : "[RC]") + " " + (m.end - m.start + 1) + " bases, 00000000 checksum. {" + " " + (m.contigEnd >= m.contigStart ? m.start + " " + m.end : m.end + " " + m.start) + "} <" + (m.contigEnd >= m.contigStart ? (m.contigStart+1) + " " + (m.contigEnd+1) : (m.contigEnd+1) + " " + (m.contigStart+1)) + ">");

@@ -45,6 +45,7 @@ import contrail.util.FileHelper;
 public class TestAssembleScaffolds {
   private final ArrayList<File> dirsToDelete;
 
+  private String testDir;
   public TestAssembleScaffolds() {
     dirsToDelete = new ArrayList<File>();
   }
@@ -105,12 +106,22 @@ public class TestAssembleScaffolds {
     TestData test = new TestData();
     Random generator = new Random();
 
+    if (!directory.exists()) {
+      directory.mkdirs();
+    }
+    // Size for the library.
+    final int MIN_SIZE = 400;
+    final int MAX_SIZE = 500;
+
+    // Size to use for the inserts
+    final int INSERT_SIZE = (MIN_SIZE + MAX_SIZE) / 2;
+
     // Create the reference genome.
     test.expectedScaffold = AlphabetUtil.randomString
-        (generator, 1000, DNAAlphabetFactory.create());
+        (generator, 400, DNAAlphabetFactory.create());
 
     // Split the genome into contigs.
-    int contigLength = 100;
+    int contigLength = 200;
     ArrayList<String> contigs = new ArrayList<String>();
     int position = 0;
     while (position < test.expectedScaffold.length()) {
@@ -124,20 +135,22 @@ public class TestAssembleScaffolds {
     ArrayList<FastQRecord> rightReads = new ArrayList<FastQRecord>();
     int readLength = 30;
     for (int i=0; i < contigs.size() - 1; ++i) {
-      int offset = 25;
+      // Generate multiple links.
+      for (int offset = 0; offset < 5; ++offset) {
+        FastQRecord left = new FastQRecord();
+        left.setId(String.format("read_%d_%d_0", i, offset));
+        int start = contigLength - readLength - offset;
+        left.setRead(contigs.get(i).substring(start, start + readLength));
+        left.setQvalue(StringUtils.repeat("!", readLength));
 
-      FastQRecord left = new FastQRecord();
-      left.setId(String.format("read_%d_0", i));
-      left.setRead(contigs.get(i).substring(offset, offset + readLength));
-      left.setQvalue(StringUtils.repeat("!", readLength));
+        FastQRecord right = new FastQRecord();
+        right.setId(String.format("read_%d_%d_1", i, offset));
+        right.setRead(contigs.get(i + 1).substring(offset, offset + readLength));
+        right.setQvalue(StringUtils.repeat("!", readLength));
 
-      FastQRecord right = new FastQRecord();
-      right.setId(String.format("read_%d_1", i));
-      right.setRead(contigs.get(i + 1).substring(offset, offset + readLength));
-      right.setQvalue(StringUtils.repeat("!", readLength));
-
-      leftReads.add(left);
-      rightReads.add(right);
+        leftReads.add(left);
+        rightReads.add(right);
+      }
     }
 
     // Write the contigs to a fasta file.
@@ -177,7 +190,7 @@ public class TestAssembleScaffolds {
       FileWriter stream = new FileWriter(test.libSizeFile, false);
       BufferedWriter out = new BufferedWriter(stream);
 
-      out.write("reads 25 150\n");
+      out.write(String.format("reads %d %d\n", MIN_SIZE, MAX_SIZE));
       out.close();
       stream.close();
     } catch (Exception e) {
@@ -192,22 +205,39 @@ public class TestAssembleScaffolds {
   }
 
   public void runTests(HashMap<String, String> args) {
-    File tempDir = FileHelper.createLocalTempDir();
-    dirsToDelete.add(tempDir);
-
     final int NUM_REFERENCE_FILES = 3;
     final int NUM_CONTIGS_PER_FILE = 3;
-    TestData testData = createTest(
-        tempDir, NUM_REFERENCE_FILES, NUM_CONTIGS_PER_FILE);
 
     HashMap<String, Object> parameters = new HashMap<String, Object>();
+    // Allow the outputpath to be overwritten on the command line.
+    if (args.containsKey("testdir")) {
+      testDir = args.get("testdir");
+      args.remove("testdir");
+    } else {
+      testDir = FileHelper.createLocalTempDir().getPath();
+    }
+
+    File testDirFile = new File(testDir);
+    if (testDirFile.exists()) {
+      try {
+        FileUtils.deleteDirectory(testDirFile);
+      } catch (Exception e) {
+        throw new RuntimeException(e.getMessage());
+      }
+    }
+
+    parameters.put(
+        "outputpath", FilenameUtils.concat(testDir, "output"));
+    dirsToDelete.add(new File(testDir));
+
+    TestData testData = createTest(
+        new File(testDir, "input"), NUM_REFERENCE_FILES, NUM_CONTIGS_PER_FILE);
+
     parameters.putAll(args);
     parameters.put("reads_glob",testData.readsGlob);
     parameters.put("reference_glob",testData.referenceGlob);
     parameters.put("libsize", testData.libSizeFile);
-    parameters.put(
-        "outputpath", FilenameUtils.concat(
-            tempDir.getPath(), "output"));
+
     parameters.put("outprefix", "output");
 
     AssembleScaffolds stage = new AssembleScaffolds();
@@ -244,7 +274,7 @@ public class TestAssembleScaffolds {
   }
 
   public static void main(String[] args) {
-    if(args.length !=3 ){
+    if(args.length < 3 ){
       throw new RuntimeException(
           "Expected 3 arguments bowtie_path, bowtiebuild_path, and amos_path");
     }
