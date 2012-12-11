@@ -11,10 +11,24 @@ public class SizeFasta {
    public SizeFasta() {
    }
 
+   /**
+    * Get the length of the sequence.
+    *
+    * If the member variable ungapped is true then we count gap characters
+    * in the sequence. Otherwise we don't.
+    *
+    * @param fastaSeq
+    * @return
+    */
    private int getFastaStringLength(StringBuffer fastaSeq) {
       return (ungapped == false ? fastaSeq.length() : fastaSeq.toString().replaceAll("N", "").replaceAll("n", "").replaceAll("-", "").length());
    }
 
+   /**
+    * Read the fasta file and print out the length of each fasta sequence.
+    * @param inputFile
+    * @throws Exception
+    */
    public void processFasta(String inputFile) throws Exception {
       BufferedReader bf = Utils.getFile(inputFile, "fasta");
 
@@ -33,10 +47,17 @@ public class SizeFasta {
          }
       }
 
-      if (fastaSeq.length() != 0) { System.out.println(header + "\t" + getFastaStringLength(fastaSeq)); }
+      if (fastaSeq.length() != 0) {
+        System.out.println(header + "\t" + getFastaStringLength(fastaSeq));
+      }
       bf.close();
    }
 
+   /**
+    * Read the fastq file and print out the length of each fastq sequence.
+    * @param inputFile
+    * @throws Exception
+    */
    public void processFastq(String inputFile) throws Exception {
       BufferedReader bf = Utils.getFile(inputFile, "fastq");
 

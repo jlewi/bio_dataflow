@@ -26,6 +26,7 @@ import java.util.Random;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.log4j.Logger;
 
 import contrail.sequences.AlphabetUtil;
 import contrail.sequences.DNAAlphabetFactory;
@@ -43,6 +44,8 @@ import contrail.util.FileHelper;
  * doesn't have to specify the manually.
  */
 public class TestAssembleScaffolds {
+  private static final Logger sLogger = Logger.getLogger(
+      TestAssembleScaffolds.class);
   private final ArrayList<File> dirsToDelete;
 
   private String testDir;
@@ -162,7 +165,7 @@ public class TestAssembleScaffolds {
       BufferedWriter referenceOut = new BufferedWriter(referenceStream);
 
       for (int i = 0; i < contigs.size(); ++i) {
-        String contigId = String.format("contig_%d\n", i);
+        String contigId = String.format("contig-%d\n", i);
         referenceOut.write(">" + contigId);
         referenceOut.write(contigs.get(i));
         referenceOut.write("\n");
