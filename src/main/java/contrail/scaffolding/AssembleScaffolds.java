@@ -14,7 +14,11 @@
 // Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.scaffolding;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -25,6 +29,8 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.log4j.Logger;
 
+import contrail.sequences.FastaFileReader;
+import contrail.sequences.FastaRecord;
 import contrail.stages.ContrailParameters;
 import contrail.stages.ParameterDefinition;
 import contrail.stages.Stage;
@@ -56,7 +62,6 @@ import contrail.util.ShellUtil;
 public class AssembleScaffolds extends Stage {
   private static final Logger sLogger = Logger.getLogger(
       AssembleScaffolds.class);
-
   @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> definitions =
@@ -77,6 +82,112 @@ public class AssembleScaffolds extends Stage {
       definitions.put(def.getName(), def);
     }
     return Collections.unmodifiableMap(definitions);
+  }
+
+  /**
+   * Class for storing the size of a sequence.
+   */
+  static private class SequenceSize {
+    final public int ungapped;
+    final public int gapped;
+    public SequenceSize(int gapped, int ungapped) {
+      this.gapped = gapped;
+      this.ungapped = ungapped;
+    }
+  }
+
+  /**
+   * Get the length of the sequence.
+   *
+   * If the member variable ungapped is true then we count gap characters
+   * in the sequence. Otherwise we don't.
+   *
+   * @param fastaSeq
+   * @return
+   */
+  private SequenceSize getFastaStringLength(String fastaSeq) {
+     int ungapped = fastaSeq.replaceAll("N", "").replaceAll(
+         "n", "").replaceAll("-", "").length();
+     return new SequenceSize(fastaSeq.length(), ungapped);
+  }
+
+  /**
+   * Read the fasta file and print out the length of each fasta sequence.
+   * @param inputFile
+   * @return: HashMap containing the size for each sequence.
+   * @throws Exception
+   */
+  private HashMap<String, SequenceSize> getSequenceSizes(String inputFile)
+      throws Exception {
+     FastaFileReader reader = new FastaFileReader(inputFile);
+
+     HashMap<String, SequenceSize> sizes = new HashMap<String, SequenceSize>();
+     while (reader.hasNext()) {
+       FastaRecord record = reader.next();
+       if (sizes.containsKey(record.getId().toString())) {
+         sLogger.fatal(
+             "Duplicate read id:" + record.getId(),
+             new RuntimeException("Duplicate ID"));
+         System.exit(-1);
+       }
+       sizes.put(
+           record.getId().toString(),
+           getFastaStringLength(record.getRead().toString()));
+     }
+
+     return sizes;
+  }
+
+  private void writeReport(
+      String reportFile, HashMap<String, SequenceSize> contigSizes,
+      HashMap<String, SequenceSize> linearSizes) {
+    // Currently the report has to be on a regular filesystem (i.e. non HDFS).
+    // Since the rest of scaffolding has the same requirement this isn't
+    // a burden.
+    sLogger.info("Wrote HTML report to: " + reportFile);
+
+    try {
+      FileWriter fileWriter = new FileWriter(reportFile);
+      BufferedWriter writer = new BufferedWriter(fileWriter);
+
+      //writer.create(schema, outputStream);
+      writer.append("<html><body>");
+
+      writer.append("<h1>Size of scaffolds</h1>");
+      writer.append("<table border=1>");
+      writer.append("<tr><td>Scaffold Id</td>");
+      writer.append("<td>Size with gaps.</td>");
+      writer.append("<td>UngappedSize</td></tr>");
+      for (String id : contigSizes.keySet()) {
+        SequenceSize size = contigSizes.get(id);
+        writer.append(String.format("<td>%s</td>", id));
+        writer.append(String.format("<td>%d</td>", size.gapped));
+        writer.append(String.format("<td>%d</td>", size.ungapped));
+
+      }
+      writer.append("</table>");
+
+      writer.append("<h1>Size of Linear Scaffolds</h1>");
+      writer.append("<table border=1>");
+      writer.append("<tr><td>Scaffold Id</td>");
+      writer.append("<td>Size with gaps.</td>");
+      writer.append("<td>UngappedSize</td></tr>");
+      for (String id : linearSizes.keySet()) {
+        SequenceSize size = linearSizes.get(id);
+        writer.append(String.format("<td>%s</td>", id));
+        writer.append(String.format("<td>%d</td>", size.gapped));
+        writer.append(String.format("<td>%d</td>", size.ungapped));
+      }
+      writer.append("</table>");
+
+
+      writer.append("</body></html>");
+      writer.close();
+    } catch (IOException exception) {
+      sLogger.fatal("There was a problem writing the html report. " +
+          "Exception: " + exception.getMessage(), exception);
+      System.exit(-1);
+    }
   }
 
   @Override
@@ -162,39 +273,115 @@ public class AssembleScaffolds extends Stage {
     // than using the goBambus binary because we ran into issues with
     // the goBambus script and the parsing of the arguments for the orient
     // stage.
+    String outputPrefix = "scaffolds";
     ArrayList<String> orientCommand = new ArrayList<String>();
     orientCommand.add(FilenameUtils.concat(amosPath, "OrientContigs"));
     orientCommand.add("-b");
     orientCommand.add(bankPath);
     orientCommand.add("-maxOverlap");
+    // TODO(jeremy@lewi.us): Max overlap should be a parameter.
     orientCommand.add("500");
     orientCommand.add("-redundancy");
     orientCommand.add("0");
 
     if (ShellUtil.execute(
-        orientCommand, outputPath, "goBambus2:", sLogger) != 0) {
+        orientCommand, outputPath, "OrientContigs:", sLogger) != 0) {
         sLogger.fatal(
             "Bambus OrientContigs failed.",
-            new RuntimeException("Bambus failed."));
+            new RuntimeException("Bambus OrientContigs failed."));
         System.exit(-1);
     }
 
-    // Run the stages to print the output.
-    ArrayList<String> bambusOutput = new ArrayList<String>();
-    bambusOutput.add(FilenameUtils.concat(amosPath, "goBambus2"));
-    bambusOutput.add(bankName);
-    bambusOutput.add("bambus_output");
-    bambusOutput.add("2fasta");
-    bambusOutput.add("printscaff");
+    // Run the bank2fasta stage to output the sequence of the contigs.
+    // We do this manually because goBambus2 runs it with the -d option which
+    // causes extra information to be printed as part of the contig id.
+    ArrayList<String> bambus2Fasta = new ArrayList<String>();
+    bambus2Fasta.add(FilenameUtils.concat(amosPath, "bank2fasta"));
+    bambus2Fasta.add("-b");
+    bambus2Fasta.add(bankName);
+        //bambusOutput.add("printscaff");
 
-    if (ShellUtil.execute(
-        bambusOutput, outputPath, "goBambus2:", sLogger) != 0) {
+    File fastaContigFile =
+        new File(outputPath, outputPrefix + ".contigs.fasta");
+    sLogger.info(
+        "Writing scafold contig sequences to:" + fastaContigFile.getPath());
+    PrintStream fastaStream = new PrintStream(
+        new File(outputPath, outputPrefix + ".contigs.fasta"));
+
+    if (ShellUtil.executeAndRedirect(
+        bambus2Fasta, outputPath, "bank2fasta:", sLogger, fastaStream) != 0) {
       sLogger.fatal(
           "Bambus failed.",
           new RuntimeException("Bambus failed."));
       System.exit(-1);
     }
 
+    if (fastaStream.checkError()) {
+      sLogger.fatal(
+          "There was an error outputing the sequences for the scaffolds.",
+          new RuntimeException("Error bank2fasta."));
+      System.exit(-1);
+    }
+
+    ArrayList<String> bambusPrint = new ArrayList<String>();
+    bambusPrint.add(FilenameUtils.concat(amosPath, "OutputScaffolds"));
+    bambusPrint.add("-b");
+    bambusPrint.add(bankName);
+
+    String contigFile =
+        FilenameUtils.concat(outputPath, outputPrefix + ".scaffolds.fasta");
+    PrintStream contigStream = new PrintStream(contigFile);
+    sLogger.info("Writing scaffold sequences to:" + contigFile);
+    if (ShellUtil.executeAndRedirect(
+        bambusPrint, outputPath, "OutputScaffolds:", sLogger, contigStream)
+        != 0) {
+      sLogger.fatal(
+          "Bambus failed.",
+          new RuntimeException("OutputScaffolds failed."));
+      System.exit(-1);
+    }
+    contigStream.close();
+
+    // Linearize the scaffolds.
+    ArrayList<String> bambusLinearize = new ArrayList<String>();
+    bambusLinearize.add(FilenameUtils.concat(amosPath, "Linearize"));
+    bambusLinearize.add("-b");
+    bambusLinearize.add(bankName);
+
+    if (ShellUtil.execute(
+        bambusLinearize, outputPath, "Linearize:", sLogger) != 0) {
+      sLogger.fatal(
+          "Bambus failed.",
+          new RuntimeException("Linearize failed."));
+      System.exit(-1);
+    }
+
+    // Rerun output scaffolds.
+    String linearFile =
+        FilenameUtils.concat(
+            outputPath, outputPrefix + ".scaffolds.linear.fasta");
+    PrintStream linearStream = new PrintStream(linearFile);
+    ArrayList<String> bambusPrintLinear = new ArrayList<String>();
+    bambusPrintLinear.add(FilenameUtils.concat(amosPath, "OutputScaffolds"));
+    bambusPrintLinear.add("-b");
+    bambusPrintLinear.add(bankName);
+
+    sLogger.info("Writing linearized scaffold sequences to:" + linearFile);
+    if (ShellUtil.executeAndRedirect(
+        bambusPrintLinear, outputPath, "OutputScaffolds:", sLogger,
+        linearStream) != 0) {
+      sLogger.fatal(
+          "Bambus failed.",
+          new RuntimeException("OutputScaffolds failed."));
+      System.exit(-1);
+    }
+    linearStream.close();
+
+    HashMap<String, SequenceSize> contigSizes = getSequenceSizes(contigFile);
+    HashMap<String, SequenceSize> linearSizes = getSequenceSizes(linearFile);
+    String reportFile = FilenameUtils.concat(
+        outputPath, "scaffold_report.html");
+    writeReport(reportFile, contigSizes, linearSizes);
     // Run the stage.
     // TODO(jeremy@lewi.us): Process the data and generate a report.
     return null;
