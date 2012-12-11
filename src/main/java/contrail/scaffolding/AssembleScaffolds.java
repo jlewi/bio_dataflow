@@ -85,6 +85,14 @@ public class AssembleScaffolds extends Stage {
     String[] required_args = {"outputpath", "amos_path"};
     checkHasParametersOrDie(required_args);
 
+    String outputPath = (String) stage_options.get("outputpath");
+    File outputPathFile = new File(outputPath);
+    if (outputPathFile.exists()) {
+      sLogger.warn(
+          "Outputpath: " + outputPath + " exists and will be deleted.");
+      FileUtils.deleteDirectory(outputPathFile);
+    }
+
     BuildBambusInput bambusInputStage = new BuildBambusInput();
     // Make a shallow copy of the stage options required by the stage.
     Map<String, Object> stageOptions =
@@ -95,21 +103,26 @@ public class AssembleScaffolds extends Stage {
     bambusInputStage.runJob();
 
     String amosPath = (String) stage_options.get("amos_path");
-    String outputPath = (String) stage_options.get("outputpath");
     String bankName = "bank.bnk";
     String bankPath = FilenameUtils.concat(outputPath, bankName);
 
     sLogger.info("Load the data into amos.");
-    String loadCommand = String.format(
-        "%s/toAmos_new -s %s -m %s -c %s -b %s", amosPath,
-        bambusInputStage.getFastaOutputFile(),
-        bambusInputStage.getLibraryOutputFile(),
-        bambusInputStage.getContigOutputFile(), bankPath);
+    ArrayList<String> loadCommand = new ArrayList<String>();
+    loadCommand.add(amosPath + "/toAmos_new");
+    loadCommand.add("-s");
+    loadCommand.add(bambusInputStage.getFastaOutputFile().getPath());
+    loadCommand.add("-m");
+    loadCommand.add(bambusInputStage.getLibraryOutputFile().getPath());
+    loadCommand.add("-c");
+    loadCommand.add(bambusInputStage.getContigOutputFile().getPath());
+    loadCommand.add("-b");
+    loadCommand.add(bankPath);
 
-    if (ShellUtil.execute(loadCommand, "toAmos_new:", sLogger) != 0) {
+    if (ShellUtil.execute(loadCommand, null, "toAmos_new:", sLogger) != 0) {
       sLogger.fatal(
           "Failed to load the bambus input into the amos bank",
           new RuntimeException("Failed to load bambus input into amos bank."));
+      System.exit(-1);
     }
 
     sLogger.info("Executing bambus.");
