@@ -14,7 +14,12 @@
 // Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.scaffolding;
 
+import static org.junit.Assert.fail;
+
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -26,6 +31,8 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.log4j.Logger;
 
+import contrail.sequences.FastaFileReader;
+import contrail.sequences.FastaRecord;
 import contrail.stages.ContrailParameters;
 import contrail.stages.ParameterDefinition;
 import contrail.stages.Stage;
@@ -77,6 +84,111 @@ public class AssembleScaffolds extends Stage {
       definitions.put(def.getName(), def);
     }
     return Collections.unmodifiableMap(definitions);
+  }
+
+  /**
+   * Class for storing the size of a sequence.
+   */
+  static private class SequenceSize {
+    final public int ungapped;
+    final public int gapped;
+    public SequenceSize(int gapped, int ungapped) {
+      this.gapped = gapped;
+      this.ungapped = ungapped;
+    }
+  }
+
+  /**
+   * Get the length of the sequence.
+   *
+   * If the member variable ungapped is true then we count gap characters
+   * in the sequence. Otherwise we don't.
+   *
+   * @param fastaSeq
+   * @return
+   */
+  private SequenceSize getFastaStringLength(String fastaSeq) {
+     int ungapped = fastaSeq.replaceAll("N", "").replaceAll(
+         "n", "").replaceAll("-", "").length();
+     return new SequenceSize(fastaSeq.length(), ungapped);
+  }
+
+  /**
+   * Read the fasta file and print out the length of each fasta sequence.
+   * @param inputFile
+   * @return: HashMap containing the size for each sequence.
+   * @throws Exception
+   */
+  private HashMap<String, SequenceSize> getSequenceSizes(String inputFile)
+      throws Exception {
+     FastaFileReader reader = new FastaFileReader(inputFile);
+
+     HashMap<String, SequenceSize> sizes = new HashMap<String, SequenceSize>();
+     while (reader.hasNext()) {
+       FastaRecord record = reader.next();
+       if (sizes.containsKey(record.getId().toString())) {
+         sLogger.fatal(
+             "Duplicate read id:" + record.getId(),
+             new RuntimeException("Duplicate ID"));
+         System.exit(-1);
+       }
+       sizes.put(
+           record.getId().toString(),
+           getFastaStringLength(record.getRead().toString()));
+     }
+
+     return sizes;
+  }
+
+  private void writeReport(
+      String reportFile, HashMap<String, SequenceSize> contigSizes,
+      HashMap<String, SequenceSize> linearSizes) {
+    // Currently the report has to be on a regular filesystem (i.e. non HDFS).
+    // Since the rest of scaffolding has the same requirement this isn't
+    // a burden.
+    sLogger.info("Wrote HTML report to: " + reportFile);
+
+    try {
+      FileWriter fileWriter = new FileWriter(reportFile);
+      BufferedWriter writer = new BufferedWriter(fileWriter);
+
+      //writer.create(schema, outputStream);
+      writer.append("<html><body>");
+
+      writer.append("<h1>Size of scaffolds</h1>");
+      writer.append("<table border=1>");
+      writer.append("<tr><td>Scaffold Id</td>");
+      writer.append("<td>Size with gaps.</td>");
+      writer.append("<td>UngappedSize</td></tr>");
+      for (String id : contigSizes.keySet()) {
+        SequenceSize size = contigSizes.get(id);
+        writer.append(String.format("<td>%s</td>", id));
+        writer.append(String.format("<td>%d</td>", size.gapped));
+        writer.append(String.format("<td>%d</td>", size.ungapped));
+
+      }
+      writer.append("</table>");
+
+      writer.append("<h1>Size of Linear Scaffolds</h1>");
+      writer.append("<table border=1>");
+      writer.append("<tr><td>Scaffold Id</td>");
+      writer.append("<td>Size with gaps.</td>");
+      writer.append("<td>UngappedSize</td></tr>");
+      for (String id : linearSizes.keySet()) {
+        SequenceSize size = linearSizes.get(id);
+        writer.append(String.format("<td>%s</td>", id));
+        writer.append(String.format("<td>%d</td>", size.gapped));
+        writer.append(String.format("<td>%d</td>", size.ungapped));
+      }
+      writer.append("</table>");
+
+
+      writer.append("</body></html>");
+      writer.close();
+    } catch (IOException exception) {
+      fail("There was a problem writing the html report. " +
+          "Exception: " + exception.getMessage());
+    }
   }
 
   @Override
@@ -266,6 +378,11 @@ public class AssembleScaffolds extends Stage {
     }
     linearStream.close();
 
+    HashMap<String, SequenceSize> contigSizes = getSequenceSizes(contigFile);
+    HashMap<String, SequenceSize> linearSizes = getSequenceSizes(linearFile);
+    String reportFile = FilenameUtils.concat(
+        outputPath, "scaffold_report.html");
+    writeReport(reportFile, contigSizes, linearSizes);
     // Run the stage.
     // TODO(jeremy@lewi.us): Process the data and generate a report.
     return null;
