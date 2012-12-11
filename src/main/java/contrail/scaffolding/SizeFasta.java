@@ -3,8 +3,16 @@ package contrail.scaffolding;
 import java.io.BufferedReader;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
+import java.util.HashMap;
+
+import org.apache.log4j.Logger;
+
+import contrail.sequences.FastaFileReader;
+import contrail.sequences.FastaRecord;
 
 public class SizeFasta {
+  private static final Logger sLogger = Logger.getLogger(
+      AssembleScaffolds.class);
   private static final NumberFormat nf = new DecimalFormat("############.#");
    private boolean ungapped = false;
 
@@ -20,7 +28,7 @@ public class SizeFasta {
     * @param fastaSeq
     * @return
     */
-   private int getFastaStringLength(StringBuffer fastaSeq) {
+   private int getFastaStringLength(String fastaSeq) {
       return (ungapped == false ? fastaSeq.length() : fastaSeq.toString().replaceAll("N", "").replaceAll("n", "").replaceAll("-", "").length());
    }
 
@@ -29,28 +37,20 @@ public class SizeFasta {
     * @param inputFile
     * @throws Exception
     */
-   public void processFasta(String inputFile) throws Exception {
-      BufferedReader bf = Utils.getFile(inputFile, "fasta");
+   public HashMap<String, Integer> processFasta(String inputFile) throws Exception {
+      FastaFileReader reader = new FastaFileReader(inputFile);
 
-      String line = null;
-      StringBuffer fastaSeq = new StringBuffer();
-      String header = "";
-
-      while ((line = bf.readLine()) != null) {
-         if (line.startsWith(">")) {
-            if (fastaSeq.length() != 0) {System.out.println(header + "\t" + getFastaStringLength(fastaSeq)); }
-            header = line.substring(1);
-            fastaSeq = new StringBuffer();
-         }
-         else {
-            fastaSeq.append(line);
-         }
+      HashMap<String, Integer> sizes = new HashMap<String, Integer>();
+      while (reader.hasNext()) {
+        FastaRecord record = reader.next();
+        if (sizes.containsKey(record.getId().toString())) {
+          sLogger.fatal("Duplicate read id:" + record.getId(), new RuntimeException("Duplicate ID"));
+          System.exit(-1);
+        }
+        sizes.put(record.getId().toString(), getFastaStringLength(record.getRead().toString()));
       }
 
-      if (fastaSeq.length() != 0) {
-        System.out.println(header + "\t" + getFastaStringLength(fastaSeq));
-      }
-      bf.close();
+      return sizes;
    }
 
    /**
