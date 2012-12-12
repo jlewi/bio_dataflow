@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Random;
 
@@ -31,6 +32,7 @@ import org.apache.log4j.Logger;
 import contrail.sequences.AlphabetUtil;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.FastQRecord;
+import contrail.sequences.FastaRecord;
 import contrail.util.FileHelper;
 
 /**
@@ -57,6 +59,7 @@ public class TestAssembleScaffolds {
     public TestData() {
       referenceFiles = new ArrayList<String>();
       readFiles = new ArrayList<String>();
+      degenerateContigs = new HashMap<String, FastaRecord>();
     }
     // Files containing the sequences we want to align to.
     public ArrayList<String> referenceFiles;
@@ -70,6 +73,9 @@ public class TestAssembleScaffolds {
 
     // The true sequence for the scaffold.
     public String expectedScaffold;
+
+    // A degenerate contig; i.e. a contig not in any scaffolds.
+    public HashMap<String, FastaRecord> degenerateContigs;
   }
 
   private void writeFastQFile(File path, ArrayList<FastQRecord> records) {
@@ -88,6 +94,38 @@ public class TestAssembleScaffolds {
     } catch (Exception e) {
       e.printStackTrace();
       throw new RuntimeException("Failed to write the fastq file.");
+    }
+  }
+
+  private void writeFastaFile(File path, Collection<FastaRecord> contigs) {
+    // Write the contigs to a fasta file.
+    try {
+      FileWriter referenceStream = new FileWriter(path, false);
+      BufferedWriter referenceOut = new BufferedWriter(referenceStream);
+
+      for (FastaRecord record : contigs) {
+        referenceOut.write(">" + record.getId());
+        referenceOut.write(record.getRead().toString());
+        referenceOut.write("\n");
+      }
+      referenceOut.close();
+      referenceStream.close();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+
+  private void writeLibraryFile(String libraryFile, int minSize, int maxSize) {
+    // Create the library size file.
+    try {
+      FileWriter stream = new FileWriter(libraryFile, false);
+      BufferedWriter out = new BufferedWriter(stream);
+
+      out.write(String.format("reads %d %d\n", minSize, maxSize));
+      out.close();
+      stream.close();
+    } catch (Exception e) {
+      e.printStackTrace();
     }
   }
 
@@ -125,11 +163,14 @@ public class TestAssembleScaffolds {
 
     // Split the genome into contigs.
     int contigLength = 200;
-    ArrayList<String> contigs = new ArrayList<String>();
+    ArrayList<FastaRecord> contigs = new ArrayList<FastaRecord>();
     int position = 0;
     while (position < test.expectedScaffold.length()) {
-      contigs.add(test.expectedScaffold.substring(
+      FastaRecord record = new FastaRecord();
+      record.setId(String.format("contig-%d\n", position));
+      record.setRead(test.expectedScaffold.substring(
           position, position + contigLength));
+      contigs.add(record);
       position += contigLength;
     }
 
@@ -139,16 +180,18 @@ public class TestAssembleScaffolds {
     int readLength = 30;
     for (int i=0; i < contigs.size() - 1; ++i) {
       // Generate multiple links.
+      String leftContig = contigs.get(i).getRead().toString();
+      String rightContig = contigs.get(i + 1).getRead().toString();
       for (int offset = 0; offset < 5; ++offset) {
         FastQRecord left = new FastQRecord();
         left.setId(String.format("read_%d_%d_0", i, offset));
         int start = contigLength - readLength - offset;
-        left.setRead(contigs.get(i).substring(start, start + readLength));
+        left.setRead(leftContig.substring(start, start + readLength));
         left.setQvalue(StringUtils.repeat("!", readLength));
 
         FastQRecord right = new FastQRecord();
         right.setId(String.format("read_%d_%d_1", i, offset));
-        right.setRead(contigs.get(i + 1).substring(offset, offset + readLength));
+        right.setRead(rightContig.substring(offset, offset + readLength));
         right.setQvalue(StringUtils.repeat("!", readLength));
 
         leftReads.add(left);
@@ -157,24 +200,23 @@ public class TestAssembleScaffolds {
     }
 
     // Write the contigs to a fasta file.
-    try {
-      File referencePath = new File(directory, "contigs.fa");
-      test.referenceFiles.add(referencePath.toString());
+    File referencePath = new File(directory, "contigs.fa");
+    test.referenceFiles.add(referencePath.toString());
+    writeFastaFile(referencePath, contigs);
 
-      FileWriter referenceStream = new FileWriter(referencePath, true);
-      BufferedWriter referenceOut = new BufferedWriter(referenceStream);
-
-      for (int i = 0; i < contigs.size(); ++i) {
-        String contigId = String.format("contig-%d\n", i);
-        referenceOut.write(">" + contigId);
-        referenceOut.write(contigs.get(i));
-        referenceOut.write("\n");
-      }
-      referenceOut.close();
-      referenceStream.close();
-    } catch (Exception e) {
-      e.printStackTrace();
+    // Create a degenerate contig; i.e one with no mate pairs so it won't
+    // be in any scaffold.
+    int numDegenerate = 1;
+    for (int i=0; i < numDegenerate; ++i) {
+      FastaRecord record = new FastaRecord();
+      record.setId(String.format("degenerate-contig-%d\n", i));
+      record.setRead(AlphabetUtil.randomString(
+          generator, contigLength, DNAAlphabetFactory.create()));
+      test.degenerateContigs.put(record.getId().toString(), record);
     }
+    File degeneratePath = new File(directory, "degenerate-contigs.fa");
+    test.referenceFiles.add(degeneratePath.toString());
+    writeFastaFile(degeneratePath, test.degenerateContigs.values());
 
     // Write the reads to FastQ files.
     File leftPath = new File(directory, "reads_0.fastq");
@@ -186,19 +228,8 @@ public class TestAssembleScaffolds {
     writeFastQFile(leftPath, leftReads);
     writeFastQFile(rightPath, rightReads);
 
-    // Create the library size file.
-    try {
-      test.libSizeFile = FilenameUtils.concat(
-          directory.getPath(), "libsize");
-      FileWriter stream = new FileWriter(test.libSizeFile, false);
-      BufferedWriter out = new BufferedWriter(stream);
-
-      out.write(String.format("reads %d %d\n", MIN_SIZE, MAX_SIZE));
-      out.close();
-      stream.close();
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
+    test.libSizeFile = FilenameUtils.concat(directory.getPath(), "libsize");
+    writeLibraryFile(test.libSizeFile, MIN_SIZE, MAX_SIZE);
 
     test.readsGlob = FilenameUtils.concat(
         directory.getPath(), "*fastq");

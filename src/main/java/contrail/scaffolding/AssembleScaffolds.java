@@ -18,6 +18,7 @@ import static org.junit.Assert.fail;
 
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -191,6 +192,250 @@ public class AssembleScaffolds extends Stage {
     }
   }
 
+  private String getBankName() {
+    return "bank.bnk";
+  }
+
+  private String getBankPath() {
+    String outputPath = (String) stage_options.get("outputpath");
+    return FilenameUtils.concat(outputPath, getBankName());
+  }
+
+  private String getOutputPrefix() {
+    return "scaffolds";
+  }
+
+  private void runLoadIntoAmos(
+      String fastaFile, String libraryFile, String contigOutputFile) {
+    String amosPath = (String) stage_options.get("amos_path");
+    sLogger.info("Load the data into amos.");
+    ArrayList<String> loadCommand = new ArrayList<String>();
+    loadCommand.add(amosPath + "/toAmos_new");
+    loadCommand.add("-s");
+    loadCommand.add(fastaFile);
+    loadCommand.add("-m");
+    loadCommand.add(libraryFile);
+    loadCommand.add("-c");
+    loadCommand.add(contigOutputFile);
+    loadCommand.add("-b");
+    loadCommand.add(getBankPath());
+
+    if (ShellUtil.execute(loadCommand, null, "toAmos_new:", sLogger) != 0) {
+      sLogger.fatal(
+          "Failed to load the bambus input into the amos bank",
+          new RuntimeException("Failed to load bambus input into amos bank."));
+      System.exit(-1);
+    }
+  }
+
+  /**
+   * Bank2fasta prints out the contig sequences.
+   */
+  private void runBank2Fasta() {
+    String amosPath = (String) stage_options.get("amos_path");
+    String outputPath = (String) stage_options.get("outputpath");
+    // Run the bank2fasta stage to output the sequence of the contigs.
+    // We do this manually because goBambus2 runs it with the -d option which
+    // causes extra information to be printed as part of the contig id.
+    ArrayList<String> bambus2Fasta = new ArrayList<String>();
+    bambus2Fasta.add(FilenameUtils.concat(amosPath, "bank2fasta"));
+    // Add the -d option to include information about lengths and coverages
+    // on the id line.
+    bambus2Fasta.add("-b");
+    bambus2Fasta.add(getBankName());
+
+    File fastaContigFile =
+        new File(outputPath, getOutputPrefix() + ".contigs.fasta");
+    sLogger.info(
+        "Writing scafold contig sequences to:" + fastaContigFile.getPath());
+    PrintStream fastaStream = null;
+    try {
+      fastaStream = new PrintStream(fastaContigFile.getPath());
+    } catch (FileNotFoundException e) {
+      sLogger.fatal("Could not write scaffold contig sequences.", e);
+      System.exit(-1);
+    }
+
+    if (ShellUtil.executeAndRedirect(
+        bambus2Fasta, outputPath, "bank2fasta:", sLogger, fastaStream) != 0) {
+      sLogger.fatal(
+          "Bambus failed.",
+          new RuntimeException("Bambus failed."));
+      System.exit(-1);
+    }
+
+    if (fastaStream.checkError()) {
+      sLogger.fatal(
+          "There was an error outputing the sequences for the scaffolds.",
+          new RuntimeException("Error bank2fasta."));
+      System.exit(-1);
+    }
+  }
+
+  private void runNonlinearOutputResults() {
+    String amosPath = (String) stage_options.get("amos_path");
+    String nonlinearPrefix = getOutputPrefix() + ".scaffolds.nonlinear";
+    String outputPath = (String) stage_options.get("outputpath");
+    ArrayList<String> bambusPrint = new ArrayList<String>();
+    bambusPrint.add(FilenameUtils.concat(amosPath, "OutputResults"));
+    bambusPrint.add("-b");
+    bambusPrint.add(getBankName());
+    bambusPrint.add("-p");
+    bambusPrint.add(nonlinearPrefix);
+//    String contigFile =
+//        FilenameUtils.concat(outputPath, outputPrefix + ".scaffolds");
+//    PrintStream contigStream = new PrintStream(contigFile);
+
+    sLogger.info(
+        "Writing non-linearized scaffolds with prefix :" + nonlinearPrefix);
+    if (ShellUtil.execute(bambusPrint, outputPath, "OutputScaffolds:", sLogger)
+        != 0) {
+      sLogger.fatal(
+          "Bambus failed.",
+          new RuntimeException("OutputScaffolds failed."));
+      System.exit(-1);
+    }
+  }
+
+  private void runLinearize() {
+    String amosPath = (String) stage_options.get("amos_path");
+    String outputPath = (String) stage_options.get("outputpath");
+    // Linearize the scaffolds.
+    ArrayList<String> bambusLinearize = new ArrayList<String>();
+    bambusLinearize.add(FilenameUtils.concat(amosPath, "Linearize"));
+    bambusLinearize.add("-b");
+    bambusLinearize.add(getBankPath());
+
+    if (ShellUtil.execute(
+        bambusLinearize, outputPath, "Linearize:", sLogger) != 0) {
+      sLogger.fatal(
+          "Bambus failed.",
+          new RuntimeException("Linearize failed."));
+      System.exit(-1);
+    }
+  }
+
+  private void runOrientContigs() {
+    // We manually run the oriengt, 2fasta, and printscaff stages rather
+    // than using the goBambus binary because we ran into issues with
+    // the goBambus script and the parsing of the arguments for the orient
+    // stage.
+    String amosPath = (String) stage_options.get("amos_path");
+    String outputPath = (String) stage_options.get("outputpath");
+    ArrayList<String> orientCommand = new ArrayList<String>();
+    orientCommand.add(FilenameUtils.concat(amosPath, "OrientContigs"));
+    orientCommand.add("-b");
+    orientCommand.add(getBankPath());
+    orientCommand.add("-maxOverlap");
+    // TODO(jeremy@lewi.us): Max overlap should be a parameter.
+    orientCommand.add("500");
+    orientCommand.add("-redundancy");
+    orientCommand.add("0");
+    // Add the -all information so that we print a file containing degenerate
+    // contigs.
+    orientCommand.add("-all");
+
+    if (ShellUtil.execute(
+        orientCommand, outputPath, "OrientContigs:", sLogger) != 0) {
+        sLogger.fatal(
+            "Bambus OrientContigs failed.",
+            new RuntimeException("Bambus OrientContigs failed."));
+        System.exit(-1);
+    }
+  }
+
+  private void runGoBambus() {
+    sLogger.info("Executing bambus.");
+    String amosPath = (String) stage_options.get("amos_path");
+    String outputPath = (String) stage_options.get("outputpath");
+    // It looks like goBambus2 can't take the path to the bank. The script
+    // needs to be executed from the directory containing the bank.
+    ArrayList<String> bambusCommand = new ArrayList<String>();
+    bambusCommand.add(FilenameUtils.concat(amosPath, "goBambus2"));
+    bambusCommand.add(getBankName());
+    bambusCommand.add("bambus_output");
+    bambusCommand.add("clk");
+    bambusCommand.add("bundle");
+    bambusCommand.add("reps,\"-noPathRepeats\"");
+
+    if (ShellUtil.execute(
+            bambusCommand, outputPath, "goBambus2:", sLogger) != 0) {
+      sLogger.fatal(
+          "Bambus failed.",
+          new RuntimeException("Bambus failed."));
+      System.exit(-1);
+    }
+  }
+
+  private void runLinearOutputResults(){
+    String linearPrefix = getOutputPrefix() + ".scaffolds.linear";
+    String amosPath = (String) stage_options.get("amos_path");
+    String outputPath = (String) stage_options.get("outputpath");
+    ArrayList<String> bambusPrintLinear = new ArrayList<String>();
+    bambusPrintLinear.add(FilenameUtils.concat(amosPath, "OutputResults"));
+    bambusPrintLinear.add("-b");
+    bambusPrintLinear.add(getBankPath());
+    bambusPrintLinear.add("-prefix");
+    bambusPrintLinear.add(linearPrefix);
+
+    //String linearFile =
+    //    FilenameUtils.concat(
+    //        outputPath, linearPrefix + ".fasta");
+
+    //sLogger.info("Writing linearized scaffold sequences to:" + linearFile);
+//    ShellUtil.executeAndRedirect(
+//        bambusPrintLinear, outputPath, "OutputResults:", sLogger,
+//        linearStream) != 0
+    if (ShellUtil.execute(
+        bambusPrintLinear, outputPath, "OutputResults:", sLogger) != 0) {
+      sLogger.fatal(
+          "Bambus failed.",
+          new RuntimeException("OutputResults failed."));
+      System.exit(-1);
+    }
+//    linearStream.close();
+  }
+
+  /**
+   * Output the fasta sequences of the scaffolds.
+   *
+   * @param scaffoldFile
+   */
+  private void runOutputScaffolds(String scaffoldFile) {
+    //String linearPrefix = getOutputPrefix() + ".scaffolds.linear";
+    String amosPath = (String) stage_options.get("amos_path");
+    String outputPath = (String) stage_options.get("outputpath");
+    ArrayList<String> bambusPrintLinear = new ArrayList<String>();
+    bambusPrintLinear.add(FilenameUtils.concat(amosPath, "OutputScaffolds"));
+    bambusPrintLinear.add("-b");
+    bambusPrintLinear.add(getBankPath());
+
+    //String linearFile =
+    //    FilenameUtils.concat(
+    //        outputPath, linearPrefix + ".fasta");
+
+    //sLogger.info("Writing linearized scaffold sequences to:" + linearFile);
+    PrintStream scaffoldStream = null;
+    try {
+      scaffoldStream = new PrintStream(new File(scaffoldFile));
+    } catch (FileNotFoundException e) {
+      sLogger.fatal(
+          "Could not create file:" + scaffoldFile, e);
+      System.exit(-1);
+    }
+
+    if (ShellUtil.executeAndRedirect(
+        bambusPrintLinear, outputPath, "OutputResults:", sLogger,
+        scaffoldStream) != 0) {
+      sLogger.fatal(
+          "Outputting scaffolds failed.",
+          new RuntimeException("OutputScaffolds failed."));
+      System.exit(-1);
+    }
+
+    scaffoldStream.close();
+  }
+
   @Override
   public RunningJob runJob() throws Exception {
     // TODO(jeremy@lewi.us) we should check if all the parameters
@@ -221,165 +466,38 @@ public class AssembleScaffolds extends Stage {
     bambusInputStage.setParameters(stageOptions);
     bambusInputStage.runJob();
 
-    String amosPath = (String) stage_options.get("amos_path");
-    String bankName = "bank.bnk";
-    String bankPath = FilenameUtils.concat(outputPath, bankName);
+    runLoadIntoAmos(
+        bambusInputStage.getFastaOutputFile().getPath(),
+        bambusInputStage.getLibraryOutputFile().getPath(),
+        bambusInputStage.getContigOutputFile().getPath());
 
-    sLogger.info("Load the data into amos.");
-    ArrayList<String> loadCommand = new ArrayList<String>();
-    loadCommand.add(amosPath + "/toAmos_new");
-    loadCommand.add("-s");
-    loadCommand.add(bambusInputStage.getFastaOutputFile().getPath());
-    loadCommand.add("-m");
-    loadCommand.add(bambusInputStage.getLibraryOutputFile().getPath());
-    loadCommand.add("-c");
-    loadCommand.add(bambusInputStage.getContigOutputFile().getPath());
-    loadCommand.add("-b");
-    loadCommand.add(bankPath);
-
-    if (ShellUtil.execute(loadCommand, null, "toAmos_new:", sLogger) != 0) {
-      sLogger.fatal(
-          "Failed to load the bambus input into the amos bank",
-          new RuntimeException("Failed to load bambus input into amos bank."));
-      System.exit(-1);
-    }
-
-    sLogger.info("Executing bambus.");
-    // TODO(jeremy@lewi.us): We should write all bambus output to a
-    // subdirectory of the outputpath.
-
-    // It looks like goBambus2 can't take the path to the bank. The script
-    // needs to be executed from the directory containing the bank.
-    ArrayList<String> bambusCommand = new ArrayList<String>();
-    bambusCommand.add(FilenameUtils.concat(amosPath, "goBambus2"));
-    bambusCommand.add(bankName);
-    bambusCommand.add("bambus_output");
-    bambusCommand.add("clk");
-    bambusCommand.add("bundle");
-    bambusCommand.add("reps,\"-noPathRepeats\"");
-
-    if (ShellUtil.execute(
-            bambusCommand, outputPath, "goBambus2:", sLogger) != 0) {
-      sLogger.fatal(
-          "Bambus failed.",
-          new RuntimeException("Bambus failed."));
-      System.exit(-1);
-    }
+    runGoBambus();
     // Make a copy of the bambus log because when we rerun bambus below
     // the log will get overwritten.
+    // TODO(jeremy@lewi.us): Do we still need this?
     FileUtils.copyFile(
         new File(outputPath, "bambus2.log"),
         new File(outputPath, "bambus2.log.initial_stages"));
-    // We manually run the oriengt, 2fasta, and printscaff stages rather
-    // than using the goBambus binary because we ran into issues with
-    // the goBambus script and the parsing of the arguments for the orient
-    // stage.
-    String outputPrefix = "scaffolds";
-    ArrayList<String> orientCommand = new ArrayList<String>();
-    orientCommand.add(FilenameUtils.concat(amosPath, "OrientContigs"));
-    orientCommand.add("-b");
-    orientCommand.add(bankPath);
-    orientCommand.add("-maxOverlap");
-    // TODO(jeremy@lewi.us): Max overlap should be a parameter.
-    orientCommand.add("500");
-    orientCommand.add("-redundancy");
-    orientCommand.add("0");
 
-    if (ShellUtil.execute(
-        orientCommand, outputPath, "OrientContigs:", sLogger) != 0) {
-        sLogger.fatal(
-            "Bambus OrientContigs failed.",
-            new RuntimeException("Bambus OrientContigs failed."));
-        System.exit(-1);
-    }
 
-    // Run the bank2fasta stage to output the sequence of the contigs.
-    // We do this manually because goBambus2 runs it with the -d option which
-    // causes extra information to be printed as part of the contig id.
-    ArrayList<String> bambus2Fasta = new ArrayList<String>();
-    bambus2Fasta.add(FilenameUtils.concat(amosPath, "bank2fasta"));
-    bambus2Fasta.add("-b");
-    bambus2Fasta.add(bankName);
-        //bambusOutput.add("printscaff");
+    runOrientContigs();
+    runNonlinearOutputResults();
+    runBank2Fasta();
 
-    File fastaContigFile =
-        new File(outputPath, outputPrefix + ".contigs.fasta");
-    sLogger.info(
-        "Writing scafold contig sequences to:" + fastaContigFile.getPath());
-    PrintStream fastaStream = new PrintStream(
-        new File(outputPath, outputPrefix + ".contigs.fasta"));
+    String nonLinearScaffoldFile = FilenameUtils.concat(
+        outputPath, getOutputPrefix() + ".scaffolds.nonlinear.fasta");
+    runOutputScaffolds(nonLinearScaffoldFile);
 
-    if (ShellUtil.executeAndRedirect(
-        bambus2Fasta, outputPath, "bank2fasta:", sLogger, fastaStream) != 0) {
-      sLogger.fatal(
-          "Bambus failed.",
-          new RuntimeException("Bambus failed."));
-      System.exit(-1);
-    }
+    runLinearize();
+    runLinearOutputResults();
+    String linearScaffoldFile = FilenameUtils.concat(
+        outputPath, getOutputPrefix() + ".scaffolds.linear.fasta");
+    runOutputScaffolds(linearScaffoldFile);
 
-    if (fastaStream.checkError()) {
-      sLogger.fatal(
-          "There was an error outputing the sequences for the scaffolds.",
-          new RuntimeException("Error bank2fasta."));
-      System.exit(-1);
-    }
-
-    ArrayList<String> bambusPrint = new ArrayList<String>();
-    bambusPrint.add(FilenameUtils.concat(amosPath, "OutputScaffolds"));
-    bambusPrint.add("-b");
-    bambusPrint.add(bankName);
-
-    String contigFile =
-        FilenameUtils.concat(outputPath, outputPrefix + ".scaffolds.fasta");
-    PrintStream contigStream = new PrintStream(contigFile);
-    sLogger.info("Writing scaffold sequences to:" + contigFile);
-    if (ShellUtil.executeAndRedirect(
-        bambusPrint, outputPath, "OutputScaffolds:", sLogger, contigStream)
-        != 0) {
-      sLogger.fatal(
-          "Bambus failed.",
-          new RuntimeException("OutputScaffolds failed."));
-      System.exit(-1);
-    }
-    contigStream.close();
-
-    // Linearize the scaffolds.
-    ArrayList<String> bambusLinearize = new ArrayList<String>();
-    bambusLinearize.add(FilenameUtils.concat(amosPath, "Linearize"));
-    bambusLinearize.add("-b");
-    bambusLinearize.add(bankName);
-
-    if (ShellUtil.execute(
-        bambusLinearize, outputPath, "Linearize:", sLogger) != 0) {
-      sLogger.fatal(
-          "Bambus failed.",
-          new RuntimeException("Linearize failed."));
-      System.exit(-1);
-    }
-
-    // Rerun output scaffolds.
-    String linearFile =
-        FilenameUtils.concat(
-            outputPath, outputPrefix + ".scaffolds.linear.fasta");
-    PrintStream linearStream = new PrintStream(linearFile);
-    ArrayList<String> bambusPrintLinear = new ArrayList<String>();
-    bambusPrintLinear.add(FilenameUtils.concat(amosPath, "OutputScaffolds"));
-    bambusPrintLinear.add("-b");
-    bambusPrintLinear.add(bankName);
-
-    sLogger.info("Writing linearized scaffold sequences to:" + linearFile);
-    if (ShellUtil.executeAndRedirect(
-        bambusPrintLinear, outputPath, "OutputScaffolds:", sLogger,
-        linearStream) != 0) {
-      sLogger.fatal(
-          "Bambus failed.",
-          new RuntimeException("OutputScaffolds failed."));
-      System.exit(-1);
-    }
-    linearStream.close();
-
-    HashMap<String, SequenceSize> contigSizes = getSequenceSizes(contigFile);
-    HashMap<String, SequenceSize> linearSizes = getSequenceSizes(linearFile);
+    HashMap<String, SequenceSize> contigSizes = getSequenceSizes(
+        nonLinearScaffoldFile);
+    HashMap<String, SequenceSize> linearSizes = getSequenceSizes(
+        linearScaffoldFile);
     String reportFile = FilenameUtils.concat(
         outputPath, "scaffold_report.html");
     writeReport(reportFile, contigSizes, linearSizes);
