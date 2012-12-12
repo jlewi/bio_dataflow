@@ -282,6 +282,8 @@ public class AssembleScaffolds extends Stage {
     bambusPrint.add(getBankName());
     bambusPrint.add("-p");
     bambusPrint.add(nonlinearPrefix);
+    // Add the option -1 if you want a library and evidence file (is that
+    // bambus 1 output)?
 //    String contigFile =
 //        FilenameUtils.concat(outputPath, outputPrefix + ".scaffolds");
 //    PrintStream contigStream = new PrintStream(contigFile);
@@ -324,6 +326,9 @@ public class AssembleScaffolds extends Stage {
     String outputPath = (String) stage_options.get("outputpath");
     ArrayList<String> orientCommand = new ArrayList<String>();
     orientCommand.add(FilenameUtils.concat(amosPath, "OrientContigs"));
+    // The -all option means that we will output a scaffold even if it is
+    // degenerate; i.e consists of a single scaffold.
+    orientCommand.add("-all");
     orientCommand.add("-b");
     orientCommand.add(getBankPath());
     orientCommand.add("-maxOverlap");
@@ -331,9 +336,6 @@ public class AssembleScaffolds extends Stage {
     orientCommand.add("500");
     orientCommand.add("-redundancy");
     orientCommand.add("0");
-    // Add the -all information so that we print a file containing degenerate
-    // contigs.
-    orientCommand.add("-all");
 
     if (ShellUtil.execute(
         orientCommand, outputPath, "OrientContigs:", sLogger) != 0) {

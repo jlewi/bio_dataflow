@@ -122,6 +122,7 @@ public class TestAssembleScaffolds {
       BufferedWriter out = new BufferedWriter(stream);
 
       out.write(String.format("reads %d %d\n", minSize, maxSize));
+      out.write(String.format("degeneratereads %d %d\n", minSize, maxSize));
       out.close();
       stream.close();
     } catch (Exception e) {
@@ -174,6 +175,11 @@ public class TestAssembleScaffolds {
       position += contigLength;
     }
 
+    // Write the contigs to a fasta file.
+    File referencePath = new File(directory, "contigs.fa");
+    test.referenceFiles.add(referencePath.toString());
+    writeFastaFile(referencePath, contigs);
+
     // Split the contigs into mate pair reads.
     ArrayList<FastQRecord> leftReads = new ArrayList<FastQRecord>();
     ArrayList<FastQRecord> rightReads = new ArrayList<FastQRecord>();
@@ -199,10 +205,15 @@ public class TestAssembleScaffolds {
       }
     }
 
-    // Write the contigs to a fasta file.
-    File referencePath = new File(directory, "contigs.fa");
-    test.referenceFiles.add(referencePath.toString());
-    writeFastaFile(referencePath, contigs);
+    // Write the reads to FastQ files.
+    File leftPath = new File(directory, "reads_0.fastq");
+    test.readFiles.add(leftPath.toString());
+
+    File rightPath = new File(directory, "reads_1.fastq");
+    test.readFiles.add(rightPath.toString());
+
+    writeFastQFile(leftPath, leftReads);
+    writeFastQFile(rightPath, rightReads);
 
     // Create a degenerate contig; i.e one with no mate pairs so it won't
     // be in any scaffold.
@@ -218,15 +229,47 @@ public class TestAssembleScaffolds {
     test.referenceFiles.add(degeneratePath.toString());
     writeFastaFile(degeneratePath, test.degenerateContigs.values());
 
-    // Write the reads to FastQ files.
-    File leftPath = new File(directory, "reads_0.fastq");
-    test.readFiles.add(leftPath.toString());
+    ArrayList<FastQRecord> leftDegenerateReads = new ArrayList<FastQRecord>();
+    ArrayList<FastQRecord> rightDegenerateReads = new ArrayList<FastQRecord>();
 
-    File rightPath = new File(directory, "reads_1.fastq");
-    test.readFiles.add(rightPath.toString());
+    int degenerateIndex = 0;
+    for (FastaRecord contig : test.degenerateContigs.values()) {
+      // Generate multiple links.
+      String sequence = contig.getRead().toString();
+      for (int offset = 0; offset < 5; ++offset) {
+        FastQRecord left = new FastQRecord();
+        left.setId(String.format(
+            "degenerate_read_%d_%d_0", degenerateIndex, offset));
+        int start = offset;
+        left.setRead(sequence.substring(start, start + readLength));
+        left.setQvalue(StringUtils.repeat("!", readLength));
 
-    writeFastQFile(leftPath, leftReads);
-    writeFastQFile(rightPath, rightReads);
+        leftDegenerateReads.add(left);
+
+        FastQRecord right = new FastQRecord();
+        right.setId(String.format(
+            "degenerate_read_%d_%d_1", degenerateIndex, offset));
+        start = contigLength - readLength - offset;
+        right.setRead(sequence.substring(start, start + readLength));
+        right.setQvalue(StringUtils.repeat("!", readLength));
+        rightDegenerateReads.add(right);
+        ++degenerateIndex;
+      }
+    }
+
+    // Create some reads aligned to the degenerate contig.
+    // TODO(jeremy@lewi.us) Without the reads toAmos wouldn't load the contig
+    // into the bank.
+    File degenerateLeftFastQPath = new File(
+        directory, "degenerate_reads_0.fastq");
+    test.readFiles.add(degenerateLeftFastQPath.toString());
+    writeFastQFile(degenerateLeftFastQPath, leftDegenerateReads);
+
+    File degenerateRightFastQPath = new File(
+        directory, "degenerate_reads_1.fastq");
+    test.readFiles.add(degenerateRightFastQPath.toString());
+    writeFastQFile(degenerateRightFastQPath, rightDegenerateReads);
+
 
     test.libSizeFile = FilenameUtils.concat(directory.getPath(), "libsize");
     writeLibraryFile(test.libSizeFile, MIN_SIZE, MAX_SIZE);
