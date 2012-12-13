@@ -25,6 +25,7 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
@@ -75,7 +76,6 @@ public class AssembleScaffolds extends Stage {
     BuildBambusInput bambusInputStage = new BuildBambusInput();
     definitions.putAll(bambusInputStage.getParameterDefinitions());
 
-
     ParameterDefinition amosPath =
         new ParameterDefinition(
             "amos_path", "The directory where the amos tools are installed.",
@@ -90,12 +90,25 @@ public class AssembleScaffolds extends Stage {
   /**
    * Class for storing the size of a sequence.
    */
-  static private class SequenceSize {
+  static private class SequenceSize implements Comparable<SequenceSize> {
     final public int ungapped;
     final public int gapped;
-    public SequenceSize(int gapped, int ungapped) {
+    final public String id;
+    public SequenceSize(String id, int gapped, int ungapped) {
+      this.id = id;
       this.gapped = gapped;
       this.ungapped = ungapped;
+    }
+
+    // Implement the compare and equals method so we can sort by size.
+    public int compareTo(SequenceSize other) {
+      if (this.gapped < other.gapped) {
+        return -1;
+      } else if (this.gapped == other.gapped) {
+        return 0;
+      } else {
+        return 1;
+      }
     }
   }
 
@@ -108,10 +121,12 @@ public class AssembleScaffolds extends Stage {
    * @param fastaSeq
    * @return
    */
-  private SequenceSize getFastaStringLength(String fastaSeq) {
+  private SequenceSize getFastaStringLength(FastaRecord record) {
+     String fastaSeq = record.getRead().toString();
      int ungapped = fastaSeq.replaceAll("N", "").replaceAll(
          "n", "").replaceAll("-", "").length();
-     return new SequenceSize(fastaSeq.length(), ungapped);
+     return new SequenceSize(
+         record.getId().toString(), fastaSeq.length(), ungapped);
   }
 
   /**
@@ -120,30 +135,66 @@ public class AssembleScaffolds extends Stage {
    * @return: HashMap containing the size for each sequence.
    * @throws Exception
    */
-  private HashMap<String, SequenceSize> getSequenceSizes(String inputFile)
+  private ArrayList<SequenceSize> getSequenceSizes(String inputFile)
       throws Exception {
      FastaFileReader reader = new FastaFileReader(inputFile);
 
-     HashMap<String, SequenceSize> sizes = new HashMap<String, SequenceSize>();
+     HashSet<String> sequences = new HashSet<String>();
+     ArrayList<SequenceSize> sizes = new ArrayList<SequenceSize>();
      while (reader.hasNext()) {
        FastaRecord record = reader.next();
-       if (sizes.containsKey(record.getId().toString())) {
+       if (sequences.contains(record.getId().toString())) {
          sLogger.fatal(
              "Duplicate read id:" + record.getId(),
              new RuntimeException("Duplicate ID"));
          System.exit(-1);
        }
-       sizes.put(
-           record.getId().toString(),
-           getFastaStringLength(record.getRead().toString()));
+       sequences.add(record.getId().toString());
+       sizes.add(getFastaStringLength(record));
      }
 
      return sizes;
   }
 
+  private void writeSequenceSizes(
+      BufferedWriter writer, String header, ArrayList<SequenceSize> sizes) {
+    // Sort by size in descending order.
+    Collections.sort(sizes);
+    Collections.reverse(sizes);
+    int gapped = 0;
+    int ungapped = 0;
+    try {
+      writer.append("<h1>" + header + "</h1>");
+      writer.append("<table border=1>");
+      writer.append("<tr><td>Scaffold Id</td>");
+      writer.append("<td>Size with gaps.</td>");
+      writer.append("<td>UngappedSize</td></tr>");
+      for (SequenceSize sequence : sizes) {
+        gapped += sequence.gapped;
+        ungapped += sequence.ungapped;
+        writer.append("<tr>");
+        writer.append(String.format("<td>%s</td>", sequence.id));
+        writer.append(String.format("<td>%d</td>", sequence.gapped));
+        writer.append(String.format("<td>%d</td>", sequence.ungapped));
+        writer.append("</tr>");
+      }
+      // Totals.
+      writer.append("<tr>");
+      writer.append(String.format("<td>Total</td>"));
+      writer.append(String.format("<td>%d</td>", gapped));
+      writer.append(String.format("<td>%d</td>", ungapped));
+      writer.append("</tr>");
+
+      writer.append("</table>");
+    } catch (IOException exception) {
+      fail("There was a problem writing the html report. " +
+          "Exception: " + exception.getMessage());
+    }
+  }
+
   private void writeReport(
-      String reportFile, HashMap<String, SequenceSize> contigSizes,
-      HashMap<String, SequenceSize> linearSizes) {
+      String reportFile, ArrayList<SequenceSize> contigSizes,
+      ArrayList<SequenceSize> linearSizes) {
     // Currently the report has to be on a regular filesystem (i.e. non HDFS).
     // Since the rest of scaffolding has the same requirement this isn't
     // a burden.
@@ -156,31 +207,9 @@ public class AssembleScaffolds extends Stage {
       //writer.create(schema, outputStream);
       writer.append("<html><body>");
 
-      writer.append("<h1>Size of scaffolds</h1>");
-      writer.append("<table border=1>");
-      writer.append("<tr><td>Scaffold Id</td>");
-      writer.append("<td>Size with gaps.</td>");
-      writer.append("<td>UngappedSize</td></tr>");
-      for (String id : contigSizes.keySet()) {
-        SequenceSize size = contigSizes.get(id);
-        writer.append(String.format("<td>%s</td>", id));
-        writer.append(String.format("<td>%d</td>", size.gapped));
-        writer.append(String.format("<td>%d</td>", size.ungapped));
+      writeSequenceSizes(writer, "Size of scaffolds", contigSizes);
+      writeSequenceSizes(writer, "Size of Linearized scaffolds", linearSizes);
 
-      }
-      writer.append("</table>");
-
-      writer.append("<h1>Size of Linear Scaffolds</h1>");
-      writer.append("<table border=1>");
-      writer.append("<tr><td>Scaffold Id</td>");
-      writer.append("<td>Size with gaps.</td>");
-      writer.append("<td>UngappedSize</td></tr>");
-      for (String id : linearSizes.keySet()) {
-        SequenceSize size = linearSizes.get(id);
-        writer.append(String.format("<td>%s</td>", id));
-        writer.append(String.format("<td>%d</td>", size.gapped));
-        writer.append(String.format("<td>%d</td>", size.ungapped));
-      }
       writer.append("</table>");
 
 
@@ -202,30 +231,9 @@ public class AssembleScaffolds extends Stage {
   }
 
   private String getOutputPrefix() {
-    return "scaffolds";
-  }
-
-  private void runLoadIntoAmos(
-      String fastaFile, String libraryFile, String contigOutputFile) {
-    String amosPath = (String) stage_options.get("amos_path");
-    sLogger.info("Load the data into amos.");
-    ArrayList<String> loadCommand = new ArrayList<String>();
-    loadCommand.add(amosPath + "/toAmos_new");
-    loadCommand.add("-s");
-    loadCommand.add(fastaFile);
-    loadCommand.add("-m");
-    loadCommand.add(libraryFile);
-    loadCommand.add("-c");
-    loadCommand.add(contigOutputFile);
-    loadCommand.add("-b");
-    loadCommand.add(getBankPath());
-
-    if (ShellUtil.execute(loadCommand, null, "toAmos_new:", sLogger) != 0) {
-      sLogger.fatal(
-          "Failed to load the bambus input into the amos bank",
-          new RuntimeException("Failed to load bambus input into amos bank."));
-      System.exit(-1);
-    }
+    // TODO(jeremy@lewi.us) We use a function so that we could potentially
+    // change this in the future to a parameter.
+    return "";
   }
 
   /**
@@ -245,7 +253,7 @@ public class AssembleScaffolds extends Stage {
     bambus2Fasta.add(getBankName());
 
     File fastaContigFile =
-        new File(outputPath, getOutputPrefix() + ".contigs.fasta");
+        new File(outputPath, getOutputPrefix() + "contigs.fasta");
     sLogger.info(
         "Writing scafold contig sequences to:" + fastaContigFile.getPath());
     PrintStream fastaStream = null;
@@ -272,29 +280,45 @@ public class AssembleScaffolds extends Stage {
     }
   }
 
-  private void runNonlinearOutputResults() {
+  private void runGoBambus() {
+    sLogger.info("Executing bambus.");
     String amosPath = (String) stage_options.get("amos_path");
-    String nonlinearPrefix = getOutputPrefix() + ".scaffolds.nonlinear";
     String outputPath = (String) stage_options.get("outputpath");
-    ArrayList<String> bambusPrint = new ArrayList<String>();
-    bambusPrint.add(FilenameUtils.concat(amosPath, "OutputResults"));
-    bambusPrint.add("-b");
-    bambusPrint.add(getBankName());
-    bambusPrint.add("-p");
-    bambusPrint.add(nonlinearPrefix);
-    // Add the option -1 if you want a library and evidence file (is that
-    // bambus 1 output)?
-//    String contigFile =
-//        FilenameUtils.concat(outputPath, outputPrefix + ".scaffolds");
-//    PrintStream contigStream = new PrintStream(contigFile);
+    // It looks like goBambus2 can't take the path to the bank. The script
+    // needs to be executed from the directory containing the bank.
+    ArrayList<String> bambusCommand = new ArrayList<String>();
+    bambusCommand.add(FilenameUtils.concat(amosPath, "goBambus2"));
+    bambusCommand.add(getBankName());
+    bambusCommand.add("bambus_output");
+    bambusCommand.add("clk");
+    bambusCommand.add("bundle");
+    bambusCommand.add("reps,\"-noPathRepeats\"");
 
-    sLogger.info(
-        "Writing non-linearized scaffolds with prefix :" + nonlinearPrefix);
-    if (ShellUtil.execute(bambusPrint, outputPath, "OutputScaffolds:", sLogger)
-        != 0) {
+    if (ShellUtil.execute(
+            bambusCommand, outputPath, "goBambus2:", sLogger) != 0) {
       sLogger.fatal(
           "Bambus failed.",
-          new RuntimeException("OutputScaffolds failed."));
+          new RuntimeException("Bambus failed."));
+      System.exit(-1);
+    }
+  }
+
+  private void runLinearOutputResults(){
+    String linearPrefix = getOutputPrefix() + "scaffolds.linear";
+    String amosPath = (String) stage_options.get("amos_path");
+    String outputPath = (String) stage_options.get("outputpath");
+    ArrayList<String> bambusPrintLinear = new ArrayList<String>();
+    bambusPrintLinear.add(FilenameUtils.concat(amosPath, "OutputResults"));
+    bambusPrintLinear.add("-b");
+    bambusPrintLinear.add(getBankPath());
+    bambusPrintLinear.add("-prefix");
+    bambusPrintLinear.add(linearPrefix);
+
+    if (ShellUtil.execute(
+        bambusPrintLinear, outputPath, "OutputResults:", sLogger) != 0) {
+      sLogger.fatal(
+          "Bambus failed.",
+          new RuntimeException("OutputResults failed."));
       System.exit(-1);
     }
   }
@@ -313,6 +337,51 @@ public class AssembleScaffolds extends Stage {
       sLogger.fatal(
           "Bambus failed.",
           new RuntimeException("Linearize failed."));
+      System.exit(-1);
+    }
+  }
+
+  private void runLoadIntoAmos(
+      String fastaFile, String libraryFile, String contigOutputFile) {
+    String amosPath = (String) stage_options.get("amos_path");
+    sLogger.info("Load the data into amos.");
+    ArrayList<String> loadCommand = new ArrayList<String>();
+    loadCommand.add(amosPath + "/toAmos_new");
+    loadCommand.add("-s");
+    loadCommand.add(fastaFile);
+    loadCommand.add("-m");
+    loadCommand.add(libraryFile);
+    loadCommand.add("-c");
+    loadCommand.add(contigOutputFile);
+    loadCommand.add("-b");
+    loadCommand.add(getBankPath());
+
+    if (ShellUtil.execute(loadCommand, null, "toAmos_new:", sLogger) != 0) {
+      sLogger.fatal(
+          "Failed to load the bambus input into the amos bank",
+          new RuntimeException("Failed to load bambus input into amos bank."));
+      System.exit(-1);
+    }
+  }
+
+  private void runNonlinearOutputResults() {
+    String amosPath = (String) stage_options.get("amos_path");
+    String nonlinearPrefix = getOutputPrefix() + "scaffolds.nonlinear";
+    String outputPath = (String) stage_options.get("outputpath");
+    ArrayList<String> bambusPrint = new ArrayList<String>();
+    bambusPrint.add(FilenameUtils.concat(amosPath, "OutputResults"));
+    bambusPrint.add("-b");
+    bambusPrint.add(getBankName());
+    bambusPrint.add("-p");
+    bambusPrint.add(nonlinearPrefix);
+
+    sLogger.info(
+        "Writing non-linearized scaffolds with prefix :" + nonlinearPrefix);
+    if (ShellUtil.execute(bambusPrint, outputPath, "OutputScaffolds:", sLogger)
+        != 0) {
+      sLogger.fatal(
+          "Bambus failed.",
+          new RuntimeException("OutputScaffolds failed."));
       System.exit(-1);
     }
   }
@@ -346,65 +415,12 @@ public class AssembleScaffolds extends Stage {
     }
   }
 
-  private void runGoBambus() {
-    sLogger.info("Executing bambus.");
-    String amosPath = (String) stage_options.get("amos_path");
-    String outputPath = (String) stage_options.get("outputpath");
-    // It looks like goBambus2 can't take the path to the bank. The script
-    // needs to be executed from the directory containing the bank.
-    ArrayList<String> bambusCommand = new ArrayList<String>();
-    bambusCommand.add(FilenameUtils.concat(amosPath, "goBambus2"));
-    bambusCommand.add(getBankName());
-    bambusCommand.add("bambus_output");
-    bambusCommand.add("clk");
-    bambusCommand.add("bundle");
-    bambusCommand.add("reps,\"-noPathRepeats\"");
-
-    if (ShellUtil.execute(
-            bambusCommand, outputPath, "goBambus2:", sLogger) != 0) {
-      sLogger.fatal(
-          "Bambus failed.",
-          new RuntimeException("Bambus failed."));
-      System.exit(-1);
-    }
-  }
-
-  private void runLinearOutputResults(){
-    String linearPrefix = getOutputPrefix() + ".scaffolds.linear";
-    String amosPath = (String) stage_options.get("amos_path");
-    String outputPath = (String) stage_options.get("outputpath");
-    ArrayList<String> bambusPrintLinear = new ArrayList<String>();
-    bambusPrintLinear.add(FilenameUtils.concat(amosPath, "OutputResults"));
-    bambusPrintLinear.add("-b");
-    bambusPrintLinear.add(getBankPath());
-    bambusPrintLinear.add("-prefix");
-    bambusPrintLinear.add(linearPrefix);
-
-    //String linearFile =
-    //    FilenameUtils.concat(
-    //        outputPath, linearPrefix + ".fasta");
-
-    //sLogger.info("Writing linearized scaffold sequences to:" + linearFile);
-//    ShellUtil.executeAndRedirect(
-//        bambusPrintLinear, outputPath, "OutputResults:", sLogger,
-//        linearStream) != 0
-    if (ShellUtil.execute(
-        bambusPrintLinear, outputPath, "OutputResults:", sLogger) != 0) {
-      sLogger.fatal(
-          "Bambus failed.",
-          new RuntimeException("OutputResults failed."));
-      System.exit(-1);
-    }
-//    linearStream.close();
-  }
-
   /**
    * Output the fasta sequences of the scaffolds.
    *
    * @param scaffoldFile
    */
   private void runOutputScaffolds(String scaffoldFile) {
-    //String linearPrefix = getOutputPrefix() + ".scaffolds.linear";
     String amosPath = (String) stage_options.get("amos_path");
     String outputPath = (String) stage_options.get("outputpath");
     ArrayList<String> bambusPrintLinear = new ArrayList<String>();
@@ -412,11 +428,6 @@ public class AssembleScaffolds extends Stage {
     bambusPrintLinear.add("-b");
     bambusPrintLinear.add(getBankPath());
 
-    //String linearFile =
-    //    FilenameUtils.concat(
-    //        outputPath, linearPrefix + ".fasta");
-
-    //sLogger.info("Writing linearized scaffold sequences to:" + linearFile);
     PrintStream scaffoldStream = null;
     try {
       scaffoldStream = new PrintStream(new File(scaffoldFile));
@@ -487,21 +498,21 @@ public class AssembleScaffolds extends Stage {
     runBank2Fasta();
 
     String nonLinearScaffoldFile = FilenameUtils.concat(
-        outputPath, getOutputPrefix() + ".scaffolds.nonlinear.fasta");
+        outputPath, getOutputPrefix() + "scaffolds.nonlinear.fasta");
     runOutputScaffolds(nonLinearScaffoldFile);
 
     runLinearize();
     runLinearOutputResults();
     String linearScaffoldFile = FilenameUtils.concat(
-        outputPath, getOutputPrefix() + ".scaffolds.linear.fasta");
+        outputPath, getOutputPrefix() + "scaffolds.linear.fasta");
     runOutputScaffolds(linearScaffoldFile);
 
-    HashMap<String, SequenceSize> contigSizes = getSequenceSizes(
+    ArrayList<SequenceSize> contigSizes = getSequenceSizes(
         nonLinearScaffoldFile);
-    HashMap<String, SequenceSize> linearSizes = getSequenceSizes(
+    ArrayList<SequenceSize> linearSizes = getSequenceSizes(
         linearScaffoldFile);
     String reportFile = FilenameUtils.concat(
-        outputPath, "scaffold_report.html");
+        outputPath, getOutputPrefix() + "scaffolds.report.html");
     writeReport(reportFile, contigSizes, linearSizes);
     // Run the stage.
     // TODO(jeremy@lewi.us): Process the data and generate a report.
