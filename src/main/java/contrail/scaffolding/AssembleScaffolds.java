@@ -14,8 +14,6 @@
 // Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.scaffolding;
 
-import static org.junit.Assert.fail;
-
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -187,8 +185,9 @@ public class AssembleScaffolds extends Stage {
 
       writer.append("</table>");
     } catch (IOException exception) {
-      fail("There was a problem writing the html report. " +
-          "Exception: " + exception.getMessage());
+      sLogger.fatal("There was a problem writing the html report. " +
+          "Exception: " + exception.getMessage(), exception);
+      System.exit(-1);
     }
   }
 
@@ -216,8 +215,9 @@ public class AssembleScaffolds extends Stage {
       writer.append("</body></html>");
       writer.close();
     } catch (IOException exception) {
-      fail("There was a problem writing the html report. " +
-          "Exception: " + exception.getMessage());
+      sLogger.fatal("There was a problem writing the html report. " +
+          "Exception: " + exception.getMessage(), exception);
+      System.exit(-1);
     }
   }
 
