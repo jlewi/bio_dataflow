@@ -79,7 +79,13 @@ public class AssembleScaffolds extends Stage {
             "amos_path", "The directory where the amos tools are installed.",
             String.class, null);
 
-    for (ParameterDefinition def: new ParameterDefinition[] {amosPath}) {
+    ParameterDefinition maxOverlap =
+        new ParameterDefinition(
+            "max_overlap", "Bambus parameter maxoverlap.",
+            Integer.class, new Integer(500));
+
+    for (ParameterDefinition def: new ParameterDefinition[] {
+            amosPath, maxOverlap}) {
       definitions.put(def.getName(), def);
     }
     return Collections.unmodifiableMap(definitions);
@@ -395,14 +401,15 @@ public class AssembleScaffolds extends Stage {
     String outputPath = (String) stage_options.get("outputpath");
     ArrayList<String> orientCommand = new ArrayList<String>();
     orientCommand.add(FilenameUtils.concat(amosPath, "OrientContigs"));
+
+    Integer maxOverlap = (Integer)stage_options.get("max_overlap");
     // The -all option means that we will output a scaffold even if it is
     // degenerate; i.e consists of a single scaffold.
     orientCommand.add("-all");
     orientCommand.add("-b");
     orientCommand.add(getBankPath());
     orientCommand.add("-maxOverlap");
-    // TODO(jeremy@lewi.us): Max overlap should be a parameter.
-    orientCommand.add("500");
+    orientCommand.add(maxOverlap.toString());
     orientCommand.add("-redundancy");
     orientCommand.add("0");
 
