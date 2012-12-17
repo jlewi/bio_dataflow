@@ -391,11 +391,6 @@ public class QuickMergeUtil {
     result.merged_nodeids.add(nodes_to_merge.start_terminal.nodeId);
     while (walker.hasNext()) {
       EdgeTerminal merge_terminal = walker.next();
-
-      if (merge_terminal.nodeId.equals("lXalXWlX2pV2pV1pFw")) {
-        System.out.println("no commit");
-      }
-
       GraphNode dest = nodes.get(merge_terminal.nodeId);
       result.merged_nodeids.add(merge_terminal.nodeId);
 
