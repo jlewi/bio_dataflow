@@ -396,8 +396,6 @@ public class QuickMergeUtil {
         System.out.println("no commit");
       }
 
-      // LEWI NO COMMIT
-      System.out.println("Merging:" + merge_terminal.nodeId);
       GraphNode dest = nodes.get(merge_terminal.nodeId);
       result.merged_nodeids.add(merge_terminal.nodeId);
 
@@ -419,7 +417,6 @@ public class QuickMergeUtil {
         // of Canonical(AB). Then the edge C->A no longer points to the correct
         // strand of the merged node in order to produce a cycle, so we need
         // to move it.
-        System.out.println("LEWI DEBUG.");
         if (merged_strand != nodes_to_merge.start_terminal.strand) {
           EdgeTerminal newTerminal = new EdgeTerminal(
               nodes_to_merge.start_terminal.nodeId, merged_strand);
