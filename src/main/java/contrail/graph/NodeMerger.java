@@ -292,10 +292,6 @@ public class NodeMerger {
   public static MergeResult mergeNodes(
       GraphNode src, GraphNode dest, StrandsForEdge strands, int overlap,
       int src_coverage_length, int dest_coverage_length) {
-    // LEWI NO COMMIT
-    if (dest.getNodeId().equals("lXalXWlX2pV2pV1pFw")) {
-      System.out.println("no commit");
-    }
     // To merge two nodes we need to
     // 1. Form the combined sequences
     // 2. Update the coverage
