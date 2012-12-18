@@ -36,7 +36,7 @@ import contrail.stages.Stage;
  * <kmer, count> key value pair. This file will then be used for cutoff calculation
  */
 
-public class ConverKMerCountsToText extends Stage{  
+public class ConvertKMerCountsToText extends Stage{  
   /* Simply reads the file from HDFS and gives it to the reducer*/
   public static class copyPartMapper extends MapReduceBase implements Mapper <AvroWrapper<Pair<CharSequence, Long>>, NullWritable, Text, LongWritable> {
 
@@ -63,7 +63,7 @@ public class ConverKMerCountsToText extends Stage{
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
    
-    JobConf conf = new JobConf(ConverKMerCountsToText.class);
+    JobConf conf = new JobConf(ConvertKMerCountsToText.class);
     Pair<CharSequence,Long> read = new Pair<CharSequence,Long>("", 0L);
     AvroJob.setInputSchema(conf, read.getSchema());
     conf.setJobName("Convert part file to non avro");
@@ -92,7 +92,7 @@ public class ConverKMerCountsToText extends Stage{
   }							
    
   public static void main(String[] args) throws Exception {
-    int res = ToolRunner.run(new Configuration(), new ConverKMerCountsToText(), args);
+    int res = ToolRunner.run(new Configuration(), new ConvertKMerCountsToText(), args);
     System.exit(res);
   }
 }

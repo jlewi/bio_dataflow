@@ -77,7 +77,7 @@ public class CorrectUtil {
     String seqId = record.getId().toString();
     String dna = record.getRead().toString();
     String qvalue = record.getQvalue().toString();
-    String fastqString = seqId+"\n"+dna+"\n"+"+\n"+qvalue;
+    String fastqString = "@" + seqId + "\n" + dna + "\n+\n" + qvalue;
     return fastqString;
   }
 
