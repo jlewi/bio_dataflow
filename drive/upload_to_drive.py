@@ -1,0 +1,98 @@
+#!/usr/bin/python
+#
+# To use this you need to install the google api python client library
+#
+# easy_install --upgrade google-api-python-client
+# easy_install gflags
+# or
+#
+# pip install --upgrade google-api-python-client
+# pip install gflags
+#
+import httplib2
+import pprint
+
+from apiclient.discovery import build
+from apiclient.http import MediaFileUpload
+from oauth2client.client import OAuth2WebServerFlow
+
+import gflags
+import os
+import sys
+
+gflags.DEFINE_string("path", None, "The path to a file or directory to upload")
+gflags.DEFINE_string("description", "", "Description for the file.")
+
+gflags.MarkFlagAsRequired("path")
+
+FLAGS = gflags.FLAGS
+FLAGS.UseGnuGetOpt()
+
+# Copy your credentials from the APIs Console
+CLIENT_ID = '978102606005.apps.googleusercontent.com'
+CLIENT_SECRET = 'WA9ScXrkIQw6ArmiwpImnZ4q'
+
+# Check https://developers.google.com/drive/scopes for all available scopes
+OAUTH_SCOPE = 'https://www.googleapis.com/auth/drive'
+
+# Redirect URI for installed apps
+REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
+
+
+def main(argv):
+  try:
+    unparsed = FLAGS(argv)  # parse flags
+  except gflags.FlagsError, e:
+    usage = """Usage:
+{name} {flags}
+"""
+    print "%s" % e
+    print usage.format(name=argv[0], flags=FLAGS)
+    sys.exit(1)
+  
+  if not FLAGS.path:
+    raise Exception("You must specify a file to upload using the --path argument.")
+        
+  # Run through the OAuth flow and retrieve credentials
+  flow = OAuth2WebServerFlow(CLIENT_ID, CLIENT_SECRET, OAUTH_SCOPE, REDIRECT_URI)
+  authorize_url = flow.step1_get_authorize_url()
+  print 'Go to the following link in your browser: ' + authorize_url
+  code = raw_input('Enter verification code: ').strip()
+  credentials = flow.step2_exchange(code)
+  
+  # Create an httplib2.Http object and authorize it with our credentials
+  http = httplib2.Http()
+  http = credentials.authorize(http)
+  
+  drive_service = build('drive', 'v2', http=http)
+    
+  files = []
+  
+  if os.path.isdir(FLAGS.path):
+    for f in os.listdir(FLAGS.path):
+      files.append(os.path.join(FLAGS.path, f))
+  else:
+    files.append(FLAGS.path)
+    
+  for file_path in files:
+    # Insert a file
+    media_body = MediaFileUpload(file_path, mimetype='text/plain', resumable=True)
+    mime_type = "text/plain"
+    
+    file_ext = os.path.splitext(file_path)[1].lower()
+    if file_ext == ".html":
+      mime_type = "text/html"
+      
+    name = os.path.basename(file_path)
+    
+    body = {
+      'title': name,
+      'description': FLAGS.description,
+      'mimeType': mime_type
+    }
+  
+    file = drive_service.files().insert(body=body, media_body=media_body, convert=True).execute()
+    pprint.pprint(file)
+
+if __name__ == "__main__":  
+  main(sys.argv)
