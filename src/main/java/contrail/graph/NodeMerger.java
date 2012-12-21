@@ -271,7 +271,11 @@ public class NodeMerger {
   }
 
   /**
-   * Merge two nodes
+   * Merge two nodes.
+   *
+   * Cycles are currently preserved. So A->B->A will be merged as
+   * A->B->A.
+   *
    * @param src: The source node
    * @param dest: The destination node
    * @param strands: Which strands the edge from src->dest comes from.
@@ -338,6 +342,7 @@ public class NodeMerger {
     // RC(AB)->RC(B) => RC(AB)->RC(AB).
     EdgeTerminal srcTerminal = new EdgeTerminal(
         src.getNodeId(), StrandsUtil.src(strands));
+
     if (dest.getEdgeTerminalsSet(
             StrandsUtil.dest(strands), EdgeDirection.OUTGOING).contains(
                 srcTerminal)) {
