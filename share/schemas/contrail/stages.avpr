@@ -1,0 +1,68 @@
+{
+  "namespace": "contrail.stages",
+  "protocol": "ContrailStagesProtocol",
+  "doc": "Data structures for recording information about the stages run.",
+
+  "types": [
+     {"name": "Counter",
+      "type": "record",
+      "doc": "This record records the value of a mapreduce counter.",
+      "fields": [{"name": "value",
+                  "type": "long",
+                  "doc": "Value of the counter."
+                 },
+                 {"name": "name",
+                  "type": "string",
+                  "doc": "Name of the counter."
+                 },                 
+                ]
+     },
+     {"name": "StageParameter",
+      "type": "record",
+      "doc": "The parameters for a stage.",
+      "fields": [{"name": "name",
+                  "type": "string",
+                  "doc": "Name of the parameter."
+                 },
+                 {"name": "value",
+                  "type": "string",
+                  "doc": "The value of the parameter."
+                 },                 
+                ]
+     },
+     {"name": "StageInfo",
+      "type": "record",
+      "doc": "The info for a given stage.",
+      "fields": [{"name": "stage_class",
+                  "type": "string"
+                  "doc": "The class name for the stage."
+                 },
+                 {"name": "parameters",
+                  "type": {"type": "array", "items": "StageParameter"},
+                  "doc": ["The list of parameters for the stage."]
+                 },
+                 {"name": "counters",
+                  "type": {"type": "array", "items": "Counter"},
+                  "doc": "The counters for the stage."
+                 },                 
+                ]
+     },
+     {"name": "PipelineInfo",
+      "type": "record",
+      "doc": "The info for a pipeline.",
+      "fields": [{"name": "stage_class",
+                  "type": "string"
+                  "doc": "The class name for the stage."
+                 },
+                 {"name": "parameters",
+                  "type": {"type": "array", "items": "StageParameter"},
+                  "doc": ["The list of parameters for the stage."]
+                 },
+                 {"name": "counters",
+                  "type": {"type": "array", "items": "Counter"},
+                  "doc": "The counters for the stage."
+                 },                 
+                ]
+     },
+   ] // end types
+ }
