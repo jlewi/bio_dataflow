@@ -32,7 +32,7 @@ public class FastUtil {
     stream.append(record.getId());
     stream.append("\n");
     stream.append(record.getRead());
-    stream.append("\n+\n!");
+    stream.append("\n+\n");
     stream.append(record.getQvalue());
     stream.append("\n");
   }
