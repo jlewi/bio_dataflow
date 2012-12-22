@@ -11,20 +11,20 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 
 /**
- * Some utilities for working with a shel.
+ * Some utilities for working with a shell.
  */
 public class ShellUtil {
   private static int runProcess(
       ProcessBuilder builder, String prefix, String command, Logger logger) {
     try{
       logger.info("Executing command:" + command);
-      Process p = builder.start();
-      synchronized(p) {
+      Process process = builder.start();
+      synchronized(process) {
         BufferedReader stdInput = new BufferedReader(
-            new InputStreamReader(p.getInputStream()));
+            new InputStreamReader(process.getInputStream()));
 
         BufferedReader stdError = new BufferedReader(
-            new InputStreamReader(p.getErrorStream()));
+            new InputStreamReader(process.getErrorStream()));
 
         // In milliseconds.
         final long TIMEOUT = 1000;
@@ -33,8 +33,7 @@ public class ShellUtil {
         while (wait) {
           // We periodically check if the process has terminated and if not,
           // print out all the processes output
-          p.wait(TIMEOUT);
-
+          process.wait(TIMEOUT);
 
           // Print all the output
           String line;
@@ -46,7 +45,7 @@ public class ShellUtil {
             logger.error(prefix + line);
           }
           try {
-            p.exitValue();
+            process.exitValue();
             // Process is done.
             wait = false;
           } catch (IllegalThreadStateException e) {
@@ -54,13 +53,13 @@ public class ShellUtil {
           }
         }
 
-        logger.info(prefix + " Exit Value: " + p.exitValue());
-        if (p.exitValue() != 0) {
+        logger.info(prefix + " Exit Value: " + process.exitValue());
+        if (process.exitValue() != 0) {
           logger.error(
               prefix + "command: " + command + " exited with non-zero status/");
         }
       }
-      return p.exitValue();
+      return process.exitValue();
     } catch (IOException e) {
       throw new RuntimeException(
           "There was a problem executing the command:\n" +
@@ -118,13 +117,13 @@ public class ShellUtil {
     }
     try{
       logger.info("Executing command:" + command);
-      Process p = builder.start();
-      synchronized(p) {
+      Process process = builder.start();
+      synchronized(process) {
         BufferedReader stdInput = new BufferedReader(
-            new InputStreamReader(p.getInputStream()));
+            new InputStreamReader(process.getInputStream()));
 
         BufferedReader stdError = new BufferedReader(
-            new InputStreamReader(p.getErrorStream()));
+            new InputStreamReader(process.getErrorStream()));
 
         // In milliseconds.
         final long TIMEOUT = 1000;
@@ -133,7 +132,7 @@ public class ShellUtil {
         while (wait) {
           // We periodically check if the process has terminated and if not,
           // print out all the processes output
-          p.wait(TIMEOUT);
+          process.wait(TIMEOUT);
 
           // Print all the output
           String line;
@@ -146,7 +145,7 @@ public class ShellUtil {
             logger.error(prefix + line);
           }
           try {
-            p.exitValue();
+            process.exitValue();
             // Process is done.
             wait = false;
           } catch (IllegalThreadStateException e) {
@@ -154,13 +153,13 @@ public class ShellUtil {
           }
         }
 
-        logger.info(prefix + " Exit Value: " + p.exitValue());
-        if (p.exitValue() != 0) {
+        logger.info(prefix + " Exit Value: " + process.exitValue());
+        if (process.exitValue() != 0) {
           logger.error(
               prefix + "command: " + command + " exited with non-zero status/");
         }
       }
-      return p.exitValue();
+      return process.exitValue();
     } catch (IOException e) {
       throw new RuntimeException(
           "There was a problem executing the command:\n" +
