@@ -391,9 +391,35 @@ public class QuickMergeUtil {
     result.merged_nodeids.add(nodes_to_merge.start_terminal.nodeId);
     while (walker.hasNext()) {
       EdgeTerminal merge_terminal = walker.next();
-
       GraphNode dest = nodes.get(merge_terminal.nodeId);
       result.merged_nodeids.add(merge_terminal.nodeId);
+
+      // Check if there is a cycle.
+      if (merge_terminal.equals(nodes_to_merge.end_terminal) &&
+          dest.getEdgeTerminalsSet(
+              merge_terminal.strand, EdgeDirection.OUTGOING).contains(
+                  nodes_to_merge.start_terminal)) {
+        // There are two possible ways to handle this. We could either
+        // break the cycle: i.e A->B->A --> AB
+        // Or we could preserve the cycle: A->B->A --> AB->AB.
+        // In either case the actual cycle handling should be provided
+        // by NodeMerger.mereNodes. However, for that functionality to
+        // work we need to make sure NodeMerge can recognize the cycle.
+        // Since the strand for the start node may have changed, we may need
+        // to move the edge from the end terminal.
+        // For example suppose we have A->B->C->A.
+        // Suppose after we merge AB, AB corresponds to the reverse strand
+        // of Canonical(AB). Then the edge C->A no longer points to the correct
+        // strand of the merged node in order to produce a cycle, so we need
+        // to move it.
+        if (merged_strand != nodes_to_merge.start_terminal.strand) {
+          EdgeTerminal newTerminal = new EdgeTerminal(
+              nodes_to_merge.start_terminal.nodeId, merged_strand);
+          dest.moveOutgoingEdge(
+              merge_terminal.strand, nodes_to_merge.start_terminal,
+              newTerminal);
+        }
+      }
 
       StrandsForEdge strands =
           StrandsUtil.form(merged_strand, merge_terminal.strand);
