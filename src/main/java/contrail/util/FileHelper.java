@@ -17,8 +17,6 @@
 
 package contrail.util;
 
-import static org.junit.Assert.fail;
-
 import java.io.File;
 import java.io.IOException;
 
@@ -27,6 +25,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
+import org.apache.log4j.Logger;
 
 /**
  * Some routines for working with files.
@@ -35,6 +34,8 @@ import org.apache.hadoop.fs.Path;
  * with the FileUtil class that Apache provides for hadoop.
  */
 public class FileHelper {
+  private static final Logger sLogger = Logger.getLogger(FileHelper.class);
+
   /**
    * Create a local temporary directory.
    * @return
@@ -45,9 +46,10 @@ public class FileHelper {
     try {
       temp = File.createTempFile("temp", Long.toString(System.nanoTime()));
     } catch (IOException exception) {
-      fail("Could not create temporary file. Exception:" +
-          exception.getMessage());
+      sLogger.fatal("Could not create temporary file.", exception);
+      System.exit(-1);
     }
+
     if(!(temp.delete())){
       throw new RuntimeException(
           "Could not delete temp file: " + temp.getAbsolutePath());
