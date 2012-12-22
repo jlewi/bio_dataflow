@@ -36,7 +36,9 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
-
+import org.codehaus.jackson.JsonFactory;
+import org.codehaus.jackson.JsonGenerator;
+import org.codehaus.jackson.util.DefaultPrettyPrinter;
 import contrail.stages.BuildGraphAvro;
 import contrail.stages.CompressAndCorrect;
 import contrail.stages.ContrailParameters;
@@ -93,25 +95,37 @@ public class AssembleContigs extends Stage {
   private void writeStageInfo(StageInfo info) {
     // TODO(jlewi): We should cleanup old stage files after writing
     // the new one. Or we could try appending json records to the same file.
+    // When I tried appending, the method fs.append threw an exception.
     String outputPath = (String) stage_options.get("outputpath");
-    SimpleDateFormat formatter = new SimpleDateFormat("yyyymmdd-HHmmss");
+    SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd-HHmmss");
     Date date = new Date();
     String timestamp = formatter.format(date);
 
-    String outputFile = FilenameUtils.concat(
-        outputPath, "stage_info." + timestamp + ".json");
+    String stageDir = FilenameUtils.concat(
+        outputPath, "stage_info");
 
+    String outputFile = FilenameUtils.concat(
+        stageDir, "stage_info." + timestamp + ".json");
     try {
-      // TODO(jlewi): Json might be more convenient but using the JsonEncode
-      // was throwing an exception because it couldn't find a class definition
-      // for MinimalPrettyPrinter.
       FileSystem fs = FileSystem.get(this.getConf());
+      if (!fs.exists(new Path(stageDir))) {
+        fs.mkdirs(new Path(stageDir));
+      }
       FSDataOutputStream outStream = fs.create(new Path(outputFile));
+
+      JsonFactory factory = new JsonFactory();
+      JsonGenerator generator = factory.createJsonGenerator(outStream);
+      generator.setPrettyPrinter(new DefaultPrettyPrinter());
       JsonEncoder encoder = EncoderFactory.get().jsonEncoder(
-          info.getSchema(), outStream);
+          info.getSchema(), generator);
+      //encoder.configure(generator);
       SpecificDatumWriter<StageInfo> writer =
           new SpecificDatumWriter<StageInfo>(StageInfo.class);
       writer.write(info, encoder);
+      // We need to flush it.
+      encoder.flush();
+      //outStream.flush();
+      outStream.close();
     } catch (IOException e) {
       sLogger.fatal("Couldn't create the output stream.", e);
       System.exit(-1);
