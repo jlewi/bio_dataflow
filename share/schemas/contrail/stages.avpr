@@ -4,7 +4,7 @@
   "doc": "Data structures for recording information about the stages run.",
 
   "types": [
-     {"name": "Counter",
+     {"name": "CounterInfo",
       "type": "record",
       "doc": "This record records the value of a mapreduce counter.",
       "fields": [{"name": "value",
@@ -14,7 +14,7 @@
                  {"name": "name",
                   "type": "string",
                   "doc": "Name of the counter."
-                 },                 
+                 }                 
                 ]
      },
      {"name": "StageParameter",
@@ -27,14 +27,14 @@
                  {"name": "value",
                   "type": "string",
                   "doc": "The value of the parameter."
-                 },                 
+                 }                 
                 ]
      },
      {"name": "StageInfo",
       "type": "record",
       "doc": "The info for a given stage.",
       "fields": [{"name": "stage_class",
-                  "type": "string"
+                  "type": "string",
                   "doc": "The class name for the stage."
                  },
                  {"name": "parameters",
@@ -42,27 +42,15 @@
                   "doc": ["The list of parameters for the stage."]
                  },
                  {"name": "counters",
-                  "type": {"type": "array", "items": "Counter"},
+                  "type": {"type": "array", "items": "CounterInfo"},
                   "doc": "The counters for the stage."
-                 },                 
-                ]
-     },
-     {"name": "PipelineInfo",
-      "type": "record",
-      "doc": "The info for a pipeline.",
-      "fields": [{"name": "stage_class",
-                  "type": "string"
-                  "doc": "The class name for the stage."
                  },
-                 {"name": "parameters",
-                  "type": {"type": "array", "items": "StageParameter"},
-                  "doc": ["The list of parameters for the stage."]
-                 },
-                 {"name": "counters",
-                  "type": {"type": "array", "items": "Counter"},
-                  "doc": "The counters for the stage."
-                 },                 
+                 {"name": "sub_stages",
+                  "type": {"type": "array", "items": "StageInfo"},
+                  "doc": ["If this stage runs any stages, this will be ",
+                          "filled with info about them."]
+                 }           
                 ]
-     },
+     }     
    ] // end types
  }

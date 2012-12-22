@@ -28,6 +28,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.mapred.Counters;
+import org.apache.hadoop.mapred.Counters.Group;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.Tool;
@@ -369,6 +371,56 @@ public abstract class Stage extends Configured implements Tool  {
         stage_options.put(def.getName(), def.getDefault());
       }
     }
+  }
+
+  /**
+   * Return information about the stage.
+   *
+   * @param job
+   * @return
+   */
+  public StageInfo getStageInfo(RunningJob job) {
+    StageInfo info = new StageInfo();
+    info.setCounters(new ArrayList<CounterInfo>());
+    info.setParameters(new ArrayList<StageParameter>());
+    info.setSubStages(new ArrayList<StageInfo>());
+
+    info.setStageClass(this.getClass().getName());
+
+    ArrayList<String> keys = new ArrayList<String>();
+    keys.addAll(stage_options.keySet());
+    Collections.sort(keys);
+
+    for (String key : keys) {
+      StageParameter parameter = new StageParameter();
+      parameter.setName(key);
+      parameter.setValue(stage_options.get(key).toString());
+      info.getParameters().add(parameter);
+    }
+
+
+    if (job != null) {
+      try {
+        Counters counters = job.getCounters();
+        Iterator<Group> itGroup = counters.iterator();
+        while (itGroup.hasNext()) {
+          Group group = itGroup.next();
+          Iterator<Counters.Counter> itCounter = group.iterator();
+          while (itCounter.hasNext()) {
+            Counters.Counter counter = itCounter.next();
+            CounterInfo counterInfo = new CounterInfo();
+            counterInfo.setName(counter.getDisplayName());
+            counterInfo.setValue(counter.getValue());
+            info.getCounters().add(counterInfo);
+          }
+        }
+      } catch (IOException e) {
+        // TODO Auto-generated catch block
+        sLogger.fatal("Couldn't get stage counters", e);
+        System.exit(-1);
+      }
+    }
+    return info;
   }
 
   /**
