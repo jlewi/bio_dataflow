@@ -306,6 +306,18 @@
                   }                 
                 ]
      },
+     {"name": "contrail.stages.TagReadsOutput",
+      "type": "record",
+      "doc": ["Record used for the output of TagReadsWithContigID."],
+      "fields": [ {"name": "read",
+                   "type": ["null", "contrail.CompressedRead"],
+                   "doc": ["A read."]
+                   },
+                 {"name": "nodeID", "type": "string",
+                  "doc": "The id of a node to group with this read."
+                 }
+               ]
+     },
      {"name": "contrail.graph.ValidateEdge",
       "type": "record",
       "doc": ["A message used to validate an edge in the graph."],
