@@ -642,6 +642,101 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
   }
 
   @Test
+  public void testBreakCycleFlippedStrand() {
+    // Consider the special case where we have a cycle.
+    // A->B->C-A.
+    // Furthermore, supposes that AB > RC(AB), so that after we merge
+    // AB the reverse strand of the merge sequence corresponds to the merged
+    // strand. In this case, we want to ensure that the code still properly
+    // recognizes that C->A forms a cycle.
+    final int K = 3;
+    // A = ATG
+    // B = TGTT
+    // C = TTAT
+    // SO AB = ATGTT > RC(AB) = AACAT
+    String true_merged = "ATGTTAT";
+
+    SimpleGraphBuilder graph = new SimpleGraphBuilder();
+    graph.addNode("start", "ATG");
+    graph.addNode("middle", "TGTT");
+    graph.addNode("end", "TTAT");
+    GraphNode start = graph.getNode("start");
+    GraphNode middle = graph.getNode("middle");
+    GraphNode end = graph.getNode("end");
+    GraphUtil.addBidirectionalEdge(
+        start, DNAStrand.FORWARD, middle, DNAStrand.REVERSE);
+    GraphUtil.addBidirectionalEdge(
+        middle, DNAStrand.REVERSE, end, DNAStrand.REVERSE);
+    GraphUtil.addBidirectionalEdge(
+        end, DNAStrand.REVERSE, start, DNAStrand.FORWARD);
+
+    // Validate the graph.
+    {
+      if (graph.getAllNodes().size() != 3) {
+        fail("Test isn't properly setup.");
+      }
+      // Ensure there is a cycle.
+      Set<EdgeTerminal> endTerminals =
+          end.getEdgeTerminalsSet(DNAStrand.REVERSE, EdgeDirection.OUTGOING);
+      EdgeTerminal startTerminal = new EdgeTerminal(
+          start.getNodeId(), DNAStrand.FORWARD);
+      if (!endTerminals.contains(startTerminal)) {
+        fail("Test isn't setup properly there isn't a cycle.");
+      }
+    }
+    NodesToMerge nodes_to_merge = QuickMergeUtil.findNodesToMerge(
+        graph.getAllNodes(), start);
+
+    Sequence true_canonical;
+    {
+      Sequence true_sequence = new Sequence(
+          true_merged, DNAAlphabetFactory.create());
+      //DNAStrand true_strand = DNAUtil.canonicaldir(true_sequence);
+      true_canonical = DNAUtil.canonicalseq(true_sequence);
+    }
+
+    EdgeTerminal expectedStart = new EdgeTerminal(
+        start.getNodeId(), DNAStrand.FORWARD);
+    EdgeTerminal expectedEnd = new EdgeTerminal(
+        end.getNodeId(), DNAStrand.REVERSE);
+
+    assertEquals(nodes_to_merge.start_terminal, expectedStart);
+    assertEquals(nodes_to_merge.end_terminal, expectedEnd);
+    assertEquals(
+        graph.getAllNodes().keySet(), nodes_to_merge.nodeids_visited);
+
+    ChainMergeResult result = QuickMergeUtil.mergeLinearChain(
+        graph.getAllNodes(), nodes_to_merge, K - 1);
+
+    // Check the merged sequence is correct.
+    assertEquals(true_canonical, result.merged_node.getSequence());
+
+    // Check the cycle is closed i.e it has incoming/outgoing edges to
+    // itself.
+    {
+      // Since its a cycle, there should be an outgoing edge to itself.
+      List<EdgeTerminal> expected_edges = new ArrayList<EdgeTerminal>();
+      expected_edges.add(
+          new EdgeTerminal(result.merged_node.getNodeId(), DNAStrand.FORWARD));
+
+      List<EdgeTerminal> edges = result.merged_node.getEdgeTerminals(
+          DNAStrand.FORWARD, EdgeDirection.OUTGOING);
+      assertTrue(ListUtil.listsAreEqual(expected_edges, edges));
+    }
+
+    {
+      // Since its a cycle, there should be an incoming edge to itself.
+      List<EdgeTerminal> expected_edges = new ArrayList<EdgeTerminal>();
+      expected_edges.add(
+          new EdgeTerminal(result.merged_node.getNodeId(), DNAStrand.FORWARD));
+
+      List<EdgeTerminal> edges = result.merged_node.getEdgeTerminals(
+          DNAStrand.FORWARD, EdgeDirection.INCOMING);
+      assertTrue(ListUtil.listsAreEqual(expected_edges, edges));
+    }
+  }
+
+  @Test
   public void testCycleWithIncomingEdge() {
     // This test covers a subgraph that we saw in the staph dataset. The
     // graph is  B->X->RC(Y)->X .
