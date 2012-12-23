@@ -398,7 +398,6 @@ public abstract class Stage extends Configured implements Tool  {
       info.getParameters().add(parameter);
     }
 
-
     if (job != null) {
       try {
         Counters counters = job.getCounters();
