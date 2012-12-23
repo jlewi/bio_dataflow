@@ -118,13 +118,11 @@ public class AssembleContigs extends Stage {
       generator.setPrettyPrinter(new DefaultPrettyPrinter());
       JsonEncoder encoder = EncoderFactory.get().jsonEncoder(
           info.getSchema(), generator);
-      //encoder.configure(generator);
       SpecificDatumWriter<StageInfo> writer =
           new SpecificDatumWriter<StageInfo>(StageInfo.class);
       writer.write(info, encoder);
       // We need to flush it.
       encoder.flush();
-      //outStream.flush();
       outStream.close();
     } catch (IOException e) {
       sLogger.fatal("Couldn't create the output stream.", e);

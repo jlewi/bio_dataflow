@@ -33,7 +33,6 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
-import org.codehaus.jackson.JsonFactory;
 import contrail.stages.BuildGraphAvro;
 import contrail.stages.CompressAndCorrect;
 import contrail.stages.ContrailParameters;
@@ -41,6 +40,7 @@ import contrail.stages.PairMergeAvro;
 import contrail.stages.ParameterDefinition;
 import contrail.stages.PopBubblesAvro;
 import contrail.stages.QuickMergeAvro;
+import contrail.stages.RemoveTipsAvro;
 import contrail.stages.Stage;
 import contrail.stages.StageInfo;
 import contrail.stages.StageParameter;
@@ -58,6 +58,9 @@ import contrail.stages.ValidateGraph;
 public class FindLastValidGraph extends Stage {
   private static final Logger sLogger = Logger.getLogger(
       FindLastValidGraph.class);
+
+  // Store the info for the stage causing problems.
+  private StageInfo errorStage;
 
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs =
@@ -87,13 +90,8 @@ public class FindLastValidGraph extends Stage {
       FileSystem fs = FileSystem.get(this.getConf());
 
       FSDataInputStream  stream = fs.open(new Path(inputPath));
-
-      JsonFactory factory = new JsonFactory();
-      //JsonGenerator generator = factory.createJsonGenerator(outStream);
-      //generator.setPrettyPrinter(new DefaultPrettyPrinter());
       JsonDecoder decoder = DecoderFactory.get().jsonDecoder(
           stageInfo.getSchema(), stream);
-      //encoder.configure(generator);
       SpecificDatumReader<StageInfo> reader =
           new SpecificDatumReader<StageInfo>(StageInfo.class);
       reader.read(stageInfo, decoder);
@@ -102,6 +100,7 @@ public class FindLastValidGraph extends Stage {
       sLogger.fatal("Couldn't create the output stream.", e);
       System.exit(-1);
     }
+    return stageInfo;
   }
 
   /**
@@ -113,7 +112,7 @@ public class FindLastValidGraph extends Stage {
 
     Stage[] validStages =
       {new BuildGraphAvro(), new CompressAndCorrect(), new PopBubblesAvro(),
-        new PairMergeAvro(), new QuickMergeAvro()};
+        new PairMergeAvro(), new RemoveTipsAvro(), new QuickMergeAvro()};
 
     for (Stage validStage : validStages) {
       classNames.add(validStage.getClass().getName());
@@ -144,6 +143,16 @@ public class FindLastValidGraph extends Stage {
 
     StageInfo pipelineInfo = loadStageInfo();
 
+    // Get the value of K for the pipeline.
+    String kAsString = getStageParameter(pipelineInfo, "K");
+    if (kAsString == null) {
+      sLogger.fatal(
+          "Could not determine the value of K from the json file.",
+          new RuntimeException("Couldn't get K."));
+      System.exit(-1);
+    }
+    Integer K = Integer.parseInt(kAsString);
+
     // Get the stages in reverse order.
     ArrayList<StageInfo> subStages = new ArrayList<StageInfo>();
     subStages.addAll(pipelineInfo.getSubStages());
@@ -161,7 +170,7 @@ public class FindLastValidGraph extends Stage {
     // We should then modify this process so that we include those stages
     // here.
     for (StageInfo subStage : subStages) {
-      if (!stageNames.contains(subStage.getStageClass())) {
+      if (!stageNames.contains(subStage.getStageClass().toString())) {
         sLogger.info("Skipping the stage:" + subStage.getStageClass());
         continue;
       }
@@ -184,7 +193,7 @@ public class FindLastValidGraph extends Stage {
       parameters.put("inputpath", outputPath);
       parameters.put("outputpath", String.format(
           "step-%s-%s",sf.format(stepNum), subStage.getStageClass()));
-
+      parameters.put("K", K);
       validateStage.setParameters(parameters);
       RunningJob job  = null;
       try {
@@ -212,10 +221,19 @@ public class FindLastValidGraph extends Stage {
 
     // Print out information about the stage that corrupts the graph.
     int errorStep = stepNum -1;
-    StageInfo errorStage = subStages.get(errorStep);
+    errorStage = subStages.get(errorStep);
 
     sLogger.info(
         "StageInfo for stage corrupting the graph:\n" +  errorStage.toString());
+  }
+
+  /**
+   * Return the information for the stage corrupting the graph.
+   *
+   * This function must be called after executing the stage.
+   */
+  public StageInfo getErrorStage() {
+    return errorStage;
   }
 
   @Override
