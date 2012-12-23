@@ -323,6 +323,24 @@ public class ValidateGraph extends Stage {
     }
   }
 
+  /**
+   * The value of the counter containing the number of errors in the graph.
+   *
+   * @param job
+   * @return
+   */
+  public static long getErrorCount(RunningJob job) {
+    long value = 0;
+    try {
+      value =
+          job.getCounters().findCounter("Contrail", "errors-graph").getValue();
+    } catch (IOException e) {
+      sLogger.fatal("Could not get the value of counter: errors-graph", e);
+      System.exit(-1);
+    }
+    return  value;
+  }
+
   @Override
   public RunningJob runJob() throws Exception {
     // Check for missing arguments.

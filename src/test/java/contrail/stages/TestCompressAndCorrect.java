@@ -118,7 +118,8 @@ public class TestCompressAndCorrect extends CompressAndCorrect {
        "--outputpath=" + output_path.toURI().toString(),
        "--K=3", "--localnodes=3", "--tiplength=" + tipLength,
        "--bubble_edit_rate=" + bubbleEditRate,
-       "--bubble_length_threshold=" + bubbleLengthThreshold};
+       "--bubble_length_threshold=" + bubbleLengthThreshold,
+       "--compute_stats=false"};
 
     // Catch the following after debugging.
     try {
