@@ -130,6 +130,30 @@ public class AssembleContigs extends Stage {
     }
   }
 
+  /**
+   * Run and log the job.
+   * @param pipelineInfo
+   * @param stage
+   */
+  private RunningJob runAndLogStage(StageInfo pipelineInfo, Stage stage)
+      throws Exception {
+    // We need to write the stage info before and after we run the job
+    // because if the job terminates we want the stage info logged to
+    // reflect that.
+    StageInfo stageInfo = stage.getStageInfo(null);
+
+    pipelineInfo.getSubStages().add(stageInfo);
+    writeStageInfo(pipelineInfo);
+
+    RunningJob job = stage.runJob();
+
+    stageInfo = stage.getStageInfo(job);
+    // Overwrite the information for this stage.
+    pipelineInfo.getSubStages().set(
+        pipelineInfo.getSubStages().size() - 1, stageInfo);
+    return job;
+  }
+
   private void processGraph() throws Exception {
     StageInfo stageInfo = getStageInfo(null);
 
@@ -158,9 +182,7 @@ public class AssembleContigs extends Stage {
       stageOptions.put("outputpath", stageOutput);
 
       stage.setParameters(stageOptions);
-      RunningJob job = stage.runJob();
-      stageInfo.getSubStages().add(stage.getStageInfo(job));
-      writeStageInfo(stageInfo);
+      RunningJob job = runAndLogStage(stageInfo, stage);
       if (job !=null && !job.isSuccessful()) {
         throw new RuntimeException(
             String.format(
@@ -188,9 +210,8 @@ public class AssembleContigs extends Stage {
       statsParameters.put("outputpath", statsOutput);
       statsStage.setParameters(statsParameters);
 
-      RunningJob statsJob = statsStage.runJob();
-      stageInfo.getSubStages().add(statsStage.getStageInfo(statsJob));
-      writeStageInfo(stageInfo);
+      RunningJob statsJob = runAndLogStage(stageInfo, statsStage);
+
       if (!statsJob.isSuccessful()) {
         throw new RuntimeException(
             String.format(

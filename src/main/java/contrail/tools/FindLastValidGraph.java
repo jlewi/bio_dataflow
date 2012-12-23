@@ -182,6 +182,7 @@ public class FindLastValidGraph extends Stage {
     DecimalFormat sf = new DecimalFormat("00");
 
     StageInfo pipelineInfo = loadStageInfo();
+    String validationDir = (String) stage_options.get("outputpath");
 
     // Get the value of K for the pipeline.
     String kAsString = getStageParameter(pipelineInfo, "K");
@@ -233,7 +234,7 @@ public class FindLastValidGraph extends Stage {
       String subDir = String.format(
           "step-%s-%s",sf.format(errorStageIndex), subStage.getStageClass());
       parameters.put(
-          "outputpath", FilenameUtils.concat(outputPath, subDir));
+          "outputpath", FilenameUtils.concat(validationDir, subDir));
       parameters.put("K", K);
       validateStage.setParameters(parameters);
       RunningJob job  = null;
