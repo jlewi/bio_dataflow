@@ -14,6 +14,7 @@
 // Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.tools;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -23,8 +24,12 @@ import java.util.HashSet;
 import java.util.Map;
 
 import org.apache.avro.io.DecoderFactory;
+import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.io.JsonDecoder;
+import org.apache.avro.io.JsonEncoder;
 import org.apache.avro.specific.SpecificDatumReader;
+import org.apache.avro.specific.SpecificDatumWriter;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -33,6 +38,10 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
+import org.codehaus.jackson.JsonFactory;
+import org.codehaus.jackson.JsonGenerator;
+import org.codehaus.jackson.util.DefaultPrettyPrinter;
+
 import contrail.stages.BuildGraphAvro;
 import contrail.stages.CompressAndCorrect;
 import contrail.stages.ContrailParameters;
@@ -137,6 +146,33 @@ public class FindLastValidGraph extends Stage {
     return value;
   }
 
+  /**
+   * Convert the stageinfo to a json string.
+   */
+  private String stageInfoToString(StageInfo info) {
+    ByteArrayOutputStream byteStream = null;
+    try {
+      byteStream = new ByteArrayOutputStream();
+
+      JsonFactory factory = new JsonFactory();
+      JsonGenerator generator = factory.createJsonGenerator(byteStream);
+      generator.setPrettyPrinter(new DefaultPrettyPrinter());
+      JsonEncoder encoder = EncoderFactory.get().jsonEncoder(
+          info.getSchema(), generator);
+      SpecificDatumWriter<StageInfo> writer =
+          new SpecificDatumWriter<StageInfo>(StageInfo.class);
+      writer.write(info, encoder);
+      // We need to flush it.
+      encoder.flush();
+      byteStream.close();
+    } catch (IOException e) {
+      sLogger.fatal("Couldn't create the output stream.", e);
+      System.exit(-1);
+    }
+
+    return  byteStream.toString();
+  }
+
   private void findLastValidGraph() {
     // When formatting the step as a string we want to zero pad it
     DecimalFormat sf = new DecimalFormat("00");
@@ -160,16 +196,15 @@ public class FindLastValidGraph extends Stage {
 
     // List of the stages which produce graphs to evaluate.
     HashSet<String> stageNames = listOfStages();
-
-    int stepNum = 1;
-
     boolean foundValid = false;
 
+    int errorStageIndex = -1;
     // TODO(jlewi): Stages like CompressAndCorrect which are themselves
     // pipelines should set their StageInfo to include substages.
     // We should then modify this process so that we include those stages
     // here.
-    for (StageInfo subStage : subStages) {
+    for (int stageIndex = 0; stageIndex < subStages.size(); ++stageIndex) {
+      StageInfo subStage = subStages.get(stageIndex);
       if (!stageNames.contains(subStage.getStageClass().toString())) {
         sLogger.info("Skipping the stage:" + subStage.getStageClass());
         continue;
@@ -191,8 +226,10 @@ public class FindLastValidGraph extends Stage {
       ValidateGraph validateStage = new ValidateGraph();
       HashMap<String, Object> parameters = new HashMap<String, Object>();
       parameters.put("inputpath", outputPath);
-      parameters.put("outputpath", String.format(
-          "step-%s-%s",sf.format(stepNum), subStage.getStageClass()));
+      String subDir = String.format(
+          "step-%s-%s",sf.format(errorStageIndex), subStage.getStageClass());
+      parameters.put(
+          "outputpath", FilenameUtils.concat(outputPath, subDir));
       parameters.put("K", K);
       validateStage.setParameters(parameters);
       RunningJob job  = null;
@@ -205,13 +242,14 @@ public class FindLastValidGraph extends Stage {
 
       long errorCount = ValidateGraph.getErrorCount(job);
       if (errorCount == 0) {
+        errorStageIndex = stageIndex -1;
         foundValid = true;
         break;
       }
       sLogger.info(String.format(
           "Stage %s. Number of errors: %d", subStage.getStageClass(),
           errorCount));
-      ++stepNum;
+      ++errorStageIndex;
     }
 
     if (!foundValid) {
@@ -220,11 +258,11 @@ public class FindLastValidGraph extends Stage {
     }
 
     // Print out information about the stage that corrupts the graph.
-    int errorStep = stepNum -1;
-    errorStage = subStages.get(errorStep);
+    errorStage = subStages.get(errorStageIndex);
 
     sLogger.info(
-        "StageInfo for stage corrupting the graph:\n" +  errorStage.toString());
+        "StageInfo for stage corrupting the graph:\n" +
+        stageInfoToString(errorStage));
   }
 
   /**

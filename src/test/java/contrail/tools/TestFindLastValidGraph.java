@@ -15,8 +15,8 @@ import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.util.DefaultPrettyPrinter;
 import org.junit.Test;
-import static org.junit.Assert.fail;
 
+import static org.junit.Assert.*;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphUtil;
 import contrail.graph.SimpleGraphBuilder;
@@ -66,9 +66,10 @@ public class TestFindLastValidGraph {
     String jsonFile;
     StageInfo errorStage;
   }
+
   // Create all the input data. Returns the path to the json file
   // containing the StageInfo for the pipeline.
-  private String createPipeline(String testDir) {
+  private TestCase createPipeline(String testDir) {
     TestCase testCase = new TestCase();
 
     // Create a StageInfo representing the pipeline.
@@ -125,7 +126,7 @@ public class TestFindLastValidGraph {
       StageInfo stageInfo = createStage(
           outputPath, nodes, stage.getClass().getName());
       pipelineInfo.getSubStages().add(stageInfo);
-      testCase.
+      testCase.errorStage = stageInfo;
     }
     {
       RemoveTipsAvro stage = new RemoveTipsAvro();
@@ -144,10 +145,11 @@ public class TestFindLastValidGraph {
       pipelineInfo.getSubStages().add(stageInfo);
     }
 
-    String jsonFile = FilenameUtils.concat(testDir, "stage_info.json");
+    testCase.jsonFile = FilenameUtils.concat(testDir, "stage_info.json");
 
     try {
-      FileOutputStream outStream = new FileOutputStream(new File(jsonFile));
+      FileOutputStream outStream = new FileOutputStream(new File(
+          testCase.jsonFile));
 
       JsonFactory factory = new JsonFactory();
       JsonGenerator generator = factory.createJsonGenerator(outStream);
@@ -164,18 +166,18 @@ public class TestFindLastValidGraph {
       e.printStackTrace();
       fail("Couldn't create the output stream.");
     }
-    return jsonFile;
+    return testCase;
   }
 
   @Test
   public void testFindLastValidGraph() {
     String testDir = FileHelper.createLocalTempDir().getPath();
-    String jsonFile = createPipeline(testDir);
+    TestCase testCase = createPipeline(testDir);
 
     FindLastValidGraph findStage = new FindLastValidGraph();
     findStage.setConf(new Configuration());
     HashMap<String, Object> parameters = new HashMap<String, Object>();
-    parameters.put("inputpath", jsonFile);
+    parameters.put("inputpath", testCase.jsonFile);
     parameters.put(
         "outputpath", FilenameUtils.concat(testDir, "validation"));
     findStage.setParameters(parameters);
@@ -185,6 +187,6 @@ public class TestFindLastValidGraph {
       e.printStackTrace();
       fail("Job failed");
     }
-   assertEquals()
+   assertEquals(testCase.errorStage, findStage.getErrorStage());
   }
 }
