@@ -17,16 +17,28 @@
 
 package contrail.pipelines;
 
+
+import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.avro.io.EncoderFactory;
+import org.apache.avro.io.JsonEncoder;
+import org.apache.avro.specific.SpecificDatumWriter;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
-
+import org.codehaus.jackson.JsonFactory;
+import org.codehaus.jackson.JsonGenerator;
+import org.codehaus.jackson.util.DefaultPrettyPrinter;
 import contrail.stages.BuildGraphAvro;
 import contrail.stages.CompressAndCorrect;
 import contrail.stages.ContrailParameters;
@@ -37,6 +49,7 @@ import contrail.stages.NotImplementedException;
 import contrail.stages.ParameterDefinition;
 import contrail.stages.QuickMergeAvro;
 import contrail.stages.Stage;
+import contrail.stages.StageInfo;
 
 /**
  * A pipeline for assembling the contigs.
@@ -76,7 +89,52 @@ public class AssembleContigs extends Stage {
     // customize the parameters for different datasets.
   }
 
+  /**
+   * Write the current value of stage info to a file.
+   */
+  private void writeStageInfo(StageInfo info) {
+    // TODO(jlewi): We should cleanup old stage files after writing
+    // the new one. Or we could try appending json records to the same file.
+    // When I tried appending, the method fs.append threw an exception.
+    String outputPath = (String) stage_options.get("outputpath");
+    SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd-HHmmss");
+    Date date = new Date();
+    String timestamp = formatter.format(date);
+
+    String stageDir = FilenameUtils.concat(
+        outputPath, "stage_info");
+
+    String outputFile = FilenameUtils.concat(
+        stageDir, "stage_info." + timestamp + ".json");
+    try {
+      FileSystem fs = FileSystem.get(this.getConf());
+      if (!fs.exists(new Path(stageDir))) {
+        fs.mkdirs(new Path(stageDir));
+      }
+      FSDataOutputStream outStream = fs.create(new Path(outputFile));
+
+      JsonFactory factory = new JsonFactory();
+      JsonGenerator generator = factory.createJsonGenerator(outStream);
+      generator.setPrettyPrinter(new DefaultPrettyPrinter());
+      JsonEncoder encoder = EncoderFactory.get().jsonEncoder(
+          info.getSchema(), generator);
+      //encoder.configure(generator);
+      SpecificDatumWriter<StageInfo> writer =
+          new SpecificDatumWriter<StageInfo>(StageInfo.class);
+      writer.write(info, encoder);
+      // We need to flush it.
+      encoder.flush();
+      //outStream.flush();
+      outStream.close();
+    } catch (IOException e) {
+      sLogger.fatal("Couldn't create the output stream.", e);
+      System.exit(-1);
+    }
+  }
+
   private void processGraph() throws Exception {
+    StageInfo stageInfo = getStageInfo(null);
+
     // TODO(jlewi): Does this function really need to throw an exception?
     String outputPath = (String) stage_options.get("outputpath");
 
@@ -103,6 +161,8 @@ public class AssembleContigs extends Stage {
 
       stage.setParameters(stageOptions);
       RunningJob job = stage.runJob();
+      stageInfo.getSubStages().add(stage.getStageInfo(job));
+      writeStageInfo(stageInfo);
       if (job !=null && !job.isSuccessful()) {
         throw new RuntimeException(
             String.format(
@@ -131,6 +191,8 @@ public class AssembleContigs extends Stage {
       statsStage.setParameters(statsParameters);
 
       RunningJob statsJob = statsStage.runJob();
+      stageInfo.getSubStages().add(statsStage.getStageInfo(statsJob));
+      writeStageInfo(stageInfo);
       if (!statsJob.isSuccessful()) {
         throw new RuntimeException(
             String.format(
