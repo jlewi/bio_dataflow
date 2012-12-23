@@ -118,18 +118,40 @@ public class AssembleContigs extends Stage {
       generator.setPrettyPrinter(new DefaultPrettyPrinter());
       JsonEncoder encoder = EncoderFactory.get().jsonEncoder(
           info.getSchema(), generator);
-      //encoder.configure(generator);
       SpecificDatumWriter<StageInfo> writer =
           new SpecificDatumWriter<StageInfo>(StageInfo.class);
       writer.write(info, encoder);
       // We need to flush it.
       encoder.flush();
-      //outStream.flush();
       outStream.close();
     } catch (IOException e) {
       sLogger.fatal("Couldn't create the output stream.", e);
       System.exit(-1);
     }
+  }
+
+  /**
+   * Run and log the job.
+   * @param pipelineInfo
+   * @param stage
+   */
+  private RunningJob runAndLogStage(StageInfo pipelineInfo, Stage stage)
+      throws Exception {
+    // We need to write the stage info before and after we run the job
+    // because if the job terminates we want the stage info logged to
+    // reflect that.
+    StageInfo stageInfo = stage.getStageInfo(null);
+
+    pipelineInfo.getSubStages().add(stageInfo);
+    writeStageInfo(pipelineInfo);
+
+    RunningJob job = stage.runJob();
+
+    stageInfo = stage.getStageInfo(job);
+    // Overwrite the information for this stage.
+    pipelineInfo.getSubStages().set(
+        pipelineInfo.getSubStages().size() - 1, stageInfo);
+    return job;
   }
 
   private void processGraph() throws Exception {
@@ -160,9 +182,7 @@ public class AssembleContigs extends Stage {
       stageOptions.put("outputpath", stageOutput);
 
       stage.setParameters(stageOptions);
-      RunningJob job = stage.runJob();
-      stageInfo.getSubStages().add(stage.getStageInfo(job));
-      writeStageInfo(stageInfo);
+      RunningJob job = runAndLogStage(stageInfo, stage);
       if (job !=null && !job.isSuccessful()) {
         throw new RuntimeException(
             String.format(
@@ -190,9 +210,8 @@ public class AssembleContigs extends Stage {
       statsParameters.put("outputpath", statsOutput);
       statsStage.setParameters(statsParameters);
 
-      RunningJob statsJob = statsStage.runJob();
-      stageInfo.getSubStages().add(statsStage.getStageInfo(statsJob));
-      writeStageInfo(stageInfo);
+      RunningJob statsJob = runAndLogStage(stageInfo, statsStage);
+
       if (!statsJob.isSuccessful()) {
         throw new RuntimeException(
             String.format(
