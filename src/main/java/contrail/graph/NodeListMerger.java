@@ -167,6 +167,7 @@ public class NodeListMerger {
     for (EdgeTerminal terminal : chain) {
       currentSequence = nodes.get(terminal.nodeId).getSequence();
       currentSequence = DNAUtil.sequenceToDir(currentSequence, terminal.strand);
+      Sequence nonOverlap = currentSequence;
       if (!isFirst) {
         // Check we overlap with the previous sequence.
         if (!checkOverlap(lastSequence, currentSequence, overlap)) {
@@ -177,12 +178,14 @@ public class NodeListMerger {
 
         // For all but the first node we truncate the first overlap bases
         // because we only want to add them once.
-        currentSequence = currentSequence.subSequence(
+        nonOverlap = nonOverlap.subSequence(
             overlap, currentSequence.size());
       } else {
         isFirst = false;
       }
-      mergedSequence.add(currentSequence);
+      mergedSequence.add(nonOverlap);
+      // We can't simply use nonOverlap because nonOverlap might be less than
+      // K-1;
       lastSequence = currentSequence;
     }
 

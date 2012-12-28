@@ -664,4 +664,67 @@ public class TestNodeListMerger extends NodeListMerger {
 
    assertEquals(expectedNode, result.node);
  }
+
+ @Test
+ public void testHairPin() {
+   // The following graph was encountered with human chromosome 14 and revealed
+   // a bug in the original merge code.
+   // ...->A:F->B:R->C:F->C:R->B:F->A:R->...
+   // The strands aren't particularly important. What's important is that
+   // the chain consists of a bunch of nodes and there reverse complements.
+
+   // Let A= ACT
+   // B = CTG
+   // C = TG CG
+   GraphNode nodeA = new GraphNode();
+   nodeA.setNodeId("A");
+   nodeA.setSequence(new Sequence("ACT", DNAAlphabetFactory.create()));
+
+   GraphNode nodeB = new GraphNode();
+   nodeB.setNodeId("B");
+   nodeB.setSequence(new Sequence("CTG", DNAAlphabetFactory.create()));
+
+   GraphNode nodeC = new GraphNode();
+   nodeC.setNodeId("C");
+   nodeC.setSequence(new Sequence("TGCG", DNAAlphabetFactory.create()));
+
+   GraphUtil.addBidirectionalEdge(
+       nodeA, DNAStrand.FORWARD, nodeB, DNAStrand.FORWARD);
+   GraphUtil.addBidirectionalEdge(
+       nodeB, DNAStrand.FORWARD, nodeC, DNAStrand.FORWARD);
+
+   GraphUtil.addBidirectionalEdge(
+       nodeC, DNAStrand.FORWARD, nodeC, DNAStrand.REVERSE);
+   GraphUtil.addBidirectionalEdge(
+       nodeC, DNAStrand.REVERSE, nodeB, DNAStrand.REVERSE);
+   GraphUtil.addBidirectionalEdge(
+       nodeB, DNAStrand.REVERSE, nodeA, DNAStrand.REVERSE);
+
+   ArrayList<EdgeTerminal> chain = new ArrayList<EdgeTerminal>();
+   chain.add(new EdgeTerminal("A", DNAStrand.FORWARD));
+   chain.add(new EdgeTerminal("B", DNAStrand.FORWARD));
+   chain.add(new EdgeTerminal("C", DNAStrand.FORWARD));
+   chain.add(new EdgeTerminal("C", DNAStrand.REVERSE));
+   chain.add(new EdgeTerminal("B", DNAStrand.REVERSE));
+   chain.add(new EdgeTerminal("A", DNAStrand.REVERSE));
+
+   HashMap<String, GraphNode> nodes = new HashMap<String, GraphNode>();
+   nodes.put(nodeA.getNodeId(), nodeA);
+   nodes.put(nodeB.getNodeId(), nodeB);
+   nodes.put(nodeC.getNodeId(), nodeC);
+
+   GraphNode expectedNode = new GraphNode();
+   expectedNode.setNodeId("merged");
+
+   Sequence expectedSequence = new Sequence(
+       "ACTGCGCAGT", DNAAlphabetFactory.create());
+   expectedSequence = DNAUtil.canonicalseq(expectedSequence);
+   expectedNode.setSequence(expectedSequence);
+
+   NodeListMerger merger = new NodeListMerger();
+   int overlap = 2;
+   MergeResult result = merger.mergeNodes("merged", chain, nodes, overlap);
+
+   assertTrue(expectedNode.equals(result.node));
+ }
 }
