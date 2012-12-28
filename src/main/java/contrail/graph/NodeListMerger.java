@@ -126,6 +126,21 @@ public class NodeListMerger {
   }
 
   /**
+   * Check the two nodes overlap.
+   * @param src
+   * @param dest
+   * @param nodes
+   * @param overlap
+   * @return
+   */
+  private boolean checkOverlap(
+      Sequence src, Sequence dest, int overlap) {
+    Sequence srcSuffix = src.subSequence(src.size() - overlap, src.size());
+    Sequence destPrefix = dest.subSequence(0, overlap);
+    return srcSuffix.equals(destPrefix);
+  }
+
+  /**
    * Merge the sequences.
    *
    */
@@ -145,16 +160,16 @@ public class NodeListMerger {
 
     boolean isFirst = true;
 
-    Sequence lastOverlap = null;
-    Sequence currentOverlap = null;
+    // Keep track of the sequences to be merged.
+    Sequence lastSequence = null;
+    Sequence currentSequence = null;
 
     for (EdgeTerminal terminal : chain) {
-      Sequence sequence = nodes.get(terminal.nodeId).getSequence();
-      sequence = DNAUtil.sequenceToDir(sequence, terminal.strand);
-      currentOverlap = sequence.subSequence(0, overlap);
+      currentSequence = nodes.get(terminal.nodeId).getSequence();
+      currentSequence = DNAUtil.sequenceToDir(currentSequence, terminal.strand);
       if (!isFirst) {
         // Check we overlap with the previous sequence.
-        if (!lastOverlap.equals(currentOverlap)) {
+        if (!checkOverlap(lastSequence, currentSequence, overlap)) {
           throw new RuntimeException(
               "Can't merge nodes. Sequences don't overlap by: " + overlap + " " +
               "bases.");
@@ -162,12 +177,13 @@ public class NodeListMerger {
 
         // For all but the first node we truncate the first overlap bases
         // because we only want to add them once.
-        sequence = sequence.subSequence(overlap, sequence.size());
+        currentSequence = currentSequence.subSequence(
+            overlap, currentSequence.size());
       } else {
         isFirst = false;
       }
-      mergedSequence.add(sequence);
-      lastOverlap = currentOverlap;
+      mergedSequence.add(currentSequence);
+      lastSequence = currentSequence;
     }
 
     return mergedSequence;
