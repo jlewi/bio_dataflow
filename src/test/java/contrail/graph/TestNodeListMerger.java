@@ -440,9 +440,6 @@ public class TestNodeListMerger extends NodeListMerger {
            sequence_case.merged_sequence, DNAAlphabetFactory.create());
        mergedSequence = DNAUtil.canonicalseq(mergedSequence);
 
-       if (mergedSequence.toString().equals("ACTGAGCGGAAAGCTAAGCCATTTACATGCAA")) {
-         System.out.println("LEWI NO COMMIT DEBUGGING");
-       }
        nodeCase.expectedNode.setSequence(mergedSequence);
      }
 
@@ -784,52 +781,63 @@ public class TestNodeListMerger extends NodeListMerger {
    }
  }
 
-// @Test
-// public void testMergeCycle() {
-//   // Test we correctly merge the cycle A->B>A.
-//   // This test covers a subgraph that we saw in the staph dataset. The
-//   // graph is  B->X->RC(Y)->X .
-//   // In this case the cycle is automatically borken at X because of
-//   // the incoming edge from B. This means we will try to merge X & Y
-//   // So the resulting graph should be B->{XY}.
-//   GraphNode branchNode = new GraphNode();
-//   branchNode.setNodeId("branch");
-//   branchNode.setSequence(new Sequence("GGAC", DNAAlphabetFactory.create()));
-//
-//   GraphNode cycleStart = new GraphNode();
-//   cycleStart.setNodeId("cyclestart");
-//   cycleStart.setSequence(new Sequence("ACT", DNAAlphabetFactory.create()));
-//
-//   GraphNode cycleEnd = new GraphNode();
-//   cycleEnd.setNodeId("cyclend");
-//   cycleEnd.setSequence(new Sequence("CTAC", DNAAlphabetFactory.create()));
-//
-//   GraphUtil.addBidirectionalEdge(
-//       branchNode, DNAStrand.FORWARD, cycleStart, DNAStrand.FORWARD);
-//
-//   GraphUtil.addBidirectionalEdge(
-//       cycleStart, DNAStrand.FORWARD, cycleEnd, DNAStrand.FORWARD);
-//
-//   GraphUtil.addBidirectionalEdge(
-//       cycleEnd, DNAStrand.FORWARD, cycleStart, DNAStrand.FORWARD);
-//
-//   int K = 3;
-//   MergeResult result =
-//       NodeMerger.mergeNodes(cycleStart, cycleEnd, StrandsForEdge.FF, K - 1);
-//   result.node.setNodeId("merged");
-//
-//   GraphNode expectedNode = new GraphNode();
-//   expectedNode.setNodeId("merged");
-//
-//   expectedNode.setSequence(
-//       new Sequence("ACTAC", DNAAlphabetFactory.create()));
-//   GraphUtil.addBidirectionalEdge(
-//       expectedNode, DNAStrand.FORWARD, expectedNode, DNAStrand.FORWARD);
-//
-//   GraphNode expectedBranch = branchNode.clone();
-//   GraphUtil.addBidirectionalEdge(
-//       expectedBranch, DNAStrand.FORWARD, expectedNode, DNAStrand.FORWARD);
-//
-//   assertEquals(expectedNode, result.node);
-// }
+ @Test
+ public void testMergeCycle() {
+   // Test we correctly merge the cycle A->B>A.
+   // This test covers a subgraph that we saw in the staph dataset. The
+   // graph is  B->X->RC(Y)->X .
+   // In this case the cycle is automatically broken at X because of
+   // the incoming edge from B. This means we will try to merge X & Y
+   // So the resulting graph should be B->{XY}.
+   GraphNode branchNode = new GraphNode();
+   branchNode.setNodeId("branch");
+   branchNode.setSequence(new Sequence("GGAC", DNAAlphabetFactory.create()));
+
+   GraphNode cycleStart = new GraphNode();
+   cycleStart.setNodeId("cyclestart");
+   cycleStart.setSequence(new Sequence("ACT", DNAAlphabetFactory.create()));
+
+   GraphNode cycleEnd = new GraphNode();
+   cycleEnd.setNodeId("cyclend");
+   cycleEnd.setSequence(new Sequence("CTAC", DNAAlphabetFactory.create()));
+
+   GraphUtil.addBidirectionalEdge(
+       branchNode, DNAStrand.FORWARD, cycleStart, DNAStrand.FORWARD);
+
+   GraphUtil.addBidirectionalEdge(
+       cycleStart, DNAStrand.FORWARD, cycleEnd, DNAStrand.FORWARD);
+
+   GraphUtil.addBidirectionalEdge(
+       cycleEnd, DNAStrand.FORWARD, cycleStart, DNAStrand.FORWARD);
+
+   ArrayList<EdgeTerminal> chain = new ArrayList<EdgeTerminal>();
+   chain.add(new EdgeTerminal(cycleStart.getNodeId(), DNAStrand.FORWARD));
+   chain.add(new EdgeTerminal(cycleEnd.getNodeId(), DNAStrand.FORWARD));
+
+   HashMap<String, GraphNode> nodes = new HashMap<String, GraphNode>();
+   nodes.put(branchNode.getNodeId(), branchNode);
+   nodes.put(cycleStart.getNodeId(), cycleStart);
+   nodes.put(cycleEnd.getNodeId(), cycleEnd);
+
+   int K = 3;
+
+   NodeListMerger merger = new NodeListMerger();
+
+   MergeResult result =
+       merger.mergeNodes("merged", chain, nodes, K - 1);
+
+   GraphNode expectedNode = new GraphNode();
+   expectedNode.setNodeId("merged");
+
+   expectedNode.setSequence(
+       new Sequence("ACTAC", DNAAlphabetFactory.create()));
+   GraphUtil.addBidirectionalEdge(
+       expectedNode, DNAStrand.FORWARD, expectedNode, DNAStrand.FORWARD);
+
+   GraphNode expectedBranch = branchNode.clone();
+   GraphUtil.addBidirectionalEdge(
+       expectedBranch, DNAStrand.FORWARD, expectedNode, DNAStrand.FORWARD);
+
+   assertEquals(expectedNode, result.node);
+ }
 }

@@ -461,11 +461,11 @@ public class NodeListMerger {
             mergedStrand, incomingTerminal, tags,
             ContrailConfig.MAXTHREADREADS);
 
-      // Now add the reverse complement
+      // Now add the outgoing edge to itself
       EdgeTerminal outgoingTerminal = new EdgeTerminal(
-          newId, DNAStrandUtil.flip(mergedStrand));
+          newId, mergedStrand);
       newNode.addOutgoingEdgeWithTags(
-          DNAStrandUtil.flip(mergedStrand), outgoingTerminal, tags,
+          mergedStrand, outgoingTerminal, tags,
           ContrailConfig.MAXTHREADREADS);
     }
 
