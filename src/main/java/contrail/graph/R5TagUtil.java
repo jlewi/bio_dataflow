@@ -14,7 +14,6 @@ import contrail.sequences.Sequence;
  *
  */
 public class R5TagUtil {
-
   /**
    * Return the prefix of the read that is aligned with this sequence
    * based on R5Tag. The strand in tag is always interpreted relative
@@ -37,31 +36,6 @@ public class R5TagUtil {
 
     return src.subSequence(offset, src.size());
   }
-
-//  /**
-//   * Flip the offset.
-//   *
-//   * @param offset
-//   * @param length:
-//   * @return
-//   */
-//  public static int flipOffset(int offset, int length) {
-//    return length - offset -1;
-//  }
-//
-//  /**
-//   * Return the position of the aligned strand in which the tag starts.
-//   *
-//   * @param tag
-//   * @param length: Length of the sequence.
-//   * @return
-//   */
-//  public static int prefixStart(R5Tag tag, int length) {
-//    if (tag.getStrand() == DNAStrand.FORWARD) {
-//      return tag.getOffset();
-//    }
-//    return length - tag.getOffset() -1;
-//  }
 
   /**
    * Reverse a tag in place so that is relative to the reverse complement of

@@ -108,31 +108,6 @@ public class NodeListMerger {
   }
 
   /**
-   * Datastructure for returning information about the merging of
-   * two sequences.
-   */
-  /**
-   * @author jlewi
-   *
-   */
-//  protected static class MergeInfo {
-//    // The canonical representation of the merged sequences.
-//    public Sequence canonical_merged;
-//
-//    // merged_strand is the strand the merged sequence came from.
-//    public DNAStrand merged_strand;
-//
-//    public int src_size;
-//    public int dest_size;
-//
-//    // Whether we need to reverse the read tags.
-//    public boolean src_reverse;
-//    public int src_shift;
-//    public boolean dest_reverse;
-//    public int dest_shift;
-//  }
-
-  /**
    * Check the two nodes overlap.
    * @param src
    * @param dest
@@ -220,57 +195,6 @@ public class NodeListMerger {
 
     return mergedSequence;
   }
-
-//  /**
-//   * Construct a list of the R5 tags aligned with the merged sequence.
-//   * @return
-//   */
-//  protected List<R5Tag> alignTags(
-//      List<EdgeTerminal> chain, Map<String, GraphNode> nodes, int mergedLength) {
-//    // Update the read alignment tags (R5Fields).
-//    // Make a copy of src tags.
-//    // Keep track of the forward and reverse offsets.
-//    int forwardOffset = 0;
-//    int reverseOffset = -1;
-//    Sequence currentSequence = null;
-//    ArrayList<R5Tag> alignedTags = new ArrayList<R5Tag>();
-//    for (EdgeTerminal terminal : chain) {
-//      currentSequence = nodes.get(terminal.nodeId).getSequence();
-//      currentSequence = DNAUtil.sequenceToDir(currentSequence, terminal.strand);
-//
-//      reverseOffset = mergedLength - (forwardOffset + currentSequence.size());
-//
-//    }
-//
-//    return alignedTags;
-////    List<R5Tag> src_tags = copyR5Tags(src_r5tags);
-////    List<R5Tag> dest_tags = copyR5Tags(dest_r5tags);
-////
-////    // Reverse the reads if necessary.
-////    if (info.src_reverse) {
-////      reverseReads(src_tags, info.src_size);
-////    }
-////
-////    if (info.dest_reverse) {
-////      reverseReads(dest_tags, info.dest_size);
-////    }
-////
-////    if (info.src_shift > 0) {
-////      for (R5Tag tag : src_tags) {
-////        tag.setOffset(tag.getOffset() + info.src_shift);
-////      }
-////    }
-////
-////    if (info.dest_shift > 0) {
-////      for (R5Tag tag : dest_tags) {
-////        tag.setOffset(tag.getOffset() + info.dest_shift);
-////      }
-////    }
-////
-////    src_tags.addAll(dest_tags);
-////    return src_tags;
-//  }
-//
 
   /**
    * Compute the coverage for the result of merging two nodes.
