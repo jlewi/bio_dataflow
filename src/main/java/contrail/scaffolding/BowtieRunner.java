@@ -392,25 +392,18 @@ public class BowtieRunner {
           throw new RuntimeException("Couldn't parse the alignment strand");
         }
 
-        // The first field in the output is the readId. We prefix this
-        // with information about which file the read came from.
-        //
         // TODO(jeremy@lewi.us): It looks like the original code prefixed
-        // the read id's with the library name. We need to figure out if
-        // thats a requirement and if so figure out how to deal with it.
-        //m.readID = libraryName + readID.replaceAll("/", "_");
-        // TODO(jeremy@lewi.us): We don't prefix the read with the library
+        // the read id's with the library name.
+        // We don't prefix the read with the library
         // name because we think that's more likely to cause problems because
         // the read ids would need to be changed consistently everywhere.
-        //m.readID = readID.replaceAll("/", "_");
         m.readID = readID;
         m.start = 1;
         // TODO(jeremy@lewi.us): Need to check whether the length should be
         // zero based or 1 based. The original code set this to SUB_LEN
         // which was the length of the truncated reads which were aligned.
-        //m.end = readSequence.length();
-        // TODO(jerem@lewi.US): Do we have to pass in SUB_LEN or can we determine
-        // it from the output.
+        // TODO(jerem@lewi.us): Do we have to pass in SUB_LEN or can we
+        // determine it from the output.
         m.end = subLen;
 
 
