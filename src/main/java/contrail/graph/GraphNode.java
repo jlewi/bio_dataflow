@@ -696,14 +696,15 @@ public class GraphNode {
    *   than this number of tags associated with this read.
    */
   public void addIncomingEdgeWithTags(DNAStrand strand, EdgeTerminal src,
-      List<CharSequence> tags,
+      Collection<? extends CharSequence> tags,
       long MAXTHREADREADS) {
     // Let this node be X.
     // Then edge Y->X implies edge RC(x)->RC(y).
     // So we add RC(x)->RC(y) to this node.
     EdgeTerminal dest = new EdgeTerminal(
         src.nodeId, DNAStrandUtil.flip(src.strand));
-    addOutgoingEdge(DNAStrandUtil.flip(strand), dest);
+    addOutgoingEdgeWithTags(
+        DNAStrandUtil.flip(strand), dest, tags, MAXTHREADREADS);
   }
 
   /**
