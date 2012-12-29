@@ -12,8 +12,8 @@ import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
 import contrail.graph.LinearChainWalker;
-import contrail.graph.NodeListMerger;
-import contrail.graph.NodeListMerger.MergeResult;
+import contrail.graph.NodeMerger;
+import contrail.graph.NodeMerger.MergeResult;
 import contrail.graph.TailData;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAStrandUtil;
@@ -258,7 +258,7 @@ public class QuickMergeUtil {
     }
 
     String mergedId = nodes_to_merge.start_terminal.nodeId;
-    NodeListMerger merger = new NodeListMerger();
+    NodeMerger merger = new NodeMerger();
     MergeResult mergeResult = merger.mergeNodes(
         mergedId, terminalsToMerge, nodes, overlap);
 
