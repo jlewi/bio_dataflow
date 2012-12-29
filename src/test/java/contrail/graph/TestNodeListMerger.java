@@ -27,9 +27,14 @@ public class TestNodeListMerger extends NodeListMerger {
   @Test
   public void testMergeSequences() {
     // Create a random sequences.
+
+    // LEWI NO COMMIT
     int overlap = 13;
     int numNodes = 23;
-    Random generator = new Random();
+
+    // HashMap to keep track of R5Tags
+    HashMap<String, String> r5Prefixes = new HashMap<String, String>();
+    int ntags = 2;
 
     // Create a chain. We do this by generating numNodes random sequences.
     // We then append the last overlap characters from the previous node
@@ -59,11 +64,15 @@ public class TestNodeListMerger extends NodeListMerger {
       trueSequence += newDna;
       dna += newDna;
 
-
       Sequence sequence = new Sequence(dna, DNAAlphabetFactory.create());
       GraphNode node =  new GraphNode();
       node.setNodeId("node" + nindex);
       node.setSequence(DNAUtil.canonicalseq(sequence));
+
+      // Create some R5Tags.
+      SequenceTestCase.createR5Tags(
+          generator, "read_" + nindex, ntags, node.getSequence(),
+          node.getData().getR5Tags(), r5Prefixes);
 
       nodes.add(node);
       nodesMap.put(node.getNodeId(), node);
@@ -77,6 +86,8 @@ public class TestNodeListMerger extends NodeListMerger {
     Sequence mergedSequence = merger.mergeSequences(terminals, nodesMap, overlap);
 
     assertEquals(trueSequence, mergedSequence.toString());
+    checkAlignTags(r5Prefixes, mergedSequence, merger.allTags);
+
   }
 
   // TODO(jlewi): need to update this test.
@@ -113,8 +124,6 @@ public class TestNodeListMerger extends NodeListMerger {
  public void setUp() {
    // Create a random generator so we can make a test repeatable
    generator = new Random();
-   //TODO(jlewi: DON"T COMMIT THIS
-   //generator = new Random(2);
  }
 
  /**
@@ -297,29 +306,30 @@ public class TestNodeListMerger extends NodeListMerger {
   * @param testcase
   * @param merge_info
   */
-// protected void checkAlignTags(
-//     SequenceTestCase testcase, MergeInfo merge_info) {
-//
-//   // We check the aligned tags.
-//   List<R5Tag> aligned = alignTags(
-//       merge_info, testcase.src_r5tags, testcase.dest_r5tags);
-//
-//   int true_size = testcase.src_r5tags.size() + testcase.dest_r5tags.size();
-//   assertEquals(true_size, aligned.size());
-//
-//   for (R5Tag tag: aligned) {
-//     String prefix = R5TagUtil.prefixForTag(
-//         merge_info.canonical_merged, tag).toString();
-//
-//     // The prefix returned from the merge sequence could be longer
-//     // than the original prefix, so we only compare the length of
-//     // the original prefix.
-//     assertTrue(testcase.r5prefix.containsKey(tag.getTag().toString()));
-//     String true_prefix = testcase.r5prefix.get(tag.getTag().toString());
-//
-//     assertTrue(prefix.startsWith(true_prefix));
-//   }
-// }
+ protected void checkAlignTags(
+     HashMap<String, String> r5Prefixes,
+     Sequence canonicalMerged, List<R5Tag> aligned) {
+   //List<R5Tag> aligned = merged.getData().getR5Tags();
+   // We check the aligned tags.
+   //List<R5Tag> aligned = alignTags(
+   //    merge_info, testcase.src_r5tags, testcase.dest_r5tags);
+
+   //int true_size = testcase.src_r5tags.size() + testcase.dest_r5tags.size();
+   //assertEquals(true_size, aligned.size());
+
+   assertEquals(r5Prefixes.size(), aligned.size());
+   for (R5Tag tag: aligned) {
+     String prefix = R5TagUtil.prefixForTag(canonicalMerged, tag).toString();
+
+     // The prefix returned from the merge sequence could be longer
+     // than the original prefix, so we only compare the length of
+     // the original prefix.
+     assertTrue(r5Prefixes.containsKey(tag.getTag().toString()));
+     String true_prefix = r5Prefixes.get(tag.getTag().toString());
+
+     assertTrue(prefix.startsWith(true_prefix));
+   }
+ }
 
  protected static class NodesTestCase{
    // Chain of nodes to merge.
@@ -385,6 +395,9 @@ public class TestNodeListMerger extends NodeListMerger {
      nodeCase.src = createNode("src", sequence_case.canonical_src, generator);
      nodeCase.dest = createNode(
          "dest", sequence_case.canonical_dest, generator);
+
+     nodeCase.src.getData().getR5Tags().addAll(sequence_case.src_r5tags);
+     nodeCase.dest.getData().getR5Tags().addAll(sequence_case.dest_r5tags);
 
      // We need to remove any existing edges between the strands that will
      // be merged.
@@ -524,6 +537,21 @@ public class TestNodeListMerger extends NodeListMerger {
    return node;
  }
 
+ /**
+  * Check if the expected node is correct.
+  */
+ protected void assertExpectedNode(NodesTestCase testCase, GraphNode node) {
+   // We remove the R5Tags from the node before checking the node
+   // because the R5Tags aren't set in the expected node.
+   List<R5Tag> tags = node.getData().getR5Tags();
+   node.getData().setR5Tags(new ArrayList<R5Tag>());
+   assertTrue(testCase.expectedNode.equals(node));
+
+   node.getData().setR5Tags(tags);
+   // Check the tags.
+   checkAlignTags(testCase.sequence_info.r5prefix, node.getSequence(), tags);
+ }
+
  @Test
  public void testMergeNodes() {
    int ntrials = 20;
@@ -547,7 +575,7 @@ public class TestNodeListMerger extends NodeListMerger {
          sequence_testcase.merged_sequence,
          merged_sequence.toString());
 
-     assertTrue(nodeTestcase.expectedNode.equals(result.node));
+     assertExpectedNode(nodeTestcase, result.node);
    }
  }
 

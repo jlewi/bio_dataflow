@@ -14,6 +14,7 @@
 // Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.graph;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -36,6 +37,12 @@ import contrail.sequences.Sequence;
  */
 public class NodeListMerger {
   private static final Logger sLogger = Logger.getLogger(NodeListMerger.class);
+  ArrayList<R5Tag> allTags;
+
+  public NodeListMerger() {
+    allTags = new ArrayList<R5Tag>();
+  }
+
   /**
    * Copy edges from old_node to new node.
    * @param new_node: The node to copy to.
@@ -77,28 +84,28 @@ public class NodeListMerger {
    * @param tags
    * @return
    */
-//  protected static List<R5Tag> copyR5Tags(List<R5Tag> tags) {
-//    List<R5Tag> new_list = new ArrayList<R5Tag>();
-//    for (R5Tag tag: tags) {
-//      R5Tag copy = new R5Tag();
-//      copy.setTag(tag.getTag());
-//      copy.setStrand(tag.getStrand());
-//      copy.setOffset(tag.getOffset());
-//      new_list.add(copy);
-//    }
-//    return new_list;
-//  }
+  protected List<R5Tag> copyR5Tags(List<R5Tag> tags) {
+    List<R5Tag> newList = new ArrayList<R5Tag>();
+    for (R5Tag tag: tags) {
+      R5Tag copy = new R5Tag();
+      copy.setTag(tag.getTag());
+      copy.setStrand(tag.getStrand());
+      copy.setOffset(tag.getOffset());
+      newList.add(copy);
+    }
+    return newList;
+  }
 
   /**
    * Reverse a list of R5 tags in place.
    * @param tags
    * @return
    */
-//  protected static void reverseReads(List<R5Tag> tags, int length) {
-//    for (R5Tag tag: tags) {
-//      R5TagUtil.reverse(tag, length);
-//    }
-//  }
+  protected void reverseReads(List<R5Tag> tags, int length) {
+    for (R5Tag tag: tags) {
+      R5TagUtil.reverse(tag, length);
+    }
+  }
 
   /**
    * Datastructure for returning information about the merging of
@@ -108,22 +115,22 @@ public class NodeListMerger {
    * @author jlewi
    *
    */
-  protected static class MergeInfo {
-    // The canonical representation of the merged sequences.
-    public Sequence canonical_merged;
-
-    // merged_strand is the strand the merged sequence came from.
-    public DNAStrand merged_strand;
-
-    public int src_size;
-    public int dest_size;
-
-    // Whether we need to reverse the read tags.
-    public boolean src_reverse;
-    public int src_shift;
-    public boolean dest_reverse;
-    public int dest_shift;
-  }
+//  protected static class MergeInfo {
+//    // The canonical representation of the merged sequences.
+//    public Sequence canonical_merged;
+//
+//    // merged_strand is the strand the merged sequence came from.
+//    public DNAStrand merged_strand;
+//
+//    public int src_size;
+//    public int dest_size;
+//
+//    // Whether we need to reverse the read tags.
+//    public boolean src_reverse;
+//    public int src_shift;
+//    public boolean dest_reverse;
+//    public int dest_shift;
+//  }
 
   /**
    * Check the two nodes overlap.
@@ -147,6 +154,7 @@ public class NodeListMerger {
   protected Sequence mergeSequences(
       List<EdgeTerminal> chain, Map<String, GraphNode> nodes,
       int overlap) {
+    allTags.clear();
     // Figure out how long the merged sequence is.
     int length = 0;
     for (EdgeTerminal terminal : chain) {
@@ -164,9 +172,12 @@ public class NodeListMerger {
     Sequence lastSequence = null;
     Sequence currentSequence = null;
 
+    // Keep track of the forward and reverse offsets.
+    int forwardOffset = 0;
     for (EdgeTerminal terminal : chain) {
       currentSequence = nodes.get(terminal.nodeId).getSequence();
       currentSequence = DNAUtil.sequenceToDir(currentSequence, terminal.strand);
+
       Sequence nonOverlap = currentSequence;
       if (!isFirst) {
         // Check we overlap with the previous sequence.
@@ -178,8 +189,7 @@ public class NodeListMerger {
 
         // For all but the first node we truncate the first overlap bases
         // because we only want to add them once.
-        nonOverlap = nonOverlap.subSequence(
-            overlap, currentSequence.size());
+        nonOverlap = nonOverlap.subSequence(overlap, currentSequence.size());
       } else {
         isFirst = false;
       }
@@ -187,50 +197,81 @@ public class NodeListMerger {
       // We can't simply use nonOverlap because nonOverlap might be less than
       // K-1;
       lastSequence = currentSequence;
+
+      // Align the R5Tags.
+      List<R5Tag> tags = nodes.get(terminal.nodeId).getData().getR5Tags();
+      tags = copyR5Tags(tags);
+      if (terminal.strand == DNAStrand.REVERSE) {
+        // Reverse the tags.
+        reverseReads(tags, nodes.get(terminal.nodeId).getSequence().size());
+      }
+      // Now we need to shift the offset to account for the joined sequences.
+      // The offset is also the position of the base in the sequence that
+      // corresponds to the first base in the read. The offset is independent
+      // of which strand is aligned to the read.
+      for (R5Tag tag : tags) {
+         tag.setOffset(tag.getOffset() + forwardOffset);
+      }
+      allTags.addAll(tags);
+
+      // Increment the offsets.
+      forwardOffset += currentSequence.size() - overlap;
     }
 
     return mergedSequence;
   }
 
-  /**
-   * Construct a list of the R5 tags aligned with the merged sequence.
-   * @param info
-   * @param src_r5tags
-   * @param dest_r5tags
-   * @return
-   */
-//  protected static List<R5Tag> alignTags(
-//      MergeInfo info, List<R5Tag> src_r5tags, List<R5Tag> dest_r5tags) {
+//  /**
+//   * Construct a list of the R5 tags aligned with the merged sequence.
+//   * @return
+//   */
+//  protected List<R5Tag> alignTags(
+//      List<EdgeTerminal> chain, Map<String, GraphNode> nodes, int mergedLength) {
 //    // Update the read alignment tags (R5Fields).
 //    // Make a copy of src tags.
-//    List<R5Tag> src_tags = copyR5Tags(src_r5tags);
-//    List<R5Tag> dest_tags = copyR5Tags(dest_r5tags);
+//    // Keep track of the forward and reverse offsets.
+//    int forwardOffset = 0;
+//    int reverseOffset = -1;
+//    Sequence currentSequence = null;
+//    ArrayList<R5Tag> alignedTags = new ArrayList<R5Tag>();
+//    for (EdgeTerminal terminal : chain) {
+//      currentSequence = nodes.get(terminal.nodeId).getSequence();
+//      currentSequence = DNAUtil.sequenceToDir(currentSequence, terminal.strand);
 //
-//    // Reverse the reads if necessary.
-//    if (info.src_reverse) {
-//      reverseReads(src_tags, info.src_size);
+//      reverseOffset = mergedLength - (forwardOffset + currentSequence.size());
+//
 //    }
 //
-//    if (info.dest_reverse) {
-//      reverseReads(dest_tags, info.dest_size);
-//    }
-//
-//    if (info.src_shift > 0) {
-//      for (R5Tag tag : src_tags) {
-//        tag.setOffset(tag.getOffset() + info.src_shift);
-//      }
-//    }
-//
-//    if (info.dest_shift > 0) {
-//      for (R5Tag tag : dest_tags) {
-//        tag.setOffset(tag.getOffset() + info.dest_shift);
-//      }
-//    }
-//
-//    src_tags.addAll(dest_tags);
-//    return src_tags;
+//    return alignedTags;
+////    List<R5Tag> src_tags = copyR5Tags(src_r5tags);
+////    List<R5Tag> dest_tags = copyR5Tags(dest_r5tags);
+////
+////    // Reverse the reads if necessary.
+////    if (info.src_reverse) {
+////      reverseReads(src_tags, info.src_size);
+////    }
+////
+////    if (info.dest_reverse) {
+////      reverseReads(dest_tags, info.dest_size);
+////    }
+////
+////    if (info.src_shift > 0) {
+////      for (R5Tag tag : src_tags) {
+////        tag.setOffset(tag.getOffset() + info.src_shift);
+////      }
+////    }
+////
+////    if (info.dest_shift > 0) {
+////      for (R5Tag tag : dest_tags) {
+////        tag.setOffset(tag.getOffset() + info.dest_shift);
+////      }
+////    }
+////
+////    src_tags.addAll(dest_tags);
+////    return src_tags;
 //  }
 //
+
   /**
    * Compute the coverage for the result of merging two nodes.
    *
@@ -303,6 +344,15 @@ public class NodeListMerger {
     newNode.setNodeId(newId);
     newNode.setCoverage(coverage);
     newNode.setSequence(canonicalSequence);
+
+    // Reverse the reads if necessary.
+    if (mergedStrand == DNAStrand.REVERSE) {
+      reverseReads(allTags, mergedSequence.size());
+    }
+    // We don't want to steal a reference to allTags because allTags
+    // gets reused.
+    newNode.getData().getR5Tags().addAll(allTags);
+    allTags.clear();
 
     // List of nodes in the chain.
     HashSet<String> idsInChain = new HashSet<String>();
