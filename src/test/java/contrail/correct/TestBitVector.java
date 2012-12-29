@@ -149,7 +149,7 @@ public class TestBitVector {
     
     //assert sorted order
     for(int i = 1 ; i < actualList.size(); i ++){
-      assertTrue(actualList.get(i-1)<actualList.get(i));
+      assertTrue(actualList.get(i-1)<=actualList.get(i));
     }
   }
   
