@@ -66,8 +66,8 @@ public class InvokeFlash extends Stage {
     private String tempWritableFolder = null;
     private String blockFolder;
     private String jobName;
-    private ArrayList<String> fastqRecordsMate1;
-    private ArrayList<String> fastqRecordsMate2;
+    private ArrayList<String> fastqRecordsMateLeft;
+    private ArrayList<String> fastqRecordsMateRight;
     private int count;
     private CorrectUtil correctUtil;
     private AvroCollector<FastQRecord> outputCollector;
@@ -77,8 +77,8 @@ public class InvokeFlash extends Stage {
       jobName = job.get("mapred.task.id");
       tempWritableFolder = FileHelper.createLocalTempDir().getAbsolutePath();
       //Initialise empty array lists
-      fastqRecordsMate1 = new ArrayList<String>();
-      fastqRecordsMate2 = new ArrayList<String>();
+      fastqRecordsMateLeft = new ArrayList<String>();
+      fastqRecordsMateRight = new ArrayList<String>();
       count = 0;
       outputCollector = null;
       correctUtil = new CorrectUtil();
@@ -95,7 +95,7 @@ public class InvokeFlash extends Stage {
       outputCollector = collector;
     }
     count++;
-    correctUtil.addMateToArrayLists(mateRecord, fastqRecordsMate1, fastqRecordsMate2);
+    correctUtil.addMateToArrayLists(mateRecord, fastqRecordsMateLeft, fastqRecordsMateRight);
     // Time to process one block
     if(count ==blockSize){
       runFlashOnInMemoryReads(collector);
@@ -128,17 +128,21 @@ public class InvokeFlash extends Stage {
     }
     filePathFq1 = new File(localOutFolderPath,time + "_1.fq").getAbsolutePath();
     filePathFq2 = new File(localOutFolderPath,time + "_2.fq").getAbsolutePath();
-    correctUtil.writeLocalFile(fastqRecordsMate1,filePathFq1); 
-    correctUtil.writeLocalFile(fastqRecordsMate2,filePathFq2); 
-    fastqRecordsMate1.clear();
-    fastqRecordsMate2.clear();
-    String command = flashHome+" "+filePathFq1+" "+filePathFq2 + " -d "+ localOutFolderPath;
+    correctUtil.writeLocalFile(fastqRecordsMateLeft,filePathFq1); 
+    correctUtil.writeLocalFile(fastqRecordsMateRight,filePathFq2); 
+    fastqRecordsMateLeft.clear();
+    fastqRecordsMateRight.clear();
+    String command = flashHome + " " + filePathFq1 +" "+filePathFq2 + " -d "+ localOutFolderPath;
     correctUtil.executeCommand(command);
     String combinedFilePath = localOutFolderPath + "/out.extendedFrags.fastq";	
-    tempFile = new File(combinedFilePath);
-    File combinedFile = new File(combinedFilePath);
-    // collecting results of extended file
-    correctUtil.emitFastqFileToHDFS(combinedFile, collector);
+
+    // collecting results of extended and not combined files
+    correctUtil.emitFastqFileToHDFS(new File(combinedFilePath), collector);
+    String notCombinedLeft = localOutFolderPath + "/out.notCombined_1.fastq";
+    correctUtil.emitFastqFileToHDFS(new File(notCombinedLeft), collector);
+    String notCombinedRight = localOutFolderPath + "/out.notCombined_2.fastq";
+    correctUtil.emitFastqFileToHDFS(new File(notCombinedRight), collector);
+
     // Cleaning up the block Folder. The results of the extended file have been collected.
     tempFile = new File(localOutFolderPath);
     if(tempFile.exists()){
