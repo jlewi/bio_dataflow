@@ -33,13 +33,12 @@ import contrail.sequences.Sequence;
 /**
  * A class for merging chains of nodes.
  *
- * TODO(jlewi): Replace all uses of NodeMerger with this class.
  */
-public class NodeListMerger {
-  private static final Logger sLogger = Logger.getLogger(NodeListMerger.class);
+public class NodeMerger {
+  private static final Logger sLogger = Logger.getLogger(NodeMerger.class);
   ArrayList<R5Tag> allTags;
 
-  public NodeListMerger() {
+  public NodeMerger() {
     allTags = new ArrayList<R5Tag>();
   }
 

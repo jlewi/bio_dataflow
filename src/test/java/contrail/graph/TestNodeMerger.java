@@ -23,7 +23,7 @@ import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
 import contrail.util.ListUtil;
 
-public class TestNodeListMerger extends NodeListMerger {
+public class TestNodeMerger extends NodeMerger {
   @Test
   public void testMergeSequences() {
     // Create a random sequences.
@@ -79,7 +79,7 @@ public class TestNodeListMerger extends NodeListMerger {
       terminals.add(terminal);
     }
 
-    NodeListMerger merger = new NodeListMerger();
+    NodeMerger merger = new NodeMerger();
 
     Sequence mergedSequence = merger.mergeSequences(terminals, nodesMap, overlap);
 
@@ -522,7 +522,7 @@ public class TestNodeListMerger extends NodeListMerger {
       NodesTestCase nodeTestcase = NodesTestCase.createMergeTestCase(
           sequence_testcase, generator);
 
-      NodeListMerger merger = new NodeListMerger();
+      NodeMerger merger = new NodeMerger();
 
       // Merge the nodes.
       MergeResult result = merger.mergeNodes(
@@ -566,7 +566,7 @@ public class TestNodeListMerger extends NodeListMerger {
       chain.add(srcTerminal);
       chain.add(destTerminal);
 
-      NodeListMerger merger = new NodeListMerger();
+      NodeMerger merger = new NodeMerger();
       result = merger.mergeNodes("merged", chain, graph.getAllNodes(), K-1);
     }
 
@@ -634,7 +634,7 @@ public class TestNodeListMerger extends NodeListMerger {
 
     int K = 3;
 
-    NodeListMerger merger = new NodeListMerger();
+    NodeMerger merger = new NodeMerger();
 
     MergeResult result =
         merger.mergeNodes("merged", chain, nodes, K - 1);
@@ -710,7 +710,7 @@ public class TestNodeListMerger extends NodeListMerger {
     expectedSequence = DNAUtil.canonicalseq(expectedSequence);
     expectedNode.setSequence(expectedSequence);
 
-    NodeListMerger merger = new NodeListMerger();
+    NodeMerger merger = new NodeMerger();
     int overlap = 2;
     MergeResult result = merger.mergeNodes("merged", chain, nodes, overlap);
 
