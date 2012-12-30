@@ -19,6 +19,7 @@ from oauth2client.file import Storage
 
 import gflags
 import os
+import stat
 import sys
 
 gflags.DEFINE_string("path", None, "The path to a file or directory to upload")
@@ -80,6 +81,9 @@ def main(argv):
     # get new credentials
     credentials = NewCredentials()
     storage.put(credentials)
+
+  # Make sure the credentials file is only accessible by the user.
+  os.chmod(credentials_file, stat.S_IWUSR | stat.S_IRUSR)
 
   # Create an httplib2.Http object and authorize it with our credentials
   http = httplib2.Http()
