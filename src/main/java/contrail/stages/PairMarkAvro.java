@@ -440,7 +440,7 @@ public class PairMarkAvro extends Stage {
           graph_node =
               new GraphNode(source.getCompressibleNode().getNode()).clone();
           source.getCompressibleNode().setNode(null);
-          output_node = SpecificData.get().deepCopy(
+          output_node = (NodeInfoForMerge) SpecificData.get().deepCopy(
               source.getSchema(), source);
           output_node.getCompressibleNode().setNode(graph_node.getData());
           seen_node = true;
@@ -448,7 +448,7 @@ public class PairMarkAvro extends Stage {
           EdgeUpdateForMerge edge_update =
               (EdgeUpdateForMerge) mark_output.getPayload();
           edge_update =
-              SpecificData.get().deepCopy(
+              (EdgeUpdateForMerge) SpecificData.get().deepCopy(
                   edge_update.getSchema(), edge_update);
           edge_updates.add(edge_update);
         }
@@ -468,7 +468,7 @@ public class PairMarkAvro extends Stage {
       // To detect this, we check if the current node is an UP node slated
       // to be merged with some node. If it is and the down node is the same
       // node as one of the edge updates then we ignore that edge update.
-      String nodeToMergeWith = null;
+      String nodeToMergeWith = "";
 
       switch (output_node.getStrandToMerge()) {
         case NONE:
@@ -488,6 +488,7 @@ public class PairMarkAvro extends Stage {
               "StrandToMerge for the node is both which should never happend.",
               new RuntimeException("Impossible state reached"));
       }
+
       for (EdgeUpdateForMerge edge_update: edge_updates) {
         // Check if we have a cycle and should drop this edgeupdate.
         if (nodeToMergeWith.equals(edge_update.getNewId().toString())) {
