@@ -211,8 +211,14 @@ public class BowtieRunner {
       result.outputs.put(fastqFile, outFile);
       ArrayList<String> command = new ArrayList<String>();
       command.add(bowtiePath);
+      // For a description of bowtie options see
+      // http://bowtie-bio.sourceforge.net/manual.shtml#output.
+      // The -v # option means alignments can have no more than # mismatches
+      // and causes quality values to be ignored.
       command.add("-v");
       command.add("1");
+      // The -M # means that if a read has more than # reportable alignments
+      // then one alignment is reported at random.
       command.add("-M");
       command.add("2");
       command.add(bowtieIndex);
@@ -297,36 +303,42 @@ public class BowtieRunner {
               "Read " + counter + " mapping records from " + baseName);
         }
 
+        // For the description of the bowtie output see:
+        // http://bowtie-bio.sourceforge.net/manual.shtml#default-bowtie-output
+        //
+        // Split the string based on whitespace. "\s" matches a whitespace
+        // character and the + modifier causes it to be matched one or more
+        // times. An extra "\" is needed to escape the "\s".
+        // For more info:
+        // http://docs.oracle.com/javase/tutorial/essential/regex/
         String[] splitLine = line.trim().split("\\s+");
         MappingInfo m = new MappingInfo();
 
-        int position = 1;
-        // skip crud
-        // The first field in the output is the name of the read that was
-        // aligned. The second field is a + or - indicating which strand
-        // the read aligned to. We identify the position of the +/- in
-        // the split line and use this to determine the mapping of output
-        // fields to indexes in splitLine.
-        while (!splitLine[position].equalsIgnoreCase("+") &&
-            !splitLine[position].equalsIgnoreCase("-")) {
-          position++;
+        // The line should have at least 5 fields.
+        if (splitLine.length <5) {
+          sLogger.fatal(
+              "Line in the bowtie output file had less than 5 fields:" + line,
+              new RuntimeException("Parse Error"));
+          System.exit(-1);
         }
 
-        String readID = splitLine[position - 1];
-        String strand = splitLine[position];
-        String contigID = splitLine[position + 1];
-
+        // The first field in the output is the name of the read that was
+        // aligned. The second field is a + or - indicating which strand
+        // the read aligned to.
+        String readID = splitLine[0];
+        String strand = splitLine[1];
+        String contigID = splitLine[2];
         // 0-based offset into the forward reference strand where leftmost
         // character of the alignment occurs.
-        String forwardOffset = splitLine[position + 2];
-        String readSequence = splitLine[position + 3];
+        String forwardOffset = splitLine[3];
+        String readSequence = splitLine[4];
 
         // isFWD indicates the read was aligned to the forward strand of
         // the reference genome.
         Boolean isFwd = null;
-        if (strand.contains("-")) {
+        if (strand.equals("-")) {
           isFwd = false;
-        } else if (strand.contains("+")) {
+        } else if (strand.equals("+")) {
           isFwd = true;
         } else {
           throw new RuntimeException("Couldn't parse the alignment strand");
