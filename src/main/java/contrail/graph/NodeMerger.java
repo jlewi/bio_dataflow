@@ -237,7 +237,6 @@ public class NodeMerger {
     public DNAStrand strand;
   }
 
-
   /**
    * Merge a bunch of nodes into a new node.
    * @param newId: The id to assign the merged node.
@@ -341,13 +340,9 @@ public class NodeMerger {
           ContrailConfig.MAXTHREADREADS);
     }
 
-    // TODO(jeremy@lewi.us) We need to copy and align all the R5Tags from
-    // the nodes being merged to the new node.
-
     MergeResult result = new MergeResult();
     result.node = newNode;
     result.strand = mergedStrand;
     return result;
-
   }
 }
