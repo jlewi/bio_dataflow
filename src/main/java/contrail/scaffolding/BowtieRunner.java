@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-// Author: Jeremy Lewi (jeremy@lewi.us)
+// Author: Jeremy Lewi (jeremy@lewi.us), Serge Koren(sergekoren@gmail.com)
 package contrail.scaffolding;
 
 import java.io.BufferedReader;
@@ -33,6 +33,7 @@ import org.apache.log4j.Logger;
 import contrail.sequences.FastQFileReader;
 import contrail.sequences.FastQRecord;
 import contrail.sequences.FastUtil;
+import contrail.util.ShellUtil;
 
 /**
  * This class is used to run the bowtie short read aligner.
@@ -89,42 +90,8 @@ public class BowtieRunner {
           "Directory to store the bowtie index already exists: " + outDir);
     }
 
-    try {
-      sLogger.info("Running bowtie to build index:" + command);
-      Process p = Runtime.getRuntime().exec(command);
+    ShellUtil.execute(command, "bowtie", sLogger);
 
-      BufferedReader stdInput = new BufferedReader(
-          new InputStreamReader(p.getInputStream()));
-
-      BufferedReader stdError = new BufferedReader(
-          new InputStreamReader(p.getErrorStream()));
-
-      p.waitFor();
-      String line;
-      while ((line = stdInput.readLine()) != null) {
-        sLogger.info("bowtie-build: " + line);
-      }
-      while ((line = stdError.readLine()) != null) {
-        sLogger.error("bowtie-build: " + line);
-      }
-
-      sLogger.info("bowtie-build: Exit Value: " + p.exitValue());
-      if (p.exitValue() == 0) {
-        success = true;
-      } else {
-        sLogger.error("bowtie-build failed command was: " + command);
-        success = false;
-      }
-
-    } catch (IOException e) {
-      throw new RuntimeException(
-          "There was a problem executing bowtie. The command was:\n" +
-              command + "\n. The Exception was:\n" + e.getMessage());
-    } catch (InterruptedException e) {
-      throw new RuntimeException(
-          "Bowtie execution was interupted. The command was:\n" +
-              command + "\n. The Exception was:\n" + e.getMessage());
-    }
     return success;
   }
 
@@ -244,45 +211,8 @@ public class BowtieRunner {
           "%s -v 1 -M 2  %s %s %s", bowtiePath, bowtieIndex,
           shortFastq.getPath(), outFile);
 
-      // TODO(jeremy@lewi.us) use one of the functions in ShellUtil.
-      try {
-        sLogger.info("Running bowtie to align the reads:" + command);
-        Process p = Runtime.getRuntime().exec(command);
-
-        BufferedReader stdInput = new BufferedReader(
-            new InputStreamReader(p.getInputStream()));
-
-        BufferedReader stdError = new BufferedReader(
-            new InputStreamReader(p.getErrorStream()));
-
-        p.waitFor();
-        String line;
-        while ((line = stdInput.readLine()) != null) {
-          sLogger.info("bowtie: " + line);
-        }
-        while ((line = stdError.readLine()) != null) {
-          // bowtie appears to write non error messages to the error stream so we use info
-          // to log the contents of the error stream.
-          sLogger.info("bowtie: " + line);
-        }
-
-        sLogger.info("bowtie: Exit Value: " + p.exitValue());
-        if (p.exitValue() == 0) {
-          result.success = true;
-        } else {
-          sLogger.error("bowtie-build failed command was: " + command);
-        }
-
-      } catch (IOException e) {
-        throw new RuntimeException(
-            "There was a problem executing bowtie. The command was:\n" +
-                command + "\n. The Exception was:\n" + e.getMessage());
-      } catch (InterruptedException e) {
-        throw new RuntimeException(
-            "Bowtie execution was interupted. The command was:\n" +
-                command + "\n. The Exception was:\n" + e.getMessage());
-      }
-
+      sLogger.info("Running bowtie to align the reads:" + command);
+      ShellUtil.execute(command, "bowtie", sLogger);
       shortFastq.delete();
     }
 
@@ -405,7 +335,6 @@ public class BowtieRunner {
         // TODO(jerem@lewi.us): Do we have to pass in SUB_LEN or can we
         // determine it from the output.
         m.end = subLen;
-
 
         m.contigStart = Integer.parseInt(forwardOffset);
         if (isFwd) {
