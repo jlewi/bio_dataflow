@@ -49,7 +49,11 @@
      "doc": ["Stores information about how reads align to the sequence stored ",
              "in a node. Tag identifies the read a subsequence came from. ",
              "DNAStrand tells us which strand of this node corresponds to ",
-             "the read."],
+             "the read. The offset is the position in the sequence aligned ",
+             "with the start of the read. It is always relative to the sequence ",
+             "stored in the node. So if strand for the tag is REVRSE  then ",
+             "you need to flip the offset in order to get the start position ",
+             "in the reverse strand."],
      "fields": [
                  {"name": "tag",
                   "type": "string"
