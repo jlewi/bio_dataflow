@@ -111,6 +111,12 @@ public class ShellUtil {
    * @param prefix: A prefix to include in the log messages.
    * @param logger: Logger to log the output to.
    * @return
+   *
+   * TODO(jeremy@lewi.us): ProcessBuilder appears to choke in many cases
+   * where command contains multiple space separated arguments. I think
+   * it might treat the entire string as the program name. We should try
+   * to fix this by manually splitting the command and then calling one
+   * of the other functions.
    */
   public static int execute(String command, String prefix, Logger logger) {
     ProcessBuilder builder = new ProcessBuilder(command);
@@ -124,6 +130,7 @@ public class ShellUtil {
    * @param directory: To execute the command from
    * @param logger: Logger to log the output to.
    * @return
+   *
    */
   public static int execute(
     List<String> command, String directory, String prefix, Logger logger) {
