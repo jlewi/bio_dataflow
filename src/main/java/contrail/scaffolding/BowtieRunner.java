@@ -18,7 +18,6 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -69,9 +68,11 @@ public class BowtieRunner {
   public boolean bowtieBuildIndex(
       Collection<String> contigFiles, String outDir, String outBase) {
     String fileList = StringUtils.join(contigFiles, ",");
-    String command = String.format(
-        "%s %s %s", bowtieBuildPath, fileList,
-        new File(outDir, outBase).getAbsolutePath());
+    ArrayList<String> commandArgs = new ArrayList<String>();
+    commandArgs.add(bowtieBuildPath);
+    commandArgs.add(fileList);
+    commandArgs.add(new File(outDir, outBase).getAbsolutePath());
+
     boolean success = false;
 
     File outDirFile = new File(outDir);
@@ -90,8 +91,9 @@ public class BowtieRunner {
           "Directory to store the bowtie index already exists: " + outDir);
     }
 
-    ShellUtil.execute(command, "bowtie", sLogger);
-
+    if (ShellUtil.execute(commandArgs, null, "bowtie", sLogger) == 0) {
+      success = true;
+    }
     return success;
   }
 
@@ -207,12 +209,20 @@ public class BowtieRunner {
 
       outputs.add(outFile);
       result.outputs.put(fastqFile, outFile);
-      String command = String.format(
-          "%s -v 1 -M 2  %s %s %s", bowtiePath, bowtieIndex,
-          shortFastq.getPath(), outFile);
+      ArrayList<String> command = new ArrayList<String>();
+      command.add(bowtiePath);
+      command.add("-v");
+      command.add("1");
+      command.add("-M");
+      command.add("2");
+      command.add(bowtieIndex);
+      command.add(shortFastq.getPath());
+      command.add(outFile);
 
       sLogger.info("Running bowtie to align the reads:" + command);
-      ShellUtil.execute(command, "bowtie", sLogger);
+      if (ShellUtil.execute(command, null, "bowtie", sLogger) == 0) {
+        result.success = true;
+      }
       shortFastq.delete();
     }
 
