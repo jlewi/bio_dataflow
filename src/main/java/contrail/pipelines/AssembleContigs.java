@@ -190,33 +190,28 @@ public class AssembleContigs extends Stage {
       }
 
       latestPath = stageOutput;
-      // We compute graph stats for each stage except the conversion
-      // of Fastq files to Avro and BuildGraph.
-      if (FastqPreprocessorAvroCompressed.class.isInstance(stage) ||
-          BuildGraphAvro.class.isInstance(stage) ||
-          GraphToFasta.class.isInstance(stage)) {
-        continue;
-      }
+      // We compute graph stats only after the CompressAndCorrectStage
+      if (CompressAndCorrect.class.isInstance(stage)){
+        // TODO(jlewi): It would probably be better to continue running the
+        // pipeline and not blocking on GraphStats.
+        GraphStats statsStage = new GraphStats();
+        statsStage.setConf(getConf());
+        String statsOutput = new Path(
+            outputPath,
+            String.format("%sStats", stage.getClass().getName())).toString();
+        Map<String, Object> statsParameters = new HashMap<String, Object>();
+        statsParameters.put("inputpath", stageOutput);
+        statsParameters.put("outputpath", statsOutput);
+        statsStage.setParameters(statsParameters);
 
-      // TODO(jlewi): It would probably be better to continue running the
-      // pipeline and not blocking on GraphStats.
-      GraphStats statsStage = new GraphStats();
-      statsStage.setConf(getConf());
-      String statsOutput = new Path(
-          outputPath,
-          String.format("%sStats", stage.getClass().getName())).toString();
-      Map<String, Object> statsParameters = new HashMap<String, Object>();
-      statsParameters.put("inputpath", stageOutput);
-      statsParameters.put("outputpath", statsOutput);
-      statsStage.setParameters(statsParameters);
+        RunningJob statsJob = runAndLogStage(stageInfo, statsStage);
 
-      RunningJob statsJob = runAndLogStage(stageInfo, statsStage);
-
-      if (!statsJob.isSuccessful()) {
-        throw new RuntimeException(
-            String.format(
-                "Computing stats for Stage %s had a problem",
-                stage.getClass().getName()));
+        if (!statsJob.isSuccessful()) {
+          throw new RuntimeException(
+              String.format(
+                  "Computing stats for Stage %s had a problem",
+                  stage.getClass().getName()));
+        }
       }
     }
   }

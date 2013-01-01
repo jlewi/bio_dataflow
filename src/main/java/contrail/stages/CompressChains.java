@@ -20,6 +20,7 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 import org.apache.hadoop.conf.Configuration;
@@ -64,6 +65,13 @@ public class CompressChains extends Stage {
   // the graph was compressible. If the graph wasn't compressible then
   // this will just ge the input.
   private String finalGraphPath;
+
+  // Seeds to use if any for pairmark avro.
+  private ArrayList<Integer> seeds;
+
+  public CompressChains() {
+    seeds = new ArrayList<Integer>();
+  }
 
   /**
    * Utility function for logging a message when starting a job.
@@ -254,6 +262,10 @@ public class CompressChains extends Stage {
           mark_options.put("outputpath", marked_graph_path);
 
           Long seed = (long)(rand*10000000);
+          if (stage -1 < seeds.size()) {
+            seed = seeds.get(stage -1).longValue();
+          }
+
           mark_options.put("randseed", seed);
           pmark.setParameters(mark_options);
           RunningJob job = pmark.runJob();
@@ -369,8 +381,15 @@ public class CompressChains extends Stage {
             "intermediate output directories.",
             Boolean.class, new Integer(0));
 
+    ParameterDefinition seeds =
+        new ParameterDefinition("seeds",
+            "(optional) a comma separated list of seeds to use for the " +
+            "random number generator in pairmark. This is useful mainly " +
+            "for debugging to repeat a previous run to see what happened.",
+            String.class, null);
+
     for (ParameterDefinition def:
-      new ParameterDefinition[] {localnodes, resume, stage_num}) {
+      new ParameterDefinition[] {localnodes, resume, stage_num, seeds}) {
       definitions.put(def.getName(), def);
     }
 
@@ -380,10 +399,37 @@ public class CompressChains extends Stage {
     return Collections.unmodifiableMap(definitions);
   }
 
+  /**
+   * Check if the seeds were passed in and if they were make sure they are
+   * unique.
+   */
+  private void cheackAndParseSeeds() {
+    if (!stage_options.containsKey("seeds")) {
+      sLogger.info(
+          "No seeds provided. Seeds will be automatically generated.");
+      return;
+    }
+    String seedsString = (String) stage_options.get("seeds");
+    String[] seedsArray = seedsString.split(",");
+
+    HashSet<Integer> uniqueSeeds = new HashSet<Integer>();
+
+    for (String someSeed : seedsArray) {
+      seeds.add(Integer.parseInt(someSeed));
+      if (uniqueSeeds.contains(seeds.get(seeds.size() - 1))) {
+        sLogger.fatal(
+            "The seeds aren't unique. The seed:" + someSeed + " appears " +
+            "multiple times.", new RuntimeException("Duplicate seeds"));
+        System.exit(-1);
+      }
+    }
+  }
+
   @Override
   public RunningJob runJob() throws Exception {
     String[] required_args = {"inputpath", "outputpath", "localnodes", "K"};
     checkHasParametersOrDie(required_args);
+    cheackAndParseSeeds();
 
     String input_path = (String) stage_options.get("inputpath");
     String output_path = (String) stage_options.get("outputpath");
