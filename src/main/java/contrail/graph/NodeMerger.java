@@ -125,7 +125,7 @@ public class NodeMerger {
 
     Sequence mergedSequence = new Sequence(DNAAlphabetFactory.create(), length);
 
-    // Keep track of the forward and reverse offsets.
+    // Keep track of the forward offset.
     int forwardOffset = 0;
     for (EdgeTerminal terminal : chain) {
       GraphNode node = nodes.get(terminal.nodeId);
