@@ -34,8 +34,6 @@ import contrail.graph.NodeMerger;
 import contrail.graph.NodeReverser;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAStrandUtil;
-import contrail.sequences.StrandsForEdge;
-import contrail.sequences.StrandsUtil;
 import contrail.stages.GraphCounters.CounterName;
 
 /**
@@ -101,6 +99,7 @@ public class PairMergeAvro extends Stage {
     private int K;
     private NodeReverser node_reverser;
     private CompressibleNodeData output;
+    private NodeMerger nodeMerger;
     public void configure(JobConf job) {
       PairMergeAvro stage = new PairMergeAvro();
       Map<String, ParameterDefinition> definitions =
@@ -108,6 +107,7 @@ public class PairMergeAvro extends Stage {
       K = (Integer)(definitions.get("K")).parseJobConf(job);
       node_reverser = new NodeReverser();
       output = new CompressibleNodeData();
+      nodeMerger = new NodeMerger();
     }
 
     /**
@@ -175,35 +175,32 @@ public class PairMergeAvro extends Stage {
      *   to the merged strands of each node.
      */
     protected GraphNode mergeChain(Chain chain) {
-      GraphNode node = new GraphNode();
-      // Merge the nodes sequentially.
-      GraphNode merged_node = new GraphNode(chain.get(0).node.getNode());
-      DNAStrand merged_strand = chain.get(0).merge_strand;
-      for (int pos = 0; pos < chain.size() - 1; pos++) {
-        node.setData(chain.get(pos + 1).node.getNode());
-        StrandsForEdge strands_for_merge = StrandsUtil.form(
-            merged_strand, chain.get(pos + 1).merge_strand);
-        NodeMerger.MergeResult result = NodeMerger.mergeNodes(
-            merged_node, node, strands_for_merge, K - 1);
-
-        merged_node = result.node;
-        merged_strand = result.strand;
+      ArrayList<EdgeTerminal> terminalChain = new ArrayList<EdgeTerminal>();
+      HashMap<String, GraphNode> nodes = new HashMap<String, GraphNode>();
+      for (int pos =0; pos < chain.size(); ++pos) {
+        ChainLink link = chain.get(pos);
+        String nodeId = link.node.getNode().getNodeId().toString();
+        terminalChain.add(new EdgeTerminal(nodeId, link.merge_strand));
+        nodes.put(nodeId, new GraphNode(link.node.getNode()));
       }
 
-      String down_node_id =
+      String downNodeId =
           chain.get(chain.down_index).node.getNode().getNodeId().toString();
-      merged_node.setNodeId(down_node_id);
+      NodeMerger.MergeResult result = nodeMerger.mergeNodes(
+          downNodeId, terminalChain, nodes, K - 1);
 
       // We need the sequence stored in the node to represent the sequence
       // corresponding to the down node. So we check if the merged_strand
       // corresponds to the strand of the down_node that was merged.
       // If not we reverse the node.
-      DNAStrand down_merged_strand = chain.get(chain.down_index).merge_strand;
-      if (merged_strand != down_merged_strand) {
-        merged_node = node_reverser.reverse(merged_node);
+      DNAStrand downMergedStrand = chain.get(chain.down_index).merge_strand;
+
+      GraphNode mergedNode = result.node;
+      if (result.strand != downMergedStrand) {
+        mergedNode = node_reverser.reverse(mergedNode);
       }
 
-      return merged_node;
+      return mergedNode;
     }
 
     /**
