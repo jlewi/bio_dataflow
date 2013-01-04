@@ -51,7 +51,7 @@
              "DNAStrand tells us which strand of this node corresponds to ",
              "the read. The offset is the position in the sequence aligned ",
              "with the start of the read. It is always relative to the sequence ",
-             "stored in the node. So if strand for the tag is REVRSE  then ",
+             "stored in the node. So if strand for the tag is REVERSE  then ",
              "you need to flip the offset in order to get the start position ",
              "in the reverse strand."],
      "fields": [

@@ -107,21 +107,6 @@ public class NodeMerger {
   }
 
   /**
-   * Check the two nodes overlap.
-   * @param src
-   * @param dest
-   * @param nodes
-   * @param overlap
-   * @return
-   */
-  private boolean checkOverlap(
-      Sequence src, Sequence dest, int overlap) {
-    Sequence srcSuffix = src.subSequence(src.size() - overlap, src.size());
-    Sequence destPrefix = dest.subSequence(0, overlap);
-    return srcSuffix.equals(destPrefix);
-  }
-
-  /**
    * Merge the sequences.
    *
    */
@@ -140,44 +125,34 @@ public class NodeMerger {
 
     Sequence mergedSequence = new Sequence(DNAAlphabetFactory.create(), length);
 
-    boolean isFirst = true;
-
-    // Keep track of the sequences to be merged.
-    Sequence lastSequence = null;
-    Sequence currentSequence = null;
-
-    // Keep track of the forward and reverse offsets.
+    // Keep track of the forward offset.
     int forwardOffset = 0;
     for (EdgeTerminal terminal : chain) {
-      currentSequence = nodes.get(terminal.nodeId).getSequence();
-      currentSequence = DNAUtil.sequenceToDir(currentSequence, terminal.strand);
+      GraphNode node = nodes.get(terminal.nodeId);
+      // Align and truncate the sequence.
+      Sequence nonOverlap = node.getSequence();
+      nonOverlap = DNAUtil.sequenceToDir(nonOverlap, terminal.strand);
 
-      Sequence nonOverlap = currentSequence;
-      if (!isFirst) {
+      if (mergedSequence.size() > 0) {
         // Check we overlap with the previous sequence.
-        if (!checkOverlap(lastSequence, currentSequence, overlap)) {
+        if (!GraphUtil.checkOverlap(mergedSequence, nonOverlap, overlap)) {
           throw new RuntimeException(
               "Can't merge nodes. Sequences don't overlap by: " + overlap + " " +
               "bases.");
         }
 
         // For all but the first node we truncate the first overlap bases
-        // because we only want to add them once.
-        nonOverlap = nonOverlap.subSequence(overlap, currentSequence.size());
-      } else {
-        isFirst = false;
+        // because these bases overlap with the suffix of mergedSequence.
+        nonOverlap = nonOverlap.subSequence(overlap, nonOverlap.size());
       }
       mergedSequence.add(nonOverlap);
-      // We can't simply use nonOverlap because nonOverlap might be less than
-      // K-1;
-      lastSequence = currentSequence;
 
       // Align the R5Tags.
-      List<R5Tag> tags = nodes.get(terminal.nodeId).getData().getR5Tags();
+      List<R5Tag> tags = node.getData().getR5Tags();
       tags = copyR5Tags(tags);
       if (terminal.strand == DNAStrand.REVERSE) {
         // Reverse the tags.
-        reverseReads(tags, nodes.get(terminal.nodeId).getSequence().size());
+        reverseReads(tags, node.getSequence().size());
       }
       // Now we need to shift the offset to account for the joined sequences.
       // The offset is also the position of the base in the sequence that
@@ -189,7 +164,7 @@ public class NodeMerger {
       allTags.addAll(tags);
 
       // Increment the offsets.
-      forwardOffset += currentSequence.size() - overlap;
+      forwardOffset += node.getSequence().size() - overlap;
     }
 
     return mergedSequence;
@@ -236,7 +211,6 @@ public class NodeMerger {
     // Which strand the merged sequence corresponds to.
     public DNAStrand strand;
   }
-
 
   /**
    * Merge a bunch of nodes into a new node.
@@ -341,13 +315,9 @@ public class NodeMerger {
           ContrailConfig.MAXTHREADREADS);
     }
 
-    // TODO(jeremy@lewi.us) We need to copy and align all the R5Tags from
-    // the nodes being merged to the new node.
-
     MergeResult result = new MergeResult();
     result.node = newNode;
     result.strand = mergedStrand;
     return result;
-
   }
 }
