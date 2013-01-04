@@ -41,6 +41,21 @@ import contrail.sequences.Sequence;
  */
 public class GraphUtil {
   /**
+   * Check the suffix of src is a prefix of dest.
+   * @param src
+   * @param dest
+   * @param nodes
+   * @param overlap
+   * @return
+   */
+  public static boolean checkOverlap(
+      Sequence src, Sequence dest, int overlap) {
+    Sequence srcSuffix = src.subSequence(src.size() - overlap, src.size());
+    Sequence destPrefix = dest.subSequence(0, overlap);
+    return srcSuffix.equals(destPrefix);
+  }
+
+  /**
    * Order strings lexicographically and return the largest id.
    *
    * @param id1

@@ -388,7 +388,8 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
       // rather than representing all instances of the same KMer using a single
       // node.
       int K = generator.nextInt(20) + 3;
-      int length = generator.nextInt(100) + K;
+      // The length must be at least K + 1 so we have at least two nodes.
+      int length = generator.nextInt(100) + 1 + K;
       String full_sequence = AlphabetUtil.randomString(
           generator, length, DNAAlphabetFactory.create());
 
@@ -486,7 +487,7 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
     // RC(y)->d, and RC(y)->RC(a)  in this case we can't merge RC(y) with d.
     // Lets test case 1 where d = RC(A)
     // e.g: ATCGAT with K = 3 gives rise to
-    // ATC->TCG->CGA->GAT
+    // ATC->TCG->CGA->GATDownload raw patch set |
     // ATG = RC(GAT)
     // TCG = RC(CGA)
     final int K = 3;
