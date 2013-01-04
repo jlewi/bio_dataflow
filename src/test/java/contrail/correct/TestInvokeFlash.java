@@ -40,7 +40,7 @@ import contrail.util.FileHelper;
  * the flash binary. Running this manually is better than hard coding the path
  * of the flash binary which might not work
  */
-public class TestFlashExtension {
+public class TestInvokeFlash {
 
   //5 records - added a \ at 27:212, 22:239 & 27:226 because of presence of "
   private String joinedFastq = 
@@ -188,7 +188,7 @@ public class TestFlashExtension {
     if(args.length!=1 || !args[0].contains("--flash_binary=")){
       throw new IOException("Specify --flash_binary parameter only\nArgument Example: --flash_binary=/path/to/flash/binary");
     }
-    TestFlashExtension tester = new TestFlashExtension();
+    TestInvokeFlash tester = new TestInvokeFlash();
     tester.flashBinaryPath = args[0].substring(args[0].indexOf('=')+1);
     if(tester.flashBinaryPath.trim().length() == 0){
       throw new IOException("Specify --flash_binary parameter only\nArgument Example: --flash_binary=/path/to/flash/binary");
