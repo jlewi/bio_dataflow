@@ -65,9 +65,10 @@ public class InvokeFlash extends Stage {
     private String flashHome = null;
     private String tempWritableFolder = null;
     private String blockFolder;
+    private String notCombinedPath;
     private String jobName;
-    private ArrayList<String> fastqRecordsMateLeft;
-    private ArrayList<String> fastqRecordsMateRight;
+    private ArrayList<String> fastqRecordsMate1;
+    private ArrayList<String> fastqRecordsMate2;
     private int count;
     private CorrectUtil correctUtil;
     private AvroCollector<FastQRecord> outputCollector;
@@ -76,16 +77,23 @@ public class InvokeFlash extends Stage {
     public void configure(JobConf job) {
       jobName = job.get("mapred.task.id");
       tempWritableFolder = FileHelper.createLocalTempDir().getAbsolutePath();
+      System.out.println("The temp writable folder is: "+ tempWritableFolder);
       //Initialise empty array lists
-      fastqRecordsMateLeft = new ArrayList<String>();
-      fastqRecordsMateRight = new ArrayList<String>();
+      fastqRecordsMate1 = new ArrayList<String>();
+      fastqRecordsMate2 = new ArrayList<String>();
       count = 0;
       outputCollector = null;
       correctUtil = new CorrectUtil();
       flashHome = correctUtil.getDcachePath("flash", job);
+      System.out.println("flashHome is"+flashHome);
       InvokeFlash stage = new InvokeFlash();
       Map<String, ParameterDefinition> definitions = stage.getParameterDefinitions();
       blockSize = (Integer)(definitions.get("block_size").parseJobConf(job));
+      System.out.println("The blockSize is: "+ blockSize);
+     // System.out.println("notcombinedpath is: "+ notCombinedPath);
+      notCombinedPath = (String)(definitions.get("flash_notcombined").parseJobConf(job));
+      System.out.println("notcombinedpath is: "+ notCombinedPath);
+      
       sLogger.info("Flash Home: " + flashHome); 
   }
   
@@ -95,9 +103,11 @@ public class InvokeFlash extends Stage {
       outputCollector = collector;
     }
     count++;
-    correctUtil.addMateToArrayLists(mateRecord, fastqRecordsMateLeft, fastqRecordsMateRight);
+    
+    correctUtil.addMateToArrayLists(mateRecord, fastqRecordsMate1, fastqRecordsMate2);
     // Time to process one block
     if(count ==blockSize){
+      System.out.println("Time to Process one Block");
       runFlashOnInMemoryReads(collector);
       count = 0;
     }
@@ -109,6 +119,8 @@ public class InvokeFlash extends Stage {
    * @throws IOException
    */
   private void runFlashOnInMemoryReads(AvroCollector<FastQRecord> collector)throws IOException {
+    
+    System.out.println("In FlashOnInMemoryReads function");
     String filePathFq1;
     String filePathFq2;
     //gets the current timestamp in nanoseconds
@@ -121,28 +133,77 @@ public class InvokeFlash extends Stage {
     // During cleanup, we can delete the blockFolder directly
      
     blockFolder = jobName+time;
+    
     localOutFolderPath = new File(tempWritableFolder,blockFolder).getAbsolutePath();
     File tempFile = new File(localOutFolderPath);
     if(!tempFile.exists()){
       tempFile.mkdir();
     }
+    
     filePathFq1 = new File(localOutFolderPath,time + "_1.fq").getAbsolutePath();
     filePathFq2 = new File(localOutFolderPath,time + "_2.fq").getAbsolutePath();
-    correctUtil.writeLocalFile(fastqRecordsMateLeft,filePathFq1); 
-    correctUtil.writeLocalFile(fastqRecordsMateRight,filePathFq2); 
-    fastqRecordsMateLeft.clear();
-    fastqRecordsMateRight.clear();
-    String command = flashHome + " " + filePathFq1 +" "+filePathFq2 + " -d "+ localOutFolderPath;
+    
+    correctUtil.writeLocalFile(fastqRecordsMate1,filePathFq1); 
+    correctUtil.writeLocalFile(fastqRecordsMate2,filePathFq2); 
+    
+    
+    fastqRecordsMate1.clear();
+    fastqRecordsMate2.clear();
+    
+    
+    
+    String command = flashHome+" "+filePathFq1+" "+filePathFq2 + " -d "+ localOutFolderPath;
+    
+    
+    System.out.println("Command Getting Executed For Flash: ");
+    System.out.println(command);
     correctUtil.executeCommand(command);
+    
+    
+    
     String combinedFilePath = localOutFolderPath + "/out.extendedFrags.fastq";	
+      
+    String notCombined_1_String = localOutFolderPath+"/out.notCombined_1.fastq";
+    System.out.println("notCombined_1 is: "+ notCombined_1_String);
+   
+    String notCombined_2_String= localOutFolderPath+"/out.notCombined_2.fastq";
+    System.out.println("notCombined_2 is: "+ notCombined_2_String);
+    
+    
+    
+    File test1 = new File(notCombined_2_String);
+    File test2 = new File(combinedFilePath);
+    File test3 = new File(notCombined_2_String);
+    
+    File test4 = new File(filePathFq2);
+    File test5 = new File(filePathFq1);
+    
+    System.out.println(test4.length() +"and the other guy's length is:"+ test5.length());
+    
+    if (test4.exists())
+      System.out.println("First fastq block file is getting created");
+    
+    System.out.println("File Existence Check!");
+    
+    if (test1.exists() || test2.exists() || test3.exists())
+      System.out.println("|" + test1.exists() + "exists or not" + test2.exists() + "exists or not-" + test3.exists());
+       
+    Configuration conf = new Configuration();
+    FileSystem hdfs = FileSystem.get(conf);
 
-    // collecting results of extended and not combined files
-    correctUtil.emitFastqFileToHDFS(new File(combinedFilePath), collector);
-    String notCombinedLeft = localOutFolderPath + "/out.notCombined_1.fastq";
-    correctUtil.emitFastqFileToHDFS(new File(notCombinedLeft), collector);
-    String notCombinedRight = localOutFolderPath + "/out.notCombined_2.fastq";
-    correctUtil.emitFastqFileToHDFS(new File(notCombinedRight), collector);
-
+    tempFile = new File(combinedFilePath);
+    
+    File combinedFile = new File(combinedFilePath);
+    File notCombined_1 = new File(notCombined_1_String);
+    // collecting results of extended file
+    //correctUtil.emitFastqFileToHDFS(combinedFile, collector);
+    correctUtil.emitFastqFileToHDFS(notCombined_1, collector);
+    // copy the two not combined files to HDFS. We do this after we have collected the combined reads,
+    // so that if the Mapper fails before this point, we don't copy the not combined files unnecessarily.
+    
+    hdfs.copyFromLocalFile(new Path(notCombined_1_String), new Path(notCombinedPath,blockFolder+"_1.fq"));
+    hdfs.copyFromLocalFile(new Path(notCombined_2_String), new Path(notCombinedPath,blockFolder+"_2.fq"));
+    
     // Cleaning up the block Folder. The results of the extended file have been collected.
     tempFile = new File(localOutFolderPath);
     if(tempFile.exists()){
@@ -155,43 +216,62 @@ public class InvokeFlash extends Stage {
    */
   public void close() throws IOException{
     if(count > 0){
+      
+      System.out.println("From Close Function()");
       runFlashOnInMemoryReads(outputCollector);
     }
     //delete the top level directory, and everything beneath
     File tempFile = new File(tempWritableFolder);
+    /*
     if(tempFile.exists()){
-    	FileUtils.deleteDirectory(tempFile);
-    }
+    	FileUtils.deleteDirectory(tempFile);    
+    }*/
   }
 }
 	
   /* creates the custom definitions that we need for this phase*/
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
+    
     HashMap<String, ParameterDefinition> defs = new HashMap<String, ParameterDefinition>();
     defs.putAll(super.createParameterDefinitions());
+    
+    ParameterDefinition notCombinedFlash = new ParameterDefinition(
+    "flash_notcombined", "HDFS path of reads not combined by flash", String.class, new String(""));
+    
     ParameterDefinition flashBinary = new ParameterDefinition(
     "flash_binary", "The path of flash binary ", String.class, new String(""));
+    
     ParameterDefinition blockSize = new ParameterDefinition(
         "block_size", "block_size number of records are" + 
         " written to local files at a time.", Integer.class, new Integer(10000));
-    for (ParameterDefinition def: new ParameterDefinition[] {flashBinary, blockSize}) {
+    
+    for (ParameterDefinition def: new ParameterDefinition[] {flashBinary, blockSize, notCombinedFlash}) {
       defs.put(def.getName(), def);
     }
+    
     for (ParameterDefinition def: ContrailParameters.getInputOutputPathOptions()) {
       defs.put(def.getName(), def);
     }
+    
     return Collections.unmodifiableMap(defs);
   }
 
   public RunningJob runJob() throws Exception {
     JobConf conf = new JobConf(InvokeFlash.class);
     conf.setJobName("Flash invocation");
+    String[] required_args = {"inputpath", "outputpath","flash_binary","flash_notcombined"};
+    checkHasParametersOrDie(required_args);   
     String inputPath = (String) stage_options.get("inputpath");
-    String outputPath = (String) stage_options.get("outputpath");
+    String outputPath = (String) stage_options.get("outputpath");    
     String flashPath = (String) stage_options.get("flash_binary");   
-    if (flashPath.length() == 0) {
-      throw new Exception("Flash binary location required");
+    String notCombinedPath = (String) stage_options.get("flash_notcombined");
+    
+    /*
+    if (flashPath.length() == 0 || notCombinedPath.length() == 0) {
+      throw new Exception("Flash binary location not given, or path for uncombined reads not given");
     }
+    */
+    
     DistributedCache.addCacheFile(new Path(flashPath).toUri(),conf);
     //Sets the parameters in JobConf
     initializeJobConfiguration(conf);
@@ -207,11 +287,21 @@ public class InvokeFlash extends Stage {
     //Map Only Job
     conf.setNumReduceTasks(0);
     
+    FileSystem hdfs = FileSystem.get(conf);
+    
+    
+    
     // Delete the output directory if it exists already
     Path out_path = new Path(outputPath);
-    if (FileSystem.get(conf).exists(out_path)) {
-      FileSystem.get(conf).delete(out_path, true);  
+    if (hdfs.exists(out_path)) {
+      hdfs.delete(out_path, true);  
     }	    
+    
+    if (hdfs.exists(new Path(notCombinedPath))) {
+      hdfs.delete(new Path(notCombinedPath), true);
+    }
+    
+    hdfs.mkdirs(new Path(notCombinedPath));
     
     long starttime = System.currentTimeMillis();            
     RunningJob result = JobClient.runJob(conf);

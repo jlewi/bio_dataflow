@@ -150,7 +150,7 @@ public class KmerCounter extends Stage {
     schemas.add(new FastQRecord().getSchema());
     schemas.add(new MatePair().getSchema());
     Schema unionSchema = Schema.createUnion(schemas);
-    FileInputFormat.setInputPaths(conf, inputPath);
+    FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
     AvroJob.setInputSchema(conf, unionSchema);
     AvroJob.setOutputSchema(conf, new Pair<CharSequence,Long>("", 0L).getSchema());
