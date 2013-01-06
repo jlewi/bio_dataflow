@@ -11,14 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-// Author: Jeremy Lewi (jeremy@lewi.us)
+// Author: Jeremy Lewi (jeremy@lewi.us), Serge Koren(sergekoren@gmail.com)
 package contrail.scaffolding;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -33,6 +32,7 @@ import org.apache.log4j.Logger;
 import contrail.sequences.FastQFileReader;
 import contrail.sequences.FastQRecord;
 import contrail.sequences.FastUtil;
+import contrail.util.ShellUtil;
 
 /**
  * This class is used to run the bowtie short read aligner.
@@ -68,9 +68,11 @@ public class BowtieRunner {
   public boolean bowtieBuildIndex(
       Collection<String> contigFiles, String outDir, String outBase) {
     String fileList = StringUtils.join(contigFiles, ",");
-    String command = String.format(
-        "%s %s %s", bowtieBuildPath, fileList,
-        new File(outDir, outBase).getAbsolutePath());
+    ArrayList<String> commandArgs = new ArrayList<String>();
+    commandArgs.add(bowtieBuildPath);
+    commandArgs.add(fileList);
+    commandArgs.add(new File(outDir, outBase).getAbsolutePath());
+
     boolean success = false;
 
     File outDirFile = new File(outDir);
@@ -89,41 +91,8 @@ public class BowtieRunner {
           "Directory to store the bowtie index already exists: " + outDir);
     }
 
-    try {
-      sLogger.info("Running bowtie to build index:" + command);
-      Process p = Runtime.getRuntime().exec(command);
-
-      BufferedReader stdInput = new BufferedReader(
-          new InputStreamReader(p.getInputStream()));
-
-      BufferedReader stdError = new BufferedReader(
-          new InputStreamReader(p.getErrorStream()));
-
-      p.waitFor();
-      String line;
-      while ((line = stdInput.readLine()) != null) {
-        sLogger.info("bowtie-build: " + line);
-      }
-      while ((line = stdError.readLine()) != null) {
-        sLogger.error("bowtie-build: " + line);
-      }
-
-      sLogger.info("bowtie-build: Exit Value: " + p.exitValue());
-      if (p.exitValue() == 0) {
-        success = true;
-      } else {
-        sLogger.error("bowtie-build failed command was: " + command);
-        success = false;
-      }
-
-    } catch (IOException e) {
-      throw new RuntimeException(
-          "There was a problem executing bowtie. The command was:\n" +
-              command + "\n. The Exception was:\n" + e.getMessage());
-    } catch (InterruptedException e) {
-      throw new RuntimeException(
-          "Bowtie execution was interupted. The command was:\n" +
-              command + "\n. The Exception was:\n" + e.getMessage());
+    if (ShellUtil.execute(commandArgs, null, "bowtie", sLogger) == 0) {
+      success = true;
     }
     return success;
   }
@@ -240,49 +209,26 @@ public class BowtieRunner {
 
       outputs.add(outFile);
       result.outputs.put(fastqFile, outFile);
-      String command = String.format(
-          "%s -v 1 -M 2  %s %s %s", bowtiePath, bowtieIndex,
-          shortFastq.getPath(), outFile);
+      ArrayList<String> command = new ArrayList<String>();
+      command.add(bowtiePath);
+      // For a description of bowtie options see
+      // http://bowtie-bio.sourceforge.net/manual.shtml#output.
+      // The -v # option means alignments can have no more than # mismatches
+      // and causes quality values to be ignored.
+      command.add("-v");
+      command.add("1");
+      // The -M # means that if a read has more than # reportable alignments
+      // then one alignment is reported at random.
+      command.add("-M");
+      command.add("2");
+      command.add(bowtieIndex);
+      command.add(shortFastq.getPath());
+      command.add(outFile);
 
-      // TODO(jeremy@lewi.us) use one of the functions in ShellUtil.
-      try {
-        sLogger.info("Running bowtie to align the reads:" + command);
-        Process p = Runtime.getRuntime().exec(command);
-
-        BufferedReader stdInput = new BufferedReader(
-            new InputStreamReader(p.getInputStream()));
-
-        BufferedReader stdError = new BufferedReader(
-            new InputStreamReader(p.getErrorStream()));
-
-        p.waitFor();
-        String line;
-        while ((line = stdInput.readLine()) != null) {
-          sLogger.info("bowtie: " + line);
-        }
-        while ((line = stdError.readLine()) != null) {
-          // bowtie appears to write non error messages to the error stream so we use info
-          // to log the contents of the error stream.
-          sLogger.info("bowtie: " + line);
-        }
-
-        sLogger.info("bowtie: Exit Value: " + p.exitValue());
-        if (p.exitValue() == 0) {
-          result.success = true;
-        } else {
-          sLogger.error("bowtie-build failed command was: " + command);
-        }
-
-      } catch (IOException e) {
-        throw new RuntimeException(
-            "There was a problem executing bowtie. The command was:\n" +
-                command + "\n. The Exception was:\n" + e.getMessage());
-      } catch (InterruptedException e) {
-        throw new RuntimeException(
-            "Bowtie execution was interupted. The command was:\n" +
-                command + "\n. The Exception was:\n" + e.getMessage());
+      sLogger.info("Running bowtie to align the reads:" + command);
+      if (ShellUtil.execute(command, null, "bowtie", sLogger) == 0) {
+        result.success = true;
       }
-
       shortFastq.delete();
     }
 
@@ -357,62 +303,60 @@ public class BowtieRunner {
               "Read " + counter + " mapping records from " + baseName);
         }
 
+        // For the description of the bowtie output see:
+        // http://bowtie-bio.sourceforge.net/manual.shtml#default-bowtie-output
+        //
+        // Split the string based on whitespace. "\s" matches a whitespace
+        // character and the + modifier causes it to be matched one or more
+        // times. An extra "\" is needed to escape the "\s".
+        // For more info:
+        // http://docs.oracle.com/javase/tutorial/essential/regex/
         String[] splitLine = line.trim().split("\\s+");
         MappingInfo m = new MappingInfo();
 
-        int position = 1;
-        // skip crud
-        // The first field in the output is the name of the read that was
-        // aligned. The second field is a + or - indicating which strand
-        // the read aligned to. We identify the position of the +/- in
-        // the split line and use this to determine the mapping of output
-        // fields to indexes in splitLine.
-        while (!splitLine[position].equalsIgnoreCase("+") &&
-            !splitLine[position].equalsIgnoreCase("-")) {
-          position++;
+        // The line should have at least 5 fields.
+        if (splitLine.length <5) {
+          sLogger.fatal(
+              "Line in the bowtie output file had less than 5 fields:" + line,
+              new RuntimeException("Parse Error"));
+          System.exit(-1);
         }
 
-        String readID = splitLine[position - 1];
-        String strand = splitLine[position];
-        String contigID = splitLine[position + 1];
-
+        // The first field in the output is the name of the read that was
+        // aligned. The second field is a + or - indicating which strand
+        // the read aligned to.
+        String readID = splitLine[0];
+        String strand = splitLine[1];
+        String contigID = splitLine[2];
         // 0-based offset into the forward reference strand where leftmost
         // character of the alignment occurs.
-        String forwardOffset = splitLine[position + 2];
-        String readSequence = splitLine[position + 3];
+        String forwardOffset = splitLine[3];
+        String readSequence = splitLine[4];
 
         // isFWD indicates the read was aligned to the forward strand of
         // the reference genome.
         Boolean isFwd = null;
-        if (strand.contains("-")) {
+        if (strand.equals("-")) {
           isFwd = false;
-        } else if (strand.contains("+")) {
+        } else if (strand.equals("+")) {
           isFwd = true;
         } else {
           throw new RuntimeException("Couldn't parse the alignment strand");
         }
 
-        // The first field in the output is the readId. We prefix this
-        // with information about which file the read came from.
-        //
         // TODO(jeremy@lewi.us): It looks like the original code prefixed
-        // the read id's with the library name. We need to figure out if
-        // thats a requirement and if so figure out how to deal with it.
-        //m.readID = libraryName + readID.replaceAll("/", "_");
-        // TODO(jeremy@lewi.us): We don't prefix the read with the library
+        // the read id's with the library name.
+        // We don't prefix the read with the library
         // name because we think that's more likely to cause problems because
         // the read ids would need to be changed consistently everywhere.
-        //m.readID = readID.replaceAll("/", "_");
         m.readID = readID;
         m.start = 1;
         // TODO(jeremy@lewi.us): Need to check whether the length should be
         // zero based or 1 based. The original code set this to SUB_LEN
         // which was the length of the truncated reads which were aligned.
-        //m.end = readSequence.length();
-        // TODO(jerem@lewi.US): Do we have to pass in SUB_LEN or can we determine
-        // it from the output.
+        // TODO(jerem@lewi.us): Do we have to pass in SUB_LEN or can we
+        // determine it from the output.
         m.end = subLen;
-
 
         m.contigStart = Integer.parseInt(forwardOffset);
         if (isFwd) {
