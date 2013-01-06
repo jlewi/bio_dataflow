@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-// Author: Jeremy Lewi (jeremy@lewi.us)
+// Author: Jeremy Lewi (jeremy@lewi.us), Serge Koren(sergekoren@gmail.com)
 package contrail.scaffolding;
 
 import java.io.BufferedReader;
@@ -73,6 +73,25 @@ public class BuildBambusInput extends Stage {
   }
 
   /**
+   * Store the minimum and maximum size for inserts in a library.
+   */
+  private static class LibrarySize {
+    final public int minimum;
+    final public int maximum;
+    private int libSize;
+
+    public LibrarySize(int first, int second) {
+      minimum = Math.min(first, second);
+      maximum = Math.max(first, second);
+      libSize = maximum - minimum + 1;
+    }
+
+    public int size() {
+      return libSize;
+    }
+  }
+
+  /**
    * Outputs a contig record in tigr format.
    *
    * tigr format includes the contig and information about how reads align
@@ -97,13 +116,13 @@ public class BuildBambusInput extends Stage {
   // libSizes stores the sizes for each read library. The key is the
   // prefix of the FastQ files for that library. The value is a pair
   // which stores the lower and uppoer bound for the library size.
-  private HashMap<String, Utils.Pair> libSizes;
+  private HashMap<String, LibrarySize> libSizes;
 
   /**
    * Parse the library file and extract the library sizes.
    */
   private void parseLibSizes(String libFile) throws Exception {
-    libSizes = new HashMap<String, Utils.Pair>();
+    libSizes = new HashMap<String, LibrarySize>();
     BufferedReader libSizeFile =
         new BufferedReader(new FileReader(new File(libFile)));
     String libLine = null;
@@ -111,7 +130,7 @@ public class BuildBambusInput extends Stage {
       String[] splitLine = libLine.trim().split("\\s+");
       libSizes.put(
           splitLine[0],
-          new Utils.Pair(
+          new LibrarySize(
               Integer.parseInt(splitLine[1]),
               Integer.parseInt(splitLine[2])));
     }
@@ -305,8 +324,8 @@ public class BuildBambusInput extends Stage {
             new RuntimeException("No library sizes for libray:" + libName));
       }
       libOut.println(
-          "library " + libName + " " + libSizes.get(libName).first + " " +
-          (int)libSizes.get(libName).second);
+          "library " + libName + " " + libSizes.get(libName).minimum + " " +
+          libSizes.get(libName).maximum);
       ArrayList<String> left = libMates.get("left");
       ArrayList<String> right = libMates.get("right");
 
@@ -474,7 +493,6 @@ public class BuildBambusInput extends Stage {
 
       reader.close();
     }
-
     tigrOut.close();
   }
 
