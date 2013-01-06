@@ -520,6 +520,11 @@ public class TestPairMarkAvro extends PairMarkAvro {
   private ReducerTestCase reducerUpdateTest() {
     // Construct a simple reduce test case in which one edge is connected
     // to a node which gets merged. So the edge needs to be moved.
+    // The graph is:
+    //  somenode:F -> node2:R
+    //  node2:R -> node3:F
+    // node2 is the node being merged away so it sends an update message
+    // to somenode.
     ReducerTestCase test_case = new ReducerTestCase();
 
     test_case.input = new ArrayList<PairMarkOutput>();
@@ -550,10 +555,12 @@ public class TestPairMarkAvro extends PairMarkAvro {
 
     CompressibleNodeData input_data = new CompressibleNodeData();
     input_data.setNode(node.getData());
-    input_data.setCompressibleStrands(CompressibleStrands.REVERSE);
+    input_data.setCompressibleStrands(CompressibleStrands.FORWARD);
     NodeInfoForMerge input_node = new NodeInfoForMerge();
     input_node.setCompressibleNode(input_data);
-    input_node.setStrandToMerge(CompressibleStrands.REVERSE);
+
+    // This node isn't being merged.
+    input_node.setStrandToMerge(CompressibleStrands.NONE);
 
     PairMarkOutput map_output_node = new PairMarkOutput();
     map_output_node.setPayload(input_node);
@@ -570,17 +577,13 @@ public class TestPairMarkAvro extends PairMarkAvro {
     test_case.expected_output.getCompressibleNode().setNode(
         output_node.getData());
     test_case.expected_output.getCompressibleNode().setCompressibleStrands(
-        CompressibleStrands.REVERSE);
-    test_case.expected_output.setStrandToMerge(CompressibleStrands.REVERSE);
+        CompressibleStrands.FORWARD);
+    test_case.expected_output.setStrandToMerge(CompressibleStrands.NONE);
 
     return test_case;
   }
 
-  @Test
-  public void testReducer() {
-    ArrayList<ReducerTestCase> test_cases = new ArrayList<ReducerTestCase>();
-    test_cases.add(reducerNoUpdatesTest());
-    test_cases.add(reducerUpdateTest());
+  private void runReducerTests(ArrayList<ReducerTestCase> testCases) {
     PairMarkReducer reducer = new PairMarkReducer();
 
     JobConf job = new JobConf(PairMarkReducer.class);
@@ -590,7 +593,7 @@ public class TestPairMarkAvro extends PairMarkAvro {
     ReporterMock reporter_mock = new ReporterMock();
     Reporter reporter = reporter_mock;
 
-    for (ReducerTestCase test_case: test_cases) {
+    for (ReducerTestCase test_case: testCases) {
       // We need a new collector for each invocation because the
       // collector stores the outputs of the mapper.
       AvroCollectorMock<NodeInfoForMerge> collector_mock =
@@ -606,6 +609,74 @@ public class TestPairMarkAvro extends PairMarkAvro {
 
       assertReducerTestCase(test_case, collector_mock);
     }
+  }
+
+  @Test
+  public void testReducer() {
+    ArrayList<ReducerTestCase> test_cases = new ArrayList<ReducerTestCase>();
+    test_cases.add(reducerNoUpdatesTest());
+    test_cases.add(reducerUpdateTest());
+    runReducerTests(test_cases);
+  }
+
+  @Test
+  public void testReducerCycle() {
+    // This test covers an actual problem that came up with the rhodobacter
+    // dataset.
+    // Suppose we have a cycle A->B->C->A. Suppose A and B are assigned
+    // UP so they get sent to C to be merged. Then A and B will send messages
+    // to each other to move the edges to each other so they point to
+    // what will be the new merged node. However, we don't want to move these
+    // edges because it will be much easier to detect and handle the cycle
+    // in PairMerge avro where we will have access to all the ndoes.
+    // So in PairMark.Reduce when processing A we shouldn't update the
+    // edge to B.
+    ReducerTestCase testCase = new ReducerTestCase();
+
+    testCase.input = new ArrayList<PairMarkOutput>();
+    GraphNode node = new GraphNode();
+    node.setNodeId("nodeA");
+    node.setSequence(new Sequence("ACTG", DNAAlphabetFactory.create()));
+
+    // Add an incoming edge to A from node C.
+    EdgeTerminal cTerminal = new EdgeTerminal("nodeC", DNAStrand.FORWARD);
+    node.addIncomingEdge(DNAStrand.FORWARD, cTerminal);
+
+    // Add an outgoing edge to B.
+    EdgeTerminal bTerminal = new EdgeTerminal("nodeB", DNAStrand.FORWARD);
+    node.addOutgoingEdge(DNAStrand.FORWARD, bTerminal);
+
+    CompressibleNodeData compressibleNode = new CompressibleNodeData();
+    compressibleNode.setNode(node.getData());
+    compressibleNode.setCompressibleStrands(CompressibleStrands.BOTH);
+
+    NodeInfoForMerge mergeInfo = new NodeInfoForMerge();
+    mergeInfo.setCompressibleNode(compressibleNode);
+
+    // Node a would be marked for compression along its reverse strand
+    // because the compressible strand always refers to an outgoing edge.
+    mergeInfo.setStrandToMerge(CompressibleStrands.REVERSE);
+
+    PairMarkOutput aOutput = new PairMarkOutput();
+    aOutput.setPayload(mergeInfo);
+    testCase.input.add(aOutput);
+
+    // Node B sends a message to A to move the edge from A to C since
+    // B will be merged with C.
+    EdgeUpdateForMerge edgeUpdate = new EdgeUpdateForMerge();
+    edgeUpdate.setNewId(cTerminal.nodeId);
+    edgeUpdate.setNewStrand(cTerminal.strand);
+    edgeUpdate.setOldId(bTerminal.nodeId);
+    edgeUpdate.setOldStrand(bTerminal.strand);
+
+    // The expected node is just the original node because none of its edges
+    // should have been moved.
+    testCase.expected_output =
+        CompressUtil.copyNodeInfoForMerge(mergeInfo);
+
+    ArrayList<ReducerTestCase> cases = new ArrayList<ReducerTestCase>();
+    cases.add(testCase);
+    runReducerTests(cases);
   }
 
   @Test

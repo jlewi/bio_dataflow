@@ -14,7 +14,6 @@ import contrail.sequences.Sequence;
  *
  */
 public class R5TagUtil {
-
   /**
    * Return the prefix of the read that is aligned with this sequence
    * based on R5Tag. The strand in tag is always interpreted relative

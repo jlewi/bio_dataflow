@@ -459,7 +459,43 @@ public class PairMarkAvro extends Stage {
             "There is no node to output for nodeid: " + nodeid);
       }
 
+      // Suppose we have a cycle A->B->C->A. Suppose A and B are assigned
+      // UP so they get sent to C to be merged. Then A and B will send messages
+      // to each other to move the edges to each other so they point to
+      // what will be the new merged node. However, we don't want to move these
+      // edges because it will be much easier to detect and handle the cycle
+      // in PairMerge avro when we will have access to all the ndoes.
+      // To detect this, we check if the current node is an UP node slated
+      // to be merged with some node. If it is and the down node is the same
+      // node as one of the edge updates then we ignore that edge update.
+      String nodeToMergeWith = "";
+
+      switch (output_node.getStrandToMerge()) {
+        case NONE:
+          break;
+        case FORWARD:
+          nodeToMergeWith =
+              graph_node.getEdgeTerminals(
+                  DNAStrand.FORWARD, EdgeDirection.OUTGOING).get(0).nodeId;
+          break;
+        case REVERSE:
+          nodeToMergeWith =
+              graph_node.getEdgeTerminals(
+                  DNAStrand.REVERSE, EdgeDirection.OUTGOING).get(0).nodeId;
+          break;
+        default:
+          sLogger.fatal(
+              "StrandToMerge for the node is both which should never happend.",
+              new RuntimeException("Impossible state reached"));
+      }
+
       for (EdgeUpdateForMerge edge_update: edge_updates) {
+        // Check if we have a cycle and should drop this edgeupdate.
+        if (nodeToMergeWith.equals(edge_update.getNewId().toString())) {
+          reporter.incrCounter(
+              NUM_MARKED_FOR_MERGE.group, "cycle-detected", 1);
+          continue;
+        }
         EdgeTerminal old_terminal = new EdgeTerminal(
             edge_update.getOldId().toString(), edge_update.getOldStrand());
 
