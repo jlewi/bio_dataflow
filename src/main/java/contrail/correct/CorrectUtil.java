@@ -93,6 +93,11 @@ public class CorrectUtil {
         sLogger.info(line);
       }	
       sLogger.info("Process Exit Value: " + p.exitValue());
+      
+      if (p.exitValue() != 0)
+      {
+        throw new RuntimeException("Flash Failure with Exit Value: "+ p.exitValue());
+      }
     } 
     catch (Exception e) {
       sLogger.error(e.getStackTrace());

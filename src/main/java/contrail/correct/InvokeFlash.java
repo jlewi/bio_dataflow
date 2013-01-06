@@ -146,20 +146,13 @@ public class InvokeFlash extends Stage {
     correctUtil.writeLocalFile(fastqRecordsMate1,filePathFq1); 
     correctUtil.writeLocalFile(fastqRecordsMate2,filePathFq2); 
     
-    
     fastqRecordsMate1.clear();
     fastqRecordsMate2.clear();
     
-    
-    
     String command = flashHome+" "+filePathFq1+" "+filePathFq2 + " -d "+ localOutFolderPath;
     
-    
-    System.out.println("Command Getting Executed For Flash: ");
     System.out.println(command);
     correctUtil.executeCommand(command);
-    
-    
     
     String combinedFilePath = localOutFolderPath + "/out.extendedFrags.fastq";	
       
@@ -169,24 +162,12 @@ public class InvokeFlash extends Stage {
     String notCombined_2_String= localOutFolderPath+"/out.notCombined_2.fastq";
     System.out.println("notCombined_2 is: "+ notCombined_2_String);
     
-    
-    
     File test1 = new File(notCombined_2_String);
     File test2 = new File(combinedFilePath);
     File test3 = new File(notCombined_2_String);
     
     File test4 = new File(filePathFq2);
     File test5 = new File(filePathFq1);
-    
-    System.out.println(test4.length() +"and the other guy's length is:"+ test5.length());
-    
-    if (test4.exists())
-      System.out.println("First fastq block file is getting created");
-    
-    System.out.println("File Existence Check!");
-    
-    if (test1.exists() || test2.exists() || test3.exists())
-      System.out.println("|" + test1.exists() + "exists or not" + test2.exists() + "exists or not-" + test3.exists());
        
     Configuration conf = new Configuration();
     FileSystem hdfs = FileSystem.get(conf);
@@ -217,15 +198,14 @@ public class InvokeFlash extends Stage {
   public void close() throws IOException{
     if(count > 0){
       
-      System.out.println("From Close Function()");
       runFlashOnInMemoryReads(outputCollector);
     }
     //delete the top level directory, and everything beneath
     File tempFile = new File(tempWritableFolder);
-    /*
+    
     if(tempFile.exists()){
     	FileUtils.deleteDirectory(tempFile);    
-    }*/
+    }
   }
 }
 	
@@ -288,8 +268,6 @@ public class InvokeFlash extends Stage {
     conf.setNumReduceTasks(0);
     
     FileSystem hdfs = FileSystem.get(conf);
-    
-    
     
     // Delete the output directory if it exists already
     Path out_path = new Path(outputPath);
