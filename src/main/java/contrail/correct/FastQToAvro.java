@@ -84,7 +84,7 @@ public class FastQToAvro extends Stage {
 
   public RunningJob runJob() throws Exception {
     
-    JobConf conf = new JobConf(FastQTestMR.class);
+    JobConf conf = new JobConf(FastQToAvro.class);
     
     conf.setJobName("FastQToAvro");
     String inputPath, outputPath, datatype;
@@ -125,7 +125,7 @@ public class FastQToAvro extends Stage {
  
   public static void main(String[] args) throws Exception {
     
-    int res = ToolRunner.run(new Configuration(), new FastQTestMR(), args);
+    int res = ToolRunner.run(new Configuration(), new FastQToAvro(), args);
     System.exit(res);
   }
 }

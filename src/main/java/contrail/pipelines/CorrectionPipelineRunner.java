@@ -15,7 +15,7 @@ import contrail.correct.ConvertKMerCountsToText;
 import contrail.correct.CutOffCalculation;
 import contrail.correct.InvokeFlash;
 import contrail.correct.InvokeQuake;
-  import contrail.correct.KmerCounter;
+import contrail.correct.KmerCounter;
 import contrail.stages.ContrailParameters;
 import contrail.stages.NotImplementedException;
 import contrail.stages.ParameterDefinition;
@@ -90,7 +90,6 @@ public class CorrectionPipelineRunner extends Stage{
 
     String outputDirectory = (String) stage_options.get("outputpath");
 
-
     String quakeNonMateInput = (String) stage_options.get("quake_input_non_mate");
     String quakeMateInput = (String) stage_options.get("quake_input_mate");
     String quakeBinary = (String) stage_options.get("quake_binary");
@@ -110,7 +109,7 @@ public class CorrectionPipelineRunner extends Stage{
     boolean flashInvoked = false;
     Stage stage;
 
-    // TODO(dnettem): Initial Singles rekey stage
+    // TODO(dnettem): Initial rekey stage for singles data
     // Our current GAGE Dataset does not have these kind of reads.
 
     // Rekey Flash Mate Pairs
@@ -141,23 +140,10 @@ public class CorrectionPipelineRunner extends Stage{
     else{
       sLogger.info("Skipping Flash execution");
     }
-
-
-    // After this stage, two directories will be formed - flashOutputPath will have the elongated reads.
-    // notCombinedFlash will have the uncombined fastq files.
-
-    // The uncombined files are in pairs of files which have a one-to-one correspondence.
-    // Convert them from FastQ to Avro.
-    sLogger.info("Converting Not Combined Reads to Avro");
-    stage = new FastQToAvro();
-    notCombinedAvro = runStage(stage, notCombinedFlash, outputDirectory, "");
-
-    // Join the the uncombined files.
-    joinedNotCombined = runStage(stage, notCombinedAvro, outputDirectory,"");
-
+    
     // We add the flash output directory only if the user has run flash
     if(flashInvoked){
-      stageInput = stageInput + "," + flashOutputPath + "," + joinedNotCombined;
+      stageInput = stageInput + "," + flashOutputPath;
     }
 
     if((stageInput.trim().length() != 0 || quakeNonMateInput.trim().length() != 0 || quakeMateInput.trim().length()!=0) 
@@ -168,7 +154,6 @@ public class CorrectionPipelineRunner extends Stage{
       stage = new KmerCounter();
 
       stageInput = stageInput + quakeNonMateInput + "," + quakeMateInput;
-
       kmerCounterOutputPath = runStage(stage, stageInput, outputDirectory, "");
 
       //Convert KmerCounts to Non Avro stage
@@ -193,13 +178,14 @@ public class CorrectionPipelineRunner extends Stage{
       bitVectorPath = new Path(bitVectorDirectory, "bitvector").toString();
       stage_options.put("bitvectorpath", bitVectorPath);
 
-      //Invoke Quake on Non Mate Pairs
+      //Invoke Quake on Non Mate Pairs 
+      // TODO(dnettem) - for now all quake inputs dumped together.
       if(quakeNonMateInput.trim().length() !=0 ){
         sLogger.info("Running Quake for Non Mate Pairs");
         stage = new InvokeQuake();
         stageInput = quakeNonMateInput;
         if(flashInvoked){
-          stageInput = stageInput + "," +  flashOutputPath;
+          stageInput = stageInput + "," +  flashOutputPath + "," + quakeMateInput;
         }
         runStage(stage, stageInput, outputDirectory, "non_mate_");
       }
@@ -207,6 +193,7 @@ public class CorrectionPipelineRunner extends Stage{
         sLogger.info("Skipping running Quake for non mate pairs");
       }
 
+      /*
       // Invoke quake for Mate Pairs
       if(quakeMateInput.trim().length() !=0 ){
         sLogger.info("Running Quake for Mate Pairs");
@@ -219,6 +206,7 @@ public class CorrectionPipelineRunner extends Stage{
       else{
         sLogger.info("Skipping running Quake for mate pairs");
       }
+      */
 
     }
     else{
