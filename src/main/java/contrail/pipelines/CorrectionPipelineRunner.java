@@ -140,11 +140,6 @@ public class CorrectionPipelineRunner extends Stage{
     else{
       sLogger.info("Skipping Flash execution");
     }
-    
-    // We add the flash output directory only if the user has run flash
-    if(flashInvoked){
-      stageInput = stageInput + "," + flashOutputPath;
-    }
 
     if((stageInput.trim().length() != 0 || quakeNonMateInput.trim().length() != 0 || quakeMateInput.trim().length()!=0) 
         && quakeBinary.trim().length()!=0 ) {
@@ -154,6 +149,11 @@ public class CorrectionPipelineRunner extends Stage{
       stage = new KmerCounter();
 
       stageInput = stageInput + quakeNonMateInput + "," + quakeMateInput;
+
+      // We add the flash output directory only if the user has run flash
+      if(flashInvoked){
+        stageInput = stageInput + "," + flashOutputPath;
+      }
       kmerCounterOutputPath = runStage(stage, stageInput, outputDirectory, "");
 
       //Convert KmerCounts to Non Avro stage
