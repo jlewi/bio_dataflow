@@ -1,0 +1,25 @@
+{
+  "namespace": "contrail.scaffolding",
+  "protocol": "ContrailProtocol",
+  "doc": "Data structures for scaffolding",
+
+  "types": [
+     {"name": "BowtieMapping",
+        "type": "record",
+        "doc": ["Structure representing the output of bowtie. Each record ",
+                "describes how a read aligns to a contig."],              
+        "fields":[
+            {"name": "contig_id", "type":"string", "doc":"ID for the contig."},
+            {"name": "read_id", "type":"string", "doc":"ID for the read."},
+            {"name": "read_start", "type":"int", 
+             "doc": "The start position on the read."},
+            {"name": "read_end", "type": "int", 
+             "doc": "The end position on the read."},
+            {"name": "contig_start", "type":"int", 
+             "doc": "The start position on the contig."},
+            {"name": "contig_end", "type": "int", 
+             "doc": "The end position on the contig."} 
+         ]
+    }
+  ]
+}
