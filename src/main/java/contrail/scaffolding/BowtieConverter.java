@@ -145,16 +145,6 @@ public class BowtieConverter extends Stage {
       // the read ids would need to be changed consistently everywhere.
       mapping.setReadId(readID);
 
-      // TODO(jeremy@lewi.us): The original code was using 1 based indexing
-      // for the start of the read
-      //mapping.setReadStart(1);
-      // TODO(jeremy@lewi.us): Need to check whether the length should be
-      // zero based or 1 based. The original code set this to SUB_LEN
-      // which was the length of the truncated reads which were aligned.
-      // TODO(jerem@lewi.us): Do we have to pass in SUB_LEN or can we
-      // determine it from the output.
-      //mapping.setReadEnd(subLen);
-
       int start = Integer.parseInt(forwardOffset);
 
       // The range is inclusive so we subtract 1 from the ends.
