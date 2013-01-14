@@ -60,10 +60,9 @@ public class TestBowtieConverter {
     BowtieMapping expected = new BowtieMapping();
     expected.setContigId("contig_2_0");
     expected.setReadId("read_2_0_75");
-    expected.setReadStart(1);
-    expected.setReadEnd(25);
     expected.setContigStart(75);
     expected.setContigEnd(75 + sequence.length() - 1);
+    expected.setRead(sequence);
 
     // Check the values are equal.
     assertEquals(expected, collector_mock.key.datum());

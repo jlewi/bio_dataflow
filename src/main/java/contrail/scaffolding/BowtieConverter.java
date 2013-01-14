@@ -65,12 +65,6 @@ public class BowtieConverter extends Stage {
 
     defs.putAll(super.createParameterDefinitions());
 
-    ParameterDefinition subLen =
-        new ParameterDefinition(
-            "sub_length", "Length for the alignment.", Integer.class, null);
-
-    defs.put(subLen.getName(), subLen);
-
     for (ParameterDefinition def:
       ContrailParameters.getInputOutputPathOptions()) {
       defs.put(def.getName(), def);
@@ -84,7 +78,6 @@ public class BowtieConverter extends Stage {
   public static class ConvertMapper extends MapReduceBase implements Mapper<
       LongWritable, Text, AvroWrapper<BowtieMapping>, NullWritable> {
 
-    private int subLen;
     private AvroWrapper<BowtieMapping> outputWrapper;
     private BowtieMapping mapping;
 
@@ -96,7 +89,6 @@ public class BowtieConverter extends Stage {
       BowtieConverter stage = new BowtieConverter();
       Map<String, ParameterDefinition> definitions =
           stage.getParameterDefinitions();
-      subLen =  (Integer) (definitions.get("sub_length").parseJobConf(job));
     }
 
     public void map(
@@ -155,30 +147,37 @@ public class BowtieConverter extends Stage {
 
       // TODO(jeremy@lewi.us): The original code was using 1 based indexing
       // for the start of the read
-      mapping.setReadStart(1);
+      //mapping.setReadStart(1);
       // TODO(jeremy@lewi.us): Need to check whether the length should be
       // zero based or 1 based. The original code set this to SUB_LEN
       // which was the length of the truncated reads which were aligned.
       // TODO(jerem@lewi.us): Do we have to pass in SUB_LEN or can we
       // determine it from the output.
-      mapping.setReadEnd(subLen);
+      //mapping.setReadEnd(subLen);
 
-      mapping.setContigStart(Integer.parseInt(forwardOffset));
+      int start = Integer.parseInt(forwardOffset);
+
+      // The range is inclusive so we subtract 1 from the ends.
+      int end = start + readSequence.length() - 1;
+
       if (isFwd) {
-        mapping.setContigEnd(
-            mapping.getContigStart() + readSequence.length() - 1);
+        mapping.setContigStart(start);
+        mapping.setContigEnd(end);
       } else {
-        mapping.setContigEnd(mapping.getContigStart());
-        mapping.setContigStart(
-            mapping.getContigEnd() + readSequence.length() - 1);
+        mapping.setContigStart(end);
+        mapping.setContigEnd(start);
       }
+
+      // TODO(jeremy@lewi.us): Add a parameter to control whether the
+      // read is included or not.
+      mapping.setRead(readSequence);
       output.collect(outputWrapper, NullWritable.get());
    }
   }
 
   @Override
   public RunningJob runJob() throws Exception {
-    String[] required_args = {"inputpath", "outputpath", "sub_length"};
+    String[] required_args = {"inputpath", "outputpath"};
     checkHasParametersOrDie(required_args);
 
     String inputPath = (String) stage_options.get("inputpath");

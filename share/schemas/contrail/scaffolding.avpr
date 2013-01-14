@@ -11,14 +11,16 @@
         "fields":[
             {"name": "contig_id", "type":"string", "doc":"ID for the contig."},
             {"name": "read_id", "type":"string", "doc":"ID for the read."},
-            {"name": "read_start", "type":"int", 
-             "doc": "The start position on the read."},
-            {"name": "read_end", "type": "int", 
-             "doc": "The end position on the read."},
             {"name": "contig_start", "type":"int", 
-             "doc": "The start position on the contig."},
+             "doc": ["The start position on the contig. if start > then end ", 
+                     "then read is aligned to the reverse complement. i.e ",
+                     "read ~ = RC(contig[start:end]."]},
             {"name": "contig_end", "type": "int", 
-             "doc": "The end position on the contig."} 
+             "doc": "The end position on the contig."},             
+            {"name": "read", "type": ["null", "string"],
+             "doc" : ["For debugging and validation, we can include the ",
+                      "actual read this allows us to verify that the ",
+                      "alignment is specified correctly."]}
          ]
     }
   ]
