@@ -27,34 +27,58 @@ public class AvroCollectorMock<VALUET> extends AvroCollector<VALUET>  {
 
   public List<VALUET> data = new ArrayList<VALUET>();
 
+  private Schema value_schema;
+  private boolean getSchemaFromValue;
+  /**
+   * Default constructor.
+   *
+   * This works in most cases and determines the schema from an instance of
+   * VALUET.
+   */
+  public AvroCollectorMock() {
+    getSchemaFromValue = true;
+  }
+
+  /**
+   * Constructor where schema for the value is specified.
+   *
+   * This is primarily useful when the schema is defined at runtime; e.g
+   * when using a union schema.
+   */
+  public AvroCollectorMock(Schema value_schema) {
+    this.value_schema = value_schema;
+    getSchemaFromValue = false;
+  }
+
   public void collect(VALUET value) {
     // Make a copy of the object.
     // The object should be an AVRO datum so we could use those methods to
     // copy it.
-    //VALUET copy = new VALUET(value);
-    // TODO(jlewi): We should make a copy of the data using AVRO.
     Class schemacls = value.getClass();
-    //schemacls.getConstructor(parameterTypes)
-    SpecificDatumWriter<VALUET> datum_writer = new SpecificDatumWriter<VALUET>();
+
+    if (getSchemaFromValue) {
+      try {
+        Method get_schema_method;
+        get_schema_method = schemacls.getMethod("getSchema");
+        value_schema = (Schema) get_schema_method.invoke(value);
+      }
+      catch (NoSuchMethodException exception) {
+        throw new RuntimeException("value doesn't have method getSchema:" + exception.getMessage());
+      }
+      catch (IllegalAccessException exception) {
+        throw new RuntimeException("Problem invoking getSchema on value:" + exception.getMessage());
+      }
+      catch (InvocationTargetException exception) {
+        throw new RuntimeException("Problem invoking getSchema on value:" + exception.getMessage());
+      }
+    }
+
+
+    SpecificDatumWriter<VALUET> datum_writer = new SpecificDatumWriter<VALUET>(
+        value_schema);
     DataFileWriter<VALUET> file_writer = new DataFileWriter<VALUET>(datum_writer);
 
     ByteArrayOutputStream out_stream = new ByteArrayOutputStream();
-
-    Method get_schema_method;
-    Schema value_schema;
-    try{
-      get_schema_method = schemacls.getMethod("getSchema");
-      value_schema = (Schema) get_schema_method.invoke(value);
-    }
-    catch (NoSuchMethodException exception) {
-      throw new RuntimeException("value doesn't have method getSchema:" + exception.getMessage());
-    }
-    catch (IllegalAccessException exception) {
-      throw new RuntimeException("Problem invoking getSchema on value:" + exception.getMessage());
-    }
-    catch (InvocationTargetException exception) {
-      throw new RuntimeException("Problem invoking getSchema on value:" + exception.getMessage());
-    }
 
     try {
       file_writer.create(value_schema, out_stream);
