@@ -179,7 +179,7 @@ public class TigrCreator extends Stage {
       mappings.clear();
       int sawnode = 0;
       while(iterator.hasNext()) {
-        value = iterator.next();
+        value = iterator.next().datum();
 
         if(value instanceof GraphNodeData)   {
           node.setData((GraphNodeData) value);
@@ -198,6 +198,7 @@ public class TigrCreator extends Stage {
         sLogger.fatal(String.format(
             "Key: %s Didn't see exactly 1 instance of GraphNodeData. Number " +
             "of instances:%d", key.datum().toString(), sawnode));
+        System.exit(-1);
       }
 
       // Output the Tigr record.
@@ -232,7 +233,7 @@ public class TigrCreator extends Stage {
 
         // If the end index for the contig is smaller then the start index
         // then the read is Oriented to the reverse complement.
-        boolean isRC = contigOriented.start < contigOriented.end;
+        boolean isRC = contigOriented.start > contigOriented.end;
 
         Range contigForward = contigOriented;
         if (isRC) {
@@ -322,8 +323,10 @@ public class TigrCreator extends Stage {
             sLogger.fatal(String.format(
                 "Contig id: %s Read id%s: The alignment doesn't appear to be " +
                 "correct. Number of mismatches expected:%d   actual:%d",
-                 mapping.getNumMismatches(), numMismatches),
+                mapping.getContigId(), mapping.getReadId(),
+                mapping.getNumMismatches(), numMismatches),
                 new RuntimeException("Alignment bug."));
+            System.exit(-1);
           }
 
           // TODO(jeremy@lewi.us): The TIGR format includes the sequence

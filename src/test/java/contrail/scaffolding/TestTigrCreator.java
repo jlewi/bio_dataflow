@@ -7,11 +7,16 @@ import java.io.IOException;
 import java.util.ArrayList;
 
 import org.apache.avro.Schema;
+import org.apache.avro.mapred.AvroKey;
+import org.apache.avro.mapred.AvroValue;
 import org.apache.avro.mapred.Pair;
+import org.apache.hadoop.io.NullWritable;
+import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 import org.junit.Test;
 
+import contrail.OutputCollectorMock;
 import contrail.ReporterMock;
 import contrail.graph.GraphNode;
 import contrail.sequences.DNAAlphabetFactory;
@@ -32,7 +37,7 @@ public class TestTigrCreator {
   }
 
   @Test
-  public void testMapperNode() {
+  public void testMapper() {
     ArrayList<TestData> pairs = new ArrayList<TestData>();
 
     {
@@ -87,4 +92,74 @@ public class TestTigrCreator {
       assertEquals(pair.value, outPair.value());
     }
   }
+
+  public class ReducerData {
+    public AvroKey<CharSequence> inputKey;
+    public ArrayList<AvroValue<Object>> inputValues;
+    public ArrayList<Text> outputs;
+
+    public ReducerData() {
+      inputValues = new ArrayList<AvroValue<Object>>();
+      outputs = new ArrayList<Text>();
+    }
+  }
+
+  @Test
+  public void testReducer() {
+    ReducerData data = new ReducerData();
+
+    String contigId = "contig";
+    String sequence = "ACTGGGGAACCCTTT";
+    data.inputKey = new AvroKey<CharSequence>(contigId);
+    {
+      GraphNode node = new GraphNode();
+      node.setNodeId(contigId);
+      node.setSequence(new Sequence(sequence, DNAAlphabetFactory.create()));
+      data.inputValues.add(
+          new AvroValue<Object>(node.clone().getData()));
+    }
+
+    {
+      BowtieMapping mapping = new BowtieMapping();
+
+      mapping = new BowtieMapping();
+      mapping.setContigId(contigId);
+      mapping.setReadId("read_2_0_75");
+      mapping.setContigStart(2);
+      mapping.setContigEnd(8);
+      mapping.setReadClearStart(0);
+      mapping.setReadClearEnd(6);
+      mapping.setNumMismatches(0);
+
+      String read = sequence.substring(2, 9);
+      mapping.setRead(read);
+
+      data.inputValues.add(new AvroValue<Object>(mapping));
+    }
+
+    JobConf job = new JobConf(TestTigrCreator.class);
+    ReporterMock reporterMock = new ReporterMock();
+    Reporter reporter = reporterMock;
+    Schema pairSchema = Pair.getPairSchema(
+        Schema.create(Schema.Type.STRING), TigrCreator.inputSchema());
+    OutputCollectorMock<Text, NullWritable> collectorMock =
+        new OutputCollectorMock<Text, NullWritable> ();
+
+    TigrCreator.TigrReducer reducer = new TigrCreator.TigrReducer();
+    reducer.configure(job);
+
+    try {
+      reducer.reduce(
+          data.inputKey, data.inputValues.iterator(), collectorMock, reporter);
+    }
+    catch (IOException exception){
+      fail("IOException occured in map: " + exception.getMessage());
+    }
+//    // Check the values are equal.
+//    assertEquals(1, collectorMock.data.size());
+//    Pair<CharSequence, Object> outPair = collectorMock.data.get(0);
+//    assertEquals(pair.key, outPair.key().toString());
+//    assertEquals(pair.value, outPair.value());
+  }
+
 }
