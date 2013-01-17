@@ -73,7 +73,6 @@ public class AvroCollectorMock<VALUET> extends AvroCollector<VALUET>  {
       }
     }
 
-
     SpecificDatumWriter<VALUET> datum_writer = new SpecificDatumWriter<VALUET>(
         value_schema);
     DataFileWriter<VALUET> file_writer = new DataFileWriter<VALUET>(datum_writer);
