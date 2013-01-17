@@ -125,7 +125,13 @@ public class BowtieConverter extends Stage {
       String forwardOffset = splitLine[3];
       String readSequence = splitLine[4];
 
+      int numMismatches = 0;
+      if (splitLine.length > 7) {
+        numMismatches = splitLine[7].split(",").length;
+      }
+
       mapping.setContigId(contigID);
+      mapping.setNumMismatches(numMismatches);
 
       // isFWD indicates the read was aligned to the forward strand of
       // the reference genome.
@@ -147,7 +153,12 @@ public class BowtieConverter extends Stage {
 
       int start = Integer.parseInt(forwardOffset);
 
-      // The range is inclusive so we subtract 1 from the ends.
+      // The range is inclusive; i.e the relevant subsequence is [start, end].
+      // We abandon the usual java semantics because the start and end indexes
+      // get reversed depending on whether the read aligns to the forward
+      // or reverse strand of the contig. If the start index was included
+      // but not the end index, then reversing the indexes would be a lot
+      // more complicated.
       int end = start + readSequence.length() - 1;
 
       if (isFwd) {
@@ -157,6 +168,11 @@ public class BowtieConverter extends Stage {
         mapping.setContigStart(end);
         mapping.setContigEnd(start);
       }
+
+      // The clear range for the read is just the start and end indexes.
+      // The indexes are inclusive.
+      mapping.setReadClearStart(0);
+      mapping.setReadClearEnd(readSequence.length() -1);
 
       // TODO(jeremy@lewi.us): Add a parameter to control whether the
       // read is included or not.
