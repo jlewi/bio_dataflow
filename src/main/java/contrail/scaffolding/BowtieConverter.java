@@ -176,6 +176,9 @@ public class BowtieConverter extends Stage {
 
       // TODO(jeremy@lewi.us): Add a parameter to control whether the
       // read is included or not.
+      // Note: If the read aligned to the reverse strand (isFwd is False)
+      // then bowtie sets readSequence to the reverse complement of the
+      // actual read.
       mapping.setRead(readSequence);
       output.collect(outputWrapper, NullWritable.get());
    }

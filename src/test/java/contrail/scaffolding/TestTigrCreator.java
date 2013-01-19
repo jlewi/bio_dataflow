@@ -104,8 +104,40 @@ public class TestTigrCreator {
     }
   }
 
+  private void runReduceTest(ReducerData data) {
+    JobConf job = new JobConf(TestTigrCreator.class);
+    ReporterMock reporterMock = new ReporterMock();
+    Reporter reporter = reporterMock;
+    Schema pairSchema = Pair.getPairSchema(
+        Schema.create(Schema.Type.STRING), TigrCreator.inputSchema());
+    OutputCollectorMock<Text, NullWritable> collectorMock =
+        new OutputCollectorMock<Text, NullWritable> (
+            Text.class, NullWritable.class);
+
+    TigrCreator.TigrReducer reducer = new TigrCreator.TigrReducer();
+    reducer.configure(job);
+
+    try {
+      reducer.reduce(
+          data.inputKey, data.inputValues.iterator(), collectorMock, reporter);
+    }
+    catch (IOException exception){
+      fail("IOException occured in map: " + exception.getMessage());
+    }
+
+    // Check the values are equal.
+    assertEquals(data.outputs.size(), collectorMock.outputs.size());
+
+    for (int i = 0; i < collectorMock.outputs.size(); ++i) {
+      assertEquals(
+         data.outputs.get(i), collectorMock.outputs.get(i).key.toString());
+    }
+  }
+
   @Test
-  public void testReducer() {
+  public void testReducerForward() {
+    // This test covers the case where the read is aligned to
+    // the forward strand of the contig.
     ReducerData data = new ReducerData();
 
     String contigId = "contig";
@@ -143,35 +175,54 @@ public class TestTigrCreator {
     data.outputs.add(sequence);
     data.outputs.add(String.format(
         "#%s(2) [] 7 bases, 00000000 checksum. {1 7} <3 9>", readId));
-    JobConf job = new JobConf(TestTigrCreator.class);
-    ReporterMock reporterMock = new ReporterMock();
-    Reporter reporter = reporterMock;
-    Schema pairSchema = Pair.getPairSchema(
-        Schema.create(Schema.Type.STRING), TigrCreator.inputSchema());
-    OutputCollectorMock<Text, NullWritable> collectorMock =
-        new OutputCollectorMock<Text, NullWritable> (
-            Text.class, NullWritable.class);
 
-    TigrCreator.TigrReducer reducer = new TigrCreator.TigrReducer();
-    reducer.configure(job);
-
-    try {
-      reducer.reduce(
-          data.inputKey, data.inputValues.iterator(), collectorMock, reporter);
-    }
-    catch (IOException exception){
-      fail("IOException occured in map: " + exception.getMessage());
-    }
-
-    // Check the values are equal.
-    assertEquals(data.outputs.size(), collectorMock.outputs.size());
-
-    for (int i = 0; i < collectorMock.outputs.size(); ++i) {
-      String expected = data.outputs.get(i);
-      String actual = collectorMock.outputs.get(i).key.toString();
-      assertEquals(
-         data.outputs.get(i), collectorMock.outputs.get(i).key.toString());
-    }
+    runReduceTest(data);
   }
 
+  @Test
+  public void testReducerReverse() {
+    // This test covers the case where the read is aligned to
+    // the reverse strand of the contig.
+    ReducerData data = new ReducerData();
+
+    String contigId = "contig";
+    String sequence = "ACTGGGGAACCCTTT";
+    data.inputKey = new AvroKey<CharSequence>(contigId);
+    {
+      GraphNode node = new GraphNode();
+      node.setNodeId(contigId);
+      node.setSequence(new Sequence(sequence, DNAAlphabetFactory.create()));
+      data.inputValues.add(
+          new AvroValue<Object>(node.clone().getData()));
+    }
+
+    String read;
+    String readId = "read_2_0_75";
+    {
+      BowtieMapping mapping = new BowtieMapping();
+      mapping = new BowtieMapping();
+      mapping.setContigId(contigId);
+      mapping.setReadId(readId);
+      mapping.setContigStart(8);
+      mapping.setContigEnd(2);
+      mapping.setReadClearStart(0);
+      mapping.setReadClearEnd(6);
+      mapping.setNumMismatches(0);
+
+      // Bowtie will have reverse complemented the read so it matches
+      // the forward strand of the contig.
+      read = sequence.substring(2, 9);
+      mapping.setRead(read);
+
+      data.inputValues.add(new AvroValue<Object>(mapping));
+    }
+
+    data.outputs.add(String.format(
+        "##%s 1 %d bases, 00000000 checksum.", contigId, sequence.length()));
+    data.outputs.add(sequence);
+    data.outputs.add(String.format(
+        "#%s(2) [RC] 7 bases, 00000000 checksum. {7 1} <3 9>", readId));
+
+    runReduceTest(data);
+  }
 }

@@ -37,7 +37,6 @@ import org.apache.log4j.Logger;
 
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
-import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
 import contrail.stages.Stage;
 
@@ -298,10 +297,6 @@ public class TigrCreator extends Stage {
 
           Sequence clearContig = node.getSequence().subSequence(
               contigForward.start, contigForward.end + 1);
-
-          if (isRC) {
-            clearContig = DNAUtil.reverseComplement(clearContig);
-          }
 
           if (clearRead.length() != clearContig.size()) {
             sLogger.fatal(String.format(
