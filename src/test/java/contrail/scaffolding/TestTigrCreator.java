@@ -96,11 +96,11 @@ public class TestTigrCreator {
   public class ReducerData {
     public AvroKey<CharSequence> inputKey;
     public ArrayList<AvroValue<Object>> inputValues;
-    public ArrayList<Text> outputs;
+    public ArrayList<String> outputs;
 
     public ReducerData() {
       inputValues = new ArrayList<AvroValue<Object>>();
-      outputs = new ArrayList<Text>();
+      outputs = new ArrayList<String>();
     }
   }
 
@@ -119,31 +119,38 @@ public class TestTigrCreator {
           new AvroValue<Object>(node.clone().getData()));
     }
 
+    String read;
+    String readId = "read_2_0_75";
     {
       BowtieMapping mapping = new BowtieMapping();
-
       mapping = new BowtieMapping();
       mapping.setContigId(contigId);
-      mapping.setReadId("read_2_0_75");
+      mapping.setReadId(readId);
       mapping.setContigStart(2);
       mapping.setContigEnd(8);
       mapping.setReadClearStart(0);
       mapping.setReadClearEnd(6);
       mapping.setNumMismatches(0);
 
-      String read = sequence.substring(2, 9);
+      read = sequence.substring(2, 9);
       mapping.setRead(read);
 
       data.inputValues.add(new AvroValue<Object>(mapping));
     }
 
+    data.outputs.add(String.format(
+        "##%s 1 %d bases, 00000000 checksum.", contigId, sequence.length()));
+    data.outputs.add(sequence);
+    data.outputs.add(String.format(
+        "#%s(2) [] 7 bases, 00000000 checksum. {1,7} <3, 9>", readId));
     JobConf job = new JobConf(TestTigrCreator.class);
     ReporterMock reporterMock = new ReporterMock();
     Reporter reporter = reporterMock;
     Schema pairSchema = Pair.getPairSchema(
         Schema.create(Schema.Type.STRING), TigrCreator.inputSchema());
     OutputCollectorMock<Text, NullWritable> collectorMock =
-        new OutputCollectorMock<Text, NullWritable> ();
+        new OutputCollectorMock<Text, NullWritable> (
+            Text.class, NullWritable.class);
 
     TigrCreator.TigrReducer reducer = new TigrCreator.TigrReducer();
     reducer.configure(job);
@@ -155,11 +162,16 @@ public class TestTigrCreator {
     catch (IOException exception){
       fail("IOException occured in map: " + exception.getMessage());
     }
-//    // Check the values are equal.
-//    assertEquals(1, collectorMock.data.size());
-//    Pair<CharSequence, Object> outPair = collectorMock.data.get(0);
-//    assertEquals(pair.key, outPair.key().toString());
-//    assertEquals(pair.value, outPair.value());
+
+    // Check the values are equal.
+    assertEquals(data.outputs.size(), collectorMock.outputs.size());
+
+    for (int i = 0; i < collectorMock.outputs.size(); ++i) {
+      String expected = data.outputs.get(i);
+      String actual = collectorMock.outputs.get(i).key.toString();
+      assertEquals(
+         data.outputs.get(i), collectorMock.outputs.get(i).key.toString());
+    }
   }
 
 }

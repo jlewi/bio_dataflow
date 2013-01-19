@@ -208,11 +208,12 @@ public class TigrCreator extends Stage {
       // this matter?
       int paddedConsensusSize = node.getSequence().size();
       String line = String.format(
-          "##%s %d %d bases, 00000000 checksum", node.getNodeId(),
+          "##%s %d %d bases, 00000000 checksum.", node.getNodeId(),
           mappings.size(), paddedConsensusSize);
       outLine.set(line);
       collector.collect(outLine, NullWritable.get());
-
+      outLine.set(node.getSequence().toString());
+      collector.collect(outLine, NullWritable.get());
       // TODO(jeremy@lewi.us): Use the actual read to verify the alignment.
       for (BowtieMapping mapping : mappings) {
         // For the read and the contig we have two sets of indexes.

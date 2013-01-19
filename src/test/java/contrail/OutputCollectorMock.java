@@ -1,7 +1,14 @@
 package contrail;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 
+import org.apache.hadoop.io.NullWritable;
+import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.OutputCollector;
 
 
@@ -13,7 +20,21 @@ import org.apache.hadoop.mapred.OutputCollector;
  * @author jlewi
  *
  */
-public class OutputCollectorMock<KEYT, VALUET> implements OutputCollector<KEYT, VALUET>  {
+public class OutputCollectorMock<KEYT extends Writable, VALUET extends Writable>
+    implements OutputCollector<KEYT, VALUET>  {
+
+  private Class<KEYT> keyClass;
+  private Class<VALUET> valueClass;
+
+  /*
+   * Instantiate the collector.
+   *
+   * The collector takes class descriptors so that we can create instances.
+   */
+  public OutputCollectorMock(Class<KEYT> keyClass, Class<VALUET> valueClass) {
+    this.keyClass = keyClass;
+    this.valueClass = valueClass;
+  }
 
   public class OutputPair {
     final public KEYT key;
@@ -33,9 +54,50 @@ public class OutputCollectorMock<KEYT, VALUET> implements OutputCollector<KEYT, 
   @Deprecated
   public VALUET value;
 
+  private <T extends Writable> T copy(T datum, Class<T> tClass) {
+    // We can't clone a nullwritable because it is a singleton.
+    if (datum instanceof NullWritable) {
+      return (T) NullWritable.get();
+    }
+
+    T newDatum = null;
+    try {
+      newDatum = tClass.newInstance();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+
+    ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+    DataOutputStream outStream = new DataOutputStream(byteStream);
+
+    try {
+      datum.write(outStream);
+    } catch (IOException e) {
+      throw new RuntimeException(
+          "There was a problem copying the data:" + e.getMessage());
+    }
+
+    ByteArrayInputStream inBytes = new ByteArrayInputStream(
+        byteStream.toByteArray());
+    DataInputStream inStream = new DataInputStream(inBytes);
+
+    try {
+      newDatum.readFields(inStream);
+    } catch (IOException e) {
+      throw new RuntimeException(
+          "There was a problem copying the data:" + e.getMessage());
+    }
+
+    return newDatum;
+  }
   public void collect(KEYT key, VALUET value) {
     this.key = key;
     this.value = value;
-    outputs.add(new OutputPair(key, value));
+
+    // We need to make copies of the key and value because the object
+    // could be reused.
+    KEYT kCopy = copy(key, keyClass);
+    VALUET vCopy = copy(value, valueClass);
+    outputs.add(new OutputPair(kCopy, vCopy));
   }
 }
