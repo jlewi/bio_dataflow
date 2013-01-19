@@ -142,7 +142,7 @@ public class TestTigrCreator {
         "##%s 1 %d bases, 00000000 checksum.", contigId, sequence.length()));
     data.outputs.add(sequence);
     data.outputs.add(String.format(
-        "#%s(2) [] 7 bases, 00000000 checksum. {1,7} <3, 9>", readId));
+        "#%s(2) [] 7 bases, 00000000 checksum. {1 7} <3 9>", readId));
     JobConf job = new JobConf(TestTigrCreator.class);
     ReporterMock reporterMock = new ReporterMock();
     Reporter reporter = reporterMock;
