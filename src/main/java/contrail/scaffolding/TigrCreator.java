@@ -21,6 +21,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.avro.Schema;
 import org.apache.avro.mapred.AvroCollector;
@@ -206,11 +208,14 @@ public class TigrCreator extends Stage {
     ArrayList<BowtieMapping> mappings = null;
     Text outLine = null;
     Object value = null;
+    Pattern pattern;
 
     public void configure(JobConf job) {
       node = new GraphNode();
       mappings = new ArrayList<BowtieMapping>();
       outLine = new Text();
+      // Match white space one or more times.
+      pattern = Pattern.compile("\\s+");
     }
 
     @Override
@@ -243,6 +248,16 @@ public class TigrCreator extends Stage {
         System.exit(-1);
       }
 
+      // Make sure the contig id doesn't contain whitespace.
+      Matcher matcher = pattern.matcher(node.getNodeId());
+      if (matcher.find()) {
+        // Trimming the whitespace is probably not a good idea because
+        // we would need the id's to be consistent everywhere.
+        sLogger.fatal(
+            "Contig id contains whitespace: " + node.getNodeId(),
+            new RuntimeException("Invalid contig id."));
+        System.exit(-1);
+      }
       // Output the Tigr record.
       // TODO(jeremy@lewi.us): In the original code
       // http://gage.cbcb.umd.edu/recipes/bambus2/gageBambusPackage.tar.gz

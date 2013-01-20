@@ -29,10 +29,13 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
+import contrail.graph.GraphNode;
+import contrail.graph.GraphUtil;
 import contrail.sequences.AlphabetUtil;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.FastQRecord;
 import contrail.sequences.FastaRecord;
+import contrail.sequences.Sequence;
 import contrail.util.FileHelper;
 
 /**
@@ -70,6 +73,7 @@ public class TestAssembleScaffolds {
     public String readsGlob;
     public String referenceGlob;
     public String libSizeFile;
+    public String graphGlob;
 
     // The true sequence for the scaffold.
     public String expectedScaffold;
@@ -130,6 +134,20 @@ public class TestAssembleScaffolds {
     }
   }
 
+  private void writeGraphNodes(
+      String graphFile, ArrayList<FastaRecord> contigs) {
+    ArrayList<GraphNode> nodes = new ArrayList<GraphNode>();
+
+    for (FastaRecord record : contigs) {
+      GraphNode node = new GraphNode();
+      node.setNodeId(record.getId().toString());
+      node.setSequence(
+          new Sequence(
+              record.getRead().toString(), DNAAlphabetFactory.create()));
+    }
+    GraphUtil.writeGraphToFile(new File(graphFile), nodes);
+  }
+
   /**
    * Create the test data.
    *
@@ -179,6 +197,11 @@ public class TestAssembleScaffolds {
     File referencePath = new File(directory, "contigs.fa");
     test.referenceFiles.add(referencePath.toString());
     writeFastaFile(referencePath, contigs);
+
+    // Write the contigs to an avro file containing the graph nodes.
+    test.graphGlob = FilenameUtils.concat(directory.getPath(), "graph.avro");
+    writeGraphNodes(test.graphGlob, contigs);
+
 
     // Split the contigs into mate pair reads.
     ArrayList<FastQRecord> leftReads = new ArrayList<FastQRecord>();
@@ -314,7 +337,7 @@ public class TestAssembleScaffolds {
     parameters.put("reads_glob",testData.readsGlob);
     parameters.put("reference_glob",testData.referenceGlob);
     parameters.put("libsize", testData.libSizeFile);
-
+    parameters.put("graph_glob", testData.graphGlob);
     parameters.put("outprefix", "output");
 
     AssembleScaffolds stage = new AssembleScaffolds();
