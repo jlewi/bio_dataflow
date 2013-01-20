@@ -20,16 +20,14 @@ import static org.junit.Assert.fail;
 import java.io.IOException;
 import java.util.ArrayList;
 
-import org.apache.avro.mapred.AvroWrapper;
 import org.apache.hadoop.io.LongWritable;
-import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 import org.junit.Test;
 
-import contrail.OutputCollectorMock;
 import contrail.ReporterMock;
+import contrail.stages.AvroWrapperCollectorMock;
 
 public class TestBowtieConverter {
   public class TestData {
@@ -111,9 +109,8 @@ public class TestBowtieConverter {
     Reporter reporter = reporter_mock;
 
     for (TestData pair : pairs) {
-      OutputCollectorMock<AvroWrapper<BowtieMapping>, NullWritable>
-          collector_mock =
-            new OutputCollectorMock<AvroWrapper<BowtieMapping>, NullWritable>();
+      AvroWrapperCollectorMock<BowtieMapping> collector =
+          new AvroWrapperCollectorMock<BowtieMapping>();
 
       BowtieConverter.ConvertMapper mapper =
           new BowtieConverter.ConvertMapper();
@@ -121,13 +118,14 @@ public class TestBowtieConverter {
 
       Text input = new Text(pair.input);
       try {
-        mapper.map(new LongWritable(1), input, collector_mock, reporter);
+        mapper.map(new LongWritable(1), input, collector, reporter);
       }
       catch (IOException exception){
         fail("IOException occured in map: " + exception.getMessage());
       }
       // Check the values are equal.
-      assertEquals(pair.expected, collector_mock.key.datum());
+      assertEquals(1, collector.data.size());
+      assertEquals(pair.expected, collector.data.get(0).datum());
     }
   }
 }

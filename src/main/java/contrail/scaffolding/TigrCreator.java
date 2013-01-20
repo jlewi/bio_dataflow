@@ -17,27 +17,42 @@ package contrail.scaffolding;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 
 import org.apache.avro.Schema;
 import org.apache.avro.mapred.AvroCollector;
+import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroKey;
 import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroValue;
 import org.apache.avro.mapred.Pair;
 import org.apache.avro.specific.SpecificData;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapred.FileInputFormat;
+import org.apache.hadoop.mapred.FileOutputFormat;
+import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.MapReduceBase;
 import org.apache.hadoop.mapred.OutputCollector;
 import org.apache.hadoop.mapred.Reducer;
 import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.mapred.RunningJob;
+import org.apache.hadoop.mapred.TextOutputFormat;
+import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.sequences.Sequence;
+import contrail.stages.ContrailParameters;
+import contrail.stages.ParameterDefinition;
 import contrail.stages.Stage;
 
 /**
@@ -89,6 +104,34 @@ public class TigrCreator extends Stage {
     Schema unionSchema = Schema.createUnion(schemas);
 
     return unionSchema;
+  }
+
+  /**
+   * Get the options required by this stage.
+   */
+  protected Map<String, ParameterDefinition> createParameterDefinitions() {
+    HashMap<String, ParameterDefinition> defs =
+        new HashMap<String, ParameterDefinition>();
+
+    defs.putAll(super.createParameterDefinitions());
+
+    ParameterDefinition output = new ParameterDefinition(
+        "outputpath", "The directory where the output should be written to.",
+        String.class, null);
+
+//    ParameterDefinition graph = new ParameterDefinition(
+//        "graph_path", "The directory where the avro files containing " +
+//        "GraphNodeData are stored.", String.class, null);
+//
+//    ParameterDefinition graph = new ParameterDefinition(
+//        "graph_path", "The directory where the avro files containing " +
+//        "GraphNodeData are stored.", String.class, null);
+//
+    for (ParameterDefinition def:
+      ContrailParameters.getInputOutputPathOptions()) {
+      defs.put(def.getName(), def);
+    }
+    return Collections.unmodifiableMap(defs);
   }
 
   public static class TigrMapper extends
@@ -331,5 +374,60 @@ public class TigrCreator extends Stage {
         }
       }
     }
+  }
+
+  @Override
+  public RunningJob runJob() throws Exception {
+    String[] required_args = {"inputpath", "outputpath"};
+    checkHasParametersOrDie(required_args);
+
+    String inputPath = (String) stage_options.get("inputpath");
+    String outputPath = (String) stage_options.get("outputpath");
+
+    sLogger.info(" - input: "  + inputPath);
+    sLogger.info(" - output: " + outputPath);
+
+    Configuration base_conf = getConf();
+    JobConf conf = null;
+    if (base_conf != null) {
+      conf = new JobConf(getConf(), this.getClass());
+    } else {
+      conf = new JobConf(this.getClass());
+    }
+
+    initializeJobConfiguration(conf);
+
+    FileInputFormat.addInputPaths(conf, inputPath);
+    FileOutputFormat.setOutputPath(conf, new Path(outputPath));
+
+    AvroJob.setInputSchema(conf, inputSchema());
+
+    Schema pairSchema = Pair.getPairSchema(
+        Schema.create(Schema.Type.STRING), TigrCreator.inputSchema());
+    AvroJob.setMapOutputSchema(conf, pairSchema);
+
+    //AvroJob.setOutputSchema(conf, FindBubblesAvro.REDUCE_OUT_SCHEMA);
+    AvroJob.setMapperClass(conf, TigrCreator.TigrMapper.class);
+
+    conf.setReducerClass(TigrCreator.TigrReducer.class);
+    conf.setOutputKeyClass(Text.class);
+    conf.setOutputValueClass(NullWritable.class);
+    conf.setOutputFormat(TextOutputFormat.class);
+
+    //delete the output directory if it exists already
+    FileSystem.get(conf).delete(new Path(outputPath), true);
+
+    long starttime = System.currentTimeMillis();
+    RunningJob result = JobClient.runJob(conf);
+    long endtime = System.currentTimeMillis();
+    float diff = (float) ((endtime - starttime) / 1000.0);
+    sLogger.info("Runtime: " + diff + " s");
+    return result;
+  }
+
+  public static void main(String[] args) throws Exception {
+    int res = ToolRunner.run(
+        new Configuration(), new TigrCreator(), args);
+    System.exit(res);
   }
 }

@@ -232,16 +232,4 @@ public class BowtieRunner {
 
     return result;
   }
-
-  public static class MappingInfo {
-    public String readID = null;
-
-    // position on the read
-    int start = 0;
-    int end = 0;
-
-    // position on the contig
-    int contigStart = 0;
-    int contigEnd = 0;
-  }
 }

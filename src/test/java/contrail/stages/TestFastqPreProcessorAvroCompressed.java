@@ -74,7 +74,9 @@ public class TestFastqPreProcessorAvroCompressed {
 
   @Test
   public void TestMap() {
-    OutputCollectorMock<AvroWrapper<CompressedRead>, NullWritable> collector_mock = new OutputCollectorMock<AvroWrapper<CompressedRead>, NullWritable>();
+    OutputCollectorMock<AvroWrapper<CompressedRead>, NullWritable> collector_mock
+    = new OutputCollectorMock<AvroWrapper<CompressedRead>, NullWritable>(
+        AvroWrapper<CompressedRead>.class, NullWritable.class);
 
 
     ReporterMock reporter_mock = new ReporterMock();

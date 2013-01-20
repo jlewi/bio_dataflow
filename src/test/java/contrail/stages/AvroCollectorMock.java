@@ -24,7 +24,6 @@ import org.apache.avro.specific.SpecificDatumWriter;
  *
  */
 public class AvroCollectorMock<VALUET> extends AvroCollector<VALUET>  {
-
   public List<VALUET> data = new ArrayList<VALUET>();
 
   private Schema value_schema;
@@ -51,7 +50,10 @@ public class AvroCollectorMock<VALUET> extends AvroCollector<VALUET>  {
   }
 
   public void collect(VALUET value) {
-    // Make a copy of the object.
+    // TODO(jeremy@lewi.us): If our template declared VALUET as
+    // extended org.apache.avro.specific.SpecificRecordBase we wouldn't
+    // need to jump through these hoops we could just call value.getSchema().
+    // Make a copy of the object. However, that won't work for Pair.
     // The object should be an AVRO datum so we could use those methods to
     // copy it.
     Class schemacls = value.getClass();

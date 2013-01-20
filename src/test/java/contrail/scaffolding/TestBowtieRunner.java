@@ -14,8 +14,10 @@
 // Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.scaffolding;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -150,8 +152,37 @@ public class TestBowtieRunner {
       throw new RuntimeException("bowtie failed to align the reads.");
     }
 
-    HashMap<String, ArrayList<BowtieRunner.MappingInfo>> map =
-        runner.readBowtieResults(alignResult.outputs.values(), 25);
+    // The keys are the id's of the contigs.
+    // The values are a list of the mappings to that contig.
+    HashMap<String, ArrayList<BowtieMapping>> map =
+        new HashMap<String, ArrayList<BowtieMapping>>();
+
+    // Read and parse the outputs.
+    BowtieParser parser = new BowtieParser();
+    // TODO(jeremy@lewi.us): Should we make this a function of BowtieParser?
+    for (String bowtieFile : alignResult.outputs.values()) {
+      BufferedReader reader;
+      try {
+        reader = new BufferedReader(new FileReader(bowtieFile));
+        String line = reader.readLine();
+        while (line != null) {
+          BowtieMapping mapping = new BowtieMapping();
+          parser.parse(line, mapping);
+
+          if (!map.containsKey(mapping.getContigId().toString())) {
+            map.put(
+                mapping.getContigId().toString(),
+                new ArrayList<BowtieMapping>());
+          }
+          map.get(mapping.getContigId().toString()).add(mapping);
+          line = reader.readLine();
+        }
+      } catch (IOException e) {
+        throw new RuntimeException(
+            "Could not open file for reading: " + bowtieFile +
+            "exception was: " + e.getMessage());
+      }
+    }
 
     // Check the outputs.
     for (int fileIndex = 0; fileIndex < NUM_REFERENCE_FILES; ++fileIndex) {

@@ -16,8 +16,8 @@ package contrail.scaffolding;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileFilter;
 import java.io.FileReader;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -26,18 +26,20 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.io.filefilter.WildcardFileFilter;
 import org.apache.commons.lang.StringUtils;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.log4j.Logger;
 
 import contrail.scaffolding.BowtieRunner.MappingInfo;
 import contrail.sequences.FastQFileReader;
 import contrail.sequences.FastQRecord;
-import contrail.sequences.FastaFileReader;
 import contrail.sequences.FastaRecord;
 import contrail.stages.ParameterDefinition;
 import contrail.stages.Stage;
+import contrail.util.FileHelper;
 
 /**
  * This class constructs the input needed to run Bambus for scaffolding.
@@ -359,31 +361,6 @@ public class BuildBambusInput extends Stage {
   }
 
   /**
-   * Find files matching the glob expression.
-   * @param glob
-   * @return
-   */
-  private ArrayList<String> matchFiles(String glob) {
-    // We assume glob is a directory + a wild card expression
-    // e.g /some/dir/*.fastq
-    File dir = new File(FilenameUtils.getFullPath(glob));
-    String pattern = FilenameUtils.getName(glob);
-    FileFilter fileFilter = new WildcardFileFilter(pattern);
-
-    File[] files =  dir.listFiles(fileFilter);
-    ArrayList<String> result = new ArrayList<String>();
-
-    if (files == null || files.length == 0) {
-      return result;
-    }
-
-    for (File file : files) {
-      result.add(file.getPath());
-    }
-    return result;
-  }
-
-  /**
    * Align the contigs to the reads.
    *
    * @param args
@@ -393,7 +370,7 @@ public class BuildBambusInput extends Stage {
     String libFile = (String) this.stage_options.get("libsize");
     parseLibSizes(libFile);
 
-    ArrayList<String> readFiles = matchFiles(
+    ArrayList<String> readFiles = FileHelper.matchFiles(
         (String) this.stage_options.get("reads_glob"));
 
     if (readFiles.isEmpty()) {
@@ -411,7 +388,7 @@ public class BuildBambusInput extends Stage {
     ArrayList<MateFilePair> matePairs = buildMatePairs(readFiles);
 
     String referenceGlob = (String) this.stage_options.get("reference_glob");
-    ArrayList<String> contigFiles = matchFiles(referenceGlob);
+    ArrayList<String> contigFiles = FileHelper.matchFiles(referenceGlob);
 
     if (contigFiles.isEmpty()) {
       sLogger.fatal(
@@ -471,29 +448,97 @@ public class BuildBambusInput extends Stage {
         bowtieIndexDir, bowtieIndexBase, readFiles, alignDir,
         SUB_LEN);
 
-    HashMap<String, ArrayList<BowtieRunner.MappingInfo>> alignments =
-        runner.readBowtieResults(alignResult.outputs.values(), SUB_LEN);
-    // Finally run through all the contig files and build the TIGR .contig file
-
-    PrintStream tigrOut= new PrintStream(contigOutputFile);
-
-    for (String contigFile : contigFiles) {
-      int counter = 0;
-      sLogger.info("Writing tigr output for contig file:" + contigFile);
-      FastaFileReader reader = new FastaFileReader(contigFile);
-      while (reader.hasNext()) {
-        ++counter;
-        if (counter % 10000 == 0) {
-          sLogger.info("Processed in " + counter + " contig records.");
-        }
-        FastaRecord contig = reader.next();
-
-        outputContigRecord(tigrOut, contig, alignments.get(contig.getId()));
-      }
-
-      reader.close();
+    // Copy the file alignments to the hadoop filesystem so that we can
+    // run mapreduce on them.
+    FileSystem fs;
+    try{
+      fs = FileSystem.get(this.getConf());
+    } catch (IOException e) {
+      throw new RuntimeException("Can't get filesystem: " + e.getMessage());
     }
-    tigrOut.close();
+
+    sLogger.info("Create directory on HDFS for bowtie alignments.");
+
+    String hdfsPath = (String)stage_options.get("hdfs_path");
+    String hdfsAlignDir = FilenameUtils.concat(hdfsPath, "bowtie_output");
+
+    sLogger.info("Creating hdfs directory:" + hdfsAlignDir);
+    if (!fs.mkdirs(new Path(hdfsAlignDir))) {
+      sLogger.fatal(
+          "Could not create hdfs directory:" + hdfsAlignDir,
+          new RuntimeException("Failed to create directory."));
+      System.exit(-1);
+    }
+
+    sLogger.info("Copy bowtie outputs to hdfs.");
+    for (String bowtieFile : alignResult.outputs.values()) {
+      String name = FilenameUtils.getName(bowtieFile);
+      fs.copyFromLocalFile(
+          new Path(bowtieFile), new Path(FilenameUtils.concat(
+              hdfsAlignDir, name)));
+    }
+
+    // Read the bowtie output.
+    BowtieConverter converter = new BowtieConverter();
+    HashMap<String, Object> convertOptions = new HashMap<String, Object>();
+
+    String convertedPath = FilenameUtils.concat(
+        hdfsPath, BowtieConverter.class.getSimpleName());
+    convertOptions.put("inputpath", hdfsAlignDir);
+    convertOptions.put("outputpath", convertedPath);
+
+    converter.setConf(getConf());
+    converter.setParameters(convertOptions);
+
+    RunningJob convertJob = converter.runJob();
+    if (!convertJob.isSuccessful()) {
+      sLogger.fatal(
+          "Failed to convert bowtie output to avro records.",
+          new RuntimeException("BowtieConverter failed."));
+      System.exit(-1);
+    }
+
+    String graphPath = (String) stage_options.get("graph_path");
+    // Convert the data to a tigr file.
+    TigrCreator tigrCreator = new TigrCreator();
+    HashMap<String, Object> tigrOptions = new HashMap<String, Object>();
+
+    tigrOptions.put(
+        "inputpath", StringUtils.join(
+            new String[]{hdfsAlignDir, graphPath}, ","));
+    tigrOptions.put("outputpath", convertedPath);
+
+    tigrCreator.setConf(getConf());
+    tigrCreator.setParameters(tigrOptions);
+
+    RunningJob tigrJob = tigrCreator.runJob();
+    if (!tigrJob.isSuccessful()) {
+      sLogger.fatal(
+          "Failed to create TIGR file.",
+          new RuntimeException("TigrCreator failed."));
+      System.exit(-1);
+    }
+
+    // Copy tigr file to local filesystem.
+    ArrayList<Path> tigrOutputs = new ArrayList<Path>();
+
+    for (FileStatus status : fs.listStatus(new Path(convertedPath))) {
+      if (status.getPath().getName().startsWith("part")) {
+        tigrOutputs.add(status.getPath());
+      }
+    }
+    if (tigrOutputs.size() != 1) {
+      sLogger.fatal(String.format(
+          "TigrConverter should have produced a single output file. However " +
+          "%d files were found that matched 'part*' in directory %s.",
+          tigrOutputs.size(), convertedPath),
+          new RuntimeException("Improper output."));
+      System.exit(-1);
+    }
+
+    // TODO(jlewi): How can we verify that the copy completes successfully.
+    fs.copyToLocalFile(
+        tigrOutputs.get(0), new Path(contigOutputFile.getPath()));
   }
 
   /**
@@ -546,10 +591,21 @@ public class BuildBambusInput extends Stage {
             "(bambus_input).",
             String.class, "bambus_input");
 
+    ParameterDefinition hdfsPath =
+        new ParameterDefinition(
+            "hdfs_path", "The path on the hadoop filesystem to use as a " +
+            "working directory.", String.class, null);
+
+    ParameterDefinition graphPath =
+        new ParameterDefinition(
+            "graph_path", "The path on the hadoop filesystem to the avro " +
+            "files containing the GraphNodeData records representing the " +
+            "graph.", String.class, null);
+
     for (ParameterDefinition def:
       new ParameterDefinition[] {
         bowtiePath, bowtieBuildPath, readsGlob, contigsGlob, libsizePath,
-        outputPath, outputPrefix}) {
+        outputPath, outputPrefix, hdfsPath, graphPath}) {
       definitions.put(def.getName(), def);
     }
 
@@ -584,7 +640,7 @@ public class BuildBambusInput extends Stage {
   public RunningJob runJob() throws Exception {
     String[] required_args = {
         "bowtie_path", "bowtiebuild_path", "reads_glob", "reference_glob",
-        "libsize", "outputpath"};
+        "libsize", "outputpath", "hdfs_path", "graph_path"};
     checkHasParametersOrDie(required_args);
     build();
     return null;

@@ -18,8 +18,12 @@
 package contrail.util;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.io.IOException;
+import java.util.ArrayList;
 
+import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.io.filefilter.WildcardFileFilter;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -87,5 +91,32 @@ public class FileHelper {
     } catch (IOException e) {
       throw new RuntimeException("Problem moving the files: " + e.getMessage());
     }
+  }
+
+  /**
+   * Find files matching the glob expression.
+   *
+   * This only works for the local/non hadoop filesystem.
+   * @param glob
+   * @return
+   */
+  public static ArrayList<String> matchFiles(String glob) {
+    // We assume glob is a directory + a wild card expression
+    // e.g /some/dir/*.fastq
+    File dir = new File(FilenameUtils.getFullPath(glob));
+    String pattern = FilenameUtils.getName(glob);
+    FileFilter fileFilter = new WildcardFileFilter(pattern);
+
+    File[] files =  dir.listFiles(fileFilter);
+    ArrayList<String> result = new ArrayList<String>();
+
+    if (files == null || files.length == 0) {
+      return result;
+    }
+
+    for (File file : files) {
+      result.add(file.getPath());
+    }
+    return result;
   }
 }
