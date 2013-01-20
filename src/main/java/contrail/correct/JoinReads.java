@@ -30,7 +30,7 @@ import org.apache.log4j.Logger;
 
 public class JoinReads extends Stage {
 
-  private static final Logger sLogger = Logger.getLogger(BuildGraphAvro.class);
+  private static final Logger sLogger = Logger.getLogger(JoinReads.class);
   public static final Schema fast_q_record = (new FastQRecord()).getSchema();
   public static final Schema mate_record = (new MatePair()).getSchema();
 
@@ -82,7 +82,7 @@ public class JoinReads extends Stage {
 
       Iterator<FastQRecord> iter = iterable.iterator();
       FastQRecord mate_1 = iter.next();
-      // We need to make a copy of the record becaue it will be overwritten
+      // We need to make a copy of the record because it will be overwritten
       // when we call next.
       mate_1 = (FastQRecord) SpecificData.get().deepCopy(
           mate_1.getSchema(), mate_1);
