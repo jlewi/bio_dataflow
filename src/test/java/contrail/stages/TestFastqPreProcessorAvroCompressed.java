@@ -2,7 +2,6 @@ package contrail.stages;
 
 import contrail.CompressedRead;
 import contrail.ContrailConfig;
-import contrail.OutputCollectorMock;
 import contrail.ReporterMock;
 import contrail.sequences.Alphabet;
 import contrail.sequences.DNAAlphabetFactory;
@@ -12,27 +11,21 @@ import contrail.util.ByteUtil;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-import org.apache.avro.mapred.AvroWrapper;
 import org.apache.hadoop.io.LongWritable;
-import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.OutputCollector;
 import org.apache.hadoop.mapred.Reporter;
 
 import org.junit.Test;
 
 public class TestFastqPreProcessorAvroCompressed {
-
-
   /**
    * Check that the mapper correctly processes the input.
    */
-  private void processFrag(FastqPreprocessorAvroCompressed.FastqPreprocessorMapper mapper,
-                           OutputCollectorMock<AvroWrapper<CompressedRead>, NullWritable> collector_mock,
-                           Reporter reporter,
-                           String[] lines) {
-    OutputCollector<AvroWrapper<CompressedRead>, NullWritable> collector = collector_mock;
+  private void processFrag(
+      FastqPreprocessorAvroCompressed.FastqPreprocessorMapper mapper,
+      AvroWrapperCollectorMock<CompressedRead> collector, Reporter reporter,
+      String[] lines) {
     Text map_value = new Text();
     LongWritable key = new LongWritable();
     Alphabet dnaalphabet = DNAAlphabetFactory.create();
@@ -47,7 +40,8 @@ public class TestFastqPreProcessorAvroCompressed {
         fail ("io exception in map:" + e.getMessage());
       }
     }
-    CompressedRead read = collector_mock.key.datum();
+    // Get the most recent read outputted.
+    CompressedRead read = collector.data.get(collector.data.size() - 1).datum();
 
     // Compute what the id should be.
     String true_id = lines[0];
@@ -59,7 +53,8 @@ public class TestFastqPreProcessorAvroCompressed {
 
     // Make sure the array of packed bytes has the correct size.
     int buffer_size = read.dna.limit() - read.dna.arrayOffset();
-    int expected_buffer_size = (int)Math.ceil((lines[1].length()* dnaalphabet.bitsPerLetter())/8.0);
+    int expected_buffer_size =
+        (int)Math.ceil((lines[1].length()* dnaalphabet.bitsPerLetter())/8.0);
     assertEquals(buffer_size, expected_buffer_size);
 
     Sequence sequence = new Sequence(dnaalphabet);
@@ -74,21 +69,22 @@ public class TestFastqPreProcessorAvroCompressed {
 
   @Test
   public void TestMap() {
-    OutputCollectorMock<AvroWrapper<CompressedRead>, NullWritable> collector_mock
-    = new OutputCollectorMock<AvroWrapper<CompressedRead>, NullWritable>(
-        AvroWrapper<CompressedRead>.class, NullWritable.class);
+    AvroWrapperCollectorMock<CompressedRead> collector =
+        new AvroWrapperCollectorMock<CompressedRead>();
 
 
     ReporterMock reporter_mock = new ReporterMock();
     Reporter reporter = reporter_mock;
 
-    FastqPreprocessorAvroCompressed.FastqPreprocessorMapper mapper = new FastqPreprocessorAvroCompressed.FastqPreprocessorMapper();
+    FastqPreprocessorAvroCompressed.FastqPreprocessorMapper mapper =
+        new FastqPreprocessorAvroCompressed.FastqPreprocessorMapper();
 
     // Configure it
     ContrailConfig.PREPROCESS_SUFFIX = 0;
     ContrailConfig.TEST_MODE = true;
 
-    JobConf job = new JobConf(FastqPreprocessorAvroCompressed.FastqPreprocessorMapper.class);
+    JobConf job = new JobConf(
+        FastqPreprocessorAvroCompressed.FastqPreprocessorMapper.class);
     ContrailConfig.initializeConfiguration(job);
     mapper.configure(job);
 
@@ -108,15 +104,15 @@ public class TestFastqPreProcessorAvroCompressed {
                       "+",
                       "222222222222222222222222222222222222"};
 
-    processFrag(mapper, collector_mock, reporter, frag1);
-    processFrag(mapper, collector_mock, reporter, frag2);
-    processFrag(mapper, collector_mock, reporter, frag3);
+    processFrag(mapper, collector, reporter, frag1);
+    processFrag(mapper, collector, reporter, frag2);
+    processFrag(mapper, collector, reporter, frag3);
 
     // Generate some random fragments of various lengths.
     int max_length = 100;
     for (int frag_num = 0;  frag_num < 30; frag_num++) {
-      // Generate the sequence label by randomly generating integers which correspond
-      // to the printable utf8 characters 32 to 126
+      // Generate the sequence label by randomly generating integers which
+      // correspond to the printable utf8 characters 32 to 126
       int range = 126-32;
       int start = 32;
 
@@ -136,11 +132,12 @@ public class TestFastqPreProcessorAvroCompressed {
 
       Alphabet alphabet = DNAAlphabetFactory.create();
       for (int pos = 0; pos < sequence_length; pos++) {
-        dna += alphabet.validChars()[(int)Math.floor(Math.random()*alphabet.validChars().length)];
+        dna += alphabet.validChars()[(int)Math.floor(
+            Math.random()*alphabet.validChars().length)];
       }
 
       String[] frag = {label, dna, "+", "222222"};
-      processFrag(mapper, collector_mock, reporter, frag);
+      processFrag(mapper, collector, reporter, frag);
     }
   }
 }
