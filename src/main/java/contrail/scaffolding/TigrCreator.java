@@ -244,7 +244,8 @@ public class TigrCreator extends Stage {
       if (sawnode != 1) {
         sLogger.fatal(String.format(
             "Key: %s Didn't see exactly 1 instance of GraphNodeData. Number " +
-            "of instances:%d", key.datum().toString(), sawnode));
+            "of instances:%d", key.datum().toString(), sawnode),
+            new RuntimeException("No graph node"));
         System.exit(-1);
       }
 

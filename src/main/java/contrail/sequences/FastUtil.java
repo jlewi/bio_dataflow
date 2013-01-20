@@ -21,7 +21,6 @@ import java.io.PrintStream;
  *
  */
 public class FastUtil {
-
   /**
    * Write a fastq record to the stream.
    *
@@ -34,6 +33,19 @@ public class FastUtil {
     stream.append(record.getRead());
     stream.append("\n+\n");
     stream.append(record.getQvalue());
+    stream.append("\n");
+  }
+
+  /**
+   * Write a fastA record to the stream.
+   *
+   * @param record
+   */
+  public static void writeFastARecord(PrintStream stream, FastaRecord record) {
+    stream.append(">");
+    stream.append(record.getId());
+    stream.append("\n");
+    stream.append(record.getRead());
     stream.append("\n");
   }
 }
