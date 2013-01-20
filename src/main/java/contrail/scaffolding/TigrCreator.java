@@ -121,14 +121,6 @@ public class TigrCreator extends Stage {
         "outputpath", "The directory where the output should be written to.",
         String.class, null);
 
-//    ParameterDefinition graph = new ParameterDefinition(
-//        "graph_path", "The directory where the avro files containing " +
-//        "GraphNodeData are stored.", String.class, null);
-//
-//    ParameterDefinition graph = new ParameterDefinition(
-//        "graph_path", "The directory where the avro files containing " +
-//        "GraphNodeData are stored.", String.class, null);
-//
     for (ParameterDefinition def:
       ContrailParameters.getInputOutputPathOptions()) {
       defs.put(def.getName(), def);
