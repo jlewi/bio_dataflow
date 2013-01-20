@@ -84,7 +84,8 @@ public class JoinReads extends Stage {
       FastQRecord mate_1 = iter.next();
       // We need to make a copy of the record becaue it will be overwritten
       // when we call next.
-      mate_1 = SpecificData.get().deepCopy(mate_1.getSchema(), mate_1);
+      mate_1 = (FastQRecord) SpecificData.get().deepCopy(
+          mate_1.getSchema(), mate_1);
       FastQRecord mate_2 = iter.next();
       mate_2 = iter.next();
       MatePair joined = new MatePair();
