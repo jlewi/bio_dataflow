@@ -262,6 +262,10 @@ public class FindLastValidGraph extends Stage {
       return;
     }
 
+    if (errorStageIndex < 0) {
+      sLogger.error("No invalid graph could be found.");
+      return;
+    }
     // Print out information about the stage that corrupts the graph.
     errorStage = subStages.get(errorStageIndex);
 

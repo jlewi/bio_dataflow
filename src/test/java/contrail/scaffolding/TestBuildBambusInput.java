@@ -26,8 +26,11 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.StringUtils;
 
+import contrail.graph.GraphNode;
+import contrail.graph.GraphUtil;
 import contrail.sequences.AlphabetUtil;
 import contrail.sequences.DNAAlphabetFactory;
+import contrail.sequences.Sequence;
 import contrail.util.FileHelper;
 
 /**
@@ -61,6 +64,12 @@ public class TestBuildBambusInput {
     public String readsGlob;
     public String referenceGlob;
     public String libSizeFile;
+    public String graphGlob;
+
+    // Temporary directory to be used by the mapreduces launched by
+    // BuildBambusInput.
+    public String hdfsPath;
+
   }
 
   private void writeFastQRecord(
@@ -70,6 +79,7 @@ public class TestBuildBambusInput {
     out.write("+\n");
     out.write(StringUtils.repeat("I", sequence.length()) + "\n");
   }
+
 
   /**
    * Create the fastq files containing the reads and the fasta files containing
@@ -86,6 +96,7 @@ public class TestBuildBambusInput {
 
     for (int i = 0; i < num_mate_pairs; ++i) {
         try {
+          ArrayList<GraphNode> graphNodes = new ArrayList<GraphNode>();
           File referencePath =
               new File(directory, String.format("contigs_%d.fa", i));
           output.referenceFiles.add(referencePath.toString());
@@ -110,7 +121,7 @@ public class TestBuildBambusInput {
           // TODO(jlewi): To create a better test we should make the reads
           // come from different contigs.
           for (int r = 0; r < num_contigs; r++) {
-            String contigId = String.format("contig_%d_%d\n", i, r);
+            String contigId = String.format("contig_%d_%d", i, r);
             String sequence =
                 AlphabetUtil.randomString(
                     generator, 100, DNAAlphabetFactory.create());
@@ -123,9 +134,16 @@ public class TestBuildBambusInput {
             writeFastQRecord(
                 rightOut, rightId, sequence.substring(70, 100));
 
-            referenceOut.write(">" + contigId);
+            referenceOut.write(">" + contigId + "\n");
             referenceOut.write(sequence);
             referenceOut.write("\n");
+
+            // Create a graph node to represent the contig.
+            GraphNode node = new GraphNode();
+            node.setNodeId(contigId);
+            node.setSequence(new Sequence(
+                sequence, DNAAlphabetFactory.create()));
+            graphNodes.add(node);
           }
 
           referenceOut.close();
@@ -134,6 +152,11 @@ public class TestBuildBambusInput {
           leftStream.close();
           rightOut.close();
           rightStream.close();
+
+          String graphPath = FilenameUtils.concat(
+              directory.getPath(), String.format("graph_%d.avro", i));
+
+          GraphUtil.writeGraphToFile(new File(graphPath), graphNodes);
         } catch (Exception e) {
           e.printStackTrace();
         }
@@ -142,7 +165,11 @@ public class TestBuildBambusInput {
         directory.getPath(), "*fastq");
     output.referenceGlob = FilenameUtils.concat(
         directory.getPath(), "*fa");
+    output.graphGlob = FilenameUtils.concat(
+        directory.getPath(), "graph*avro");
 
+    output.hdfsPath = FilenameUtils.concat(
+        directory.getPath(), "hdfs_path");
     // Create the library size file.
     try {
       output.libSizeFile = FilenameUtils.concat(
@@ -175,7 +202,9 @@ public class TestBuildBambusInput {
     parameters.putAll(args);
     parameters.put("reads_glob",testData.readsGlob);
     parameters.put("reference_glob",testData.referenceGlob);
+    parameters.put("graph_glob",testData.graphGlob);
     parameters.put("libsize", testData.libSizeFile);
+    parameters.put("hdfs_path", testData.hdfsPath);
     parameters.put(
         "outputpath", FilenameUtils.concat(
             tempDir.getPath(), "output"));

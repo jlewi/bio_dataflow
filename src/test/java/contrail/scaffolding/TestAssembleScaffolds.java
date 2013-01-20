@@ -19,6 +19,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -29,10 +30,14 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
+import contrail.graph.GraphNode;
+import contrail.graph.GraphUtil;
 import contrail.sequences.AlphabetUtil;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.FastQRecord;
+import contrail.sequences.FastUtil;
 import contrail.sequences.FastaRecord;
+import contrail.sequences.Sequence;
 import contrail.util.FileHelper;
 
 /**
@@ -70,6 +75,8 @@ public class TestAssembleScaffolds {
     public String readsGlob;
     public String referenceGlob;
     public String libSizeFile;
+    public String graphGlob;
+    public String hdfsPath;
 
     // The true sequence for the scaffold.
     public String expectedScaffold;
@@ -100,16 +107,11 @@ public class TestAssembleScaffolds {
   private void writeFastaFile(File path, Collection<FastaRecord> contigs) {
     // Write the contigs to a fasta file.
     try {
-      FileWriter referenceStream = new FileWriter(path, false);
-      BufferedWriter referenceOut = new BufferedWriter(referenceStream);
-
+      PrintStream stream = new PrintStream(path);
       for (FastaRecord record : contigs) {
-        referenceOut.write(">" + record.getId());
-        referenceOut.write(record.getRead().toString());
-        referenceOut.write("\n");
+        FastUtil.writeFastARecord(stream, record);
       }
-      referenceOut.close();
-      referenceStream.close();
+      stream.close();
     } catch (Exception e) {
       e.printStackTrace();
     }
@@ -128,6 +130,21 @@ public class TestAssembleScaffolds {
     } catch (Exception e) {
       e.printStackTrace();
     }
+  }
+
+  private void writeGraphNodes(
+      String graphFile, ArrayList<FastaRecord> contigs) {
+    ArrayList<GraphNode> nodes = new ArrayList<GraphNode>();
+
+    for (FastaRecord record : contigs) {
+      GraphNode node = new GraphNode();
+      node.setNodeId(record.getId().toString());
+      node.setSequence(
+          new Sequence(
+              record.getRead().toString(), DNAAlphabetFactory.create()));
+      nodes.add(node);
+    }
+    GraphUtil.writeGraphToFile(new File(graphFile), nodes);
   }
 
   /**
@@ -168,7 +185,7 @@ public class TestAssembleScaffolds {
     int position = 0;
     while (position < test.expectedScaffold.length()) {
       FastaRecord record = new FastaRecord();
-      record.setId(String.format("contig-%d\n", position));
+      record.setId(String.format("contig-%d", position));
       record.setRead(test.expectedScaffold.substring(
           position, position + contigLength));
       contigs.add(record);
@@ -179,6 +196,12 @@ public class TestAssembleScaffolds {
     File referencePath = new File(directory, "contigs.fa");
     test.referenceFiles.add(referencePath.toString());
     writeFastaFile(referencePath, contigs);
+
+    // Write the contigs to an avro file containing the graph nodes.
+    test.graphGlob = FilenameUtils.concat(directory.getPath(), "graph*avro");
+    writeGraphNodes(
+        FilenameUtils.concat(directory.getPath(), "graph.avro"), contigs);
+
 
     // Split the contigs into mate pair reads.
     ArrayList<FastQRecord> leftReads = new ArrayList<FastQRecord>();
@@ -217,17 +240,23 @@ public class TestAssembleScaffolds {
 
     // Create a degenerate contig; i.e one with no mate pairs so it won't
     // be in any scaffold.
+    ArrayList<FastaRecord> degenerateContigs = new ArrayList<FastaRecord>();
     int numDegenerate = 1;
     for (int i=0; i < numDegenerate; ++i) {
       FastaRecord record = new FastaRecord();
-      record.setId(String.format("degenerate-contig-%d\n", i));
+      record.setId(String.format("degenerate-contig-%d", i));
       record.setRead(AlphabetUtil.randomString(
           generator, contigLength, DNAAlphabetFactory.create()));
       test.degenerateContigs.put(record.getId().toString(), record);
+      degenerateContigs.add(record);
     }
     File degeneratePath = new File(directory, "degenerate-contigs.fa");
     test.referenceFiles.add(degeneratePath.toString());
     writeFastaFile(degeneratePath, test.degenerateContigs.values());
+
+    writeGraphNodes(
+        FilenameUtils.concat(directory.getPath(), "graph-degenerate.avro"),
+        degenerateContigs);
 
     ArrayList<FastQRecord> leftDegenerateReads = new ArrayList<FastQRecord>();
     ArrayList<FastQRecord> rightDegenerateReads = new ArrayList<FastQRecord>();
@@ -278,6 +307,9 @@ public class TestAssembleScaffolds {
         directory.getPath(), "*fastq");
     test.referenceGlob = FilenameUtils.concat(
         directory.getPath(), "*fa");
+    // Working directory for the MR jobs run as part of scaffolding.
+    test.hdfsPath = FilenameUtils.concat(
+        directory.getPath(), "hdfs_path");
     return test;
   }
 
@@ -314,7 +346,8 @@ public class TestAssembleScaffolds {
     parameters.put("reads_glob",testData.readsGlob);
     parameters.put("reference_glob",testData.referenceGlob);
     parameters.put("libsize", testData.libSizeFile);
-
+    parameters.put("graph_glob", testData.graphGlob);
+    parameters.put("hdfs_path", testData.hdfsPath);
     parameters.put("outprefix", "output");
 
     AssembleScaffolds stage = new AssembleScaffolds();
