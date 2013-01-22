@@ -84,8 +84,15 @@ public class AssembleScaffolds extends Stage {
             "max_overlap", "Bambus parameter maxoverlap.",
             Integer.class, new Integer(500));
 
+    // Graph reduction is currently off because we were running into
+    // problems with the graph reduction code for the staph dataset.
+    ParameterDefinition noReduce =
+        new ParameterDefinition(
+            "noreduce", "Turn off graph simplification in orient contigs.",
+            Boolean.class, true);
+
     for (ParameterDefinition def: new ParameterDefinition[] {
-            amosPath, maxOverlap}) {
+            amosPath, maxOverlap, noReduce}) {
       definitions.put(def.getName(), def);
     }
     return Collections.unmodifiableMap(definitions);
@@ -403,6 +410,7 @@ public class AssembleScaffolds extends Stage {
     orientCommand.add(FilenameUtils.concat(amosPath, "OrientContigs"));
 
     Integer maxOverlap = (Integer)stage_options.get("max_overlap");
+    Boolean noReduce = (Boolean)stage_options.get("noreduce");
     // The -all option means that we will output a scaffold even if it is
     // degenerate; i.e consists of a single scaffold.
     orientCommand.add("-all");
@@ -412,6 +420,9 @@ public class AssembleScaffolds extends Stage {
     orientCommand.add(maxOverlap.toString());
     orientCommand.add("-redundancy");
     orientCommand.add("0");
+    if (noReduce) {
+      orientCommand.add("-noreduce");
+    }
 
     if (ShellUtil.execute(
         orientCommand, outputPath, "OrientContigs:", sLogger) != 0) {
