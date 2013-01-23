@@ -24,6 +24,7 @@ import sys
 
 gflags.DEFINE_string("path", None, "The path to a file or directory to upload")
 gflags.DEFINE_string("description", "", "Description for the file.")
+gflags.DEFINE_bool("convert", True, "Whether to convert the file.")
 
 gflags.MarkFlagAsRequired("path")
 
@@ -116,7 +117,7 @@ def main(argv):
       'mimeType': mime_type
     }
 
-    file = drive_service.files().insert(body=body, media_body=media_body, convert=True).execute()
+    file = drive_service.files().insert(body=body, media_body=media_body, convert=FLAGS.convert).execute()
     pprint.pprint(file)
 
 if __name__ == "__main__":
