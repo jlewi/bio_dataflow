@@ -1,4 +1,4 @@
-package contrail.correct;
+package contrail.io;
 
 import java.util.StringTokenizer;
 
@@ -14,23 +14,23 @@ public class FastQText extends Text {
   public FastQText() {
     super();
   }
-  
+
   public FastQText(String id, String dna, String qvalue) {
     super(join(id, dna, qvalue));
   }
-  
+
   public void set(String id, String dna, String qvalue) {
     super.set(join(id, dna, qvalue));
   }
   public static String join (String id, String dna, String qvalue) {
     return id + "\n" + dna + "\n" + qvalue;
   }
-  
+
   public String toString()
   {
-    return super.toString();    
+    return super.toString();
   }
-  
+
   // get Sequence ID.
   public String getId()
   {
@@ -44,9 +44,9 @@ public class FastQText extends Text {
     StringTokenizer st = new StringTokenizer(toString(), "\n");
     st.nextToken();
     return st.nextToken();
-    
+
   }
-  
+
   //Get Quality Value.
   public String getQValue()
   {

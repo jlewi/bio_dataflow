@@ -5,7 +5,8 @@ import contrail.CompressedRead;
 import contrail.sequences.CompressedSequence;
 import contrail.sequences.FastQRecord;
 import contrail.stages.*;
-import contrail.correct.*;
+import contrail.io.FastQText;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -50,13 +51,13 @@ import org.apache.hadoop.util.ToolRunner;
 import org.apache.commons.codec.binary.*;
 
 /** MapReduce job to Rekey Data.
- * Before we actually do the merge, the data needs to be rekeyed in both the 
- * input mate directories. The new keys should be in the "same" order in both 
- * the datasets, and should preserve the 1-1 correspondence. The way we do this 
- * is first rename all files in particular sorted order - this order is the 
- * same for both input directories Next, we run a Map-Reduce job to re-key the 
- * reads - as per the name of the file from which a particular read came, and 
- * the way it is split.   
+ * Before we actually do the merge, the data needs to be rekeyed in both the
+ * input mate directories. The new keys should be in the "same" order in both
+ * the datasets, and should preserve the 1-1 correspondence. The way we do this
+ * is first rename all files in particular sorted order - this order is the
+ * same for both input directories Next, we run a Map-Reduce job to re-key the
+ * reads - as per the name of the file from which a particular read came, and
+ * the way it is split.
  */
 
 public class RekeyReads extends Stage {
@@ -71,9 +72,9 @@ public class RekeyReads extends Stage {
     ParameterDefinition type
     = new ParameterDefinition(
         "datatype",
-        "The Data Type - either Singles (1), Mates for Flash (2), Mates Non Flash (3)", 
+        "The Data Type - either Singles (1), Mates for Flash (2), Mates Non Flash (3)",
         String.class, null);
-    
+
     ParameterDefinition splitSize
     = new ParameterDefinition(
         "splitSize",
@@ -82,7 +83,7 @@ public class RekeyReads extends Stage {
 
     defs.put(type.getName(), type);
     defs.put(splitSize.getName(), splitSize);
-    
+
     return Collections.unmodifiableMap(defs);
   }
 
@@ -104,7 +105,7 @@ public class RekeyReads extends Stage {
     private String datatype;
     private long fileNumber  = 0;
     private FastQRecord read = new FastQRecord();
-    private AvroWrapper<FastQRecord> out_wrapper = 
+    private AvroWrapper<FastQRecord> out_wrapper =
         new AvroWrapper<FastQRecord>(read);
 
     /** Preprocessing in Configure Method.
@@ -136,9 +137,9 @@ public class RekeyReads extends Stage {
 
         if (datatype.equals("2") || datatype.equals("3"))
         {
-          //TODO(deepak): Check if the files end in either _1.fq or _2.fq and 
+          //TODO(deepak): Check if the files end in either _1.fq or _2.fq and
           // handle exceptions in a better way.
-          // Also make sure that there are both _1 and _2 files. 
+          // Also make sure that there are both _1 and _2 files.
           for (String file: files)
           {
             if ( file.endsWith("_1.fq") || file.endsWith("_2.fq"))
@@ -151,7 +152,7 @@ public class RekeyReads extends Stage {
             }
           }
         }
-        
+
         else
         {
           // else, for singles - simply add all filenames.
@@ -190,11 +191,11 @@ public class RekeyReads extends Stage {
       newKeyString = Long.toString(newKey) + datatype;
       //System.out.println(record.getId() + " " + newKeyString);
       // TODO(dnettem): getbase64 encoding of this.
-      read.id = newKeyString; 
+      read.id = newKeyString;
       read.read = record.getDna();
       read.qvalue = record.getQValue();
 
-      output.collect(out_wrapper, NullWritable.get());     
+      output.collect(out_wrapper, NullWritable.get());
     }
 
     /* Get a base64 encoded String from a long type */
@@ -207,7 +208,7 @@ public class RekeyReads extends Stage {
     }
 
     /** Gets Split Number
-     * 
+     *
      * The method returns the rank of current file from the sorted order of
      * files
      */
@@ -216,12 +217,12 @@ public class RekeyReads extends Stage {
     {
       NumberedFileSplit nInpSplit = (NumberedFileSplit) reporter
           .getInputSplit();
-      return nInpSplit.getNumber();  
+      return nInpSplit.getNumber();
     }
 
     private static long getFileNumber(Reporter reporter){
       NumberedFileSplit nInpSplit = (NumberedFileSplit) reporter
-          .getInputSplit();   
+          .getInputSplit();
       long fileNumber = 0;
 
       // This will give an index out of bounds exception of
@@ -231,23 +232,23 @@ public class RekeyReads extends Stage {
           sourceFile.lastIndexOf("_"));
       long i = fileNameList.indexOf(absoluteName);
 
-      return i; 
+      return i;
     }
 
     /** Generate new Key.
-     * 
+     *
      * The algorithm to generate the new key is to use fileNumber and
-     * splitNumber as offset in a 64bit range. 
-     * We assume that records per file cannot be larger than 2^40. 
-     * For offset within the file. Since each split is capped at 256MB, assuming 
-     * each record to be 100 bytes which is < 5 * 10^5 records = 2^19. 
-     * Currently, we set the max number of lines per split to 2 * 10^6 which is 
-     * 5*10^5 records = 2^19. So each split won't have more than 2^20 records. 
-     * Using 64 bits gives us enough leeway to have 2^24 such files. This scheme 
-     * is wasteful. If the files are small, a lot of sequence ids will get wasted 
+     * splitNumber as offset in a 64bit range.
+     * We assume that records per file cannot be larger than 2^40.
+     * For offset within the file. Since each split is capped at 256MB, assuming
+     * each record to be 100 bytes which is < 5 * 10^5 records = 2^19.
+     * Currently, we set the max number of lines per split to 2 * 10^6 which is
+     * 5*10^5 records = 2^19. So each split won't have more than 2^20 records.
+     * Using 64 bits gives us enough leeway to have 2^24 such files. This scheme
+     * is wasteful. If the files are small, a lot of sequence ids will get wasted
      * This is a problem if we want to rekey the entire data.
-     * 
-     * Example: 
+     *
+     * Example:
      * |-----24------|------20--------|-------20-------|
      *     FileNum        splitNum          count
      */
@@ -270,18 +271,18 @@ public class RekeyReads extends Stage {
     JobConf conf = new JobConf(RekeyReads.class);
     conf.setJobName("Rekey Data");
     String[] required_args = {"inputpath", "outputpath","splitSize"};
-    checkHasParametersOrDie(required_args);   
-    
+    checkHasParametersOrDie(required_args);
+
     inputPath = (String) stage_options.get("inputpath");
     outputPath = (String) stage_options.get("outputpath");
     datatype = (String) stage_options.get("datatype");
     splitSize = (Long) stage_options.get("splitSize");
-    
-    //TODO (dnettem): Handle this better, but right now we know that there is 
+
+    //TODO (dnettem): Handle this better, but right now we know that there is
     // no singles data.
     if (datatype == null)
       datatype = "2";
-    
+
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 

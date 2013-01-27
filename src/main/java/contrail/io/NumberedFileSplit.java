@@ -1,4 +1,4 @@
-package contrail.correct;
+package contrail.io;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -8,9 +8,9 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.InputSplit;
 
-/** NumberedFileSplit extends FileSplit. The only thing that it does differently 
- * from FileSplit is that is has a new member called "number" which stores 
- * information about what split 'number' is the current split.   
+/** NumberedFileSplit extends FileSplit. The only thing that it does differently
+ * from FileSplit is that is has a new member called "number" which stores
+ * information about what split 'number' is the current split.
  */
 
 class NumberedFileSplit extends FileSplit implements InputSplit {

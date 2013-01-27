@@ -1,4 +1,4 @@
-package contrail.correct;
+package contrail.io;
 
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -26,10 +26,10 @@ import org.apache.log4j.Logger;
 import contrail.util.MockFSDataInputStream;
 
 /** InputFormat to read FastQFiles.
- * 
+ *
  * In general, the algorithm is to seek
  * ahead in jumps of the splitSize, and then move ahead a few bytes to find
- * the record boundary. For the FastQ File Format, 
+ * the record boundary. For the FastQ File Format,
  * see wiki - http://en.wikipedia.org/wiki/FASTQ_format
  */
 
@@ -40,11 +40,11 @@ FileInputFormat<LongWritable, FastQText> implements JobConfigurable {
   // TODO(deepak): according to the fastq spec, is this the maximum?
   private static final int MAX_READ_LENGTH = 500;
 
-  private static final Logger sLogger 
+  private static final Logger sLogger
   = Logger.getLogger(FastQInputFormat.class);
 
   // Desired size of the split The split is not guaranteed to be exactly this
-  // size. It may be a few bytes more. 
+  // size. It may be a few bytes more.
 
   public long splitSize;
 
@@ -66,9 +66,9 @@ FileInputFormat<LongWritable, FastQText> implements JobConfigurable {
   }
 
   /**
-   * Logically splits the set of input files for the job, roughly at 
+   * Logically splits the set of input files for the job, roughly at
    * size defined by splitSize.
-   * 
+   *
    * @see org.apache.hadoop.mapred.FileInputFormat#getSplits(JobConf, int)
    */
 
@@ -83,18 +83,18 @@ FileInputFormat<LongWritable, FastQText> implements JobConfigurable {
     }
     return splits.toArray(new NumberedFileSplit[splits.size()]);
   }
-  
+
   // Given the input data stream, and an offset, take us to the very next start of new record.
   public long takeToNextStart(FSDataInputStream stream, long start, long end) throws IOException
   {
 
     if (start > 0)
-    {   
+    {
       stream.seek(start);
       LineReader reader = new LineReader(stream);
 
       int bytesRead = 0;
-      do 
+      do
       {
         bytesRead = reader.readLine(buffer, (int) Math.min((end - start),MAX_READ_LENGTH) );
         if (bytesRead > 0 && buffer.getBytes()[0] != '@')
@@ -127,13 +127,13 @@ FileInputFormat<LongWritable, FastQText> implements JobConfigurable {
       Configuration conf) throws IOException {
 
     Path fileName = status.getPath();
-    
+
     if (status.isDir()) {
       throw new IOException("Not a file: " + fileName);
     }
     FileSystem fs = fileName.getFileSystem(conf);
 
-    long fileSize = fs.getFileStatus(fileName).getLen(); 
+    long fileSize = fs.getFileStatus(fileName).getLen();
     // open the input stream
     FSDataInputStream in = fs.open(fileName);
 
@@ -151,7 +151,7 @@ FileInputFormat<LongWritable, FastQText> implements JobConfigurable {
     int splitNumber = 1;
 
     int counter = 0;
-    
+
     // cast as bytes because LineReader takes a byte array.
     takeToNextStart(stream, 0, fileSize);
     while (bytesConsumed < fileSize) {
@@ -160,13 +160,13 @@ FileInputFormat<LongWritable, FastQText> implements JobConfigurable {
         begin = bytesConsumed;
         // jump by the length of the split.
         bytesConsumed += splitSize;
-          
+
         bytesConsumed = takeToNextStart(stream, bytesConsumed, fileSize);
-        
+
         splits.add(new NumberedFileSplit(fileName, begin,
             bytesConsumed - begin, splitNumber, new String[] {}));
         splitNumber++;
-        
+
       } else {
         // last few bytes remaining - create a new split.
         begin = bytesConsumed;
@@ -174,7 +174,7 @@ FileInputFormat<LongWritable, FastQText> implements JobConfigurable {
         splits.add(new NumberedFileSplit(fileName, begin,
             (bytesConsumed - begin), splitNumber, new String[] {}));
         splitNumber++;
-        
+
         stream.close();
         break;
       }
@@ -182,7 +182,7 @@ FileInputFormat<LongWritable, FastQText> implements JobConfigurable {
     sLogger.info(fileName.toString()+" resulted in "+splits.size()+" splits ");
     return splits;
   }
-  
+
   public static boolean isRecord(char ch) {
     return (ch == '+' ? true : false);
   }
