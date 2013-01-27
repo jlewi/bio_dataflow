@@ -1,3 +1,18 @@
+/**
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+// Author: Deepak Nettem (deepaknettem@gmail.com)
+
 package contrail.correct;
 
 import java.io.IOException;
@@ -23,45 +38,38 @@ import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 import contrail.sequences.FastQRecord;
-import contrail.stages.BuildGraphAvro;
 import contrail.stages.ContrailParameters;
 import contrail.stages.ParameterDefinition;
 import contrail.stages.Stage;
 import contrail.io.FastQText;
 import contrail.io.FastQInputFormat;
 
-
-/** MapReduce job to convert a FastQ File to Avro.
+/**
+ * MapReduce job to convert a FastQ File to Avro.
  * Uses FastQInputFormat.
- * @author dnettem
+ *
+ * TODO(deepaknettem): This code needs a unittest.
  */
 public class FastQToAvro extends Stage {
-
-/*  private static*/ final Logger sLogger = Logger.getLogger(BuildGraphAvro.class);
+  final Logger sLogger = Logger.getLogger(FastQToAvro.class);
 
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs = new HashMap<String,
         ParameterDefinition>();
 
     defs.putAll(super.createParameterDefinitions());
-    for (ParameterDefinition def : ContrailParameters
-        .getInputOutputPathOptions()) {
+    for (ParameterDefinition def :
+      ContrailParameters.getInputOutputPathOptions()) {
       defs.put(def.getName(), def);
     }
     return Collections.unmodifiableMap(defs);
   }
 
   public static class FastQToAvroMapper extends MapReduceBase
-  implements Mapper<LongWritable, FastQText, AvroWrapper<FastQRecord>, NullWritable>{
-
+      implements Mapper<LongWritable, FastQText,
+                        AvroWrapper<FastQRecord>, NullWritable> {
     private FastQRecord read = new FastQRecord();
     private AvroWrapper<FastQRecord> out_wrapper = new AvroWrapper<FastQRecord>(read);
-
-    public void configure(JobConf job)
-    {
-      Configuration conf = new Configuration();
-      FileSystem hdfs;
-    }
 
     public void map(LongWritable line, FastQText record,
         OutputCollector<AvroWrapper<FastQRecord>, NullWritable> output, Reporter reporter)
@@ -76,11 +84,10 @@ public class FastQToAvro extends Stage {
   }
 
   public RunningJob runJob() throws Exception {
-
     JobConf conf = new JobConf(FastQToAvro.class);
 
     conf.setJobName("FastQToAvro");
-    String inputPath, outputPath, datatype;
+    String inputPath, outputPath;
     Long splitSize;
     conf.setJobName("Rekey Data");
     String[] required_args = {"inputpath", "outputpath","splitSize"};
@@ -117,7 +124,6 @@ public class FastQToAvro extends Stage {
   }
 
   public static void main(String[] args) throws Exception {
-
     int res = ToolRunner.run(new Configuration(), new FastQToAvro(), args);
     System.exit(res);
   }
