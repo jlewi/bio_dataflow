@@ -13,7 +13,7 @@ import org.apache.hadoop.mapred.InputSplit;
  * information about what split 'number' is the current split.
  */
 
-class NumberedFileSplit extends FileSplit implements InputSplit {
+public class NumberedFileSplit extends FileSplit implements InputSplit {
 
   private Path file;
   private long start;
