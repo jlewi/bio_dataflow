@@ -33,9 +33,7 @@ public class JoinReads extends Stage {
   private static final Logger sLogger = Logger.getLogger(JoinReads.class);
   public static final Schema fast_q_record = (new FastQRecord()).getSchema();
   public static final Schema mate_record = (new MatePair()).getSchema();
-
   public static final Schema REDUCE_OUT_SCHEMA = mate_record;
-
 
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs = new HashMap<String,
@@ -49,7 +47,6 @@ public class JoinReads extends Stage {
     return Collections.unmodifiableMap(defs);
   }
 
-
   public static class JoinMapper extends AvroMapper <FastQRecord, Pair<CharSequence, FastQRecord>> {
 
     private static int K = 0;
@@ -60,11 +57,9 @@ public class JoinReads extends Stage {
       out_pair = new Pair<CharSequence, FastQRecord>("",new FastQRecord());
     }
 
-  public void map(FastQRecord record,
+    public void map(FastQRecord record,
         AvroCollector<Pair<CharSequence, FastQRecord>> output, Reporter reporter)
             throws IOException {
-
-      System.out.println("Test");
       CharSequence key = record.getId();
       System.out.println(key);
       out_pair.set(key, record);
@@ -76,22 +71,26 @@ public class JoinReads extends Stage {
   public static class JoinReducer extends
   AvroReducer <CharSequence, FastQRecord, MatePair>
   {
+    private MatePair joined;
+    public void configure(JobConf job)
+    {
+      joined = new MatePair();
+    }
     public void reduce(CharSequence id, Iterable<FastQRecord> iterable,
         AvroCollector<MatePair> collector, Reporter reporter)
             throws IOException {
-
       Iterator<FastQRecord> iter = iterable.iterator();
       FastQRecord mate_1 = iter.next();
       // We need to make a copy of the record because it will be overwritten
       // when we call next.
       mate_1 = (FastQRecord) SpecificData.get().deepCopy(
           mate_1.getSchema(), mate_1);
-      FastQRecord mate_2 = iter.next();
-      mate_2 = iter.next();
-      MatePair joined = new MatePair();
+      if(!iter.hasNext()) {
+        return;
+      }
+      FastQRecord mate_2 = iter.next();      
       joined.left = mate_1;
       joined.right = mate_2;
-      System.out.println(mate_1.id + " " + mate_2.id);
       collector.collect(joined);
     }
   }
