@@ -268,7 +268,7 @@ public class AssembleScaffolds extends Stage {
     File fastaContigFile =
         new File(outputPath, getOutputPrefix() + "contigs.fasta");
     sLogger.info(
-        "Writing scafold contig sequences to:" + fastaContigFile.getPath());
+        "Writing scaffold contig sequences to:" + fastaContigFile.getPath());
     PrintStream fastaStream = null;
     try {
       fastaStream = new PrintStream(fastaContigFile.getPath());

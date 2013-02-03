@@ -15,8 +15,6 @@
 
 package contrail.tools;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -26,17 +24,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-
-import contrail.stages.CompressibleNodeData;
-import contrail.stages.ContrailParameters;
-import contrail.stages.ParameterDefinition;
-import contrail.stages.Stage;
-import contrail.graph.EdgeDirection;
-import contrail.graph.EdgeTerminal;
-import contrail.graph.GraphNode;
-import contrail.graph.GraphNodeData;
-import contrail.sequences.DNAStrand;
-import contrail.sequences.StrandsUtil;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -49,12 +36,30 @@ import org.apache.avro.file.DataFileStream;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.specific.SpecificDatumReader;
+import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+
+import contrail.graph.EdgeDirection;
+import contrail.graph.EdgeTerminal;
+import contrail.graph.GraphNode;
+import contrail.graph.GraphNodeData;
+import contrail.graph.R5Tag;
+import contrail.sequences.DNAStrand;
+import contrail.sequences.StrandsUtil;
+import contrail.stages.CompressibleNodeData;
+import contrail.stages.ContrailParameters;
+import contrail.stages.ParameterDefinition;
+import contrail.stages.Stage;
 
 /**
  * Covert the graph into an gephi formatted XML file which can then be loaded
@@ -66,20 +71,17 @@ import org.w3c.dom.Element;
  * WARNING: Gephi appears to have problems reading files in "/tmp" so
  * write the file somewhere else.
  *
- * Important: The code currently assumes the graph is stored locally and not
- * on HDFS.
+ * The input/output can be on any filesystem supported by the hadoop file api.
  *
  * TODO(jlewi): We should make color vary depending on the
  * node's length and coverage.
- *
- * TODO(jlewi): Enable reading from HDFS directly.
  */
 public class WriteGephiFile extends Stage {
   private static final Logger sLogger =
       Logger.getLogger(WriteGephiFile.class);
 
   // A mapping from node id's to integers used by gephi.
-  private HashMap<EdgeTerminal, Integer> node_id_map =
+  private final HashMap<EdgeTerminal, Integer> node_id_map =
       new HashMap<EdgeTerminal, Integer>();
 
   // The next value to assign to a node;
@@ -90,6 +92,13 @@ public class WriteGephiFile extends Stage {
   // Hashmap mapping node attributes to their id values.
   private HashMap<String, String> nodeAttrIdMap;
 
+  //Hashmap mapping edge attributes to their id values.
+  private HashMap<String, String> edgeAttrIdMap;
+
+  // The filesystem.
+  private FileSystem fs;
+
+  @Override
   protected Map<String, ParameterDefinition>
       createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs =
@@ -107,20 +116,30 @@ public class WriteGephiFile extends Stage {
         "num_hops", "(Optional) Number of hops to take starting at start_node.",
         Integer.class, null);
 
+    ParameterDefinition tmpCheck = new ParameterDefinition(
+        "disallow_tmp",
+        "(Only for unittest) disables the check to see if the outputpath is " +
+        "/tmp.",
+        Boolean.class, true);
     defs.put(start_node.getName(), start_node);
     defs.put(num_hops.getName(), num_hops);
+    defs.put(tmpCheck.getName(), tmpCheck);
     return Collections.unmodifiableMap(defs);
   }
 
   /**
    * Create an XML element to represent the edge.
-   * @param node_id_map
-   * @param node
-   * @param terminal
+   * @param doc
+   * @param edge_id
+   * @param src
+   * @param dest
+   * @param readIds: List of strings containing the ids of the reads this edge
+   *   came from.
    * @return
    */
   private Element createElementForEdge(
-      Document doc, int edge_id, EdgeTerminal src, EdgeTerminal dest) {
+      Document doc, int edge_id, EdgeTerminal src, EdgeTerminal dest,
+      ArrayList<String> readIds) {
     Element xml_edge = doc.createElement("edge");
     Integer this_node_id = IdForTerminal(src);
 
@@ -135,6 +154,24 @@ public class WriteGephiFile extends Stage {
     xml_edge.setAttribute(
         "label",
         StrandsUtil.form(src.strand,  dest.strand).toString());
+
+    // Set all the attributes.
+    Element attributeRoot = doc.createElement("attvalues");
+    xml_edge.appendChild(attributeRoot);
+    for (Entry<String, String> entry : edgeAttrIdMap.entrySet()) {
+      Element attribute = doc.createElement("attvalue");
+      attribute.setAttribute("for", entry.getValue());
+      String value;
+      if (entry.getKey().equals("read-ids")) {
+        Collections.sort(readIds);
+        value = StringUtils.join(readIds, ",");
+      } else {
+        throw new RuntimeException(
+            "No handler for attribute:" + entry.getKey());
+      }
+      attribute.setAttribute("value", value);
+      attributeRoot.appendChild(attribute);
+    }
     return xml_edge;
   }
 
@@ -190,7 +227,15 @@ public class WriteGephiFile extends Stage {
         value = Integer.toString(node.getSequence().size());
       } else if (entry.getKey().equals("sequence")) {
         value = node.getSequence().toString();
-      }  else {
+      } else if (entry.getKey().equals("r5tags")) {
+        // Should we include the offset the tag?
+        ArrayList<String> tags = new ArrayList<String>();
+        for (R5Tag tag : node.getData().getR5Tags()) {
+          tags.add(tag.getTag().toString());
+        }
+        Collections.sort(tags);
+        value = StringUtils.join(tags, ",");
+      } else {
         throw new RuntimeException(
             "No handler for attribute:" + entry.getKey());
       }
@@ -206,9 +251,11 @@ public class WriteGephiFile extends Stage {
   }
 
   public void writeGraph(Map<String, GraphNode> nodes, String xml_file) {
-    if (xml_file.startsWith("/tmp")) {
-      throw new RuntimeException(
-          "Don't write the file to '/tmp' gephi has problems with that.");
+    if ((Boolean)stage_options.get("disallow_tmp")) {
+      if (xml_file.startsWith("/tmp")) {
+        throw new RuntimeException(
+            "Don't write the file to '/tmp' gephi has problems with that.");
+      }
     }
     DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
     DocumentBuilder dBuilder = null;
@@ -237,6 +284,7 @@ public class WriteGephiFile extends Stage {
       nodeAttrIdMap.put("length", "3");
       nodeAttrIdMap.put("coverage", "4");
       nodeAttrIdMap.put("sequence", "5");
+      nodeAttrIdMap.put("r5tags", "6");
 
       for (Entry<String, String> entry : nodeAttrIdMap.entrySet()) {
         Element attribute = doc.createElement("attribute");
@@ -247,6 +295,31 @@ public class WriteGephiFile extends Stage {
       }
 
     }
+
+    edgeAttrIdMap = new HashMap<String, String> ();
+    {
+      // Declare some attributes for edge
+      Element attributes = doc.createElement("attributes");
+      root.appendChild(attributes);
+      attributes.setAttribute("class", "edge");
+
+      edgeAttrIdMap.put("read-ids", "0");
+
+      for (Entry<String, String> entry : edgeAttrIdMap.entrySet()) {
+        Element attribute = doc.createElement("attribute");
+        attribute.setAttribute("id", entry.getValue());
+        attribute.setAttribute("title", entry.getKey());
+        attribute.setAttribute("type", "string");
+        attributes.appendChild(attribute);
+
+        // Set the default value to the empty string because if no value
+        // is supplied and the attribute isn't set its an error.
+        Element defaultNode = doc.createElement("default");
+        defaultNode.setTextContent("");
+        attribute.appendChild(defaultNode);
+      }
+    }
+
     root.setAttribute("mode", "static");
     root.setAttribute("defaultedgetype", "directed");
 
@@ -282,8 +355,12 @@ public class WriteGephiFile extends Stage {
             Element new_node = CreateTerminal(other_terminal, node);
             xml_nodes.appendChild(new_node);
           }
+          ArrayList<String> readIds = new ArrayList<String>();
+          for (CharSequence tag : node.getTagsForEdge(strand, other_terminal)) {
+            readIds.add(tag.toString());
+          }
           Element xml_edge = createElementForEdge(
-              doc, ++edge_id, terminal, other_terminal);
+              doc, ++edge_id, terminal, other_terminal, readIds);
           xml_edges.appendChild(xml_edge);
         }
 
@@ -297,8 +374,10 @@ public class WriteGephiFile extends Stage {
       TransformerFactory transformerFactory = TransformerFactory.newInstance();
       Transformer transformer = transformerFactory.newTransformer();
       DOMSource source = new DOMSource(doc);
-      StreamResult result = new StreamResult(xml_file);
+      FSDataOutputStream outStream = fs.create(new Path(xml_file), true);
+      StreamResult result = new StreamResult(outStream);
       transformer.transform(source, result);
+      outStream.close();
     } catch (Exception exception) {
       sLogger.error("Exception:" + exception.toString());
     }
@@ -310,21 +389,22 @@ public class WriteGephiFile extends Stage {
     Unknown
   };
 
-  private InputRecordTypes determineInputType (File inFile) {
+  private InputRecordTypes determineInputType (Path path) {
     // Determine the input type by reading the first record in one of the
     // file.
     GenericDatumReader reader = new GenericDatumReader<GenericRecord>();
     try {
-      FileInputStream in_stream = new FileInputStream(inFile);
+      FSDataInputStream inStream = fs.open(path);
 
       DataFileStream<GenericRecord> avro_stream =
-          new DataFileStream<GenericRecord>(in_stream, reader);
+          new DataFileStream<GenericRecord>(inStream, reader);
 
       if (!avro_stream.hasNext()) {
         throw new RuntimeException(
             "Couldn't determine the input record type because no records could be read.");
       }
       GenericRecord record = avro_stream.next();
+      inStream.close();
       if (record.getSchema().getName().equals("GraphNodeData")) {
         return InputRecordTypes.GraphNodeData;
       } else if (record.getSchema().getName().equals("CompressibleNodeData")) {
@@ -341,23 +421,23 @@ public class WriteGephiFile extends Stage {
     }
   }
 
-  private HashMap<String, GraphNode> readGraphNodes(List<File> inputFiles) {
+  private HashMap<String, GraphNode> readGraphNodes(List<Path> inputFiles) {
     // Read the nodes from a file where the record type is GraphNodeData.
     HashMap<String, GraphNode> nodes = new HashMap<String, GraphNode>();
     try {
-      for (File inFile : inputFiles) {
-        FileInputStream in_stream = new FileInputStream(inFile);
-
+      for (Path inFile : inputFiles) {
+        FSDataInputStream inStream = fs.open(inFile);
         SpecificDatumReader<GraphNodeData> reader =
             new SpecificDatumReader<GraphNodeData>();
         DataFileStream<GraphNodeData> avro_stream =
-            new DataFileStream<GraphNodeData>(in_stream, reader);
+            new DataFileStream<GraphNodeData>(inStream, reader);
         while(avro_stream.hasNext()) {
           GraphNodeData data  = avro_stream.next();
           GraphNode node = new GraphNode(data);
 
           nodes.put(node.getNodeId(), node);
         }
+        inStream.close();
       }
     } catch (IOException exception) {
       throw new RuntimeException(
@@ -368,23 +448,24 @@ public class WriteGephiFile extends Stage {
   }
 
   private HashMap<String, GraphNode> readCompressibleNodes(
-      List<File> inputFiles) {
+      List<Path> inputFiles) {
     // Read the nodes from a file where the record type is GraphNodeData.
     HashMap<String, GraphNode> nodes = new HashMap<String, GraphNode>();
     try {
-      for (File inFile : inputFiles) {
-        FileInputStream in_stream = new FileInputStream(inFile);
+      for (Path inFile : inputFiles) {
+        FSDataInputStream inStream = fs.open(inFile);
 
         SpecificDatumReader<CompressibleNodeData> reader =
             new SpecificDatumReader<CompressibleNodeData>();
         DataFileStream<CompressibleNodeData> avro_stream =
-            new DataFileStream<CompressibleNodeData>(in_stream, reader);
+            new DataFileStream<CompressibleNodeData>(inStream, reader);
         while(avro_stream.hasNext()) {
           CompressibleNodeData data  = avro_stream.next();
           GraphNode node = new GraphNode(data.getNode());
 
           nodes.put(node.getNodeId(), node);
         }
+        inStream.close();
       }
     } catch (IOException exception) {
       throw new RuntimeException(
@@ -400,19 +481,25 @@ public class WriteGephiFile extends Stage {
     sLogger.info(" - input: "  + inputPathStr);;
 
     // Check if path is a directory.
-    File inputPath = new File(inputPathStr);
+    Path inputPath = new Path(inputPathStr);
 
-    ArrayList<File> inputFiles = new ArrayList<File>();
+    FileStatus[] fileStates = null;
+    try {
+      fileStates = fs.globStatus(new Path(inputPathStr));
+    } catch (IOException e) {
+      sLogger.fatal("Could not get file status for inputpath:" + inputPath, e);
+      System.exit(-1);
+    }
 
-    if (inputPath.isDirectory()) {
-      String[] contents =  inputPath.list();
-      for (String name : contents) {
-        if (name.endsWith("avro")) {
-          inputFiles.add(new File(inputPath, name));
-        }
+    ArrayList<Path> inputFiles = new ArrayList<Path>();
+
+    for (FileStatus status : fileStates) {
+     if (status.isDir()) {
+	 sLogger.info("Skipping directory:" + status.getPath());
+         continue;
       }
-    } else {
-      inputFiles.add(inputPath);
+      sLogger.info("Input file:" + status.getPath()) ;
+      inputFiles.add(status.getPath());
     }
 
     if (inputFiles.size() == 0) {
@@ -481,6 +568,12 @@ public class WriteGephiFile extends Stage {
 
   @Override
   public RunningJob runJob() throws Exception {
+    try{
+      fs = FileSystem.get(getConf());
+    } catch (IOException e) {
+      sLogger.fatal(e.getMessage(), e);
+      System.exit(-1);
+    }
     // Check for missing arguments.
     String[] required_args = {"inputpath", "outputpath"};
     checkHasParametersOrDie(required_args);
@@ -498,9 +591,9 @@ public class WriteGephiFile extends Stage {
           "part of the graph.");
     }
 
-   if (stage_options.containsKey("start_node")) {
-     nodes = getSubGraph(nodes);
-   }
+    if (stage_options.containsKey("start_node")) {
+      nodes = getSubGraph(nodes);
+    }
     writeGraph(nodes, outputPath);
     sLogger.info("Wrote: " + outputPath);
 

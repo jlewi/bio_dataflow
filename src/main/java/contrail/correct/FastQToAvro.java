@@ -19,6 +19,8 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+
+import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroWrapper;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -37,12 +39,12 @@ import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
+import contrail.io.FastQInputFormat;
+import contrail.io.FastQText;
 import contrail.sequences.FastQRecord;
 import contrail.stages.ContrailParameters;
 import contrail.stages.ParameterDefinition;
 import contrail.stages.Stage;
-import contrail.io.FastQText;
-import contrail.io.FastQInputFormat;
 
 /**
  * MapReduce job to convert a FastQ File to Avro.
@@ -53,6 +55,7 @@ import contrail.io.FastQInputFormat;
 public class FastQToAvro extends Stage {
   final Logger sLogger = Logger.getLogger(FastQToAvro.class);
 
+  @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs = new HashMap<String,
         ParameterDefinition>();
@@ -68,9 +71,10 @@ public class FastQToAvro extends Stage {
   public static class FastQToAvroMapper extends MapReduceBase
       implements Mapper<LongWritable, FastQText,
                         AvroWrapper<FastQRecord>, NullWritable> {
-    private FastQRecord read = new FastQRecord();
-    private AvroWrapper<FastQRecord> out_wrapper = new AvroWrapper<FastQRecord>(read);
+    private final FastQRecord read = new FastQRecord();
+    private final AvroWrapper<FastQRecord> out_wrapper = new AvroWrapper<FastQRecord>(read);
 
+    @Override
     public void map(LongWritable line, FastQText record,
         OutputCollector<AvroWrapper<FastQRecord>, NullWritable> output, Reporter reporter)
             throws IOException {
@@ -83,30 +87,35 @@ public class FastQToAvro extends Stage {
     }
   }
 
+  @Override
   public RunningJob runJob() throws Exception {
     JobConf conf = new JobConf(FastQToAvro.class);
 
     conf.setJobName("FastQToAvro");
     String inputPath, outputPath;
-    Long splitSize;
     conf.setJobName("Rekey Data");
-    String[] required_args = {"inputpath", "outputpath","splitSize"};
+    String[] required_args = {"inputpath", "outputpath"};
     checkHasParametersOrDie(required_args);
 
     inputPath = (String) stage_options.get("inputpath");
     outputPath = (String) stage_options.get("outputpath");
-    splitSize = (Long) stage_options.get("splitSize");
 
     //Sets the parameters in JobConf
     initializeJobConfiguration(conf);
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
+    AvroJob.setOutputSchema(conf,new FastQRecord().getSchema());
 
     // Input
     conf.setMapperClass(FastQToAvroMapper.class);
     conf.setInputFormat(FastQInputFormat.class);
-    conf.setLong("FastQInputFormat.splitSize", splitSize);
-    //Map Only Job
+
+    if (stage_options.containsKey("splitSize")) {
+      Long splitSize = (Long) stage_options.get("splitSize");
+      conf.setLong("FastQInputFormat.splitSize", splitSize);
+    }
+
+    // Map Only Job
     conf.setNumReduceTasks(0);
 
     // Delete the output directory if it exists already
