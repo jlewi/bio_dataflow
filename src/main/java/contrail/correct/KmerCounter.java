@@ -106,15 +106,22 @@ public class KmerCounter extends Stage {
      * @param collector
      * @throws IOException
      */
-    private void collectKmers(CharSequence sequence, AvroCollector<Pair<CharSequence, Long>> collector) throws IOException{
-      // We want to treat the Kmer and its reverse complement in the same way
-      // So we  find out the canonical kmer and emit that
-      for (int i=0; i<= sequence.length() - K; i++){
-        kmer = sequence.subSequence(i,(i+K));
-        dnaSequence.readCharSequence(kmer);
-        canonicalSeq = DNAUtil.canonicalseq(dnaSequence);
-        String kmerCanonical = canonicalSeq.toString();
-        collector.collect(new Pair<CharSequence,Long>(kmerCanonical,1L));
+    private void collectKmers(
+        CharSequence fullSequence,
+        AvroCollector<Pair<CharSequence, Long>> collector) throws IOException {
+      // Chop Kmer string into list of strings whenever N character occurs
+      // e.g. AATNAANNNGA is chopped into AAT, AA, GA
+      String[] pieces = fullSequence.toString().split("N+");
+      for (String sequence : pieces) {
+        for (int i=0; i<= sequence.length() - K; i++) {
+          // We want to treat the Kmer and its reverse complement in the same way
+          // So we  find out the canonical kmer and emit that
+          kmer = sequence.subSequence(i,(i+K));
+          dnaSequence.readCharSequence(kmer);
+          canonicalSeq = DNAUtil.canonicalseq(dnaSequence);
+          String kmerCanonical = canonicalSeq.toString();
+          collector.collect(new Pair<CharSequence,Long>(kmerCanonical, 1L));
+        }
       }
     }
   }

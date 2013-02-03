@@ -15,6 +15,7 @@
 package contrail.correct;
 
 import static org.junit.Assert.*;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -30,8 +31,9 @@ import org.apache.avro.mapred.Pair;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.junit.Test; 
+import org.junit.Test;
 import contrail.ReporterMock;
+import contrail.correct.KmerCounter.KmerCounterMapper;
 import contrail.correct.KmerCounter.KmerCounterReducer;
 import contrail.sequences.FastQRecord;
 import contrail.sequences.MatePair;
@@ -47,26 +49,26 @@ public class TestKmerCounter {
 
   //These kmers will be produced with a count of 1 if input is fastqRecords
   private String expectedKmers = "ATTTCGTGGC " +
-                                 "AATTTCGTGG " + 
+                                 "AATTTCGTGG " +
                                  "CACGAAATTA " +
-                                 "ACGAAATTAG " + 
-                                 "CGAAATTAGC " + 
+                                 "ACGAAATTAG " +
+                                 "CGAAATTAGC " +
                                  "TGATTAATAA " +
                                  "ATGATTAATA " +
                                  "AATGATTAAT " +
                                  "TAATGATTAA " +
                                  "TAATCATTAA " ;
-  
+
   private String reducerInputKmers = "ATTTCGTGGC " +
                                      "ATTTCGTGGC " +
                                      "AATTTCGTGG " +
                                      "AATTTCGTGG " +
                                      "AATTTCGTGG " +
-                                     "CACGAAATTA " + 
+                                     "CACGAAATTA " +
                                      "ACGAAATTAG ";
-  
+
   /**
-   * Tests the mapper. 
+   * Tests the mapper.
    */
   @Test
   public void testMap() {
@@ -93,14 +95,14 @@ public class TestKmerCounter {
       }
       catch (IOException exception){
         fail("IOException occured in map: " + exception.getMessage());
-      }  
+      }
     }
     HashMap<String, Long> expectedHashMap = getExpectedOutput(expectedKmers);
     assertOutput(collector_mock, expectedHashMap);
   }
-  
+
   /**
-   * Tests the mapper. 
+   * Tests the mapper.
    */
   @Test
   public void testMapMatePair() {
@@ -128,7 +130,7 @@ public class TestKmerCounter {
       record.getRight().setId(seqId+"/2");
       record.getRight().setRead(read);
       record.getRight().setQvalue(qval);
-      
+
       try {
         mapper.map(
             record,
@@ -136,15 +138,15 @@ public class TestKmerCounter {
       }
       catch (IOException exception){
         fail("IOException occured in map: " + exception.getMessage());
-      }  
+      }
     }
     HashMap<String, Long> expectedHashMap = getExpectedOutputMatePair(expectedKmers);
     assertOutput(collector_mock, expectedHashMap);
   }
-  
+
 
   /**
-   * Tests the reducer. The input is taken as a string of kmers which are converted into 
+   * Tests the reducer. The input is taken as a string of kmers which are converted into
    * a format compatible with reducer input. This is passes into the reducer and correctness is verified
    * using assertions.
    */
@@ -173,7 +175,7 @@ public class TestKmerCounter {
     }
     assertOutput(collector_mock,reducedExpectedOutput);
   }
-  
+
   @Test
   public void testRun() {
     File temp = FileHelper.createLocalTempDir();
@@ -182,7 +184,39 @@ public class TestKmerCounter {
     writeDataToFile(avroFastqRecordInputFile);
     runApp(avroFastqRecordInputFile, countsFile);
   }
-  
+
+  @Test
+  public void testKmerWithNs() {
+    // Test the mapper works when the input sequence contains N's
+    KmerCounterMapper mapper = new KmerCounterMapper();
+    JobConf conf = new JobConf();
+    conf.setLong("K", 3);
+    mapper.configure(conf);
+
+    FastQRecord fastQRecord = new FastQRecord();
+    fastQRecord.setId("input");
+    fastQRecord.setRead("ATCGNNNNCTGNNNNANNA");
+    fastQRecord.setQvalue("!!!!!!!!!!!!!!!");
+    AvroCollectorMock<Pair<CharSequence, Long>> collector =
+        new AvroCollectorMock<Pair<CharSequence, Long>>();
+
+    ReporterMock reporter = new ReporterMock();
+    try {
+      mapper.map(fastQRecord, collector, reporter);
+    } catch (IOException e) {
+      fail(e.getStackTrace().toString());
+    }
+
+    ArrayList<Pair<CharSequence, Long>>expectedList =
+        new ArrayList<Pair<CharSequence, Long>>();
+    // Expected kmers will be the canonical versions.
+    expectedList.add(new Pair<CharSequence, Long>("ATC", 1L));
+    expectedList.add(new Pair<CharSequence, Long>("CGA", 1L));
+    expectedList.add(new Pair<CharSequence, Long>("CAG", 1L));
+
+    assertArrayEquals(expectedList.toArray(), collector.data.toArray());
+  }
+
   /**
    * Returns an arraylist of 1's where the size of arraylist is the number of times
    * the kmer appers in reducerInput. This is used to mock the recuder input
@@ -190,7 +224,7 @@ public class TestKmerCounter {
    *     AAT
    *     ATG
    *     ATA
-   *     
+   *
    *     will produce
    *     ATA 1 1
    *     AAT 1
@@ -215,7 +249,7 @@ public class TestKmerCounter {
     }
     return expectedOutput;
   }
-  
+
   /**
    * Asserts the correctness of the output
    * @param collector_mock
@@ -227,18 +261,18 @@ public class TestKmerCounter {
       Pair<CharSequence, Long> pair = iterator.next();
       String kmer = pair.key().toString();
       Long count = pair.value();
-      //The kmer should always be present 
+      //The kmer should always be present
       assertFalse(expectedHashMap.get(kmer)==null);
       long newcount = expectedHashMap.get(kmer);
       newcount-=count;
       assertTrue(newcount>=0);
       expectedHashMap.put(kmer, newcount);
     }
-    //everything should be exactly zero 
+    //everything should be exactly zero
     Iterator<String> iter = expectedHashMap.keySet().iterator();
     while(iter.hasNext()) {
       String kmer = iter.next().toString();
-      Long count = (Long)expectedHashMap.get(kmer);
+      Long count = expectedHashMap.get(kmer);
       assertTrue(count==0);
     }
   }
@@ -259,13 +293,13 @@ public class TestKmerCounter {
     }
     return expectedHashMap;
   }
-  
+
   private HashMap<String, Long> getExpectedOutputMatePair(String inputData){
     HashMap<String, Long> expectedHashMap = getExpectedOutput(expectedKmers);
     Iterator<String> iter = expectedHashMap.keySet().iterator();
     while(iter.hasNext()) {
       String kmer = iter.next().toString();
-      Long count = (Long)expectedHashMap.get(kmer);
+      Long count = expectedHashMap.get(kmer);
       expectedHashMap.put(kmer, 2*count);
     }
     return expectedHashMap;
@@ -296,7 +330,7 @@ public class TestKmerCounter {
           exception.getMessage());
     }
   }
-  
+
   /**
    * Runs the application
    * @param input
