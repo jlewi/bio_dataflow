@@ -166,7 +166,7 @@ public abstract class Stage extends Configured implements Tool  {
   /**
    * This function logs the values of the options.
    */
-  private void logParameters() {
+  protected void logParameters() {
     ArrayList<String> keys = new ArrayList<String>();
     keys.addAll(stage_options.keySet());
     Collections.sort(keys);
@@ -314,7 +314,9 @@ public abstract class Stage extends Configured implements Tool  {
     // TODO(jlewi): Should we check if getConf() returns null and if it does
     // either initialize it or throw an exception. Normally the configuration
     // should be initialized in the caller, e.g in main ToolRunner.run
-    // takes a configuration.
+    // takes a configuration. We really want to do this in runJob
+    // since we often invoke a stage by calling runJob directly.
+
     //
     // This function provides the entry point when running from the command
     // line; i.e. using ToolRunner.

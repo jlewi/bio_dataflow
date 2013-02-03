@@ -1,15 +1,8 @@
 package contrail.correct;
 
-import contrail.io.FastQInputFormat;
-import contrail.io.FastQText;
-import contrail.io.NumberedFileSplit;
-import contrail.sequences.FastQRecord;
-import contrail.stages.*;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-//import java.util.Collections;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -20,6 +13,7 @@ import java.util.TreeSet;
 import org.apache.avro.Schema;
 import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroWrapper;
+import org.apache.commons.codec.binary.Base64;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -36,7 +30,14 @@ import org.apache.hadoop.mapred.OutputCollector;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
-import org.apache.commons.codec.binary.*;
+
+import contrail.io.FastQInputFormat;
+import contrail.io.FastQText;
+import contrail.io.NumberedFileSplit;
+import contrail.sequences.FastQRecord;
+import contrail.stages.ContrailParameters;
+import contrail.stages.ParameterDefinition;
+import contrail.stages.Stage;
 
 /** MapReduce job to Rekey Data.
  * Before we actually do the merge, the data needs to be rekeyed in both the
@@ -46,10 +47,15 @@ import org.apache.commons.codec.binary.*;
  * same for both input directories Next, we run a Map-Reduce job to re-key the
  * reads - as per the name of the file from which a particular read came, and
  * the way it is split.
+ *
+ * TODO: This job should probably operate on the joined reads produced
+ * by JoinReads and rekey both reads in a mate pair at the same time.
+ * b
  */
 
 public class RekeyReads extends Stage {
 
+  @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs = new HashMap<String, ParameterDefinition>();
     defs.putAll(super.createParameterDefinitions());
@@ -78,10 +84,10 @@ public class RekeyReads extends Stage {
   public static class RekeyMapper extends MapReduceBase implements
   Mapper<LongWritable, FastQText,  AvroWrapper<FastQRecord>, NullWritable> {
     private long                         count = 5;
-    private String                      name        = null;
+    private final String                      name        = null;
     private long                        splitNumber = 0;
-    private String                      fqqvalue    = null;
-    private String                      junk        = null;
+    private final String                      fqqvalue    = null;
+    private final String                      junk        = null;
     private String newKeyString = null;
     // List of files in the current Directory
     //private List<String>                files       = null;
@@ -90,10 +96,12 @@ public class RekeyReads extends Stage {
     // fileNumber holds the rank of this file from the sorted list of files in
     // this directory. Updated by getFileNumber()
 
+    // TODO(jeremy@lewi.us): We should use an enum as the internal
+    // representation of the datatype.
     private String datatype;
     private long fileNumber  = 0;
-    private FastQRecord read = new FastQRecord();
-    private AvroWrapper<FastQRecord> out_wrapper =
+    private final FastQRecord read = new FastQRecord();
+    private final AvroWrapper<FastQRecord> out_wrapper =
         new AvroWrapper<FastQRecord>(read);
 
     /** Preprocessing in Configure Method.
@@ -103,6 +111,7 @@ public class RekeyReads extends Stage {
      * per mapper.
      */
 
+    @Override
     public void configure(JobConf conf) {
 
       String inputPath = conf.get("inputPath");
@@ -163,6 +172,7 @@ public class RekeyReads extends Stage {
     // The mapper takes in key value pairs in the normal format and emits out
     // Avro data
 
+    @Override
     public void map(LongWritable key, FastQText record,
         OutputCollector<AvroWrapper<FastQRecord> ,NullWritable> output,
         Reporter reporter) throws IOException {
@@ -250,6 +260,7 @@ public class RekeyReads extends Stage {
 
   // Run Tool
   // /////////////////////////////////////////////////////////////////////////
+  @Override
   public RunningJob runJob() throws Exception {
 
     FastQRecord read = new FastQRecord();

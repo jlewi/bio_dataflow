@@ -48,31 +48,31 @@ import contrail.util.FileHelper;
 
 
 /**
- * Quake is a tool that is used to correct fastq reads. This class deals with correction of both 
+ * Quake is a tool that is used to correct fastq reads. This class deals with correction of both
  * paired reads (MatePair) and unpaired reads (FastQRecord).
- * The input to this class is an AVRO file might be either of MatePair type (which essentially contains 
- * two fastQ records) or FastQRecord type. 
- *   
- * Assumptions: 
- * 1 - Quake binary is available, and its path specified in the parameters. This is used 
+ * The input to this class is an AVRO file might be either of MatePair type (which essentially contains
+ * two fastQ records) or FastQRecord type.
+ *
+ * Assumptions:
+ * 1 - Quake binary is available, and its path specified in the parameters. This is used
  * later to load the flash binary from the location into Distributed Cache
  * We have access to a system temp directoy on each node; i.e the java command File.createTempFile succeeds.
- * The bitvector of kmers above the cutoff has been constructed and is available at a location 
+ * The bitvector of kmers above the cutoff has been constructed and is available at a location
  * specified in the input
  * Execution:
  * For the AVRO file in MatePair schema:
  * A mate pair record is split into two fastQ records which are converted into two fastq records.
- * These records are written in blocks of blockSize onto the local temporary files of cluster 
- * nodes. Quake is executed via exec and the results are collected. Care must be taken to clean 
+ * These records are written in blocks of blockSize onto the local temporary files of cluster
+ * nodes. Quake is executed via exec and the results are collected. Care must be taken to clean
  * blocks of files when they are of no use.
  * For the AVRO file in FastqRecord schema:
- * fastq records are written in blocks of blockSize onto the local temporary files of cluster 
- * nodes. Quake is executed via exec and the results are collected. Care must be taken to clean 
+ * fastq records are written in blocks of blockSize onto the local temporary files of cluster
+ * nodes. Quake is executed via exec and the results are collected. Care must be taken to clean
  * blocks of temporary files when they are of no use.
- */ 
+ */
 public class InvokeQuake extends Stage{
   private static final Logger sLogger = Logger.getLogger(InvokeQuake.class);
-  
+
   public static class RunQuakeMapper extends AvroMapper<Object, FastQRecord>{
     private String localOutFolderPath = null;
     private String quakeHome = null;
@@ -92,46 +92,90 @@ public class InvokeQuake extends Stage{
     private CorrectUtil correctUtil;
     private AvroCollector<FastQRecord> outputCollector;
     private boolean matePairMode;
-    
+
+
     @Override
-    public void configure(JobConf job){
-    InvokeQuake stage = new InvokeQuake(); 
+    public void configure(JobConf job) {
+      InvokeQuake stage = new InvokeQuake();
+
       jobName = job.get("mapred.task.id");
       Map<String, ParameterDefinition> definitions = stage.getParameterDefinitions();
       tempWritableFolder = FileHelper.createLocalTempDir().getAbsolutePath();
-      K = (Integer)(definitions.get("K").parseJobConf(job));  
+      K = (Integer)(definitions.get("K").parseJobConf(job));
       blockSize = (Integer)(definitions.get("block_size").parseJobConf(job));
       sLogger.info("blockSize "+ blockSize);
       correctUtil = new CorrectUtil();
-      // Initialize empty mate pair ArrayLists 
+      // Initialize empty mate pair ArrayLists
       fastqRecordsMateLeft= new ArrayList<String>();
       fastqRecordsMateRight= new ArrayList<String>();
-      // Initialize empty array list 
+      // Initialize empty array list
       fastqRecordList= new ArrayList<String>();
       count = 0;
       outputCollector = null;
-      // We initially initialize matePairMode as false
-      // We will set it if we encounter a record of type MatePair
+
+      // We initialize matePairMode as false
+      // We will set it to true if we encounter a record of type MatePair
       // The false value indicates the input record is of type FastQRecord
       // We need this flag in order to distinguish the mate pairs from fastqrecords
-      // during close
+      // during close.
       matePairMode = false;
-      // gets the dcache path of file named correct
-      quakeHome = correctUtil.getDcachePath("correct", job);
-      // gets the dcache path of the file named bitvector
-      bitVectorPath = correctUtil.getDcachePath("bitvector", job);
+
+      if (job.get("mapred.job.tracker").equals("local")) {
+        // Local job runner doesn't support the distributed cache.
+        // However in this case the files will be local.
+        ParameterDefinition binaryDefinition =
+            stage.getParameterDefinitions().get("quake_binary");
+        sLogger.info(
+            "Local job runner is being used. Distributed cache isn't " +
+            "supported");
+
+        quakeHome = (String) binaryDefinition.parseJobConf(job);
+
+        Path binaryPath = new Path(quakeHome);
+        String uriScheme = binaryPath.toUri().getScheme();
+        if (uriScheme != null && !uriScheme.equals("file")) {
+          sLogger.fatal(
+              "If you are using the local job runner the quake binary should" +
+              "be local but the URI was:" + uriScheme,
+              new RuntimeException("Invalid URI scheme"));
+          System.exit(-1);
+        }
+        // Get the path without the URI.
+        quakeHome = binaryPath.toUri().getPath();
+
+        ParameterDefinition vectorDefinition =
+            stage.getParameterDefinitions().get("bitvectorpath");
+        bitVectorPath = (String) vectorDefinition.parseJobConf(job);
+
+        Path vectorPath = new Path(bitVectorPath);
+        uriScheme = vectorPath.toUri().getScheme();
+        if (uriScheme != null && !uriScheme.equals("file")) {
+          sLogger.fatal(
+              "If you are using the local job runner the bitvectorpath should" +
+              "be local but the URI was:" + uriScheme,
+              new RuntimeException("Invalid URI scheme"));
+          System.exit(-1);
+        }
+        // Get the path without the URI.
+        bitVectorPath = vectorPath.toUri().getPath();
+      } else {
+        quakeHome = correctUtil.getDcachePath("correct", job);
+        bitVectorPath = correctUtil.getDcachePath("bitvector", job);
+      }
+
+
       if(quakeHome.length() == 0){
         sLogger.error("Error in reading binary from Dcache");
       }
       if(bitVectorPath.length() == 0){
         sLogger.error("Error in reading bitvector from Dcache");
       }
-      sLogger.info("Quake Home: " + quakeHome);  
+      sLogger.info("Quake Home: " + quakeHome);
       sLogger.info("BitVector Location: " + bitVectorPath);
-      
+
     }
-    
-    public void map(Object record, 
+
+    public void map(Object record,
                     AvroCollector<FastQRecord> collector, Reporter reporter) throws IOException {
       count++;
       if(record instanceof FastQRecord){
@@ -146,7 +190,7 @@ public class InvokeQuake extends Stage{
           count = 0;
         }
       }
-      
+
       if(record instanceof MatePair){
         matePairMode = true;
         MatePair mateRecord = (MatePair)record;
@@ -161,22 +205,22 @@ public class InvokeQuake extends Stage{
           count = 0;
         }
       }
-      
+
     }
-    
+
     /**
      * Creates a folder within the job's temporary directory named jobName + suffix where
-     * the suffix is the input parameter 
+     * the suffix is the input parameter
      * @param folderNameSuffixString
      * @return
      */
     private String createBlockFolder(String folderNameSuffixString){
       // blockSize number of reads are written to a temporary folder - blockFolder
-      // blockFolder is a combination of mapred taskid and timestamp to ensure uniqueness 
+      // blockFolder is a combination of mapred taskid and timestamp to ensure uniqueness
       // The input files are names <timestamp_1>.fq and <timestamp>_2.fq. Flash is executed
       // on these and the output file produced is out.extendedFrags.fastq in the same directory.
       // During cleanup, we can delete the blockFolder directly
-      
+
       blockFolder = jobName+folderNameSuffixString;
       sLogger.info("block folder: " + blockFolder);
       // Create temp file names
@@ -188,7 +232,7 @@ public class InvokeQuake extends Stage{
       }
       return folderPath;
     }
-    
+
     /**
      * This method runs quake locally and collects the results.
      * @param output: The reference of the collector
@@ -196,17 +240,17 @@ public class InvokeQuake extends Stage{
      */
     private void runQuakeSingleOnInMemoryReads(AvroCollector<FastQRecord> output)throws IOException {
       String filePathFq;
-      // Converts the timestamp to a string. 
+      // Converts the timestamp to a string.
       String localTime = new Long(System.nanoTime()).toString();
       localOutFolderPath = createBlockFolder(localTime);
       filePathFq = new File(localOutFolderPath,localTime + ".fq").getAbsolutePath();
-      correctUtil.writeLocalFile(fastqRecordList,filePathFq);  
-      
+      correctUtil.writeLocalFile(fastqRecordList,filePathFq);
+
       String fastqListLocation = new File(localOutFolderPath, localTime+".txt").getAbsolutePath();
       correctUtil.writeStringToFile(filePathFq, fastqListLocation);
       // Correction command
       String command = quakeHome + " -f " + fastqListLocation + " -k " + K + " -b " + bitVectorPath;
-      correctUtil.executeCommand(command);  
+      correctUtil.executeCommand(command);
       fastqRecordList.clear();
       String correctedFilePath = FilenameUtils.removeExtension(filePathFq) + ".cor.fq";
       sLogger.info("corrected path: " + correctedFilePath);
@@ -217,7 +261,7 @@ public class InvokeQuake extends Stage{
         FileUtils.deleteDirectory(tempFile);
       }
     }
-    
+
     /**
      * This method runs quake locally and collects the results.
      * @param output: The reference of the collector
@@ -226,8 +270,8 @@ public class InvokeQuake extends Stage{
     private void runQuakePairedOnInMemoryReads(AvroCollector<FastQRecord> collector)throws IOException {
       String filePathFq1;
       String filePathFq2;
-      
-      // Converts the timestamp to a string. 
+
+      // Converts the timestamp to a string.
       String localTime = new Long(System.nanoTime()).toString();
       localOutFolderPath = createBlockFolder(localTime);
       filePathFq1 = new File(localOutFolderPath, localTime + "_1.fq").getAbsolutePath();
@@ -251,7 +295,7 @@ public class InvokeQuake extends Stage{
         FileUtils.deleteDirectory(tempFile);
       }
     }
-    
+
     /**
      * Writes out the remaining chunk of data which is a non multiple of blockSize
      */
@@ -261,7 +305,7 @@ public class InvokeQuake extends Stage{
             runQuakePairedOnInMemoryReads(outputCollector);
         }
         else{
-              runQuakeSingleOnInMemoryReads(outputCollector); 
+              runQuakeSingleOnInMemoryReads(outputCollector);
         }
       }
       // delete the top level directory, and everything beneath
@@ -279,11 +323,12 @@ public class InvokeQuake extends Stage{
     HashMap<String, ParameterDefinition> defs = new HashMap<String, ParameterDefinition>();
     defs.putAll(super.createParameterDefinitions());
     ParameterDefinition quakeBinary = new ParameterDefinition(
-        "quake_binary", "Quake binary location", String.class, new String(""));
+        "quake_binary", "The path to the correct binary in quake.",
+        String.class, null);
     ParameterDefinition bitvectorpath = new ParameterDefinition(
         "bitvectorpath", "The path of bitvector ", String.class, new String(""));
     ParameterDefinition blockSize = new ParameterDefinition(
-        "block_size", "block_size number of records are" + 
+        "block_size", "block_size number of records are" +
         "written to local files at a time.", Integer.class, new Integer(10000));
     for (ParameterDefinition def: new ParameterDefinition[] {quakeBinary, bitvectorpath, blockSize}) {
       defs.put(def.getName(), def);
@@ -293,8 +338,13 @@ public class InvokeQuake extends Stage{
     }
     return Collections.unmodifiableMap(defs);
   }
-  
+
   public RunningJob runJob() throws Exception {
+    // Check for missing arguments.
+    String[] required_args = {
+        "inputpath", "outputpath", "quake_binary", "bitvectorpath"};
+    checkHasParametersOrDie(required_args);
+    logParameters();
     JobConf conf = new JobConf(InvokeQuake.class);
     conf.setJobName("Quake correction");
     String inputPath = (String) stage_options.get("inputpath");
@@ -307,7 +357,9 @@ public class InvokeQuake extends Stage{
     if(bitVectorPath.length()== 0){
       throw new Exception("Please specify bitvector path");
     }
-    
+
+    // TODO: We should check if the files aren't on HDFS and if they aren't
+    // we should copy the files to HDFS.
     DistributedCache.addCacheFile(new Path(quakePath).toUri(),conf);
     DistributedCache.addCacheFile(new Path(bitVectorPath).toUri(),conf);
 
@@ -321,11 +373,11 @@ public class InvokeQuake extends Stage{
     schemas.add(new FastQRecord().getSchema());
     schemas.add(new MatePair().getSchema());
     Schema unionSchema = Schema.createUnion(schemas);
-    
+
     AvroJob.setMapperClass(conf, RunQuakeMapper.class);
     FileInputFormat.setInputPaths(conf, inputPath);
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
-    // Input  
+    // Input
     AvroJob.setInputSchema(conf, unionSchema);
     AvroJob.setOutputSchema(conf, new FastQRecord().getSchema());
     // Map Only Job
@@ -333,16 +385,16 @@ public class InvokeQuake extends Stage{
     // Delete the output directory if it exists already
     Path out_path = new Path(outputPath);
     if (FileSystem.get(conf).exists(out_path)) {
-      FileSystem.get(conf).delete(out_path, true);  
-    }       
-    long starttime = System.currentTimeMillis();            
+      FileSystem.get(conf).delete(out_path, true);
+    }
+    long starttime = System.currentTimeMillis();
     RunningJob result = JobClient.runJob(conf);
     long endtime = System.currentTimeMillis();
-    float diff = (float) (((float) (endtime - starttime)) / 1000.0);
+    float diff = (float) ((endtime - starttime) / 1000.0);
     System.out.println("Runtime: " + diff + " s");
-    return result;  
+    return result;
   }
-    
+
   public static void main(String[] args) throws Exception {
     int res = ToolRunner.run(new Configuration(), new InvokeQuake(), args);
     System.exit(res);

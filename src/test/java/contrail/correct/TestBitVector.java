@@ -45,14 +45,14 @@ import contrail.util.FileHelper;
 
 public class TestBitVector {
 
-  private String mapTestData = "AAA 5 " + 
+  private String mapTestData = "AAA 5 " +
                                "ACC 2 " +
                                "ATT 1 " +
                                "ATG 10 " +
                                "AGT 6 " +
                                "CTA 13 " +
                                "TTA 9 ";
-  
+
   private String reducerInData = "AAA 5 " +
                                  "TTT 5 " +
                                  "ATG 10 " +
@@ -61,14 +61,14 @@ public class TestBitVector {
                                  "ACT 6 " +
                                  "CTA 13 " +
                                  "TAG 13 " +
-                                 "TTA 9 " + 
+                                 "TTA 9 " +
                                  "TAA 9 ";
   private List<String> testSequences;
-  private List<Long> expectedResults; 
-  private List<Long> actualResults; 
-  private List<String> reconstructedKmerResults; 
+  private List<Long> expectedResults;
+  private List<Long> actualResults;
+  private List<String> reconstructedKmerResults;
   private int cutoff = 4;
-  
+
   private int K = 3;
   /**
    * BitVector representation in integer format. This was obtained by
@@ -87,7 +87,7 @@ public class TestBitVector {
       generator = new Random();
       dnaAlphabet = DNAAlphabetFactory.create();
   }
-  
+
   @Test
   public void testIndexes(){
     int numberOfTests = 10;
@@ -105,12 +105,12 @@ public class TestBitVector {
       expectedResults.add(getIndex(testSequences.get(i)));
       actualResults.add(reducerObj.getKmerIndex(testSequences.get(i)));
     }
-    
+
     assertIndexOutput(expectedResults, actualResults);
     reconstructedKmerResults = reconstructKmers(expectedResults, kmerLength);
     assertKmertReconstruction(reconstructedKmerResults,testSequences);
   }
-  
+
   private void assertKmertReconstruction(
       List<String> reconstructedKmerList, List<String> testSequencesList) {
     assertEquals(reconstructedKmerList.size(),testSequencesList.size());
@@ -136,23 +136,23 @@ public class TestBitVector {
     }
     return reconstructedKmers;
   }
-  
+
   private void assertIndexOutput(List<Long> expectedList,
                                  List<Long> actualList){
     //matching the size of the lists
     assertEquals(expectedList.size(), actualList.size());
-    
+
     //match actual values
     for(int i = 0 ; i < actualList.size(); i ++){
       assertEquals(expectedList.get(i), actualList.get(i));
     }
-    
+
     //assert sorted order
     for(int i = 1 ; i < actualList.size(); i ++){
       assertTrue(actualList.get(i-1)<=actualList.get(i));
     }
   }
-  
+
   private long getIndex(String kmer){
     int length = kmer.length();
     long index = 0;
@@ -162,7 +162,7 @@ public class TestBitVector {
     }
     return index;
   }
-  
+
   /**
    * Tests if the mapper is pruning correctly according to the cutoff
    * and if both the kmer and its RC are emitted
@@ -192,17 +192,17 @@ public class TestBitVector {
       }
       catch (IOException exception){
         fail("IOException occured in map: " + exception.getMessage());
-      }  
+      }
     }
     HashMap<String, Long> expectedHashMap = getExpectedOutput(reducerInData);
     assertOutput(collector_mock, expectedHashMap);
   }
-  
+
   @Test
   public void testReducer() throws Exception {
-    BuildBitVectorReducer reducer = new BuildBitVectorReducer(); 
+    BuildBitVectorReducer reducer = new BuildBitVectorReducer();
     HashMap<String, Long> reducerInput = getExpectedOutput(reducerInData);
-    JobConf job = new JobConf(BuildBitVectorReducer.class);   
+    JobConf job = new JobConf(BuildBitVectorReducer.class);
     BuildBitVector stage = new BuildBitVector();
     Map<String, ParameterDefinition> definitions =
         stage.getParameterDefinitions();
@@ -233,20 +233,21 @@ public class TestBitVector {
     }
     //triggers bithash computation on outputpath
     reducer.close();
-    String bithashFile = new File(tempOutput, "bitvector").getAbsolutePath();
+    String bithashFile = new File(
+        tempOutput, BuildBitVector.VECTOR_FILENAME).getAbsolutePath();
     byte[] actualVector = readBinaryFile(bithashFile);
-    
+
     assertBitVectorOutput(actualVector);
     File temp = new File(tempOutput);
     if(temp.exists()){
       FileUtils.deleteDirectory(temp);
     }
   }
-  
-  /** 
-   * Read the given binary file, and return its contents as a byte array. 
-   * @throws FileNotFoundException 
-   */ 
+
+  /**
+   * Read the given binary file, and return its contents as a byte array.
+   * @throws FileNotFoundException
+   */
   byte[] readBinaryFile(String aInputFileName) throws Exception{
     File file = new File(aInputFileName);
     byte[] result = new byte[(int)file.length()];
@@ -254,7 +255,7 @@ public class TestBitVector {
     inputStream.read(result);
     return result;
   }
-  
+
   /**
    * Asserts the correctness of the output
    * @param collector_mock
@@ -267,14 +268,14 @@ public class TestBitVector {
       Pair<CharSequence, Long> pair = iterator.next();
       String kmer = pair.key().toString();
       Long count = pair.value();
-      //The kmer should always be present 
+      //The kmer should always be present
       assertFalse(expectedHashMap.get(kmer)==null);
       assertTrue(expectedHashMap.get(kmer) == count);
       numberOfCountRecords++;
     }
     assertEquals(expectedHashMap.size(),numberOfCountRecords);
   }
-  
+
   private void assertBitVectorOutput(byte actualBitVector[]){
     //checks if the length is the same
     assertEquals(actualBitVector.length, expectedBitVector.length);
@@ -282,7 +283,7 @@ public class TestBitVector {
       assertEquals(actualBitVector[i], expectedBitVector[i]);
     }
   }
-  
+
   private HashMap<String, Long> getExpectedOutput(String inputData){
     StringTokenizer st = new StringTokenizer(inputData, " ");
     HashMap<String, Long> expectedHashMap = new HashMap<String, Long>();

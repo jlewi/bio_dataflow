@@ -1,13 +1,8 @@
 package contrail.correct;
-import org.apache.avro.Schema;
-
-import contrail.sequences.FastQRecord;
-import contrail.sequences.MatePair;
-import contrail.stages.ParameterDefinition;
-import contrail.stages.*;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -30,6 +25,12 @@ import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
+
+import contrail.sequences.FastQRecord;
+import contrail.sequences.MatePair;
+import contrail.stages.ContrailParameters;
+import contrail.stages.ParameterDefinition;
+import contrail.stages.Stage;
 
 public class JoinReads extends Stage {
 
@@ -68,7 +69,8 @@ public class JoinReads extends Stage {
       keyPattern = Pattern.compile("[^_/]*");
     }
 
-    public void map(FastQRecord record,
+  @Override
+  public void map(FastQRecord record,
         AvroCollector<Pair<CharSequence, FastQRecord>> output, Reporter reporter)
             throws IOException {
       CharSequence key = record.getId();
@@ -80,7 +82,6 @@ public class JoinReads extends Stage {
       }
       key = key.subSequence(matcher.start(), matcher.end());
       out_pair.set(key, record);
-      System.out.println(out_pair.toString());
       output.collect(out_pair);
     }
   }

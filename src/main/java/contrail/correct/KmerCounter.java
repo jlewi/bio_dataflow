@@ -48,8 +48,8 @@ import contrail.stages.ParameterDefinition;
 import contrail.stages.Stage;
 
 /**
- * This class counts Kmers. The input is an avro file with contains records that follow the FastQRecord
- * schema. Kmers are extracted from the "read" of FastQRecord.
+ * This class counts Kmers. The input is an avro file containing FastQRecord
+ * records. Kmers are extracted from the "read" of FastQRecord.
  */
 
 public class KmerCounter extends Stage {
