@@ -15,12 +15,9 @@
 
 package contrail.correct;
 
-import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroJob;
@@ -81,6 +78,7 @@ import contrail.stages.Stage;
  * bitvector has to be brought into memory.
  */
 public class BuildBitVector extends Stage {
+  private static final Logger sLogger = Logger.getLogger(BuildBitVector.class);
   // The name for the file to store the bitvector.
   public final static String VECTOR_FILENAME = "bitvector.binary";
 
@@ -124,7 +122,6 @@ public class BuildBitVector extends Stage {
    */
   public static class BuildBitVectorReducer extends AvroReducer<CharSequence, Long, Pair<CharSequence,Long> > {
     private int bitVectorCharacter;
-    private String bithashFile;
     private Pair<CharSequence,Long> outputPair;
     private final int BYTE_LEN = 8;
     private final int BYTE_MAX_INDEX = 7;
@@ -132,22 +129,35 @@ public class BuildBitVector extends Stage {
     private long byteIndex = 0;
     private long offset = 0;
     private int correctionK;
-    private List<Byte> bitvector;
-
-    public void createDnaAlphabet(){
-      dnaAlphabet = DNAAlphabetFactory.create();
-    }
+    private FSDataOutputStream out;
+    private Path bitVectorPath;
 
     public void configure(JobConf job){
       bitVectorCharacter = 0;
-      bitvector = new ArrayList<Byte>();
       BuildBitVector stage = new BuildBitVector();
       Map<String, ParameterDefinition> definitions = stage.getParameterDefinitions();
       correctionK = (Integer)(definitions.get("K").parseJobConf(job));
       String outPath = (String)(definitions.get("outputpath").parseJobConf(job));
-      bithashFile = new File(outPath, VECTOR_FILENAME).getPath();
       outputPair = new Pair<CharSequence,Long>("", 0);
-      createDnaAlphabet();
+      dnaAlphabet = DNAAlphabetFactory.create();
+
+      // Open a file to write the bitVector to.
+      bitVectorPath = new Path(FilenameUtils.concat(
+          outPath, VECTOR_FILENAME));
+      try {
+        Configuration conf = new Configuration();
+        FileSystem fs = bitVectorPath.getFileSystem(conf);
+        if(fs.exists(bitVectorPath)){
+          fs.delete(bitVectorPath, true);
+        }
+        out = fs.create(bitVectorPath, true);
+      }
+      catch(Exception e){
+        sLogger.fatal(
+            "A problem occurred trying to create the file:" +
+            bitVectorPath.toString(), e);
+        System.exit(-1);
+      }
     }
 
     // incoming key,value pairs - (kmer, frequency)
@@ -157,6 +167,21 @@ public class BuildBitVector extends Stage {
       output.collect(outputPair);
       long kmerIndex = getKmerIndex(kmer);
       addRelevantCharactersToBitvector(kmerIndex);
+    }
+
+    /**
+     * Writes the integer to the bitVector.
+     * @param value
+     */
+    private void writeToVector(int value) {
+      try {
+        out.writeByte(bitVectorCharacter);
+      } catch (IOException e) {
+        sLogger.fatal(
+            "There was a problem writing the value: " + bitVectorCharacter +
+            " to " + bitVectorPath.toString(), e);
+        System.exit(-1);
+      }
     }
 
     /**
@@ -176,7 +201,7 @@ public class BuildBitVector extends Stage {
       // The new Kmer is outside the current byte that we have to write
       if(kmerIndex >= (byteIndex+1)*BYTE_LEN){
         // Write out the byte
-        bitvector.add((byte)bitVectorCharacter);
+        writeToVector(bitVectorCharacter);
         //Since we have written out the byte to the bitvector, we need to set it to zero
         bitVectorCharacter = 0;
         // We have written out a full byte, so increment the byteIndex
@@ -186,7 +211,7 @@ public class BuildBitVector extends Stage {
       // We generate zero bytes and stuff them into the bithash
       while (kmerIndex >= (byteIndex+1)*BYTE_LEN) {
         bitVectorCharacter = 0;
-        bitvector.add((byte)bitVectorCharacter);
+        writeToVector(bitVectorCharacter);
         byteIndex++;
       }
 
@@ -194,7 +219,6 @@ public class BuildBitVector extends Stage {
       // that contains kmer has been added to the bitvector. Now we
       // set the kmer belonging to the kmerIndex. We calculate
       // the amount of shift by subtracting offset from BYTE_MAX_INDEX
-
       offset = kmerIndex - (byteIndex * BYTE_LEN) ;
       long shift = BYTE_MAX_INDEX - offset;
       bitVectorCharacter = bitVectorCharacter | (1<<shift);
@@ -224,28 +248,20 @@ public class BuildBitVector extends Stage {
         addRelevantCharactersToBitvector(maxIndex);
         // removing the last bit set, because it's kmer was not present
         bitVectorCharacter = bitVectorCharacter ^ 1;
-        bitvector.add((byte)bitVectorCharacter);
+        writeToVector(bitVectorCharacter);
       }
       // The last Kmer is present
       else if(previousKmerIndex == maxIndex){
-        bitvector.add((byte)bitVectorCharacter);
+        writeToVector(bitVectorCharacter);
       }
+
       try{
-        Configuration conf = new Configuration();
-        FileSystem fs = FileSystem.get(conf);
-        Path bithashPath = new Path(bithashFile);
-        if(fs.exists(bithashPath)){
-          fs.delete(bithashPath, true);
-        }
-        FSDataOutputStream out = fs.create(bithashPath);
-        for(int i = 0 ; i < bitvector.size(); i++){
-          out.write(bitvector.get(i));
-          out.flush();
-        }
         out.close();
-      }
-      catch(Exception e){
-        e.printStackTrace();
+      } catch(Exception e){
+        sLogger.fatal(
+            "A problem occured trying to close the file:" +
+            bitVectorPath.toString(), e);
+        System.exit(-1);
       }
     }
   }

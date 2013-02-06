@@ -89,16 +89,28 @@ public class TestBitVector {
   }
 
   @Test
-  public void testIndexes(){
+  public void testIndexes() {
+    // Verify that we properly compute the index of a KMer.
     int numberOfTests = 10;
     int kmerLength = 5;
     testSequences = new ArrayList<String>();
     expectedResults = new ArrayList<Long>();
     actualResults = new ArrayList<Long>();
     BuildBitVectorReducer reducerObj = new BuildBitVectorReducer();
-    reducerObj.createDnaAlphabet();
+
+    JobConf conf = new JobConf();
+
+    BuildBitVector stage = new BuildBitVector();
+    Map<String, ParameterDefinition> definitions =
+        stage.getParameterDefinitions();
+    definitions.get("K").addToJobConf(conf, kmerLength);
+    String tempOutput = FileHelper.createLocalTempDir().getAbsolutePath();
+    definitions.get("outputpath").addToJobConf(conf, tempOutput);
+    reducerObj.configure(conf);
+
     for(int i = 0 ; i < numberOfTests; i ++){
-      testSequences.add(AlphabetUtil.randomString(generator, kmerLength, dnaAlphabet));
+      testSequences.add(AlphabetUtil.randomString(
+          generator, kmerLength, dnaAlphabet));
     }
     Collections.sort(testSequences);
     for(int i = 0 ; i < numberOfTests; i ++){
