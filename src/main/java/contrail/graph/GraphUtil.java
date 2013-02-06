@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Formatter;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -227,5 +228,16 @@ public class GraphUtil {
       }
     }
     return graphErrors;
+  }
+
+  /**
+   * A comparator which can be used to sort nodes lexicogrphaically based on
+   * node id.
+   */
+  public static class nodeIdComparator implements Comparator<GraphNode> {
+    @Override
+    public int compare(GraphNode left, GraphNode right) {
+      return left.getNodeId().compareTo(right.getNodeId());
+    }
   }
 }
