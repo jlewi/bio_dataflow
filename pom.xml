@@ -9,7 +9,8 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit-version>4.8.2</junit-version>
     <jackson-version>1.8.8</jackson-version>
-    <avro-version>1.6.1</avro-version>
+    <!--Avro 1.7.1 offers SortedKeyValue pairs-->
+    <avro-version>1.7.3</avro-version>
   </properties>
   <profiles>
     <!-- We define different profiles for the different hadoop versions
