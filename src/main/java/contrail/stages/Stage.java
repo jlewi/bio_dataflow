@@ -21,6 +21,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
@@ -161,6 +162,37 @@ public abstract class Stage extends Configured implements Tool  {
       definitions = createParameterDefinitions();
     }
     return definitions;
+  }
+
+  /**
+   * A class containing information about invalid parameters.
+   */
+  public class InvalidParameter {
+    public String stage;
+    // Name of the invalid parameter.
+    final public String name;
+
+    // Message describing why the parameter is invalid.
+    final public String message;
+
+    public InvalidParameter(String name, String message) {
+      this.name = name;
+      this.message = message;
+    }
+  }
+  /**
+   * Check whether parameters are valid.
+   * Subclasses which override this method should call the base class
+   *
+   * We return information describing all the invalid parameters. If
+   * the validation requires access to a valid job configuration
+   * then the caller should ensure the configuration is properly set.
+   */
+  public List<InvalidParameter> validateParameters() {
+    // TODO(jeremy@lewi.us): Should we automatically check that required
+    // parameters are set. The question is whether a parameter which has
+    // null for the default value should be considered required?
+    return new ArrayList<InvalidParameter>();
   }
 
   /**
