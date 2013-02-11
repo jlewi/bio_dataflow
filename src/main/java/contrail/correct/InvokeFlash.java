@@ -106,6 +106,8 @@ public class InvokeFlash extends Stage {
         // Get the path without the URI.
         flashHome = binaryPath.toUri().getPath();
       } else {
+        // TODO(jeremy@lewi.us): We should get the basename of the flash
+        // binary from the command line argument rather than hard coding it.
         flashHome = correctUtil.getDcachePath("flash", job);
       }
       InvokeFlash stage = new InvokeFlash();

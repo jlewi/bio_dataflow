@@ -300,6 +300,7 @@ public class BuildBitVector extends Stage {
        correctionK.intValue() <= 0){
       sLogger.error("Please specify a value of 0<K<=19");
     }
+    // TODO(jeremy@lewi.us): We should initialize the conf based on getConf().
     JobConf conf = new JobConf(BuildBitVector.class);
     conf.setJobName("Filter Kmer Counts ");
     FileInputFormat.addInputPath(conf, new Path(inputPath));

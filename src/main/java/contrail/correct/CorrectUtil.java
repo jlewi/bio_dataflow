@@ -20,7 +20,6 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 
 import org.apache.avro.mapred.AvroCollector;
@@ -82,26 +81,6 @@ public class CorrectUtil {
     return fastqString;
   }
 
-  // Use ShellUtil rather than this function.
-  @Deprecated
-  public void executeCommand(String command){
-    sLogger.info("command executed: " + command);
-    try {
-      Process p = Runtime.getRuntime().exec(command);
-      BufferedReader stdInput = new BufferedReader(new InputStreamReader(p.getInputStream()));
-      String line;
-      p.waitFor();
-      sLogger.info("command Output:");
-      while ((line = stdInput.readLine()) != null) {
-        sLogger.info(line);
-      }
-      sLogger.info("Process Exit Value: " + p.exitValue());
-    }
-    catch (Exception e) {
-      sLogger.error(e.getStackTrace());
-    }
-  }
-
   /**
    * Gets the Distributed cache path of a given file named binary
    * @param binary: Name of the file you are looking for
@@ -147,23 +126,5 @@ public class CorrectUtil {
     }
     fileReader.close();
     fstream.close();
-  }
-
-  /**
-   * This function writes a string into a file
-   * @param data
-   * @param filePath
-   */
-  public void writeStringToFile(String data, String filePath){
-    try{
-      FileWriter fstream = new FileWriter(filePath,true);
-      BufferedWriter out = new BufferedWriter(fstream);
-      out.write(data+"\n");
-      out.close();
-      fstream.close();
-    }
-    catch (Exception e) {
-      e.printStackTrace();
-    }
   }
 }
