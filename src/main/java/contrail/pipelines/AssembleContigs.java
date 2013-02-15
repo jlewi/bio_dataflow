@@ -18,43 +18,32 @@
 package contrail.pipelines;
 
 
-import java.io.IOException;
-import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-import org.apache.avro.io.EncoderFactory;
-import org.apache.avro.io.JsonEncoder;
-import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
-import org.codehaus.jackson.JsonFactory;
-import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.util.DefaultPrettyPrinter;
 import contrail.stages.BuildGraphAvro;
 import contrail.stages.CompressAndCorrect;
-import contrail.stages.ContrailParameters;
 import contrail.stages.FastqPreprocessorAvroCompressed;
 import contrail.stages.GraphStats;
 import contrail.stages.GraphToFasta;
-import contrail.stages.NotImplementedException;
 import contrail.stages.ParameterDefinition;
+import contrail.stages.PipelineStage;
 import contrail.stages.QuickMergeAvro;
-import contrail.stages.Stage;
-import contrail.stages.StageInfo;
+import contrail.stages.StageBase;
+import contrail.stages.StageInfoWriter;
 
 /**
  * A pipeline for assembling the contigs.
  */
-public class AssembleContigs extends Stage {
+public class AssembleContigs extends PipelineStage {
   private static final Logger sLogger = Logger.getLogger(AssembleContigs.class);
 
   public AssembleContigs() {
@@ -73,14 +62,20 @@ public class AssembleContigs extends Stage {
         new HashMap<String, ParameterDefinition>();
     definitions.putAll(super.createParameterDefinitions());
     // We add all the options for the stages we depend on.
-    Stage[] substages =
+    StageBase[] substages =
       {new FastqPreprocessorAvroCompressed(), new BuildGraphAvro(),
        new QuickMergeAvro(), new CompressAndCorrect(), new GraphStats()};
 
-    for (Stage stage: substages) {
+    for (StageBase stage: substages) {
       definitions.putAll(stage.getParameterDefinitions());
     }
 
+    ParameterDefinition inFormat = new ParameterDefinition(
+        "input_format",
+        "String specifying the input format [avro, fastq].",
+        String.class, "fastq");
+
+    definitions.put(inFormat.getName(), inFormat);
     return Collections.unmodifiableMap(definitions);
   }
 
@@ -89,104 +84,43 @@ public class AssembleContigs extends Stage {
     // customize the parameters for different datasets.
   }
 
-  /**
-   * Write the current value of stage info to a file.
-   */
-  private void writeStageInfo(StageInfo info) {
-    // TODO(jlewi): We should cleanup old stage files after writing
-    // the new one. Or we could try appending json records to the same file.
-    // When I tried appending, the method fs.append threw an exception.
-    String outputPath = (String) stage_options.get("outputpath");
-    SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd-HHmmss");
-    Date date = new Date();
-    String timestamp = formatter.format(date);
-
-    String stageDir = FilenameUtils.concat(
-        outputPath, "stage_info");
-
-    String outputFile = FilenameUtils.concat(
-        stageDir, "stage_info." + timestamp + ".json");
-    try {
-      FileSystem fs = FileSystem.get(this.getConf());
-      if (!fs.exists(new Path(stageDir))) {
-        fs.mkdirs(new Path(stageDir));
-      }
-      FSDataOutputStream outStream = fs.create(new Path(outputFile));
-
-      JsonFactory factory = new JsonFactory();
-      JsonGenerator generator = factory.createJsonGenerator(outStream);
-      generator.setPrettyPrinter(new DefaultPrettyPrinter());
-      JsonEncoder encoder = EncoderFactory.get().jsonEncoder(
-          info.getSchema(), generator);
-      SpecificDatumWriter<StageInfo> writer =
-          new SpecificDatumWriter<StageInfo>(StageInfo.class);
-      writer.write(info, encoder);
-      // We need to flush it.
-      encoder.flush();
-      outStream.close();
-    } catch (IOException e) {
-      sLogger.fatal("Couldn't create the output stream.", e);
-      System.exit(-1);
-    }
-  }
-
-  /**
-   * Run and log the job.
-   * @param pipelineInfo
-   * @param stage
-   */
-  private RunningJob runAndLogStage(StageInfo pipelineInfo, Stage stage)
-      throws Exception {
-    // We need to write the stage info before and after we run the job
-    // because if the job terminates we want the stage info logged to
-    // reflect that.
-    StageInfo stageInfo = stage.getStageInfo(null);
-
-    pipelineInfo.getSubStages().add(stageInfo);
-    writeStageInfo(pipelineInfo);
-
-    RunningJob job = stage.runJob();
-
-    stageInfo = stage.getStageInfo(job);
-    // Overwrite the information for this stage.
-    pipelineInfo.getSubStages().set(
-        pipelineInfo.getSubStages().size() - 1, stageInfo);
-    return job;
-  }
-
   private void processGraph() throws Exception {
-    StageInfo stageInfo = getStageInfo(null);
-
     // TODO(jlewi): Does this function really need to throw an exception?
     String outputPath = (String) stage_options.get("outputpath");
 
-    Stage[] subStages =
-      {new FastqPreprocessorAvroCompressed(), new BuildGraphAvro(),
-       new QuickMergeAvro(), new CompressAndCorrect(), new GraphToFasta()};
+    infoWriter = new StageInfoWriter(
+        getConf(), FilenameUtils.concat(outputPath,  "stage_info"));
+
+    ArrayList<StageBase> subStages = new ArrayList<StageBase>();
+
+    String inFormat = (String) stage_options.get("input_format");
+    inFormat = inFormat.toLowerCase();
+
+    if (inFormat.equals("fastq")) {
+      subStages.add(new FastqPreprocessorAvroCompressed());
+    }
+
+    subStages.add(new BuildGraphAvro());
+    subStages.add(new QuickMergeAvro());
+    subStages.add(new CompressAndCorrect());
+    subStages.add(new GraphToFasta());
 
     // The path to process for the next stage.
     String latestPath = (String) stage_options.get("inputpath");
 
-    for (Stage stage : subStages) {
-      // Make a shallow copy of the stage options required by the stage.
-      Map<String, Object> stageOptions =
-          ContrailParameters.extractParameters(
-              this.stage_options,
-              stage.getParameterDefinitions().values());
-
-      stage.setConf(getConf());
+    for (StageBase stage : subStages) {
+      stage.initializeAsChild(this);
 
       String stageOutput =
           new Path(outputPath, stage.getClass().getName()).toString();
-      stageOptions.put("inputpath", latestPath);
-      stageOptions.put("outputpath", stageOutput);
+      stage.setParameter("inputpath", latestPath);
+      stage.setParameter("outputpath", stageOutput);
 
-      stage.setParameters(stageOptions);
-      RunningJob job = runAndLogStage(stageInfo, stage);
-      if (job !=null && !job.isSuccessful()) {
-        throw new RuntimeException(
-            String.format(
-                "Stage %s had a problem", stage.getClass().getName()));
+      if (!executeChild(stage)) {
+        sLogger.fatal(String.format(
+            "Stage %s had a problem", stage.getClass().getName()),
+            new RuntimeException("Stage failure."));
+        System.exit(-1);
       }
 
       latestPath = stageOutput;
@@ -195,47 +129,47 @@ public class AssembleContigs extends Stage {
         // TODO(jlewi): It would probably be better to continue running the
         // pipeline and not blocking on GraphStats.
         GraphStats statsStage = new GraphStats();
-        statsStage.setConf(getConf());
+        statsStage.initializeAsChild(this);
         String statsOutput = new Path(
             outputPath,
             String.format("%sStats", stage.getClass().getName())).toString();
-        Map<String, Object> statsParameters = new HashMap<String, Object>();
-        statsParameters.put("inputpath", stageOutput);
-        statsParameters.put("outputpath", statsOutput);
-        statsStage.setParameters(statsParameters);
 
-        RunningJob statsJob = runAndLogStage(stageInfo, statsStage);
-
-        if (!statsJob.isSuccessful()) {
-          throw new RuntimeException(
-              String.format(
-                  "Computing stats for Stage %s had a problem",
-                  stage.getClass().getName()));
+        statsStage.setParameter("inputpath", stageOutput);
+        statsStage.setParameter("outputpath", statsOutput);
+        if (!executeChild(statsStage)) {
+          sLogger.fatal(String.format(
+              "Computing stats for Stage %s had a problem",
+              stage.getClass().getName()),
+              new RuntimeException("Stats failure"));
+          System.exit(-1);
         }
       }
     }
   }
 
   @Override
-  public RunningJob runJob() throws Exception {
-    String[] required_args = {"inputpath", "outputpath"};
-    checkHasParametersOrDie(required_args);
-
-    if (stage_options.containsKey("writeconfig")) {
-      // TODO(jlewi): Can we write the configuration for this stage like
-      // other stages or do we need to do something special?
-      throw new NotImplementedException(
-          "Support for writeconfig isn't implemented yet for " +
-          "AssembleContigs");
-    } else {
-      long starttime = System.currentTimeMillis();
+  public void stageMain() {
+    try {
       processGraph();
-      long endtime = System.currentTimeMillis();
-
-      float diff = (float) ((endtime - starttime) / 1000.0);
-      sLogger.info("Runtime: " + diff + " s");
+    } catch (Exception e) {
+      sLogger.fatal("AssembleContigs failed.", e);
+      System.exit(-1);
     }
-    return null;
+  }
+
+  @Override
+  public List<InvalidParameter> validateParameters() {
+    List<InvalidParameter> items = super.validateParameters();
+
+    String inFormat = (String) stage_options.get("input_format");
+    inFormat = inFormat.toLowerCase();
+
+    if (!inFormat.equals("avro") && !inFormat.equals("fastq")) {
+      InvalidParameter item = new InvalidParameter(
+          "input_format", "input_format must be avro or fastq.");
+      items.add(item);
+    }
+    return items;
   }
 
   public static void main(String[] args) throws Exception {

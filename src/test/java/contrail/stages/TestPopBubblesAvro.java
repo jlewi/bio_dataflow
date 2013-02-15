@@ -147,7 +147,6 @@ public class TestPopBubblesAvro {
     Reporter reporter = reporterMock;
 
     for (ReduceTestCase testCase: testCases) {
-      definitions.get("K").addToJobConf(job, new Integer(3));
       reducer.configure(job);
 
       AvroCollectorMock<GraphNodeData> collectorMock =

@@ -21,19 +21,16 @@ import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.MapReduceBase;
 import org.apache.hadoop.mapred.Mapper;
 import org.apache.hadoop.mapred.OutputCollector;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -48,7 +45,7 @@ import contrail.sequences.Sequence;
  *
  * TODO(jeremy@lewi.us): This probably doesn't belong in package scaffolding.
  */
-public class ReverseReads extends Stage {
+public class ReverseReads extends MRStage {
   private static final Logger sLogger = Logger.getLogger(ReverseReads.class);
 
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
@@ -88,24 +85,12 @@ public class ReverseReads extends Stage {
     }
   }
 
-  public RunningJob runJob() throws Exception {
-    String[] required_args = {"inputpath", "outputpath"};
-    checkHasParametersOrDie(required_args);
-
+  @Override
+  protected void setupConfHook() {
+    JobConf conf = (JobConf) getConf();
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
 
-    Configuration base_conf = getConf();
-    JobConf conf = null;
-    if (base_conf != null) {
-      conf = new JobConf(getConf(), this.getClass());
-    } else {
-      conf = new JobConf(this.getClass());
-    }
-    conf.setJobName(this.getClass().getName());
-
-    //Sets the parameters in JobConf
-    initializeJobConfiguration(conf);
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
@@ -115,19 +100,6 @@ public class ReverseReads extends Stage {
 
     //Map Only Job
     conf.setNumReduceTasks(0);
-
-    // Delete the output directory if it exists already
-    Path out_path = new Path(outputPath);
-    if (FileSystem.get(conf).exists(out_path)) {
-      FileSystem.get(conf).delete(out_path, true);
-    }
-
-    long starttime = System.currentTimeMillis();
-    RunningJob result = JobClient.runJob(conf);
-    long endtime = System.currentTimeMillis();
-    float diff = (float) ((endtime - starttime) / 1000.0);
-    System.out.println("Runtime: " + diff + " s");
-    return result;
   }
 
   public static void main(String[] args) throws Exception {

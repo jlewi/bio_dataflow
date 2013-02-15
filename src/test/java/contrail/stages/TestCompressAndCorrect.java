@@ -119,7 +119,8 @@ public class TestCompressAndCorrect extends CompressAndCorrect {
        "--K=3", "--localnodes=3", "--tiplength=" + tipLength,
        "--bubble_edit_rate=" + bubbleEditRate,
        "--bubble_length_threshold=" + bubbleLengthThreshold,
-       "--compute_stats=false"};
+       "--compute_stats=false", "--length_thresh=5",
+       "--low_cov_thresh=5"};
 
     // Catch the following after debugging.
     try {

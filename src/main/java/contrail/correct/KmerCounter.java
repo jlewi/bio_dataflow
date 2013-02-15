@@ -200,6 +200,9 @@ public class KmerCounter extends Stage {
       ContrailParameters.getInputOutputPathOptions()) {
       defs.put(def.getName(), def);
     }
+
+    ParameterDefinition kDef = ContrailParameters.getK();
+    defs.put(kDef.getName(), kDef);
     return Collections.unmodifiableMap(defs);
   }
 

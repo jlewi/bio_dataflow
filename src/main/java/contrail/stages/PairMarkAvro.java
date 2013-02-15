@@ -17,14 +17,11 @@ import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
 import org.apache.avro.specific.SpecificData;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -95,7 +92,7 @@ import contrail.stages.GraphCounters.CounterName;
  *    it to an up node.
  * 3. If node is an up node merge it with one of its neighboring down nodes.
  */
-public class PairMarkAvro extends Stage {
+public class PairMarkAvro extends MRStage {
   private static final Logger sLogger = Logger.getLogger(PairMarkAvro.class);
 
   // The number of nodes marked to be merged.
@@ -152,7 +149,7 @@ public class PairMarkAvro extends Stage {
   }
 
   protected static class PairMarkMapper extends
-  AvroMapper<CompressibleNodeData, Pair<CharSequence, PairMarkOutput>> {
+      AvroMapper<CompressibleNodeData, Pair<CharSequence, PairMarkOutput>> {
     private CompressibleNode compressible_node;
     private CoinFlipper flipper;
     private NodeInfoForMerge node_info_for_merge;
@@ -440,7 +437,7 @@ public class PairMarkAvro extends Stage {
           graph_node =
               new GraphNode(source.getCompressibleNode().getNode()).clone();
           source.getCompressibleNode().setNode(null);
-          output_node = (NodeInfoForMerge) SpecificData.get().deepCopy(
+          output_node = SpecificData.get().deepCopy(
               source.getSchema(), source);
           output_node.getCompressibleNode().setNode(graph_node.getData());
           seen_node = true;
@@ -448,7 +445,7 @@ public class PairMarkAvro extends Stage {
           EdgeUpdateForMerge edge_update =
               (EdgeUpdateForMerge) mark_output.getPayload();
           edge_update =
-              (EdgeUpdateForMerge) SpecificData.get().deepCopy(
+              SpecificData.get().deepCopy(
                   edge_update.getSchema(), edge_update);
           edge_updates.add(edge_update);
         }
@@ -543,38 +540,11 @@ public class PairMarkAvro extends Stage {
     return Collections.unmodifiableMap(defs);
   }
 
-  public int run(String[] args) throws Exception {
-    sLogger.info("Tool name: PairMarkAvro");
-    parseCommandLine(args);
-    runJob();
-    return 0;
-  }
-
   @Override
-  public RunningJob runJob() throws Exception {
-    String[] required_args = {"inputpath", "outputpath", "randseed"};
-    checkHasParametersOrDie(required_args);
-
+  protected void setupConfHook() {
+    JobConf conf = (JobConf) getConf();
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
-    long randseed = (Long) stage_options.get("randseed");
-
-    sLogger.info(" - input: "  + inputPath);
-    sLogger.info(" - output: " + outputPath);
-    sLogger.info(" - randseed: " + randseed);
-
-    Configuration base_conf = getConf();
-    JobConf conf = null;
-    if (base_conf != null) {
-      conf = new JobConf(getConf(), PairMarkAvro.class);
-    } else {
-      conf = new JobConf(PairMarkAvro.class);
-    }
-
-    conf.setJobName("PairMarkAvro " + inputPath);
-
-    initializeJobConfiguration(conf);
-
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
@@ -589,33 +559,18 @@ public class PairMarkAvro extends Stage {
 
     AvroJob.setMapperClass(conf, PairMarkMapper.class);
     AvroJob.setReducerClass(conf, PairMarkReducer.class);
+  }
 
-    if (stage_options.containsKey("writeconfig")) {
-      writeJobConfig(conf);
-    } else {
-      // Delete the output directory if it exists already
-      Path out_path = new Path(outputPath);
-      if (FileSystem.get(conf).exists(out_path)) {
-        // TODO(jlewi): We should only delete an existing directory
-        // if explicitly told to do so.
-        sLogger.info("Deleting output path: " + out_path.toString() + " " +
-            "because it already exists.");
-        FileSystem.get(conf).delete(out_path, true);
-      }
-
-      long starttime = System.currentTimeMillis();
-      RunningJob job = JobClient.runJob(conf);
-      long endtime = System.currentTimeMillis();
-
-      float diff = (float) ((endtime - starttime) / 1000.0);
+  @Override
+  public void postRunHook() {
+    try {
       long numMarkedNodes = job.getCounters().findCounter(
           NUM_MARKED_FOR_MERGE.group, NUM_MARKED_FOR_MERGE.tag).getValue();
       sLogger.info("Number of nodes marked to be merged:" + numMarkedNodes);
-      sLogger.info("Runtime: " + diff + " s");
-
-      return job;
+    } catch (IOException e) {
+      sLogger.fatal("Couldn't get counters.", e);
+      System.exit(-1);
     }
-    return null;
   }
 
   public static void main(String[] args) throws Exception {

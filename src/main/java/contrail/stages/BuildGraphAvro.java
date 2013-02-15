@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -30,14 +31,11 @@ import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -63,7 +61,7 @@ import contrail.sequences.StrandsUtil;
  * The input is an avro file. The records in the avro file can either be
  * CompressedRead or FastQRecords.
  */
-public class BuildGraphAvro extends Stage {
+public class BuildGraphAvro extends MRStage {
   private static final Logger sLogger = Logger.getLogger(BuildGraphAvro.class);
 
   public static final Schema kmer_edge_schema = (new KMerEdge()).getSchema();
@@ -135,6 +133,8 @@ public class BuildGraphAvro extends Stage {
         .getInputOutputPathOptions()) {
       defs.put(def.getName(), def);
     }
+    ParameterDefinition kDef = ContrailParameters.getK();
+    defs.put(kDef.getName(), kDef);
     return Collections.unmodifiableMap(defs);
   }
 
@@ -517,36 +517,27 @@ public class BuildGraphAvro extends Stage {
   }
 
   @Override
-  public RunningJob runJob() throws Exception {
-    // Check for missing arguments.
-    String[] required_args = { "inputpath", "outputpath", "K" };
-    checkHasParametersOrDie(required_args);
-
-    String inputPath = (String) stage_options.get("inputpath");
-    String outputPath = (String) stage_options.get("outputpath");
+  public List<InvalidParameter> validateParameters() {
+    ArrayList<InvalidParameter> items = new ArrayList<InvalidParameter>();
     int K = (Integer) stage_options.get("K");
 
     // K should be odd.
     if ((K % 2) == 0) {
-      throw new RuntimeException(
-          "K should be odd. If K is even then there exist Kmers for which "
-              + "the KMer and its reverse complement are the same. This can cause "
-              + "problems for graph construction.");
+      InvalidParameter item = new InvalidParameter(
+          "K",
+          "K should be odd. If K is even then there exist Kmers for which " +
+          "the KMer and its reverse complement are the same. This can cause " +
+          "problems for graph construction.");
+      items.add(item);
     }
-    sLogger.info(" - input: " + inputPath);
-    sLogger.info(" - output: " + outputPath);
+    return items;
+  }
 
-    Configuration base_conf = getConf();
-    JobConf conf = null;
-    if (base_conf != null) {
-      conf = new JobConf(getConf(), this.getClass());
-    } else {
-      conf = new JobConf(this.getClass());
-    }
-    conf.setJobName("BuildGraph " + inputPath + " " + K);
-
-    initializeJobConfiguration(conf);
-
+  @Override
+  protected void setupConfHook() {
+    JobConf conf = (JobConf) getConf();
+    String inputPath = (String) stage_options.get("inputpath");
+    String outputPath = (String) stage_options.get("outputpath");
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
@@ -567,35 +558,6 @@ public class BuildGraphAvro extends Stage {
 
     AvroJob.setMapperClass(conf, BuildGraphMapper.class);
     AvroJob.setReducerClass(conf, BuildGraphReducer.class);
-
-    if (stage_options.containsKey("writeconfig")) {
-      writeJobConfig(conf);
-    } else {
-      // Delete the output directory if it exists already
-      Path out_path = new Path(outputPath);
-      if (FileSystem.get(conf).exists(out_path)) {
-        // TODO(jlewi): We should only delete an existing directory
-        // if explicitly told to do so.
-        sLogger.info("Deleting output path: " + out_path.toString() + " "
-            + "because it already exists.");
-        FileSystem.get(conf).delete(out_path, true);
-      }
-
-      long starttime = System.currentTimeMillis();
-      RunningJob job = JobClient.runJob(conf);
-      long endtime = System.currentTimeMillis();
-      long numNodes = job
-          .getCounters()
-          .findCounter("org.apache.hadoop.mapred.Task$Counter",
-              "REDUCE_OUTPUT_RECORDS").getValue();
-
-      sLogger.info("Number of nodes in graph:" + numNodes);
-      float diff = (float) ((endtime - starttime) / 1000.0);
-
-      sLogger.info("Runtime: " + diff + " s");
-      return job;
-    }
-    return null;
   }
 
   public static void main(String[] args) throws Exception {

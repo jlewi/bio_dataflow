@@ -21,7 +21,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
@@ -91,10 +90,13 @@ import org.apache.log4j.PatternLayout;
  * when running from within java? Since stage implements Configured I think
  * the caller can just set the configuration. runJob should then initialize
  * its job configuration using the configuration stored in the class.
+ *
+ * TODO(jlewi): Move non deprecated methods into StageBase and get rid
+ * of this class
  */
+@Deprecated
 public abstract class Stage extends Configured implements Tool  {
-  private static final Logger sLogger =
-      Logger.getLogger(Stage.class);
+  private static final Logger sLogger = Logger.getLogger(Stage.class);
 
   public Stage() {
   }
@@ -130,8 +132,9 @@ public abstract class Stage extends Configured implements Tool  {
     }
 
     if (missing.size() > 0) {
-      sLogger.error(("Missing required arguments: " +
-                     StringUtils.join(missing, ",")));
+      sLogger.error(
+          this.getClass().getSimpleName() +": Missing required " +
+          "arguments: " + StringUtils.join(missing, ","));
       printHelp();
       // Should we exit or throw an exception?
       System.exit(0);
@@ -151,6 +154,10 @@ public abstract class Stage extends Configured implements Tool  {
     for (ParameterDefinition def: ContrailParameters.getCommon()) {
       parameters.put(def.getName(), def);
     }
+
+    // For legacy reasons we add K as a parameter always.
+    ParameterDefinition kDef = ContrailParameters.getK();
+    parameters.put(kDef.getName(), kDef);
     return Collections.unmodifiableMap(parameters);
   }
 
@@ -162,37 +169,6 @@ public abstract class Stage extends Configured implements Tool  {
       definitions = createParameterDefinitions();
     }
     return definitions;
-  }
-
-  /**
-   * A class containing information about invalid parameters.
-   */
-  public class InvalidParameter {
-    public String stage;
-    // Name of the invalid parameter.
-    final public String name;
-
-    // Message describing why the parameter is invalid.
-    final public String message;
-
-    public InvalidParameter(String name, String message) {
-      this.name = name;
-      this.message = message;
-    }
-  }
-  /**
-   * Check whether parameters are valid.
-   * Subclasses which override this method should call the base class
-   *
-   * We return information describing all the invalid parameters. If
-   * the validation requires access to a valid job configuration
-   * then the caller should ensure the configuration is properly set.
-   */
-  public List<InvalidParameter> validateParameters() {
-    // TODO(jeremy@lewi.us): Should we automatically check that required
-    // parameters are set. The question is whether a parameter which has
-    // null for the default value should be considered required?
-    return new ArrayList<InvalidParameter>();
   }
 
   /**
@@ -360,8 +336,9 @@ public abstract class Stage extends Configured implements Tool  {
 
     parseCommandLine(args);
 
-    if (stage_options.containsKey("log_file")) {
-      String logFile = (String) (stage_options.get("log_file"));
+    String logFile = (String) stage_options.get("log_file");
+
+    if (logFile.length() > 0) {
       FileAppender fileAppender = new FileAppender();
       fileAppender.setFile(logFile);
       PatternLayout layout = new PatternLayout();
@@ -401,7 +378,8 @@ public abstract class Stage extends Configured implements Tool  {
   }
 
   /**
-   * Set the parameters for this stage. Any unset parameters will be
+   * Set the parameters for this stage. Any parameters which haven't been
+   * previously set and which aren't part of the input will be
    * initialized to the default values if there is one.
    */
   public void setParameters(Map<String, Object> values) {
@@ -427,7 +405,9 @@ public abstract class Stage extends Configured implements Tool  {
    * @param job
    * @return
    */
+  @Deprecated
   public StageInfo getStageInfo(RunningJob job) {
+    // TODO(jeremy@lewi.us): should be replaced by getStageInfo();
     StageInfo info = new StageInfo();
     info.setCounters(new ArrayList<CounterInfo>());
     info.setParameters(new ArrayList<StageParameter>());

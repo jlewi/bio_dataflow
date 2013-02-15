@@ -606,6 +606,7 @@ public class BuildBambusInput extends Stage {
             "files containg the reads to align to the reference genome.",
             String.class, null);
 
+    // Currently these need to be on the local filesystem.
     ParameterDefinition contigsGlob =
         new ParameterDefinition(
             "reference_glob", "A glob expression matching the path to the " +

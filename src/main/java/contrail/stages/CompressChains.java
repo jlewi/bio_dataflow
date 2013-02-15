@@ -54,7 +54,7 @@ import contrail.util.FileHelper;
  *
  * Note: Resuming the compression hasn't been rigoursouly tested.
  */
-public class CompressChains extends Stage {
+public class CompressChains extends PipelineStage {
   // TODO(jlewi): Should we create a separate base class for jobs which
   // run several map reduce jobs.
   private static final Logger sLogger = Logger.getLogger(CompressChains.class);
@@ -84,19 +84,6 @@ public class CompressChains extends Stage {
     job_start_time = System.currentTimeMillis();
   }
 
-  public void logEndJob(RunningJob job) throws IOException {
-    long endtime = System.currentTimeMillis();
-    long diff = (endtime - job_start_time) / 1000;
-
-    sLogger.info(job.getJobID() + " " + diff + " s");
-
-    if (!job.isSuccessful())
-    {
-      System.out.println("Job was not successful");
-      System.exit(1);
-    }
-  }
-
   /**
    * Maximally compress chains.
    *
@@ -112,7 +99,7 @@ public class CompressChains extends Stage {
       String input_path, String temp_path, String final_path) throws Exception {
     finalGraphPath = final_path;
     CompressibleAvro compress = new CompressibleAvro();
-    compress.setConf(this.getConf());
+    compress.initializeAsChild(this);
 
     int stage = 0;
     long compressible = 0;
@@ -134,7 +121,8 @@ public class CompressChains extends Stage {
 
     // TODO(jlewi): To determine the step number we should probably parse the
     // directory rather than just letting the user specify the directory
-    // to continue from.
+    // to continue from. We should probably rewrite the resume option
+    // so that it uses the StageInfo file to figure out where we were.
     if (RESUME) {
       // We resume Mark/Merge iterations after some previous processing
       // Compressible nodes should already be marked so we don't
@@ -162,9 +150,8 @@ public class CompressChains extends Stage {
 
       substage_options.put("outputpath", latest_path);
       compress.setParameters(substage_options);
-      RunningJob job = compress.runJob();
-      compressible = counter(job, CompressibleAvro.NUM_COMPRESSIBLE);
-      logEndJob(job);
+      executeChild(compress);
+      compressible = counter(compress.job, CompressibleAvro.NUM_COMPRESSIBLE);
 
       if (compressible == 0) {
         sLogger.info("The graph isn't compressible.");
@@ -205,8 +192,8 @@ public class CompressChains extends Stage {
       if (lastremaining < LOCALNODES) {
         QuickMarkAvro qmark   = new QuickMarkAvro();
         QuickMergeAvro qmerge = new QuickMergeAvro();
-        qmark.setConf(this.getConf());
-        qmerge.setConf(this.getConf());
+        qmark.initializeAsChild(this);
+        qmerge.initializeAsChild(this);
 
         // Send all the compressible nodes and their neighbors to the same
         // machine so they can be compressed in one shot.
@@ -219,14 +206,13 @@ public class CompressChains extends Stage {
         substage_options.put("inputpath", mark_input);
         substage_options.put("outputpath", marked_graph_path);
         qmark.setParameters(substage_options);
-        RunningJob qmark_job = qmark.runJob();
-        logEndJob(qmark_job);
+        executeChild(qmark);
 
         sLogger.info(
             String.format(
                 "Nodes to send to compressor: %d \n",
                 counter(
-                    qmark_job,
+                    qmark.job,
                     GraphCounters.quick_mark_nodes_send_to_compressor)));
 
         logStartJob("  QMerge " + stage);
@@ -239,8 +225,7 @@ public class CompressChains extends Stage {
         qmerge_options.put("inputpath", marked_graph_path);
         qmerge_options.put("outputpath", merged_graph_path);
         qmerge.setParameters(qmerge_options);
-        RunningJob qmerge_job = qmerge.runJob();
-        logEndJob(qmerge_job);
+        executeChild(qmerge);
 
         // Set remaining to zero because all compressible nodes should
         // be compressed.
@@ -252,8 +237,8 @@ public class CompressChains extends Stage {
 
         PairMarkAvro pmark   = new PairMarkAvro();
         PairMergeAvro pmerge = new PairMergeAvro();
-        pmark.setConf(this.getConf());
-        pmerge.setConf(this.getConf());
+        pmark.initializeAsChild(this);
+        pmerge.initializeAsChild(this);
 
         {
           logStartJob("Mark" + stage);
@@ -268,12 +253,11 @@ public class CompressChains extends Stage {
 
           mark_options.put("randseed", seed);
           pmark.setParameters(mark_options);
-          RunningJob job = pmark.runJob();
-          logEndJob(job);
+          executeChild(pmark);
 
           sLogger.info(
               "Number of nodes marked to compress:" +
-              counter(job, PairMarkAvro.NUM_MARKED_FOR_MERGE));
+              counter(pmark.job, PairMarkAvro.NUM_MARKED_FOR_MERGE));
         }
         {
           logStartJob("  Merge " + stage);
@@ -282,9 +266,9 @@ public class CompressChains extends Stage {
           mark_options.put("outputpath", merged_graph_path);
           mark_options.put("K", stage_options.get("K"));
           pmerge.setParameters(mark_options);
-          RunningJob job = pmerge.runJob();
-          logEndJob(job);
-          remaining = counter(job, PairMergeAvro.NUM_REMAINING_COMPRESSIBLE);
+          executeChild(pmerge);
+          remaining = counter(
+              pmerge.job, PairMergeAvro.NUM_REMAINING_COMPRESSIBLE);
         }
 
         if (remaining == 0) {
@@ -292,7 +276,7 @@ public class CompressChains extends Stage {
               step_dir, "converted_graph").getPath();
           CompressibleNodeConverter converter =
               new CompressibleNodeConverter();
-          converter.setConf(this.getConf());
+          converter.initializeAsChild(this);
           // If the number of remaining nodes is zero. Then we need to convert
           // the graph of CompressibleNode's to GraphData. Ordinarily this
           // would happen automatically in QuickMark + QuickMerge.
@@ -301,8 +285,7 @@ public class CompressChains extends Stage {
           convert_options.put("inputpath", merged_graph_path);
           convert_options.put("outputpath", convertedGraphPath);
           converter.setParameters(convert_options);
-          RunningJob job = converter.runJob();
-          logEndJob(job);
+          executeChild(converter);
           latest_path = convertedGraphPath;
           pathsToDelete.add(merged_graph_path);
         }
@@ -327,6 +310,14 @@ public class CompressChains extends Stage {
     sLogger.info("Moving graph from: " + latest_path);
     sLogger.info("To: " + final_path);
     FileHelper.moveDirectoryContents(getConf(), latest_path, final_path);
+    // Record the fact that for the last substage we moved its output.
+    StageInfo lastInfo =
+        stageInfo.getSubStages().get(stageInfo.getSubStages().size() - 1);
+
+    StageParameter finalPathParameter = new StageParameter();
+    finalPathParameter.setName("outputpath");
+    finalPathParameter.setValue(final_path);
+    lastInfo.getModifiedParameters().add(finalPathParameter);
   }
 
   /**
@@ -358,6 +349,7 @@ public class CompressChains extends Stage {
       definitions.putAll(stage.getParameterDefinitions());
     }
 
+    definitions.remove("randseed");
 
     ParameterDefinition localnodes =
         new ParameterDefinition("localnodes",
@@ -379,14 +371,14 @@ public class CompressChains extends Stage {
             "This is an integer indicating the next stage in the " +
             "compression. This is optional and only used to name the " +
             "intermediate output directories.",
-            Boolean.class, new Integer(0));
+            Integer.class, new Integer(0));
 
     ParameterDefinition seeds =
         new ParameterDefinition("seeds",
             "(optional) a comma separated list of seeds to use for the " +
             "random number generator in pairmark. This is useful mainly " +
             "for debugging to repeat a previous run to see what happened.",
-            String.class, null);
+            String.class, "");
 
     for (ParameterDefinition def:
       new ParameterDefinition[] {localnodes, resume, stage_num, seeds}) {
@@ -403,8 +395,8 @@ public class CompressChains extends Stage {
    * Check if the seeds were passed in and if they were make sure they are
    * unique.
    */
-  private void cheackAndParseSeeds() {
-    if (!stage_options.containsKey("seeds")) {
+  private void checkAndParseSeeds() {
+    if (((String)stage_options.get("seeds")).length() == 0) {
       sLogger.info(
           "No seeds provided. Seeds will be automatically generated.");
       return;
@@ -426,30 +418,21 @@ public class CompressChains extends Stage {
   }
 
   @Override
-  public RunningJob runJob() throws Exception {
-    String[] required_args = {"inputpath", "outputpath", "localnodes", "K"};
-    checkHasParametersOrDie(required_args);
-    cheackAndParseSeeds();
+  protected void stageMain() {
+    checkAndParseSeeds();
 
     String input_path = (String) stage_options.get("inputpath");
     String output_path = (String) stage_options.get("outputpath");
     // TODO(jlewi): Is just appending "temp" to the output path
     // really a good idea?
     String temp_path = new Path(output_path, "temp").toString();
-    if (stage_options.containsKey("writeconfig")) {
-      // TODO(jlewi): Can we write the configuration for this stage like
-      // other stages or do we need to do something special?
-      throw new NotImplementedException(
-          "Support for writeconfig isn't implemented yet for compresschains");
-    } else {
-      long starttime = System.currentTimeMillis();
-      compressChains(input_path, temp_path, output_path);
-      long endtime = System.currentTimeMillis();
 
-      float diff = (float) ((endtime - starttime) / 1000.0);
-      System.out.println("Runtime: " + diff + " s");
+    try {
+      compressChains(input_path, temp_path, output_path);
+    } catch (Exception e) {
+      sLogger.fatal("CompressChains failed.", e);
+      System.exit(-1);
     }
-    return null;
   }
 
   /**
