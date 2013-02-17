@@ -143,15 +143,8 @@ public class TestFastQInputFormat
 
   @Test
   public void testRetrieveSplits() throws IOException {
-    //List<NumberedFileSplit> numberedSplitList;
     writeToFile(FastQ_3);
     long streamLength = FastQ_3.length();
-
-    //Text buffer = new Text();
-    //FastQInputFormat inFormat = new FastQInputFormat();
-    //ByteBuffer byteBuffer = ByteBuffer.wrap(ByteUtil.stringToBytes(FastQ_3));
-    //MockFSDataInputStream mock_stream = new MockFSDataInputStream(byteBuffer);
-
 
     FSDataInputStream fstream =  FileSystem.get(conf).open(
         new Path(tempFile.getPath()));
@@ -169,8 +162,4 @@ public class TestFastQInputFormat
     // number of bytes in file - that is, no bytes are getting 'missed' in the splitting.
     assertEquals(bytes, streamLength);
   }
-
-//  public static void main(String args[]) {
-//    org.junit.runner.JUnitCore.main(TestFastQInputFormat.class.getName());
-//  }
 }
