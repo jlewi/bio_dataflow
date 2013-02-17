@@ -89,8 +89,14 @@ public class RemoveLowCoverageAvro extends MRStage {
         "A threshold for node coverage. Only nodes with coverage less " +
             "than this value will be removed ",  Float.class, null);
 
+    ParameterDefinition minLength = new ParameterDefinition(
+        "min_length",
+        "Nodes with length less than min length will be removed regardless " +
+        "of the coverage. ",  Integer.class, 0);
+
     for (ParameterDefinition def:
-             new ParameterDefinition[] {lengthThresh, lowCovThresh}) {
+             new ParameterDefinition[] {
+                lengthThresh, lowCovThresh, minLength}) {
       defs.put(def.getName(), def);
     }
     for (ParameterDefinition def:
@@ -111,6 +117,7 @@ public class RemoveLowCoverageAvro extends MRStage {
       AvroMapper<GraphNodeData, Pair<CharSequence, RemoveNeighborMessage>>  {
     int lengthThresh;
     float lowCovThresh;
+    int minLength;
     GraphNode node = null;
     RemoveNeighborMessage msg = null;
 
@@ -120,6 +127,7 @@ public class RemoveLowCoverageAvro extends MRStage {
     public void configure(JobConf job) {
       RemoveLowCoverageAvro stage = new RemoveLowCoverageAvro();
       Map<String, ParameterDefinition> definitions = stage.getParameterDefinitions();
+      minLength = (Integer)(definitions.get("min_length").parseJobConf(job));
       lengthThresh = (Integer)(definitions.get("length_thresh").parseJobConf(job));
       lowCovThresh = (Float)(definitions.get("low_cov_thresh").parseJobConf(job));
       node = new GraphNode();
@@ -134,8 +142,10 @@ public class RemoveLowCoverageAvro extends MRStage {
       int len = graph_data.getSequence().getLength();
       float cov = node.getCoverage();
 
-      // normal node
-      if ((len > lengthThresh) || (cov >= lowCovThresh)) {
+      if (len < minLength) {
+        // Node is too short.
+        reporter.incrCounter("contrail", "node-too-short", 1);
+      } else if ((len > lengthThresh) || (cov >= lowCovThresh)) {
         RemoveNeighborMessage msg = new RemoveNeighborMessage();
         msg.setNode(graph_data);
         msg.setNodeIDtoRemove("");
@@ -145,7 +155,8 @@ public class RemoveLowCoverageAvro extends MRStage {
       }
 
       reporter.incrCounter(NUM_REMOVED.group, NUM_REMOVED.tag, 1);
-      // We are sending messages to all nodes with edges to this node telling them that this node has low coverage
+      // We are sending messages to all nodes with edges to this node telling
+      // them to remove edges to this terminal.
       int degree = 0;
       for(DNAStrand strand : DNAStrand.values())  {
         degree += node.degree(strand);
@@ -287,6 +298,7 @@ public class RemoveLowCoverageAvro extends MRStage {
           "length_thresh<=K so no nodes would be removed.");
       items.add(item);
     }
+
     return items;
   }
 

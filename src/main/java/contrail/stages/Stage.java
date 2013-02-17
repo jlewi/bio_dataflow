@@ -178,6 +178,14 @@ public abstract class Stage extends Configured implements Tool  {
     ArrayList<String> keys = new ArrayList<String>();
     keys.addAll(stage_options.keySet());
     Collections.sort(keys);
+    ArrayList<String> commandLine = new ArrayList<String>();
+    for (String key : keys) {
+      commandLine.add(String.format(
+          "--%s=%s", key, stage_options.get(key).toString()));
+    }
+    // Print out all the parameters on one line. This is convenient
+    // for copying and pasting to rerun the stage.
+    sLogger.info(StringUtils.join(commandLine, " "));
     for (String key : keys) {
       sLogger.info(String.format(
           "Parameter: %s=%s", key, stage_options.get(key).toString()));
@@ -395,6 +403,19 @@ public abstract class Stage extends Configured implements Tool  {
       if (!stage_options.containsKey(def.getName())
           && def.getDefault() != null) {
         stage_options.put(def.getName(), def.getDefault());
+      }
+    }
+
+
+    if (!(this instanceof StageBase)) {
+      // TODO(jeremy@lewi.us): For backwards compatibility with classes
+      // which are subclasses of Stage and not StageBase. if WriteConfig
+      // is the empty string we need to remove it as a parameter.
+      // This is because the old code assumed that if writeconfig isn't true
+      // it won't be a parameter.
+      String value = (String) stage_options.get("writeconfig");
+      if (value.length() == 0) {
+        stage_options.remove("writeconfig");
       }
     }
   }

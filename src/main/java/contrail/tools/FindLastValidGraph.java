@@ -203,7 +203,6 @@ public class FindLastValidGraph extends PipelineStage {
         PairMergeAvro.class.getName(), RemoveLowCoverageAvro.class.getName(),
         PopBubblesAvro.class.getName(), RemoveTipsAvro.class.getName()));
 
-
     errorStage = null;
 
     int step = 0;

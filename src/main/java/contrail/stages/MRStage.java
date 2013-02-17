@@ -134,6 +134,7 @@ public class MRStage extends StageBase {
    * @return: True on success false otherwise.
    */
   final public boolean execute() {
+    setupLogging();
     checkHasParametersOrDie(getRequiredParameters().toArray(new String[]{}));
     List<InvalidParameter> invalidParameters = validateParameters();
 

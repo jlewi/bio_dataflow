@@ -354,10 +354,8 @@ public class TestAssembleScaffolds {
     stage.setParameters(parameters);
 
 
-    try {
-      stage.runJob();
-    } catch (Exception e) {
-      e.printStackTrace();
+
+    if (!stage.execute()) {
       throw new RuntimeException("test failed!");
     }
   }

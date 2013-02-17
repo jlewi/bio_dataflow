@@ -21,7 +21,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.hadoop.mapred.RunningJob;
+import org.apache.log4j.FileAppender;
 import org.apache.log4j.Logger;
+import org.apache.log4j.PatternLayout;
 
 /**
  * Base class for stages
@@ -194,6 +196,22 @@ abstract public class StageBase extends Stage {
     // TODO(jeremy@lewi.us): Get rid of this method as soon as we get
     // rid of stage.
     throw new RuntimeException("No longer supported");
+  }
+
+  protected void setupLogging() {
+    String logFile = (String) stage_options.get("log_file");
+
+    if (logFile != null && logFile.length() > 0) {
+      FileAppender fileAppender = new FileAppender();
+      fileAppender.setFile(logFile);
+      PatternLayout layout = new PatternLayout();
+      layout.setConversionPattern("%d{ISO8601} %p %c: %m%n");
+      fileAppender.setLayout(layout);
+      fileAppender.activateOptions();
+      Logger.getRootLogger().addAppender(fileAppender);
+      sLogger.info("Start logging");
+      sLogger.info("Adding a file log appender to: " + logFile);
+    }
   }
 
   /**

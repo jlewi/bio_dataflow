@@ -28,14 +28,13 @@ import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.log4j.Logger;
 
 import contrail.sequences.FastaFileReader;
 import contrail.sequences.FastaRecord;
 import contrail.stages.ContrailParameters;
 import contrail.stages.ParameterDefinition;
-import contrail.stages.Stage;
+import contrail.stages.PipelineStage;
 import contrail.util.ShellUtil;
 
 /**
@@ -61,7 +60,7 @@ import contrail.util.ShellUtil;
  * the original reads. The shortened reads are the subsequences
  * used with bowtie to align the reads to the contigs.
  */
-public class AssembleScaffolds extends Stage {
+public class AssembleScaffolds extends PipelineStage {
   private static final Logger sLogger = Logger.getLogger(
       AssembleScaffolds.class);
   @Override
@@ -146,10 +145,8 @@ public class AssembleScaffolds extends Stage {
    * @return: HashMap containing the size for each sequence.
    * @throws Exception
    */
-  private ArrayList<SequenceSize> getSequenceSizes(String inputFile)
-      throws Exception {
+  private ArrayList<SequenceSize> getSequenceSizes(String inputFile) {
      FastaFileReader reader = new FastaFileReader(inputFile);
-
      HashSet<String> sequences = new HashSet<String>();
      ArrayList<SequenceSize> sizes = new ArrayList<SequenceSize>();
      while (reader.hasNext()) {
@@ -468,7 +465,7 @@ public class AssembleScaffolds extends Stage {
   }
 
   @Override
-  public RunningJob runJob() throws Exception {
+  protected void stageMain() {
     // TODO(jeremy@lewi.us) we should check if all the parameters
     // required by all the child sub stages are supplied.
     String[] required_args = {"outputpath", "amos_path"};
@@ -479,7 +476,12 @@ public class AssembleScaffolds extends Stage {
     if (outputPathFile.exists()) {
       sLogger.warn(
           "Outputpath: " + outputPath + " exists and will be deleted.");
-      FileUtils.deleteDirectory(outputPathFile);
+      try {
+        FileUtils.deleteDirectory(outputPathFile);
+      } catch (IOException e) {
+        sLogger.fatal("Couldn't delete the outputpath:" + outputPath, e);
+        System.exit(-1);
+      }
     }
 
     BuildBambusInput bambusInputStage = new BuildBambusInput();
@@ -495,7 +497,7 @@ public class AssembleScaffolds extends Stage {
         (String)stage_options.get("outputpath"), "bambus-input");
     stageOptions.put("outputpath", bambusOutputDir);
     bambusInputStage.setParameters(stageOptions);
-    bambusInputStage.runJob();
+    bambusInputStage.execute();
 
     runLoadIntoAmos(
         bambusInputStage.getFastaOutputFile().getPath(),
@@ -506,10 +508,14 @@ public class AssembleScaffolds extends Stage {
     // Make a copy of the bambus log because when we rerun bambus below
     // the log will get overwritten.
     // TODO(jeremy@lewi.us): Do we still need this?
-    FileUtils.copyFile(
-        new File(outputPath, "bambus2.log"),
-        new File(outputPath, "bambus2.log.initial_stages"));
-
+    try {
+      FileUtils.copyFile(
+          new File(outputPath, "bambus2.log"),
+          new File(outputPath, "bambus2.log.initial_stages"));
+    } catch (IOException e) {
+      sLogger.fatal("Failed to copy files.", e);
+      System.exit(-1);
+    }
 
     runOrientContigs();
     runNonlinearOutputResults();
@@ -534,7 +540,6 @@ public class AssembleScaffolds extends Stage {
     writeReport(reportFile, contigSizes, linearSizes);
     // Run the stage.
     // TODO(jeremy@lewi.us): Process the data and generate a report.
-    return null;
   }
 
   public static void main(String[] args) throws Exception {

@@ -202,6 +202,12 @@ public class CorrectionPipelineRunner extends Stage{
     vectorOptions.put("outputpath", bitVectorPath);
     vectorOptions.put("cutoff", cutoff);
     bitVectorStage.setParameters(vectorOptions);
+    if (!bitVectorStage.execute()) {
+      sLogger.fatal(
+          "Stage: " +  bitVectorStage.getClass().getSimpleName() + " failed.",
+          new RuntimeException("Stage failure."));
+      System.exit(-1);
+    }
     runStage(bitVectorStage);
 
     sLogger.info("Running Quake.");

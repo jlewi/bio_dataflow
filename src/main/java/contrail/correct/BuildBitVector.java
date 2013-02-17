@@ -18,6 +18,7 @@ package contrail.correct;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroJob;
@@ -31,10 +32,8 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -43,8 +42,8 @@ import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
 import contrail.stages.ContrailParameters;
+import contrail.stages.MRStage;
 import contrail.stages.ParameterDefinition;
-import contrail.stages.Stage;
 
 /**
  * A bitvector is required by the quake engine during its correction stage.
@@ -77,7 +76,7 @@ import contrail.stages.Stage;
  * Quake isn't able to handle bigger values of K since quake is serial and the
  * bitvector has to be brought into memory.
  */
-public class BuildBitVector extends Stage {
+public class BuildBitVector extends MRStage {
   private static final Logger sLogger = Logger.getLogger(BuildBitVector.class);
   // The name for the file to store the bitvector.
   public final static String VECTOR_FILENAME = "bitvector.binary";
@@ -280,6 +279,9 @@ public class BuildBitVector extends Stage {
     for (ParameterDefinition def: ContrailParameters.getInputOutputPathOptions()) {
        defs.put(def.getName(), def);
     }
+
+    ParameterDefinition kDef = ContrailParameters.getK();
+    defs.put(kDef.getName(), kDef);
     return Collections.unmodifiableMap(defs);
   }
 
@@ -292,17 +294,26 @@ public class BuildBitVector extends Stage {
         (String) stage_options.get("outputpath"), VECTOR_FILENAME));
   }
 
-  public RunningJob runJob() throws Exception{
-    String inputPath = (String) stage_options.get("inputpath");
+  @Override
+  public List<InvalidParameter> validateParameters() {
+    List<InvalidParameter> items = super.validateParameters();
     Integer correctionK = (Integer)stage_options.get("K");
-    Logger sLogger = Logger.getLogger(CutOffCalculation.class);
-    if(correctionK == null || correctionK.intValue() > 19 ||
+    // TODO(jeremy@lewi.us): Why is 19 the maximum value? Is it just
+    // because quake will run out of memory trying to load the bit vector
+    // into memory.
+    if(correctionK.intValue() > 19 ||
        correctionK.intValue() <= 0){
-      sLogger.error("Please specify a value of 0<K<=19");
+      InvalidParameter item = new InvalidParameter(
+          "K", "K must be: 0<K<=19");
+      items.add(item);
     }
-    // TODO(jeremy@lewi.us): We should initialize the conf based on getConf().
-    JobConf conf = new JobConf(BuildBitVector.class);
-    conf.setJobName("Filter Kmer Counts ");
+    return items;
+  }
+
+  @Override
+  protected void setupConfHook() {
+    JobConf conf = (JobConf) getConf();
+    String inputPath = (String) stage_options.get("inputpath");
     FileInputFormat.addInputPath(conf, new Path(inputPath));
 
     Path outputPath = new Path((String) stage_options.get("outputpath"));
@@ -310,7 +321,6 @@ public class BuildBitVector extends Stage {
     String mrOutputPath = FilenameUtils.concat(
         outputPath.toString(), "mroutput");
     FileOutputFormat.setOutputPath(conf, new Path(mrOutputPath));
-    initializeJobConfiguration(conf);
     AvroJob.setInputSchema(conf, new Pair<CharSequence,Long>("", 0L).getSchema());
     AvroJob.setMapOutputSchema(conf, new Pair<CharSequence,Long>("", 0L).getSchema());
     AvroJob.setOutputSchema(conf, new Pair<CharSequence,Long>("", 0L).getSchema());
@@ -321,16 +331,6 @@ public class BuildBitVector extends Stage {
     // arrive at the single reducer in sorted order. We need this to
     // be able to construct the bitvector serially within the reducer
     conf.setNumReduceTasks(1);
-    if (FileSystem.get(conf).exists(outputPath)) {
-      FileSystem.get(conf).delete(outputPath, true);
-    }
-    FileSystem.get(conf).mkdirs(outputPath);
-    long starttime = System.currentTimeMillis();
-    RunningJob runningjob = JobClient.runJob(conf);
-    long endtime = System.currentTimeMillis();
-    float diff = (float) ((endtime - starttime) / 1000.0);
-    System.out.println("Runtime: " + diff + " s");
-    return runningjob;
   }
 
   public static void main(String[] args) throws Exception {

@@ -22,27 +22,24 @@ import java.util.Map;
 import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroWrapper;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.MapReduceBase;
 import org.apache.hadoop.mapred.Mapper;
 import org.apache.hadoop.mapred.OutputCollector;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 import contrail.stages.ContrailParameters;
+import contrail.stages.MRStage;
 import contrail.stages.ParameterDefinition;
-import contrail.stages.Stage;
 
 /**
  * Convert the bowtie output to avro records.
@@ -53,7 +50,7 @@ import contrail.stages.Stage;
  * Bowtie output is described at:
  * http://bowtie-bio.sourceforge.net/manual.shtml#default-bowtie-output
  */
-public class BowtieConverter extends Stage {
+public class BowtieConverter extends MRStage {
   private static final Logger sLogger = Logger.getLogger(BowtieConverter.class);
 
   /**
@@ -100,28 +97,10 @@ public class BowtieConverter extends Stage {
   }
 
   @Override
-  public RunningJob runJob() throws Exception {
-    String[] required_args = {"inputpath", "outputpath"};
-    checkHasParametersOrDie(required_args);
-
+  protected void setupConfHook() {
+    JobConf conf = (JobConf) getConf();
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
-
-    sLogger.info(" - input: "  + inputPath);
-    sLogger.info(" - output: " + outputPath);
-
-    Configuration base_conf = getConf();
-    JobConf conf = null;
-    if (base_conf != null) {
-      conf = new JobConf(getConf(), this.getClass());
-    } else {
-      conf = new JobConf(this.getClass());
-    }
-
-    initializeJobConfiguration(conf);
-
-    sLogger.info("mapred.map.tasks=" + conf.get("mapred.map.tasks", ""));
-    conf.setJobName(this.getClass().getName());
 
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
@@ -138,22 +117,7 @@ public class BowtieConverter extends Stage {
     // TODO(jlewi): use setoutput codec to set the compression codec.
     AvroJob.setOutputSchema(conf, new BowtieMapping().getSchema());
 
-    if (stage_options.containsKey("writeconfig")) {
-      writeJobConfig(conf);
-    } else {
-      //delete the output directory if it exists already
-      FileSystem.get(conf).delete(new Path(outputPath), true);
-
-      long start_time = System.currentTimeMillis();
-      RunningJob job = JobClient.runJob(conf);
-      long end_time = System.currentTimeMillis();
-      double nseconds = (end_time - start_time) / 1000.0;
-      sLogger.info("Job took: " + nseconds + " seconds");
-      return job;
-    }
-    return null;
   }
-
   public static void main(String[] args) throws Exception {
     int res = ToolRunner.run(
         new Configuration(), new BowtieConverter(), args);

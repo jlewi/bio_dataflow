@@ -27,19 +27,16 @@ import java.util.Map;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.StringUtils;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.log4j.Logger;
 
 import contrail.sequences.FastQFileReader;
 import contrail.sequences.FastQRecord;
 import contrail.sequences.FastaRecord;
+import contrail.stages.NonMRStage;
 import contrail.stages.ParameterDefinition;
-import contrail.stages.Stage;
 import contrail.util.FileHelper;
 
 /**
@@ -50,7 +47,7 @@ import contrail.util.FileHelper;
  * and contigs are then outputted in the appropriate format for use with
  * Bambus.
  */
-public class BuildBambusInput extends Stage {
+public class BuildBambusInput extends NonMRStage {
   private static final Logger sLogger =
       Logger.getLogger(BuildBambusInput.class);
   private static final int SUB_LEN = 25;
@@ -102,20 +99,25 @@ public class BuildBambusInput extends Stage {
   /**
    * Parse the library file and extract the library sizes.
    */
-  private void parseLibSizes(String libFile) throws Exception {
-    libSizes = new HashMap<String, LibrarySize>();
-    BufferedReader libSizeFile =
-        new BufferedReader(new FileReader(new File(libFile)));
-    String libLine = null;
-    while ((libLine = libSizeFile.readLine()) != null) {
-      String[] splitLine = libLine.trim().split("\\s+");
-      libSizes.put(
-          splitLine[0],
-          new LibrarySize(
-              Integer.parseInt(splitLine[1]),
-              Integer.parseInt(splitLine[2])));
+  private void parseLibSizes(String libFile) {
+    try {
+      libSizes = new HashMap<String, LibrarySize>();
+      BufferedReader libSizeFile =
+          new BufferedReader(new FileReader(new File(libFile)));
+      String libLine = null;
+      while ((libLine = libSizeFile.readLine()) != null) {
+        String[] splitLine = libLine.trim().split("\\s+");
+        libSizes.put(
+            splitLine[0],
+            new LibrarySize(
+                Integer.parseInt(splitLine[1]),
+                Integer.parseInt(splitLine[2])));
+      }
+      libSizeFile.close();
+    } catch (Exception e) {
+      sLogger.fatal("Could not parse the library file.", e);
+      System.exit(-1);
     }
-    libSizeFile.close();
   }
 
   /**
@@ -197,73 +199,79 @@ public class BuildBambusInput extends Stage {
    */
   private HashMap<String, HashMap<String, ArrayList<String>>> shortenReads(
       Collection<MateFilePair> matePairs,
-      File fastaOutputFile) throws Exception {
+      File fastaOutputFile) {
     sLogger.info(
         String.format(
             "Shortening the reads to align to %d bases and writing them " +
              "to: %s", SUB_LEN, fastaOutputFile.getPath()));
-    PrintStream out = new PrintStream(fastaOutputFile);
-    HashMap<String, HashMap<String, ArrayList<String>>> mates =
-        new HashMap<String, HashMap<String, ArrayList<String>>>();
+    HashMap<String, HashMap<String, ArrayList<String>>> mates = null;
+    try {
+      PrintStream out = new PrintStream(fastaOutputFile);
+      mates = new HashMap<String, HashMap<String, ArrayList<String>>>();
 
-    FastaRecord fastaRecord = new FastaRecord();
+      FastaRecord fastaRecord = new FastaRecord();
 
-    final int NUM_READS = 200;
-    for (MateFilePair matePair : matePairs) {
-      // first trim to 25bp
-      sLogger.info(
-          "Processing reads for library:" + matePair.libraryName);
-      mates.put(matePair.libraryName, new HashMap<String, ArrayList<String>>());
-      mates.get(matePair.libraryName).put(
-          "left", new ArrayList<String>(NUM_READS));
-      mates.get(matePair.libraryName).put(
-          "right", new ArrayList<String>(NUM_READS));
+      final int NUM_READS = 200;
+      for (MateFilePair matePair : matePairs) {
+        // first trim to 25bp
+        sLogger.info(
+            "Processing reads for library:" + matePair.libraryName);
+        mates.put(
+            matePair.libraryName, new HashMap<String, ArrayList<String>>());
+        mates.get(matePair.libraryName).put(
+            "left", new ArrayList<String>(NUM_READS));
+        mates.get(matePair.libraryName).put(
+            "right", new ArrayList<String>(NUM_READS));
 
-      for (int i = 0; i < 2; ++i) {
-        String readFile = null;
-        ArrayList<String> readIds = null;
-        if (i == 0) {
-          readFile = matePair.leftFile;
-          readIds = mates.get(matePair.libraryName).get("left");
-        } else {
-          readFile = matePair.rightFile;
-          readIds = mates.get(matePair.libraryName).get("right");
-        }
-        FastQFileReader reader = new FastQFileReader(readFile);
-
-        int counter = 0;
-        while (reader.hasNext()) {
-          FastQRecord record = reader.next();
-
-          // Prefix the id by the libraryName.
-          // TODO(jeremy@lewi.us): The original code add the library name
-          // as a prefix to the read id and then replaced "/" with "_".
-          // I think manipulating the readId's is risky because we need to
-          // be consistent. So we don't prepend the library name.
-          // However, some programs e.g bowtie cut the "/" off and set a
-          // a special code. So to be consistent we use the function
-          // safeReadId to convert readId's to a version that can be safely
-          // used everywhere.
-          fastaRecord.setId(Utils.safeReadId(record.getId().toString()));
-
-          // Truncate the read because bowtie can only handle short reads.
-          fastaRecord.setRead(record.getRead().subSequence(0, SUB_LEN));
-
-          out.println(">" +  fastaRecord.getId());
-          out.println(fastaRecord.getRead());
-
-          readIds.add(fastaRecord.getId().toString());
-
-          ++counter;
-          if (counter % 1000000 == 0) {
-            sLogger.info("Processed " + counter + " reads");
-            out.flush();
+        for (int i = 0; i < 2; ++i) {
+          String readFile = null;
+          ArrayList<String> readIds = null;
+          if (i == 0) {
+            readFile = matePair.leftFile;
+            readIds = mates.get(matePair.libraryName).get("left");
+          } else {
+            readFile = matePair.rightFile;
+            readIds = mates.get(matePair.libraryName).get("right");
           }
-          counter++;
+          FastQFileReader reader = new FastQFileReader(readFile);
+
+          int counter = 0;
+          while (reader.hasNext()) {
+            FastQRecord record = reader.next();
+
+            // Prefix the id by the libraryName.
+            // TODO(jeremy@lewi.us): The original code add the library name
+            // as a prefix to the read id and then replaced "/" with "_".
+            // I think manipulating the readId's is risky because we need to
+            // be consistent. So we don't prepend the library name.
+            // However, some programs e.g bowtie cut the "/" off and set a
+            // a special code. So to be consistent we use the function
+            // safeReadId to convert readId's to a version that can be safely
+            // used everywhere.
+            fastaRecord.setId(Utils.safeReadId(record.getId().toString()));
+
+            // Truncate the read because bowtie can only handle short reads.
+            fastaRecord.setRead(record.getRead().subSequence(0, SUB_LEN));
+
+            out.println(">" +  fastaRecord.getId());
+            out.println(fastaRecord.getRead());
+
+            readIds.add(fastaRecord.getId().toString());
+
+            ++counter;
+            if (counter % 1000000 == 0) {
+              sLogger.info("Processed " + counter + " reads");
+              out.flush();
+            }
+            counter++;
+          }
         }
       }
+      out.close();
+    } catch (Exception e) {
+      sLogger.fatal("Exception occured while shortening the reads.", e);
+      System.exit(-1);
     }
-    out.close();
     return mates;
   }
 
@@ -285,58 +293,62 @@ public class BuildBambusInput extends Stage {
    */
   private void createLibraryFile(
       File libraryOutputFile,
-      HashMap<String, HashMap<String, ArrayList<String>>> mates)
-      throws Exception {
-    PrintStream libOut = new PrintStream(libraryOutputFile);
-    for (String lib : mates.keySet()) {
-      HashMap<String, ArrayList<String>> libMates = mates.get(lib);
-      String libName = lib.replaceAll("_", "");
-      if (libSizes.get(libName) == null) {
-        String knownLibraries = "";
-        for (String library : libSizes.keySet()) {
-          knownLibraries += library + ",";
-        }
-        // Strip the last column.
-        knownLibraries = knownLibraries.substring(
-            0, knownLibraries.length() - 1);
-        sLogger.fatal(
-            "No library sizes are defined for libray:" + libName + " . Known " +
-            "libraries are: " + knownLibraries,
-            new RuntimeException("No library sizes for libray:" + libName));
-      }
-      libOut.println(
-          "library " + libName + " " + libSizes.get(libName).minimum + " " +
-          libSizes.get(libName).maximum);
-      ArrayList<String> left = libMates.get("left");
-      ArrayList<String> right = libMates.get("right");
-
-      if (left.size() != right.size()) {
-        sLogger.fatal(
-            "Not all reads in library " + libName + " have a mat.",
-            new RuntimeException("Not all reads are paired."));
-      }
-
-      for (int whichMate = 0; whichMate < left.size(); whichMate++) {
-        // If the left read name starts with "l", "p" or "#" because
-        // the binary toAmos_new in the amos package reserves uses these
-        // characters to identify special types of rows in the file.
-        String leftRead = left.get(whichMate);
-        if (leftRead.startsWith("l") || leftRead.startsWith("p") ||
-            leftRead.startsWith("#")) {
+      HashMap<String, HashMap<String, ArrayList<String>>> mates) {
+    try {
+      PrintStream libOut = new PrintStream(libraryOutputFile);
+      for (String lib : mates.keySet()) {
+        HashMap<String, ArrayList<String>> libMates = mates.get(lib);
+        String libName = lib.replaceAll("_", "");
+        if (libSizes.get(libName) == null) {
+          String knownLibraries = "";
+          for (String library : libSizes.keySet()) {
+            knownLibraries += library + ",";
+          }
+          // Strip the last column.
+          knownLibraries = knownLibraries.substring(
+              0, knownLibraries.length() - 1);
           sLogger.fatal(
-              "The read named:" + leftRead + " will cause problems with the " +
-              "amos binary toAmos_new. The amos binary attributes special " +
-              "meaning to rows in the library file starting with 'p', 'l' or " +
-              "'#' so if the id for a read starts with any of those " +
-              "characters it will mess up amos.",
-              new RuntimeException("Invalid read name"));
-          System.exit(-1);
+              "No library sizes are defined for libray:" + libName + " . Known " +
+              "libraries are: " + knownLibraries,
+              new RuntimeException("No library sizes for libray:" + libName));
         }
         libOut.println(
-            left.get(whichMate) + " " + right.get(whichMate) + " " + libName);
+            "library " + libName + " " + libSizes.get(libName).minimum + " " +
+            libSizes.get(libName).maximum);
+        ArrayList<String> left = libMates.get("left");
+        ArrayList<String> right = libMates.get("right");
+
+        if (left.size() != right.size()) {
+          sLogger.fatal(
+              "Not all reads in library " + libName + " have a mat.",
+              new RuntimeException("Not all reads are paired."));
+        }
+
+        for (int whichMate = 0; whichMate < left.size(); whichMate++) {
+          // If the left read name starts with "l", "p" or "#" because
+          // the binary toAmos_new in the amos package reserves uses these
+          // characters to identify special types of rows in the file.
+          String leftRead = left.get(whichMate);
+          if (leftRead.startsWith("l") || leftRead.startsWith("p") ||
+              leftRead.startsWith("#")) {
+            sLogger.fatal(
+                "The read named:" + leftRead + " will cause problems with the " +
+                "amos binary toAmos_new. The amos binary attributes special " +
+                "meaning to rows in the library file starting with 'p', 'l' or " +
+                "'#' so if the id for a read starts with any of those " +
+                "characters it will mess up amos.",
+                new RuntimeException("Invalid read name"));
+            System.exit(-1);
+          }
+          libOut.println(
+              left.get(whichMate) + " " + right.get(whichMate) + " " + libName);
+        }
       }
+      libOut.close();
+    } catch (Exception e){
+      sLogger.fatal("Exception occured while creating library file.", e);
+      System.exit(-1);
     }
-    libOut.close();
   }
 
   /**
@@ -400,18 +412,13 @@ public class BuildBambusInput extends Stage {
     converter.setConf(getConf());
     converter.setParameters(convertOptions);
 
-    try {
-      RunningJob convertJob = converter.runJob();
-      if (!convertJob.isSuccessful()) {
-        sLogger.fatal(
-            "Failed to convert bowtie output to avro records.",
-            new RuntimeException("BowtieConverter failed."));
-        System.exit(-1);
-      }
-    } catch (Exception e) {
-      sLogger.fatal("Failed to convert bowtie outputs to avro.", e);
+    if (!converter.execute()) {
+      sLogger.fatal(
+          "Failed to convert bowtie output to avro records.",
+          new RuntimeException("BowtieConverter failed."));
       System.exit(-1);
     }
+
     return convertedPath;
   }
 
@@ -438,17 +445,12 @@ public class BuildBambusInput extends Stage {
     tigrCreator.setConf(getConf());
     tigrCreator.setParameters(tigrOptions);
 
-    try {
-      RunningJob tigrJob = tigrCreator.runJob();
-      if (!tigrJob.isSuccessful()) {
-        sLogger.fatal(
-            "Failed to create TIGR file.",
-            new RuntimeException("TigrCreator failed."));
-        System.exit(-1);
-      }
-    } catch (Exception e) {
-      sLogger.fatal("Failed to create TIGR file.", e);
+    if (!tigrCreator.execute()) {
+      sLogger.fatal(
+          "Failed to create TIGR file.",
+          new RuntimeException("TigrCreator failed."));
       System.exit(-1);
+
     }
 
     // Copy tigr file to local filesystem.
@@ -492,7 +494,8 @@ public class BuildBambusInput extends Stage {
    * @param args
    * @throws Exception
    */
-  public void build() throws Exception {
+  @Override
+  protected void stageMain() {
     String libFile = (String) this.stage_options.get("libsize");
     parseLibSizes(libFile);
 
@@ -674,26 +677,6 @@ public class BuildBambusInput extends Stage {
    */
   public File getLibraryOutputFile() {
     return libraryOutputFile;
-  }
-
-  @Override
-  public RunningJob runJob() throws Exception {
-    String[] required_args = {
-        "bowtie_path", "bowtiebuild_path", "reads_glob", "reference_glob",
-        "libsize", "outputpath", "hdfs_path", "graph_glob"};
-    checkHasParametersOrDie(required_args);
-
-    Configuration base_conf = getConf();
-    JobConf conf = null;
-    if (base_conf != null) {
-      conf = new JobConf(getConf(), this.getClass());
-    } else {
-      conf = new JobConf(this.getClass());
-    }
-    this.setConf(conf);
-    initializeJobConfiguration(conf);
-    build();
-    return null;
   }
 
   public static void main(String[] args) throws Exception {

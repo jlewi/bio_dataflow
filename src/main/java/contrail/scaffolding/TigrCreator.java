@@ -33,19 +33,16 @@ import org.apache.avro.mapred.AvroValue;
 import org.apache.avro.mapred.Pair;
 import org.apache.avro.specific.SpecificData;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.MapReduceBase;
 import org.apache.hadoop.mapred.OutputCollector;
 import org.apache.hadoop.mapred.Reducer;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.mapred.TextOutputFormat;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
@@ -54,8 +51,8 @@ import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.sequences.Sequence;
 import contrail.stages.ContrailParameters;
+import contrail.stages.MRStage;
 import contrail.stages.ParameterDefinition;
-import contrail.stages.Stage;
 
 /**
  * Creates a Tigr file to use as input to bambus.
@@ -87,7 +84,7 @@ import contrail.stages.Stage;
  * would make it unnecessary to load the contig and all the mappings into
  * memory for each contig.
  */
-public class TigrCreator extends Stage {
+public class TigrCreator extends MRStage {
   private static final Logger sLogger = Logger.getLogger(TigrCreator.class);
   /**
    * Return the union schema used for the input.
@@ -227,7 +224,7 @@ public class TigrCreator extends Stage {
         }
         if (value instanceof BowtieMapping)  {
           BowtieMapping mapping = (BowtieMapping) value;
-          mapping = (BowtieMapping) SpecificData.get().deepCopy(
+          mapping = SpecificData.get().deepCopy(
               mapping.getSchema(), mapping);
           mappings.add(mapping);
         }
@@ -385,26 +382,10 @@ public class TigrCreator extends Stage {
   }
 
   @Override
-  public RunningJob runJob() throws Exception {
-    String[] required_args = {"inputpath", "outputpath"};
-    checkHasParametersOrDie(required_args);
-
+  protected void setupConfHook() {
+    JobConf conf = (JobConf) getConf();
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
-
-    sLogger.info(" - input: "  + inputPath);
-    sLogger.info(" - output: " + outputPath);
-
-    Configuration base_conf = getConf();
-    JobConf conf = null;
-    if (base_conf != null) {
-      conf = new JobConf(getConf(), this.getClass());
-    } else {
-      conf = new JobConf(this.getClass());
-    }
-
-    initializeJobConfiguration(conf);
-
     FileInputFormat.addInputPaths(conf, inputPath);
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
@@ -414,7 +395,6 @@ public class TigrCreator extends Stage {
         Schema.create(Schema.Type.STRING), TigrCreator.inputSchema());
     AvroJob.setMapOutputSchema(conf, pairSchema);
 
-    //AvroJob.setOutputSchema(conf, FindBubblesAvro.REDUCE_OUT_SCHEMA);
     AvroJob.setMapperClass(conf, TigrCreator.TigrMapper.class);
 
     conf.setReducerClass(TigrCreator.TigrReducer.class);
@@ -423,14 +403,7 @@ public class TigrCreator extends Stage {
     conf.setOutputFormat(TextOutputFormat.class);
 
     //delete the output directory if it exists already
-    FileSystem.get(conf).delete(new Path(outputPath), true);
-
-    long starttime = System.currentTimeMillis();
-    RunningJob result = JobClient.runJob(conf);
-    long endtime = System.currentTimeMillis();
-    float diff = (float) ((endtime - starttime) / 1000.0);
-    sLogger.info("Runtime: " + diff + " s");
-    return result;
+    // FileSystem.get(conf).delete(new Path(outputPath), true);
   }
 
   public static void main(String[] args) throws Exception {
