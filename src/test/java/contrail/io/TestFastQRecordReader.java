@@ -33,7 +33,7 @@ import contrail.sequences.FastQRecord;
 import contrail.sequences.FastUtil;
 import contrail.util.FileHelper;
 
-public class TestFastQWritableRecordReader {
+public class TestFastQRecordReader {
   private static class TestCase {
     public String fileName;
     public ArrayList<FastQRecord> records;
@@ -85,7 +85,7 @@ public class TestFastQWritableRecordReader {
     NumberedFileSplit split = new NumberedFileSplit(
         new Path(testCase.fileName), 0, testCase.fileSize, 0, new String[]{});
 
-    FastQWritableRecordReader reader = new FastQWritableRecordReader(
+    FastQRecordReader reader = new FastQRecordReader(
         conf, split);
 
     FastQWritable record = new FastQWritable();

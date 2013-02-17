@@ -14,7 +14,7 @@ import org.apache.hadoop.mapred.RecordReader;
  * and passes it to the mapper as FastQWritable which
  * is a subclass of the Hadoop Text type.
  */
-class FastQWritableRecordReader implements
+class FastQRecordReader implements
     RecordReader<LongWritable, FastQWritable> {
   //The constructor gets this as a parameter. This data member stores it in a
   //private member so it can be used to get the number in the getSplitsForFile
@@ -23,7 +23,7 @@ class FastQWritableRecordReader implements
   private long               end;
   private FSDataInputStream  fileIn;
 
-  public FastQWritableRecordReader(Configuration job, NumberedFileSplit split)
+  public FastQRecordReader(Configuration job, NumberedFileSplit split)
       throws IOException {
     start = split.getStart();
     end = start + split.getLength();

@@ -54,10 +54,10 @@ public class FastQInputFormat extends
     splitSize = job.getLong("FastQInputFormat.splitSize", 100*1000*1000);
   }
 
-  public FastQWritableRecordReader getRecordReader(InputSplit genericSplit,
+  public FastQRecordReader getRecordReader(InputSplit genericSplit,
       JobConf job, Reporter reporter) throws IOException {
     reporter.setStatus(genericSplit.toString());
-    return new FastQWritableRecordReader(job, (NumberedFileSplit) genericSplit);
+    return new FastQRecordReader(job, (NumberedFileSplit) genericSplit);
   }
 
   /**

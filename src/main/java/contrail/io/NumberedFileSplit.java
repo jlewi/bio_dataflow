@@ -12,7 +12,6 @@ import org.apache.hadoop.mapred.InputSplit;
  * from FileSplit is that is has a new member called "number" which stores
  * information about what split 'number' is the current split.
  */
-
 public class NumberedFileSplit extends FileSplit implements InputSplit {
 
   private Path file;
