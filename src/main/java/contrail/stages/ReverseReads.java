@@ -35,7 +35,7 @@ import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 import contrail.io.FastQInputFormat;
-import contrail.io.FastQText;
+import contrail.io.FastQWritable;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
@@ -61,7 +61,8 @@ public class ReverseReads extends MRStage {
   }
 
   public static class ReverseMapper extends MapReduceBase
-      implements Mapper<LongWritable, FastQText, FastQText, NullWritable>{
+      implements Mapper<LongWritable, FastQWritable,
+                        FastQWritable, NullWritable>{
     private Sequence sequence;
     private String qValue;
 
@@ -69,18 +70,20 @@ public class ReverseReads extends MRStage {
       sequence = new Sequence(DNAAlphabetFactory.create());
     }
 
-    public void map(LongWritable line, FastQText record,
-        OutputCollector<FastQText, NullWritable> collector, Reporter reporter)
+    public void map(LongWritable line, FastQWritable record,
+        OutputCollector<FastQWritable, NullWritable> collector,
+        Reporter reporter)
             throws IOException {
       // Get the reverse complement of the sequence.
-      sequence.readCharSequence(record.getDna());
+      sequence.readCharSequence(record.getDNA());
       sequence = DNAUtil.reverseComplement(sequence);
 
       // Reverse the qValue
       qValue = record.getQValue();
       qValue = StringUtils.reverse(qValue);
 
-      record.set(record.getId(), sequence.toString(), qValue);
+      record.setDNA(sequence.toString());
+      record.setQValue(qValue);
       collector.collect(record, NullWritable.get());
     }
   }

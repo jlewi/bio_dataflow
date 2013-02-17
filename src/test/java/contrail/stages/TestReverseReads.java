@@ -29,7 +29,7 @@ import org.junit.Test;
 
 import contrail.OutputCollectorMock;
 import contrail.ReporterMock;
-import contrail.io.FastQText;
+import contrail.io.FastQWritable;
 import contrail.sequences.AlphabetUtil;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAUtil;
@@ -62,12 +62,12 @@ public class TestReverseReads {
   }
 
   private class TestCase {
-    public ArrayList<FastQText> input;
-    public ArrayList<FastQText> expected;
+    public ArrayList<FastQWritable> input;
+    public ArrayList<FastQWritable> expected;
 
     public TestCase() {
-      input = new ArrayList<FastQText>();
-      expected = new ArrayList<FastQText>();
+      input = new ArrayList<FastQWritable>();
+      expected = new ArrayList<FastQWritable>();
     }
   }
 
@@ -78,7 +78,7 @@ public class TestReverseReads {
     TestCase cases = new TestCase();
 
     for (int i = 0; i < 10; ++i) {
-      FastQText record = new FastQText();
+      FastQWritable record = new FastQWritable();
       int length = 37;
       String id = String.format("record_%d", i);
       String read =
@@ -86,27 +86,31 @@ public class TestReverseReads {
               generator, length, DNAAlphabetFactory.create());
       String qvalue = randomQValue(generator, length);
 
-      record.set(id, read, qvalue);
+      record.setId(id);
+      record.setDNA(read);
+      record.setQValue(qvalue);
 
       cases.input.add(record);
 
-      FastQText expected = new FastQText();
+      FastQWritable expected = new FastQWritable();
 
       Sequence sequence = new Sequence(read, DNAAlphabetFactory.create());
       String reversedRead = DNAUtil.reverseComplement(sequence).toString();
       String reversedQValue = StringUtils.reverse(qvalue);
-      expected.set(id, reversedRead, reversedQValue);
+      expected.setId(id);
+      expected.setDNA(reversedRead);
+      expected.setQValue(reversedQValue);
 
       cases.expected.add(expected);
     }
 
-    OutputCollectorMock<FastQText, NullWritable> collector =
-        new OutputCollectorMock<FastQText, NullWritable>(
-            FastQText.class, NullWritable.class);
+    OutputCollectorMock<FastQWritable, NullWritable> collector =
+        new OutputCollectorMock<FastQWritable, NullWritable>(
+            FastQWritable.class, NullWritable.class);
     ReporterMock reporter = new ReporterMock();
     ReverseReads.ReverseMapper mapper = new ReverseReads.ReverseMapper();
     mapper.configure(new JobConf());
-    for (FastQText input : cases.input) {
+    for (FastQWritable input : cases.input) {
       try {
         mapper.map(
             new LongWritable(0), input, collector, reporter);
@@ -120,11 +124,11 @@ public class TestReverseReads {
     assertEquals(cases.expected.size(), collector.outputs.size());
 
     for (int i = 0; i < cases.expected.size(); ++i) {
-      FastQText actual = collector.outputs.get(i).key;
-      FastQText expected = cases.expected.get(i);
+      FastQWritable actual = collector.outputs.get(i).key;
+      FastQWritable expected = cases.expected.get(i);
 
       assertEquals(expected.getId(), actual.getId());
-      assertEquals(expected.getDna(), actual.getDna());
+      assertEquals(expected.getDNA(), actual.getDNA());
       assertEquals(expected.getQValue(), actual.getQValue());
     }
   }

@@ -40,7 +40,7 @@ import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 import contrail.io.FastQInputFormat;
-import contrail.io.FastQText;
+import contrail.io.FastQWritable;
 import contrail.sequences.FastQRecord;
 import contrail.stages.ContrailParameters;
 import contrail.stages.ParameterDefinition;
@@ -69,19 +69,19 @@ public class FastQToAvro extends Stage {
   }
 
   public static class FastQToAvroMapper extends MapReduceBase
-      implements Mapper<LongWritable, FastQText,
+      implements Mapper<LongWritable, FastQWritable,
                         AvroWrapper<FastQRecord>, NullWritable> {
     private final FastQRecord read = new FastQRecord();
     private final AvroWrapper<FastQRecord> out_wrapper = new AvroWrapper<FastQRecord>(read);
 
     @Override
-    public void map(LongWritable line, FastQText record,
+    public void map(LongWritable line, FastQWritable record,
         OutputCollector<AvroWrapper<FastQRecord>, NullWritable> output, Reporter reporter)
             throws IOException {
 
-      read.id = record.getId();
-      read.read = record.getDna();
-      read.qvalue = record.getQValue();
+      read.setId(record.getId());
+      read.setRead(record.getDNA());
+      read.setQvalue(record.getQValue());
 
       output.collect(out_wrapper, NullWritable.get());
     }
