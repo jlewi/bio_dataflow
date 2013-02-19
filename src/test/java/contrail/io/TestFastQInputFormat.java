@@ -140,7 +140,6 @@ public class TestFastQInputFormat
     assertEquals(buffer.toString(), "@2/1");
   }
 
-
   @Test
   public void testRetrieveSplits() throws IOException {
     writeToFile(FastQ_3);
