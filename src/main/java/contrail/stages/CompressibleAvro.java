@@ -135,10 +135,7 @@ public class CompressibleAvro extends MRStage {
     public void map(GraphNodeData graph_data,
         AvroCollector<Pair<CharSequence, CompressibleMapOutput>> output,
         Reporter reporter) throws IOException {
-
-      // Set both fields of comp
       node.setData(graph_data);
-
       CompressibleMapOutput map_output = out_pair.value();
 
       // We consider the outgoing edges from both strands.
