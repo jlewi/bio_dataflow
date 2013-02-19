@@ -30,6 +30,10 @@ import contrail.stages.StageParameter;
 import contrail.stages.StageState;
 import contrail.util.FileHelper;
 
+// TODO(jlewi): Better testing.
+// We should test the case where we have a pipeline that moves the output
+// produced by a stage. In this case the true outputpath should be stored
+// in the modified_parameters field of StageInfo.
 public class TestFindLastValidGraph {
 
   /**

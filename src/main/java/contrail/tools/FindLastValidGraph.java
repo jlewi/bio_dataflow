@@ -127,14 +127,14 @@ public class FindLastValidGraph extends PipelineStage {
     for (StageParameter parameter  : stage.getModifiedParameters()) {
       if (parameter.getName().toString().equals(name)) {
         value = parameter.getValue().toString();
-        break;
+        return value;
       }
     }
 
     for (StageParameter parameter  : stage.getParameters()) {
       if (parameter.getName().toString().equals(name)) {
         value = parameter.getValue().toString();
-        break;
+        return value;
       }
     }
     return value;
@@ -227,10 +227,26 @@ public class FindLastValidGraph extends PipelineStage {
               new RuntimeException("Couldn't get outputpath."));
           System.exit(-1);
         }
+
+        // Make sure the path exists.
+        // Its possible the path exists but doesn't contain any avro files.
+        // We handle that possibility by checking the input records counter
+        // after the job runs.
+        Path graphPath = new Path(outputPath);
+        try {
+          if (!graphPath.getFileSystem(getConf()).exists(graphPath)) {
+            sLogger.info(String.format(
+                "Stage %s: The output no longer exists for this stage.",
+                stageClass));
+            // Continue with the other stages.
+            continue;
+          }
+        } catch (IOException e) {
+          sLogger.fatal("Couldn't verify that path exists:" + outputPath, e);
+        }
         sLogger.info(String.format(
             "Checking stage:%s which produced:%s", stageClass,
             outputPath));
-
         ValidateGraph validateStage = new ValidateGraph();
         validateStage.initializeAsChild(validateStage);
         validateStage.setParameter("inputpath", outputPath);
@@ -241,6 +257,13 @@ public class FindLastValidGraph extends PipelineStage {
         validateStage.setParameter("K", K);
 
         executeChild(validateStage);
+
+        if (validateStage.getNumMapInputRecords() <= 0) {
+          // The graph was empty. For now treat this as an error.
+          sLogger.fatal(String.format(
+              "Stage %s. The input didn't contain any nodes.", stageClass));
+          System.exit(-1);
+        }
 
         long errorCount = validateStage.getErrorCount();
         if (errorCount == 0) {
