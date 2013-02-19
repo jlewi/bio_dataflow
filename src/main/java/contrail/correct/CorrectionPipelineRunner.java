@@ -205,7 +205,11 @@ public class CorrectionPipelineRunner extends Stage{
           new RuntimeException("Stage failure."));
       System.exit(-1);
     }
-    runStage(bitVectorStage);
+    if (!bitVectorStage.execute()) {
+      sLogger.fatal(
+          "BuildBitVector failed.", new RuntimeException("Stage failur"));
+      System.exit(-1);
+    }
 
     sLogger.info("Running Quake.");
     InvokeQuake quakeStage = new InvokeQuake();
