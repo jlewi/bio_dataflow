@@ -380,6 +380,68 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
       assertEquals(expected_visited, info.nodeids_visited);
     }
   }
+
+  @Test
+  public void testfindNodesToMergeImperfectCycle() {
+    // We test the graph
+    // A->B->C->A
+    // A->D
+    // We have a cycle A->B->C but it's not a "perfect" cycle because
+    // A has an outgoing edge which isn't part of the cycle.
+    // Unlike a perfect cycle we can't break the cycle at any node,
+    // we need to merge it such that A is the last node in the merged chain.
+    // So the merged graph will be:
+    // BCA->BCA
+    // BCA->D
+    // Create a simple graph.
+    GraphNode nodeA = new GraphNode();
+    nodeA.setNodeId("A");
+    nodeA.setSequence(new Sequence("ACT", DNAAlphabetFactory.create()));
+
+    GraphNode nodeB = new GraphNode();
+    nodeB.setNodeId("B");
+    nodeB.setSequence(new Sequence("CTG", DNAAlphabetFactory.create()));
+
+    GraphNode nodeC = new GraphNode();
+    nodeC.setNodeId("C");
+    nodeC.setSequence(new Sequence("TGAC", DNAAlphabetFactory.create()));
+
+    GraphNode nodeD = new GraphNode();
+    nodeD.setNodeId("D");
+    nodeD.setSequence(new Sequence("CTT", DNAAlphabetFactory.create()));
+
+    GraphUtil.addBidirectionalEdge(
+        nodeA, DNAStrand.FORWARD, nodeB, DNAStrand.FORWARD);
+
+    GraphUtil.addBidirectionalEdge(
+        nodeB, DNAStrand.FORWARD, nodeC, DNAStrand.FORWARD);
+
+    GraphUtil.addBidirectionalEdge(
+        nodeC, DNAStrand.FORWARD, nodeA, DNAStrand.FORWARD);
+
+    GraphUtil.addBidirectionalEdge(
+        nodeA, DNAStrand.FORWARD, nodeD, DNAStrand.FORWARD);
+
+    HashMap<String, GraphNode> nodes = new HashMap<String, GraphNode>();
+    nodes.put(nodeA.getNodeId(), nodeA);
+    nodes.put(nodeB.getNodeId(), nodeB);
+    nodes.put(nodeC.getNodeId(), nodeC);
+    nodes.put(nodeD.getNodeId(), nodeD);
+    QuickMergeUtil.NodesToMerge nodesToMerge =
+        QuickMergeUtil.findNodesToMerge(nodes, nodeA);
+
+    assertEquals(
+        new EdgeTerminal(nodeB.getNodeId(), DNAStrand.FORWARD),
+        nodesToMerge.start_terminal);
+
+    assertEquals(
+        new EdgeTerminal(nodeA.getNodeId(), DNAStrand.FORWARD),
+        nodesToMerge.end_terminal);
+
+    // Imperfect cycles shouldn't be considered cycles at this
+    assertFalse(nodesToMerge.hit_cycle);
+  }
+
   @Test
   public void testMergeLinearChain() {
     for (int trial = 0; trial < 10; trial++) {
