@@ -185,10 +185,13 @@ public abstract class Stage extends Configured implements Tool  {
     }
     // Print out all the parameters on one line. This is convenient
     // for copying and pasting to rerun the stage.
-    sLogger.info(StringUtils.join(commandLine, " "));
+    sLogger.info(String.format(
+        "%s: Parameters: %s", this.getClass().getSimpleName(),
+        StringUtils.join(commandLine, " ")));
     for (String key : keys) {
       sLogger.info(String.format(
-          "Parameter: %s=%s", key, stage_options.get(key).toString()));
+          "%s: Parameter: %s=%s", this.getClass().getSimpleName(), key,
+          stage_options.get(key).toString()));
     }
   }
 
