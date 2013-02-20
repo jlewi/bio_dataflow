@@ -31,7 +31,7 @@ import contrail.OutputCollectorMock;
 import contrail.ReporterMock;
 import contrail.io.FastQWritable;
 import contrail.sequences.AlphabetUtil;
-import contrail.sequences.DNAAlphabetFactory;
+import contrail.sequences.DNAAlphabetWithNFactory;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
 
@@ -83,7 +83,7 @@ public class TestReverseReads {
       String id = String.format("record_%d", i);
       String read =
           AlphabetUtil.randomString(
-              generator, length, DNAAlphabetFactory.create());
+              generator, length, DNAAlphabetWithNFactory.create());
       String qvalue = randomQValue(generator, length);
 
       record.setId(id);
@@ -94,7 +94,7 @@ public class TestReverseReads {
 
       FastQWritable expected = new FastQWritable();
 
-      Sequence sequence = new Sequence(read, DNAAlphabetFactory.create());
+      Sequence sequence = new Sequence(read, DNAAlphabetWithNFactory.create());
       String reversedRead = DNAUtil.reverseComplement(sequence).toString();
       String reversedQValue = StringUtils.reverse(qvalue);
       expected.setId(id);

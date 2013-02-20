@@ -36,7 +36,7 @@ import org.apache.log4j.Logger;
 
 import contrail.io.FastQInputFormat;
 import contrail.io.FastQWritable;
-import contrail.sequences.DNAAlphabetFactory;
+import contrail.sequences.DNAAlphabetWithNFactory;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
 
@@ -67,7 +67,7 @@ public class ReverseReads extends MRStage {
     private String qValue;
 
     public void configure(JobConf job) {
-      sequence = new Sequence(DNAAlphabetFactory.create());
+      sequence = new Sequence(DNAAlphabetWithNFactory.create());
     }
 
     public void map(LongWritable line, FastQWritable record,
