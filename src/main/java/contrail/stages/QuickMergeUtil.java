@@ -120,26 +120,33 @@ public class QuickMergeUtil {
         head_terminal = head.terminal;
 
         if (head.hit_cycle) {
-          // In the case of a perfect cycle (i.e. no branch points) we
-          // can compress the sequence by picking any arbitrary point
-          // in the cycle as the start of the merge.
-          result.nodeids_visited = head.nodes_in_tail;
-          result.hit_cycle = true;
+          // Check if its a perfect cycle. We have a perfect cycle if
+          // the indegree and outdegree of the start node are both 1.
+          if (start_node.degree(DNAStrand.FORWARD, EdgeDirection.OUTGOING)
+                  == 1 &&
+              start_node.degree(DNAStrand.FORWARD, EdgeDirection.INCOMING)
+                  == 1) {
+            // In the case of a perfect cycle (i.e. no branch points) we
+            // can compress the sequence by picking any arbitrary point
+            // in the cycle as the start of the merge.
+            result.nodeids_visited = head.nodes_in_tail;
+            result.hit_cycle = true;
 
-          // We will break the cycle at start node.
-          // So we merge from the start node to the incoming terminal to
-          // the start terminal.
-          result.start_terminal = new EdgeTerminal(
-              start_node.getNodeId(), DNAStrand.FORWARD);
-          List<EdgeTerminal> incoming_terminals = start_node.getEdgeTerminals(
-              DNAStrand.FORWARD, EdgeDirection.INCOMING);
-          if (incoming_terminals.size() != 1) {
-            throw new RuntimeException(
-                "Something went wrong with cycle detection; there should be " +
-                "a single incoming edge");
+            // We will break the cycle at start node.
+            // So we merge from the start node to the incoming terminal to
+            // the start terminal.
+            result.start_terminal = new EdgeTerminal(
+                start_node.getNodeId(), DNAStrand.FORWARD);
+            List<EdgeTerminal> incoming_terminals = start_node.getEdgeTerminals(
+                DNAStrand.FORWARD, EdgeDirection.INCOMING);
+            if (incoming_terminals.size() != 1) {
+              throw new RuntimeException(
+                  "Something went wrong with cycle detection; there should " +
+                  "be a single incoming edge");
+            }
+            result.end_terminal = incoming_terminals.get(0);
+            return result;
           }
-          result.end_terminal = incoming_terminals.get(0);
-          return result;
         }
       } else {
         // There's no head so set the tail to start at the current node.
