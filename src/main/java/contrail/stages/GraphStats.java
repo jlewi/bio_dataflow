@@ -496,7 +496,7 @@ public class GraphStats extends MRStage {
 
       //writer.create(schema, outputStream);
       writer.append("<html><body>");
-      writer.append("Number of nodes:" + numNodes);
+      writer.append(String.format("Number of nodes:%d"));
       writer.append("<br>");
       writer.append("N50 Statistics");
       writer.append("<table border=1>");
