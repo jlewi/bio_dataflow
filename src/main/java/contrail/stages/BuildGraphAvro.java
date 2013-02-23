@@ -301,8 +301,8 @@ public class BuildGraphAvro extends MRStage {
         return;
       }
 
-      ReadState ustate = ReadState.END5;
-      ReadState vstate = ReadState.I;
+      ReadState ustate;
+      ReadState vstate;
 
       Set<String> seenmers = new HashSet<String>();
 
@@ -350,11 +350,21 @@ public class BuildGraphAvro extends MRStage {
         StrandsForEdge strands = StrandsUtil.form(ukmer_strand, vkmer_strand);
         StrandsForEdge rc_strands = StrandsUtil.complement(strands);
 
-        if ((i == 0) && (ukmer_strand == DNAStrand.REVERSE)) {
-          ustate = ReadState.END6;
+        // Determine the read state for each KMer.
+        if (i == 0) {
+          if (ukmer_strand == DNAStrand.FORWARD) {
+            ustate = ReadState.STARTFORWARD;
+          } else {
+            ustate = ReadState.STARTREVERSE;
+          }
+        } else {
+          ustate = ReadState.MIDDLE;
         }
+
         if (i + 1 == end) {
-          vstate = ReadState.END3;
+          vstate = ReadState.END;
+        } else {
+          vstate = ReadState.MIDDLE;
         }
 
         // TODO(jlewi): It would probably be more efficient not to use a string
@@ -459,7 +469,7 @@ public class BuildGraphAvro extends MRStage {
       graphnode.setSequence(canonical_src);
 
       KMerReadTag mertag = null;
-      int cov = 0;
+      float cov = 0;
 
       Iterator<KMerEdge> iter = iterable.iterator();
       // Loop over all KMerEdges which originate with the KMer represented by
@@ -486,15 +496,26 @@ public class BuildGraphAvro extends MRStage {
         }
 
         ReadState state = edge.getState();
-        // Update coverage and offsets.
-        if (state != ReadState.I) {
-          cov++;
-          if (state == ReadState.END6) {
-            graphnode.addR5(tag, K - 1, DNAStrand.REVERSE, MAXR5);
-          } else if (state == ReadState.END5) {
-            graphnode.addR5(tag, 0, DNAStrand.FORWARD, MAXR5);
-          }
+        // Update the tags tracking alignment to the start end of a read.
+        // We refer to these as R5 tags because it marks the 5 prime end
+        // of a read.
+        if (state == ReadState.STARTREVERSE) {
+          graphnode.addR5(tag, K - 1, DNAStrand.REVERSE, MAXR5);
+        } else if (state == ReadState.STARTFORWARD) {
+          graphnode.addR5(tag, 0, DNAStrand.FORWARD, MAXR5);
         }
+
+        // Update the coverage.
+        if (state == ReadState.MIDDLE) {
+          // For KMers in the middle of a read we would generate two
+          // edges for the kmer. One corresponding to the kmer and the other
+          // corresponding to RC(KMer). Thus, we increment the coverage
+          // by .5 so that the result of seeing both edges will be 1.
+          cov += .5;
+        } else {
+          cov += 1;
+        }
+
         // Add an edge to this destination.
         DNAStrand src_strand = StrandsUtil.src(strands);
         String terminalid = constructNodeIdForSequence(canonical_dest);

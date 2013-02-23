@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -52,7 +53,7 @@ public class TestBuildGraphAvro {
 
   /**
    * Generate a list of all edges coming from the forward read.
-   * 
+   *
    * @param read: String representing the read
    * @param K: Length of the KMers. Generated edges will have length K+1;
    * @param edges: HasMap String -> Int. Edges are added to this hash map The
@@ -76,7 +77,7 @@ public class TestBuildGraphAvro {
   /**
    * Generate a list of all edges coming from the read and its reverse
    * complement.
-   * 
+   *
    * @param read: String representing the read
    * @return HasMap String -> Int. The keys are strings representing the K+1
    *         sequences corresponding to the edges. We consider both the read and
@@ -97,7 +98,7 @@ public class TestBuildGraphAvro {
   /**
    * Return a random a random string of the specified length using the given
    * alphabet.
-   * 
+   *
    * @param length
    * @param alphabet
    * @return
@@ -123,7 +124,7 @@ public class TestBuildGraphAvro {
 
     /**
      * Create a specific test case.
-     * 
+     *
      * @param K: Length of the KMer.
      * @param uncompressed: The uncompressed sequence to read.
      */
@@ -141,7 +142,7 @@ public class TestBuildGraphAvro {
     /**
      * Create a random test consisting of a random length read and random value
      * for K.
-     * 
+     *
      * @return An instance of MapTestData cntaining the data for the test.
      */
     public static MapTestData RandomTest() {
@@ -172,7 +173,7 @@ public class TestBuildGraphAvro {
 
   /**
    * Run the test on the mapper.
-   * 
+   *
    * @param useCompressedRead: Whether the input should be a comprssedRead or a
    *          FastQRecord. TODO(jlewi): We should probably test that chunk is
    *          set correctly.
@@ -273,16 +274,16 @@ public class TestBuildGraphAvro {
 
       String uncompressed = test_data.getUncompressed();
       // Check the state as best we can.
-      if (edge.getState() == ReadState.END5) {
+      if (edge.getState() == ReadState.STARTFORWARD) {
         assertEquals(src_strand, DNAStrand.FORWARD);
         // The first characters in the string should match this edge.
         assertEquals(canonical_key.toString(), uncompressed.substring(0, K));
-      } else if (edge.getState() == ReadState.END6) {
+      } else if (edge.getState() == ReadState.STARTREVERSE) {
         assertEquals(src_strand, DNAStrand.REVERSE);
         // The first characters in the string should be the reverse complement
         // of the start node.
         assertEquals(rc_key.toString(), uncompressed.substring(0, K));
-      } else if (edge.getState() == ReadState.END3) {
+      } else if (edge.getState() == ReadState.END) {
         // The canonical version of the sequence should match the canonical
         // version of the last Kmer in the read.
         // Get the canonical version of the last K + 1 based in the read.
@@ -326,7 +327,7 @@ public class TestBuildGraphAvro {
   /**
    * Used by the testReduce to find a KMerEdge which would have produced an edge
    * between the given source and destination.
-   * 
+   *
    * @param nodeid: The id for the source node. This will be a base64
    *          representation of the canonical sequence.
    * @param K: The length of the KMers.
@@ -403,7 +404,7 @@ public class TestBuildGraphAvro {
 
     /**
      * Construct a specific test case.
-     * 
+     *
      * @param uncompressed: The uncompressed K-mer for the source sequence.
      * @param src_strand: Strand of the source KMer.
      * @param last_base: The base we need to add to the soruce KMer to get the
@@ -444,7 +445,7 @@ public class TestBuildGraphAvro {
 
     /**
      * Construct a reduce test.
-     * 
+     *
      * @param uncompressed: The uncompressed KMer for the source sequence.
      * @param input_edges: A list of KMerEdges describing edges coming from this
      *          KMer.
@@ -604,4 +605,81 @@ public class TestBuildGraphAvro {
       }
     } // for trial
   } // TestReduce
+
+
+  @Test
+  public void testCoverage() {
+    // Test that the coverage is computed correctly. In particular
+    // ensure KMers in the middle of the read aren't computed twice.
+    FastQRecord read = new FastQRecord();
+    read.setId("read");
+    int K = 3;
+    read.setRead("ACTGG");
+    // Read should be long enough that there is an internal KMer.
+    // Otherwise the test is insufficient.
+    assertTrue(read.getRead().length() >= K +2);
+
+    BuildGraphAvro stage = new BuildGraphAvro();
+
+    JobConf job = new JobConf(BuildGraphAvro.BuildGraphMapper.class);
+    stage.getParameterDefinitions().get("K").addToJobConf(job, new Integer(K));
+    BuildGraphAvro.BuildGraphMapper mapper =
+        new BuildGraphAvro.BuildGraphMapper();
+    mapper.configure(job);
+
+    AvroCollectorMock<Pair<ByteBuffer, KMerEdge>> collector =
+        new AvroCollectorMock<Pair<ByteBuffer, KMerEdge>>();
+    ReporterMock reporter = new ReporterMock();
+
+    try {
+      mapper.map(read, collector, reporter);
+    } catch (Exception e) {
+      fail("Mapper failed.");
+    }
+
+    // Group the mapper outputs.
+    HashMap<String, ArrayList<KMerEdge>> reduceGroups =
+        new HashMap<String, ArrayList<KMerEdge>>();
+    for (Pair<ByteBuffer, KMerEdge> pair : collector.data) {
+      Sequence sequence = new Sequence(DNAAlphabetFactory.create());
+      sequence.readPackedBytes(pair.key().array(), K);
+      String key = sequence.toString();
+      if (!reduceGroups.containsKey(key)) {
+        reduceGroups.put(key, new ArrayList<KMerEdge>());
+      }
+      reduceGroups.get(key).add(pair.value());
+    }
+
+    // Invoke the reducer.
+    BuildGraphAvro.BuildGraphReducer reducer =
+        new BuildGraphAvro.BuildGraphReducer();
+    reducer.configure(job);
+
+    AvroCollectorMock<GraphNodeData> reduceCollector =
+        new AvroCollectorMock<GraphNodeData>();
+    try {
+      for (String key : reduceGroups.keySet()) {
+        Sequence sequence = new Sequence(key, DNAAlphabetFactory.create());
+        ByteBuffer buffer = ByteBuffer.wrap(sequence.toPackedBytes());
+
+        try {
+          reducer.reduce(
+              buffer, reduceGroups.get(key), reduceCollector, reporter);
+        } catch (Exception e) {
+          fail("Mapper failed.");
+        }
+      }
+    } catch (Exception e) {
+      fail("Reducer failed.");
+    }
+
+    // Check the output.
+    HashSet<String> nodeIds = new HashSet<String>();
+    for (GraphNodeData node : reduceCollector.data) {
+      assertEquals(1.0f, node.getCoverage(), 0.00001);
+      nodeIds.add(node.getNodeId().toString());
+    }
+
+    assertEquals(3, nodeIds.size());
+  }
 }
