@@ -21,6 +21,7 @@ package contrail.tools;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -92,7 +93,13 @@ public class WalkGraph extends Stage {
         "num_hops", "Number of hops to take starting at start_nodes.",
         Integer.class, null);
 
+    ParameterDefinition makeValid = new ParameterDefinition(
+        "make_valid", "Set this to true to prune edges so that the " +
+        "resulting graph is a valid graph.",
+        Boolean.class, false);
+
     defs.put(numHops.getName(), numHops);
+    defs.put(makeValid.getName(), makeValid);
 
     return Collections.unmodifiableMap(defs);
   }
@@ -123,6 +130,70 @@ public class WalkGraph extends Stage {
   }
 
   /**
+   * Read the node from the sorted key value file.
+   * @param reader
+   * @param nodeId
+   * @return
+   */
+  private GraphNodeData lookupNode(
+      SortedKeyValueFile.Reader<CharSequence, GraphNodeData> reader,
+      String nodeId) {
+    GenericRecord record = null;
+    GraphNodeData nodeData = new GraphNodeData();
+    try{
+      // The actual type returned by get is a generic record even
+      // though the return type is GraphNodeData. I have no idea
+      // how SortedKeyValueFileReader actually compiles.
+      record =  (GenericRecord) reader.get(nodeId);
+    } catch (IOException e) {
+      sLogger.fatal("There was a problem reading from the file.", e);
+      System.exit(-1);
+    }
+    if (record == null) {
+      sLogger.fatal(
+          "Could not find node:" + nodeId,
+          new RuntimeException("Couldn't find node"));
+      System.exit(-1);
+    }
+
+    // Convert the Generic record to a specific record.
+    try {
+      // TODO(jeremy@lewi.us): We could probably make this code
+      // more efficient by reusing objects.
+      GenericDatumWriter<GenericRecord> datumWriter =
+          new GenericDatumWriter<GenericRecord>(record.getSchema());
+
+      ByteArrayOutputStream outStream = new ByteArrayOutputStream();
+      BinaryEncoder encoder =
+          EncoderFactory.get().binaryEncoder(outStream, null);
+
+      datumWriter.write(record, encoder);
+      // We need to flush the encoder to write the data to the byte
+      // buffer.
+      encoder.flush();
+
+      outStream.flush();
+
+      // Now read it back in as a specific datum reader.
+      ByteArrayInputStream inStream = new ByteArrayInputStream(
+          outStream.toByteArray());
+
+      BinaryDecoder decoder =
+          DecoderFactory.get().binaryDecoder(inStream, null);
+      SpecificDatumReader<GraphNodeData> specificReader = new
+          SpecificDatumReader<GraphNodeData>(nodeData.getSchema());
+
+      specificReader.read(nodeData, decoder);
+    } catch (IOException e) {
+      sLogger.fatal(
+          "There was a problem converting the GenericRecord to " +
+          "GraphNodeData", e);
+      System.exit(-1);
+    }
+    return nodeData;
+  }
+
+  /**
    * Walk the graph from the start node.
    * @param startId
    * @param numHops
@@ -132,7 +203,7 @@ public class WalkGraph extends Stage {
    */
   private HashSet<String> walk(
       SortedKeyValueFile.Reader<CharSequence, GraphNodeData> reader,
-      String startId, int numHops,
+      String[] startIds, int numHops,
       DataFileWriter<GraphNodeData> writer) {
     HashSet<String> visited = new HashSet<String>();
 
@@ -140,67 +211,29 @@ public class WalkGraph extends Stage {
     HashSet<String> thisHop = new HashSet<String>();
     HashSet<String> nextHop = new HashSet<String>();
 
+    boolean makeValid = (Boolean) stage_options.get("make_valid");
     int hop = 0;
-    thisHop.add(startId);
+    thisHop.addAll(Arrays.asList(startIds));
     GraphNodeData nodeData = new GraphNodeData();
     GraphNode node = new GraphNode();
-    GenericRecord record = null;
+
     while (hop <= numHops && thisHop.size() > 0) {
-      // Fetch each node in thisHop.
-      for (String nodeId : thisHop) {
-        if (!visited.contains(nodeId)) {
-          try{
-            // The actual type returned by get is a generic record even
-            // though the return type is GraphNodeData. I have no idea
-            // how SortedKeyValueFileReader actually compiles.
-            record =  (GenericRecord) reader.get(nodeId);
-          } catch (IOException e) {
-            sLogger.fatal("There was a problem reading from the file.", e);
-            System.exit(-1);
+      // TODO(jlewi): We should really walk from all the start nodes
+      // at once to make sure we prune the graph correctly.
+      if (hop == numHops && makeValid) {
+        // We need to prune any edges that won't be included in the graph.
+        int numPruned = 0;
+        for (String nodeId : thisHop) {
+          nodeData = lookupNode(reader, nodeId);
+          node.setData(nodeData);
+          for (String neighborId : node.getNeighborIds()) {
+            if (!visited.contains(neighborId) &&
+                !thisHop.contains(neighborId)) {
+              node.removeNeighbor(neighborId);
+              ++numPruned;
+            }
           }
-          if (record == null) {
-            sLogger.fatal(
-                "Could not find node:" + nodeId,
-                new RuntimeException("Couldn't find node"));
-            System.exit(-1);
-          }
-
-          // Convert the Generic record to a specific record.
           try {
-            // TODO(jeremy@lewi.us): We could probably make this code
-            // more efficient by reusing objects.
-            GenericDatumWriter<GenericRecord> datumWriter =
-                new GenericDatumWriter<GenericRecord>(record.getSchema());
-
-            ByteArrayOutputStream outStream = new ByteArrayOutputStream();
-            BinaryEncoder encoder =
-                EncoderFactory.get().binaryEncoder(outStream, null);
-
-            datumWriter.write(record, encoder);
-            // We need to flush the encoder to write the data to the byte
-            // buffer.
-            encoder.flush();
-
-            outStream.flush();
-
-            // Now read it back in as a specific datum reader.
-            ByteArrayInputStream inStream = new ByteArrayInputStream(
-                outStream.toByteArray());
-
-            BinaryDecoder decoder =
-                DecoderFactory.get().binaryDecoder(inStream, null);
-            SpecificDatumReader<GraphNodeData> specificReader = new
-                SpecificDatumReader<GraphNodeData>(nodeData.getSchema());
-
-            specificReader.read(nodeData, decoder);
-          } catch (IOException e) {
-            sLogger.fatal(
-                "There was a problem converting the GenericRecord to " +
-                "GraphNodeData", e);
-            System.exit(-1);
-          }
-
-          try{
             if (!outputted.contains(nodeId)) {
               writer.append(nodeData);
               outputted.add(nodeId);
@@ -210,8 +243,27 @@ public class WalkGraph extends Stage {
             System.exit(-1);
           }
           visited.add(nodeId);
-          node.setData(nodeData);
-          nextHop.addAll(node.getNeighborIds());
+        }
+        sLogger.info(String.format(
+            "Deleted %d edges to make the graph valid.", numPruned));
+      } else {
+        // Fetch each node in thisHop.
+        for (String nodeId : thisHop) {
+          if (!visited.contains(nodeId)) {
+            nodeData = lookupNode(reader, nodeId);
+            try{
+              if (!outputted.contains(nodeId)) {
+                writer.append(nodeData);
+                outputted.add(nodeId);
+              }
+            } catch (IOException e) {
+              sLogger.fatal("There was a problem writing the node", e);
+              System.exit(-1);
+            }
+            visited.add(nodeId);
+            node.setData(nodeData);
+            nextHop.addAll(node.getNeighborIds());
+          }
         }
       }
       thisHop.clear();
@@ -273,9 +325,8 @@ public class WalkGraph extends Stage {
       System.exit(-1);
     }
 
-    for (String nodeId : nodeids) {
-      walk(reader, nodeId, numHops, avroStream);
-    }
+    walk(reader, nodeids, numHops, avroStream);
+
     try {
       avroStream.close();
       outStream.close();
