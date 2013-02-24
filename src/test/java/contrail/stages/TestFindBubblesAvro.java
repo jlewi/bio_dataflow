@@ -15,6 +15,7 @@ import java.util.Set;
 import org.apache.avro.mapred.Pair;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
+import org.junit.Before;
 import org.junit.Test;
 
 import contrail.ReporterMock;
@@ -30,9 +31,17 @@ import contrail.sequences.Sequence;
 import contrail.stages.FindBubblesAvro.FindBubblesAvroReducer.DirectPath;
 import contrail.stages.FindBubblesAvro.FindBubblesAvroReducer.IndirectPath;
 import contrail.util.CharUtil;
+import contrail.util.ContrailLogger;
 import contrail.util.FileHelper;
 
 public class TestFindBubblesAvro extends FindBubblesAvro{
+  @Before
+  public void setup() {
+    // Setup the logger so we don't simply exit on failure.
+    ContrailLogger.setExitOnFatal(false);
+    ContrailLogger.setTestMode(true);
+  }
+
   // Check the output of the map is correct.
   private void assertMapperOutput(
       GraphNodeData expected_node,
@@ -560,9 +569,9 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
 
   /*
    * This test case consist of a Bubble and a Triangle formation i.e a graph of
-   * type: X->Y, X->{A,B}->Y; where A is low coverage node & gets removed as 
-   * part of bubble processing and edge X->Y gets removed to resolve triangle 
-   * X->Y, X->A->Y 
+   * type: X->Y, X->{A,B}->Y; where A is low coverage node & gets removed as
+   * part of bubble processing and edge X->Y gets removed to resolve triangle
+   * X->Y, X->A->Y
    */
   private ReduceTestCaseData constructBubbleTriangleCaseData()  {
     SimpleGraphBuilder graph = new SimpleGraphBuilder();
@@ -667,7 +676,7 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
     GraphNode majorNode = graph.getNode(graph.findNodeIdForSequence("AAT"));
     GraphNode middleNode = graph.getNode(graph.findNodeIdForSequence("AATAA"));
     FindBubblesAvroReducer reducer = new FindBubblesAvroReducer();
-    IndirectPath path = reducer.new IndirectPath(middleNode.getData(), 
+    IndirectPath path = reducer.new IndirectPath(middleNode.getData(),
         majorNode.getNodeId(), 3);
     Sequence actualSequence = path.getTrimmedSequence();
     Sequence expectedSequence = new Sequence("ATT", DNAAlphabetFactory.create());

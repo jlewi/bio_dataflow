@@ -35,8 +35,6 @@ import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.util.ToolRunner;
-import org.apache.log4j.Logger;
-
 import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
@@ -47,6 +45,7 @@ import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
 import contrail.stages.GraphCounters.CounterName;
+import contrail.util.ContrailLogger;
 
 /**
  * This stage finds redundant paths created by sequencing errors.
@@ -108,7 +107,8 @@ import contrail.stages.GraphCounters.CounterName;
  */
 
 public class FindBubblesAvro extends MRStage   {
-  private static final Logger sLogger = Logger.getLogger(FindBubblesAvro.class);
+  private static final ContrailLogger sLogger = ContrailLogger.getLogger(
+      FindBubblesAvro.class);
 
   public static final Schema MAP_OUT_SCHEMA =
       Pair.getPairSchema(Schema.create(Schema.Type.STRING),
