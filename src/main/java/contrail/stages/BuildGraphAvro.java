@@ -41,6 +41,7 @@ import org.apache.log4j.Logger;
 
 import contrail.CompressedRead;
 import contrail.ReadState;
+import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
@@ -417,8 +418,19 @@ public class BuildGraphAvro extends MRStage {
         }
         ustate = ReadState.MIDDLE;
       }
-      reporter.incrCounter("Contrail", "reads_good", 1);
-      reporter.incrCounter("Contrail", "reads_goodbp", seq.size());
+
+      // Add some counters to keep track of how many edges this read produces.
+      if (end == 1) {
+        reporter.incrCounter("Contrail", "reads-num-edges-1", 1);
+      } else if (end>1 && end <= 5) {
+        reporter.incrCounter("Contrail", "reads-num-edges-(1,5]", 1);
+      } else if (end >5 && end <= 10) {
+        reporter.incrCounter("Contrail", "reads-num-edges-(5,10]", 1);
+      } else {
+        reporter.incrCounter("Contrail", "reads-num-edges-(10,...]", 1);
+      }
+      reporter.incrCounter("Contrail", "reads-good", 1);
+      reporter.incrCounter("Contrail", "reads-goodbp", seq.size());
     }
   }
 
@@ -532,8 +544,15 @@ public class BuildGraphAvro extends MRStage {
       // representation of the sequence.
       graphnode.getData().setNodeId(constructNodeIdForSequence(canonical_src));
 
+      int degree =
+          graphnode.degree(DNAStrand.FORWARD, EdgeDirection.INCOMING) +
+          graphnode.degree(DNAStrand.FORWARD, EdgeDirection.OUTGOING);
+
+      if (degree == 0) {
+        reporter.incrCounter("Contrail", "node-islands", 1);
+      }
       collector.collect(graphnode.getData());
-      reporter.incrCounter("Contrail", "nodecount", 1);
+      reporter.incrCounter("Contrail", "node-count", 1);
     }
   }
 
