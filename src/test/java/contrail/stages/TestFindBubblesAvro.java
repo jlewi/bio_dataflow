@@ -635,13 +635,14 @@ public class TestFindBubblesAvro extends FindBubblesAvro{
     }
 
     {
-      // For node AATAA we output a message to AAA to remove the edge
-      // to AATAA.
+      // The minor node receives messages about which neighbors to delete
+      // edges to. In this case the minor node deletes two edges:
+      // 1 to AATAA and 1 to AAT.
       FindBubblesOutput expectedOutput = new FindBubblesOutput();
       expectedOutput.setPalindromeNeighbors(new ArrayList<CharSequence>());
       expectedOutput.setDeletedNeighbors(new ArrayList<CharSequence>());
       expectedOutput.getDeletedNeighbors().add(deadNode.getNodeId());
-      expectedOutput.getDeletedNeighbors().add(minorNode.getNodeId());
+      expectedOutput.getDeletedNeighbors().add(majorNode.getNodeId());
 
       expectedOutput.setMinorNodeId(minorNode.getNodeId());
       testData.expectedOutputs.put(minorNode.getNodeId(), expectedOutput);

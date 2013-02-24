@@ -642,9 +642,10 @@ public class FindBubblesAvro extends MRStage   {
             collector.collect(output);
           }
         } else  {
-          DirectPath directPath = (DirectPath) markedPath;
+          // Else its a directpath in which case we would need to remove
+          // the edge to the major node.
           if(markedPath.popped) {
-            deletedNeighbors.add(directPath.minorID);
+            deletedNeighbors.add(majorNode.getNodeId());
           }
         }
       }
