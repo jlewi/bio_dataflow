@@ -328,12 +328,7 @@ public class TestPairMergeAvro extends PairMergeAvro {
     return test_case;
   }
 
-  @Test
-  public void testReducer() {
-    ArrayList<ReducerTestCase> test_cases = new ArrayList<ReducerTestCase>();
-    test_cases.add(reducerNoMergeTest());
-    test_cases.add(reducerSimpleMergeTest());
-    test_cases.add(reducerTwoMergeTest());
+  private void runReduceTestCases(ArrayList<ReducerTestCase> testCases) {
     PairMergeReducer reducer = new PairMergeReducer();
 
     JobConf job = new JobConf(PairMergeReducer.class);
@@ -349,7 +344,7 @@ public class TestPairMergeAvro extends PairMergeAvro {
     ReporterMock reporter_mock = new ReporterMock();
     Reporter reporter = reporter_mock;
 
-    for (ReducerTestCase test_case: test_cases) {
+    for (ReducerTestCase test_case: testCases) {
       if (test_case.K != Integer.parseInt(job.get("K"))) {
         job.setLong("K", test_case.K);
         reducer.configure(job);
@@ -369,6 +364,15 @@ public class TestPairMergeAvro extends PairMergeAvro {
 
       assertReducerTestCase(test_case, collector_mock);
     }
+  }
+
+  @Test
+  public void testReducer() {
+    ArrayList<ReducerTestCase> test_cases = new ArrayList<ReducerTestCase>();
+    test_cases.add(reducerNoMergeTest());
+    test_cases.add(reducerSimpleMergeTest());
+    test_cases.add(reducerTwoMergeTest());
+    runReduceTestCases(test_cases);
   }
 
   @Test

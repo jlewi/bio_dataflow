@@ -28,14 +28,11 @@ import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -68,7 +65,7 @@ import contrail.stages.GraphCounters.CounterName;
  *  -- we identify the best-tip (longest tip) in both kind of DNAStrands
  *  -- delete rest of the tips for both kind of DNAStrands
  */
-public class RemoveTipsAvro extends Stage {
+public class RemoveTipsAvro extends MRStage {
   private static final Logger sLogger = Logger.getLogger(RemoveTipsAvro.class);
 
   public static final Schema MAP_OUT_SCHEMA = Pair.getPairSchema(Schema.create(Schema.Type.STRING), (new RemoveTipMessage()).getSchema());
@@ -85,7 +82,7 @@ public class RemoveTipsAvro extends Stage {
     ParameterDefinition tiplength = new ParameterDefinition(
         "tiplength", "Any sequences longer than this are not considered tips " +
         "or islands and will not be removed. This value should be at least " +
-        "K.", Integer.class, new Integer(0));
+        "K.", Integer.class, null);
 
     for (ParameterDefinition def: new ParameterDefinition[] {tiplength}) {
       defs.put(def.getName(), def);
@@ -94,6 +91,9 @@ public class RemoveTipsAvro extends Stage {
       ContrailParameters.getInputOutputPathOptions()) {
       defs.put(def.getName(), def);
     }
+
+    ParameterDefinition kDef = ContrailParameters.getK();
+    defs.put(kDef.getName(), kDef);
 
     return Collections.unmodifiableMap(defs);
   }
@@ -299,39 +299,11 @@ public class RemoveTipsAvro extends Stage {
     }
   }
 
-  // Run
-  //////////////////////////////////////////////////////////////////////////
-  public RunningJob runJob() throws Exception {
-    String[] required_args = {"inputpath", "outputpath", "tiplength", "K"};
-    checkHasParametersOrDie(required_args);
-
+  @Override
+  protected void setupConfHook() {
+    JobConf conf = (JobConf)getConf();
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
-
-    int tiplength =  (Integer) stage_options.get("tiplength");
-    int K = (Integer)stage_options.get("K");
-
-    sLogger.info(" - input: "  + inputPath);
-    sLogger.info(" - output: " + outputPath);
-
-    if (tiplength <= K) {
-      sLogger.warn(
-          "RemoveTips will not run because tiplength <= K so no nodes would " +
-          "be removed.");
-      return null;
-    }
-
-    Configuration base_conf = getConf();
-    JobConf conf = null;
-    if (base_conf != null) {
-      conf = new JobConf(getConf(), this.getClass());
-    }
-    else {
-      conf = new JobConf(this.getClass());
-    }
-    conf.setJobName("RemoveTips " + inputPath + " " + tiplength);
-    initializeJobConfiguration(conf);
-
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
@@ -342,22 +314,11 @@ public class RemoveTipsAvro extends Stage {
     AvroJob.setMapperClass(conf, RemoveTipsAvroMapper.class);
     AvroJob.setReducerClass(conf, RemoveTipsAvroReducer.class);
     AvroJob.setOutputSchema(conf, graph_data.getSchema());
+  }
 
-    RunningJob job = null;
-    if (stage_options.containsKey("writeconfig")) {
-      writeJobConfig(conf);
-    } else {
-      // Delete the output directory if it exists already
-      Path outPath = new Path(outputPath);
-      if (FileSystem.get(conf).exists(outPath)) {
-        // TODO(jlewi): We should only delete an existing directory
-        // if explicitly told to do so.
-        sLogger.info("Deleting output path: " + outPath.toString() + " " +
-            "because it already exists.");
-        FileSystem.get(conf).delete(outPath, true);
-      }
-
-      job = JobClient.runJob(conf);
+  @Override
+  protected void postRunHook() {
+    try {
       long numTips = job.getCounters().findCounter(
           NUM_REMOVED.group, NUM_REMOVED.tag).getValue();
       long numNodes = job.getCounters().findCounter(
@@ -365,8 +326,25 @@ public class RemoveTipsAvro extends Stage {
           "REDUCE_OUTPUT_RECORDS").getValue();
       sLogger.info("Number of tips removed:" + numTips);
       sLogger.info("Number of nodes outputted:" + numNodes);
+    } catch (IOException e) {
+      sLogger.fatal("Couldn't get counters.", e);
+      System.exit(-1);
     }
-    return job;
+  }
+
+  @Override
+  public List<InvalidParameter> validateParameters() {
+    List<InvalidParameter> items = super.validateParameters();
+
+    int tiplength =  (Integer) stage_options.get("tiplength");
+    int K = (Integer)stage_options.get("K");
+    if (tiplength <= K) {
+      InvalidParameter item = new InvalidParameter(
+          "tiplength",
+          "tiplength can't be less than K because no nodes would be removed.");
+      items.add(item);
+    }
+    return items;
   }
 
   public static void main(String[] args) throws Exception {

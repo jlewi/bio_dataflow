@@ -29,14 +29,11 @@ import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -66,7 +63,7 @@ import contrail.stages.GraphCounters.CounterName;
  *         -- remove the neighbors from the node
  */
 
-public class RemoveLowCoverageAvro extends Stage {
+public class RemoveLowCoverageAvro extends MRStage {
   private static final Logger sLogger =
       Logger.getLogger(RemoveLowCoverageAvro.class);
 
@@ -87,19 +84,29 @@ public class RemoveLowCoverageAvro extends Stage {
     ParameterDefinition lengthThresh = new ParameterDefinition("length_thresh",
         "A threshold for sequence lengths. Only sequence's with lengths less " +
         "than this value will be removed if the coverage is low",
-        Integer.class, new Integer(0));
+        Integer.class, null);
     ParameterDefinition lowCovThresh = new ParameterDefinition("low_cov_thresh",
         "A threshold for node coverage. Only nodes with coverage less " +
-            "than this value will be removed ",  Float.class, new Float(0));
+            "than this value will be removed ",  Float.class, null);
+
+    ParameterDefinition minLength = new ParameterDefinition(
+        "min_length",
+        "Nodes with length less than min length will be removed regardless " +
+        "of the coverage. ",  Integer.class, 0);
 
     for (ParameterDefinition def:
-             new ParameterDefinition[] {lengthThresh, lowCovThresh}) {
+             new ParameterDefinition[] {
+                lengthThresh, lowCovThresh, minLength}) {
       defs.put(def.getName(), def);
     }
     for (ParameterDefinition def:
       ContrailParameters.getInputOutputPathOptions()) {
       defs.put(def.getName(), def);
     }
+
+    ParameterDefinition kDef = ContrailParameters.getK();
+    defs.put(kDef.getName(), kDef);
+
     return Collections.unmodifiableMap(defs);
   }
 
@@ -110,6 +117,7 @@ public class RemoveLowCoverageAvro extends Stage {
       AvroMapper<GraphNodeData, Pair<CharSequence, RemoveNeighborMessage>>  {
     int lengthThresh;
     float lowCovThresh;
+    int minLength;
     GraphNode node = null;
     RemoveNeighborMessage msg = null;
 
@@ -119,6 +127,7 @@ public class RemoveLowCoverageAvro extends Stage {
     public void configure(JobConf job) {
       RemoveLowCoverageAvro stage = new RemoveLowCoverageAvro();
       Map<String, ParameterDefinition> definitions = stage.getParameterDefinitions();
+      minLength = (Integer)(definitions.get("min_length").parseJobConf(job));
       lengthThresh = (Integer)(definitions.get("length_thresh").parseJobConf(job));
       lowCovThresh = (Float)(definitions.get("low_cov_thresh").parseJobConf(job));
       node = new GraphNode();
@@ -133,8 +142,10 @@ public class RemoveLowCoverageAvro extends Stage {
       int len = graph_data.getSequence().getLength();
       float cov = node.getCoverage();
 
-      // normal node
-      if ((len > lengthThresh) || (cov >= lowCovThresh)) {
+      if (len < minLength) {
+        // Node is too short.
+        reporter.incrCounter("contrail", "node-too-short", 1);
+      } else if ((len > lengthThresh) || (cov >= lowCovThresh)) {
         RemoveNeighborMessage msg = new RemoveNeighborMessage();
         msg.setNode(graph_data);
         msg.setNodeIDtoRemove("");
@@ -144,7 +155,8 @@ public class RemoveLowCoverageAvro extends Stage {
       }
 
       reporter.incrCounter(NUM_REMOVED.group, NUM_REMOVED.tag, 1);
-      // We are sending messages to all nodes with edges to this node telling them that this node has low coverage
+      // We are sending messages to all nodes with edges to this node telling
+      // them to remove edges to this terminal.
       int degree = 0;
       for(DNAStrand strand : DNAStrand.values())  {
         degree += node.degree(strand);
@@ -168,7 +180,7 @@ public class RemoveLowCoverageAvro extends Stage {
   }
 
   public static class RemoveLowCoverageAvroReducer extends
-  AvroReducer<CharSequence, RemoveNeighborMessage,  GraphNodeData> {
+      AvroReducer<CharSequence, RemoveNeighborMessage,  GraphNodeData> {
     GraphNode node = null;
     List<String> neighbors = null;
 
@@ -246,49 +258,10 @@ public class RemoveLowCoverageAvro extends Stage {
   }
 
   @Override
-  public RunningJob runJob() throws Exception  {
-    String[] required_args =
-      {"inputpath", "outputpath", "low_cov_thresh", "length_thresh", "K"};
-
-    checkHasParametersOrDie(required_args);
-
+  protected void setupConfHook() {
+    JobConf conf = (JobConf) getConf();
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
-    int K = (Integer)stage_options.get("K");
-
-    sLogger.info("Tool name: RemoveLowCoverage");
-    sLogger.info(" - input: " + inputPath);
-    sLogger.info(" - output: " + outputPath);
-
-    float coverageThreshold = (Float) stage_options.get("low_cov_thresh");
-    int lengthThreshold = (Integer) stage_options.get("length_thresh");
-
-    if (coverageThreshold <= 0) {
-      sLogger.warn(
-          "RemoveLowCoverage will not run because "+
-          "low_cov_threshold<=0 so no nodes would be removed.");
-      return null;
-    }
-
-    if (lengthThreshold <= K) {
-      sLogger.warn(
-          "RemoveLowCoverage will not run because "+
-          "length_thresh<=K so no nodes would be removed.");
-      return null;
-    }
-
-    Configuration base_conf = getConf();
-    JobConf conf = null;
-    if (base_conf != null) {
-      conf = new JobConf(getConf(), this.getClass());
-    }
-    else {
-      conf = new JobConf(this.getClass());
-    }
-    conf.setJobName("RemoveLowCoverage " + inputPath);
-
-    initializeJobConfiguration(conf);
-
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
@@ -299,24 +272,39 @@ public class RemoveLowCoverageAvro extends Stage {
 
     AvroJob.setMapperClass(conf, RemoveLowCoverageAvroMapper.class);
     AvroJob.setReducerClass(conf, RemoveLowCoverageAvroReducer.class);
+  }
 
-    if (stage_options.containsKey("writeconfig")) {
-      writeJobConfig(conf);
-    } else {
-      // Delete the output directory if it exists already
-      Path out_path = new Path(outputPath);
-      if (FileSystem.get(conf).exists(out_path)) {
-        // TODO(jlewi): We should only delete an existing directory
-        // if explicitly told to do so.
-        sLogger.info("Deleting output path: " + out_path.toString() + " " +
-            "because it already exists.");
-        FileSystem.get(conf).delete(out_path, true);
-      }
-      long starttime = System.currentTimeMillis();
-      RunningJob job = JobClient.runJob(conf);
-      long endtime = System.currentTimeMillis();
-      float diff = (float) ((endtime - starttime) / 1000.0);
+  @Override
+  public List<InvalidParameter> validateParameters() {
+    List<InvalidParameter> items = super.validateParameters();
 
+    float coverageThreshold = (Float) stage_options.get("low_cov_thresh");
+    int lengthThreshold = (Integer) stage_options.get("length_thresh");
+
+    if (coverageThreshold <= 0) {
+      InvalidParameter item = new InvalidParameter(
+          "low_cov_thresh",
+          "RemoveLowCoverage will not run because "+
+          "low_cov_threshold<=0 so no nodes would be removed.");
+      items.add(item);
+    }
+
+    int K = (Integer)stage_options.get("K");
+
+    if (lengthThreshold <= K) {
+      InvalidParameter item = new InvalidParameter(
+          "length_thresh",
+          "RemoveLowCoverage will not run because "+
+          "length_thresh<=K so no nodes would be removed.");
+      items.add(item);
+    }
+
+    return items;
+  }
+
+  @Override
+  protected void postRunHook() {
+    try {
       long numIslands = job.getCounters().findCounter(
           NUM_ISLANDS.group, NUM_ISLANDS.tag).getValue();
       long numRemoved = job.getCounters().findCounter(
@@ -327,10 +315,10 @@ public class RemoveLowCoverageAvro extends Stage {
       sLogger.info("Number of low coverage nodes removed:" + numRemoved);
       sLogger.info("Number of island nodes removed:" + numIslands);
       sLogger.info("Number of nodes in graph:" + numNodes);
-      System.out.println("Runtime: " + diff + " s");
-      return job;
+    } catch (IOException e) {
+      sLogger.fatal("Couldn't get counters.", e);
+      System.exit(-1);
     }
-    return null;
   }
 
   public static void main(String[] args) throws Exception {

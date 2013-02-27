@@ -208,6 +208,26 @@ public class MRStage extends StageBase {
   }
 
   /**
+   * Return the number of input records to the mapper.
+   * @return: If the job hasn't run returns -1.
+   */
+  public long getNumMapInputRecords() {
+    try {
+      if (!job.isSuccessful()) {
+        return -1;
+      }
+      return job.getCounters().findCounter(
+          "org.apache.hadoop.mapred.Task$Counter",
+          "MAP_INPUT_RECORDS").getValue();
+
+    } catch (IOException e) {
+      sLogger.fatal("Couldn't get job state.", e);
+      System.exit(-1);
+    }
+    return -1;
+  }
+
+  /**
    * Run the stage after parsing the string arguments.
    */
   final public int run(String[] args) throws Exception {

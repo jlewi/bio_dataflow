@@ -44,10 +44,8 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -89,7 +87,7 @@ import contrail.util.AvroFileContentsIterator;
  * contigs will be outputted to the file "topn_contigs.avro" in the output
  * directory as well.
  */
-public class GraphStats extends Stage {
+public class GraphStats extends MRStage {
   private static final Logger sLogger = Logger.getLogger(GraphStats.class);
   /**
    * Get the parameters used by this stage.
@@ -498,7 +496,7 @@ public class GraphStats extends Stage {
 
       //writer.create(schema, outputStream);
       writer.append("<html><body>");
-      writer.append("Number of nodes:" + numNodes);
+      writer.append(String.format("Number of nodes:%d", numNodes));
       writer.append("<br>");
       writer.append("N50 Statistics");
       writer.append("<table border=1>");
@@ -530,31 +528,12 @@ public class GraphStats extends Stage {
   }
 
   @Override
-  public RunningJob runJob() throws Exception {
-    String[] required_args = {"inputpath", "outputpath"};
-    checkHasParametersOrDie(required_args);
-
+  protected void setupConfHook() {
+    JobConf conf = (JobConf) getConf();
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
-
-    sLogger.info(" - input: "  + inputPath);
-    sLogger.info(" - output: " + outputPath);
-
-    Configuration base_conf = getConf();
-    JobConf conf = null;
-    if (base_conf != null) {
-      conf = new JobConf(getConf(), GraphStats.class);
-    } else {
-      conf = new JobConf(GraphStats.class);
-    }
-
-    conf.setJobName("GraphStats " + inputPath);
-
-    initializeJobConfiguration(conf);
-
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
-
 
     Pair<Integer, GraphStatsData> mapOutput =
         new Pair<Integer, GraphStatsData> (0, new GraphStatsData());
@@ -571,53 +550,38 @@ public class GraphStats extends Stage {
     // Use a single reducer task that we accumulate all the stats in one
     // reducer.
     conf.setNumReduceTasks(1);
+  }
 
-    if (stage_options.containsKey("writeconfig")) {
-      writeJobConfig(conf);
-    } else {
-      // Delete the output directory if it exists already
-      Path out_path = new Path(outputPath);
-      if (FileSystem.get(conf).exists(out_path)) {
-        // TODO(jlewi): We should only delete an existing directory
-        // if explicitly told to do so.
-        sLogger.info("Deleting output path: " + out_path.toString() + " " +
-            "because it already exists.");
-        FileSystem.get(conf).delete(out_path, true);
-      }
+  @Override
+  protected void postRunHook() {
+ // Create iterators to read the output
+    Iterator<GraphStatsData> binsIterator = createOutputIterator();
 
-      long starttime = System.currentTimeMillis();
-      RunningJob job = JobClient.runJob(conf);
-      long endtime = System.currentTimeMillis();
+    // Compute the N50 stats for each bin.
+    ArrayList<GraphN50StatsData> N50Stats = computeN50Stats(binsIterator);
 
-      float diff = (float) ((endtime - starttime) / 1000.0);
-      System.out.println("Runtime: " + diff + " s");
+    // Write the N50 stats to a file.
+    writeN50StatsToFile(N50Stats);
 
-      // Create iterators to read the output
-      Iterator<GraphStatsData> binsIterator = createOutputIterator();
-
-      // Compute the N50 stats for each bin.
-      ArrayList<GraphN50StatsData> N50Stats = computeN50Stats(binsIterator);
-
-      // Write the N50 stats to a file.
-      writeN50StatsToFile(N50Stats);
-
-      // Create an HTML report.
-      long numNodes =
-          job.getCounters().findCounter(
-              "org.apache.hadoop.mapred.Task$Counter",
-              "MAP_INPUT_RECORDS").getValue();
-
-      writeReport(numNodes, N50Stats);
-      Integer topn_contigs = (Integer) stage_options.get("topn_contigs");
-      if (topn_contigs > 0) {
-        // Get the lengths of the n contigs.
-        binsIterator = createOutputIterator();
-        List<Integer> topN = topNContigs(binsIterator, topn_contigs);
-        writeTopNContigs(topN);
-      }
-      return job;
+    // Create an HTML report.
+    long numNodes = -1;
+    try {
+        job.getCounters().findCounter(
+            "org.apache.hadoop.mapred.Task$Counter",
+            "MAP_INPUT_RECORDS").getValue();
+    } catch (IOException e) {
+      sLogger.fatal("Couldn't get counters.", e);
+      System.exit(-1);
     }
-    return null;
+
+    writeReport(numNodes, N50Stats);
+    Integer topn_contigs = (Integer) stage_options.get("topn_contigs");
+    if (topn_contigs > 0) {
+      // Get the lengths of the n contigs.
+      binsIterator = createOutputIterator();
+      List<Integer> topN = topNContigs(binsIterator, topn_contigs);
+      writeTopNContigs(topN);
+    }
   }
 
   public static void main(String[] args) throws Exception {

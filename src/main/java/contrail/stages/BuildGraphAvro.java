@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -30,19 +31,17 @@ import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 import contrail.CompressedRead;
 import contrail.ReadState;
+import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
@@ -63,7 +62,7 @@ import contrail.sequences.StrandsUtil;
  * The input is an avro file. The records in the avro file can either be
  * CompressedRead or FastQRecords.
  */
-public class BuildGraphAvro extends Stage {
+public class BuildGraphAvro extends MRStage {
   private static final Logger sLogger = Logger.getLogger(BuildGraphAvro.class);
 
   public static final Schema kmer_edge_schema = (new KMerEdge()).getSchema();
@@ -135,6 +134,8 @@ public class BuildGraphAvro extends Stage {
         .getInputOutputPathOptions()) {
       defs.put(def.getName(), def);
     }
+    ParameterDefinition kDef = ContrailParameters.getK();
+    defs.put(kDef.getName(), kDef);
     return Collections.unmodifiableMap(defs);
   }
 
@@ -301,8 +302,8 @@ public class BuildGraphAvro extends Stage {
         return;
       }
 
-      ReadState ustate = ReadState.END5;
-      ReadState vstate = ReadState.I;
+      ReadState ustate;
+      ReadState vstate;
 
       Set<String> seenmers = new HashSet<String>();
 
@@ -350,11 +351,21 @@ public class BuildGraphAvro extends Stage {
         StrandsForEdge strands = StrandsUtil.form(ukmer_strand, vkmer_strand);
         StrandsForEdge rc_strands = StrandsUtil.complement(strands);
 
-        if ((i == 0) && (ukmer_strand == DNAStrand.REVERSE)) {
-          ustate = ReadState.END6;
+        // Determine the read state for each KMer.
+        if (i == 0) {
+          if (ukmer_strand == DNAStrand.FORWARD) {
+            ustate = ReadState.STARTFORWARD;
+          } else {
+            ustate = ReadState.STARTREVERSE;
+          }
+        } else {
+          ustate = ReadState.MIDDLE;
         }
+
         if (i + 1 == end) {
-          vstate = ReadState.END3;
+          vstate = ReadState.END;
+        } else {
+          vstate = ReadState.MIDDLE;
         }
 
         // TODO(jlewi): It would probably be more efficient not to use a string
@@ -407,8 +418,19 @@ public class BuildGraphAvro extends Stage {
         }
         ustate = ReadState.MIDDLE;
       }
-      reporter.incrCounter("Contrail", "reads_good", 1);
-      reporter.incrCounter("Contrail", "reads_goodbp", seq.size());
+
+      // Add some counters to keep track of how many edges this read produces.
+      if (end == 1) {
+        reporter.incrCounter("Contrail", "reads-num-edges-1", 1);
+      } else if (end>1 && end <= 5) {
+        reporter.incrCounter("Contrail", "reads-num-edges-(1,5]", 1);
+      } else if (end >5 && end <= 10) {
+        reporter.incrCounter("Contrail", "reads-num-edges-(5,10]", 1);
+      } else {
+        reporter.incrCounter("Contrail", "reads-num-edges-(10,...]", 1);
+      }
+      reporter.incrCounter("Contrail", "reads-good", 1);
+      reporter.incrCounter("Contrail", "reads-goodbp", seq.size());
     }
   }
 
@@ -459,7 +481,7 @@ public class BuildGraphAvro extends Stage {
       graphnode.setSequence(canonical_src);
 
       KMerReadTag mertag = null;
-      int cov = 0;
+      float cov = 0;
 
       Iterator<KMerEdge> iter = iterable.iterator();
       // Loop over all KMerEdges which originate with the KMer represented by
@@ -486,15 +508,26 @@ public class BuildGraphAvro extends Stage {
         }
 
         ReadState state = edge.getState();
-        // Update coverage and offsets.
-        if (state != ReadState.I) {
-          cov++;
-          if (state == ReadState.END6) {
-            graphnode.addR5(tag, K - 1, DNAStrand.REVERSE, MAXR5);
-          } else if (state == ReadState.END5) {
-            graphnode.addR5(tag, 0, DNAStrand.FORWARD, MAXR5);
-          }
+        // Update the tags tracking alignment to the start end of a read.
+        // We refer to these as R5 tags because it marks the 5 prime end
+        // of a read.
+        if (state == ReadState.STARTREVERSE) {
+          graphnode.addR5(tag, K - 1, DNAStrand.REVERSE, MAXR5);
+        } else if (state == ReadState.STARTFORWARD) {
+          graphnode.addR5(tag, 0, DNAStrand.FORWARD, MAXR5);
         }
+
+        // Update the coverage.
+        if (state == ReadState.MIDDLE) {
+          // For KMers in the middle of a read we would generate two
+          // edges for the kmer. One corresponding to the kmer and the other
+          // corresponding to RC(KMer). Thus, we increment the coverage
+          // by .5 so that the result of seeing both edges will be 1.
+          cov += .5;
+        } else {
+          cov += 1;
+        }
+
         // Add an edge to this destination.
         DNAStrand src_strand = StrandsUtil.src(strands);
         String terminalid = constructNodeIdForSequence(canonical_dest);
@@ -511,42 +544,40 @@ public class BuildGraphAvro extends Stage {
       // representation of the sequence.
       graphnode.getData().setNodeId(constructNodeIdForSequence(canonical_src));
 
+      int degree =
+          graphnode.degree(DNAStrand.FORWARD, EdgeDirection.INCOMING) +
+          graphnode.degree(DNAStrand.FORWARD, EdgeDirection.OUTGOING);
+
+      if (degree == 0) {
+        reporter.incrCounter("Contrail", "node-islands", 1);
+      }
       collector.collect(graphnode.getData());
-      reporter.incrCounter("Contrail", "nodecount", 1);
+      reporter.incrCounter("Contrail", "node-count", 1);
     }
   }
 
   @Override
-  public RunningJob runJob() throws Exception {
-    // Check for missing arguments.
-    String[] required_args = { "inputpath", "outputpath", "K" };
-    checkHasParametersOrDie(required_args);
-
-    String inputPath = (String) stage_options.get("inputpath");
-    String outputPath = (String) stage_options.get("outputpath");
+  public List<InvalidParameter> validateParameters() {
+    ArrayList<InvalidParameter> items = new ArrayList<InvalidParameter>();
     int K = (Integer) stage_options.get("K");
 
     // K should be odd.
     if ((K % 2) == 0) {
-      throw new RuntimeException(
-          "K should be odd. If K is even then there exist Kmers for which "
-              + "the KMer and its reverse complement are the same. This can cause "
-              + "problems for graph construction.");
+      InvalidParameter item = new InvalidParameter(
+          "K",
+          "K should be odd. If K is even then there exist Kmers for which " +
+          "the KMer and its reverse complement are the same. This can cause " +
+          "problems for graph construction.");
+      items.add(item);
     }
-    sLogger.info(" - input: " + inputPath);
-    sLogger.info(" - output: " + outputPath);
+    return items;
+  }
 
-    Configuration base_conf = getConf();
-    JobConf conf = null;
-    if (base_conf != null) {
-      conf = new JobConf(getConf(), this.getClass());
-    } else {
-      conf = new JobConf(this.getClass());
-    }
-    conf.setJobName("BuildGraph " + inputPath + " " + K);
-
-    initializeJobConfiguration(conf);
-
+  @Override
+  protected void setupConfHook() {
+    JobConf conf = (JobConf) getConf();
+    String inputPath = (String) stage_options.get("inputpath");
+    String outputPath = (String) stage_options.get("outputpath");
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
@@ -567,35 +598,6 @@ public class BuildGraphAvro extends Stage {
 
     AvroJob.setMapperClass(conf, BuildGraphMapper.class);
     AvroJob.setReducerClass(conf, BuildGraphReducer.class);
-
-    if (stage_options.containsKey("writeconfig")) {
-      writeJobConfig(conf);
-    } else {
-      // Delete the output directory if it exists already
-      Path out_path = new Path(outputPath);
-      if (FileSystem.get(conf).exists(out_path)) {
-        // TODO(jlewi): We should only delete an existing directory
-        // if explicitly told to do so.
-        sLogger.info("Deleting output path: " + out_path.toString() + " "
-            + "because it already exists.");
-        FileSystem.get(conf).delete(out_path, true);
-      }
-
-      long starttime = System.currentTimeMillis();
-      RunningJob job = JobClient.runJob(conf);
-      long endtime = System.currentTimeMillis();
-      long numNodes = job
-          .getCounters()
-          .findCounter("org.apache.hadoop.mapred.Task$Counter",
-              "REDUCE_OUTPUT_RECORDS").getValue();
-
-      sLogger.info("Number of nodes in graph:" + numNodes);
-      float diff = (float) ((endtime - starttime) / 1000.0);
-
-      sLogger.info("Runtime: " + diff + " s");
-      return job;
-    }
-    return null;
   }
 
   public static void main(String[] args) throws Exception {

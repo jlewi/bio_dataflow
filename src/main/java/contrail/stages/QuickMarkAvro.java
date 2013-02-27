@@ -26,14 +26,11 @@ import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -44,30 +41,28 @@ import contrail.sequences.KMerReadTag;
 import contrail.sequences.StrandsForEdge;
 
 /**
- * @author avijit
  * QuickMark
-   We use QuickMark + QuickMerge when the number of compressible nodes is
-   below some threshold. In this case, we can send all the nodes to be
-   compressed to a single reducer so that we can compress all the chains in
-   one shot.
-
-   Since the graph is represented as a collection of CompressibleNodeData,
-   we already know which nodes in the graph are compressible.
-
-   However, we also need to know which nodes are connected to nodes which
-   will be compressed. e.g suppose we have the graph
-   A->B->C->D
-   E->B->C->D
-
-   So the nodes B,C,D will all be marked as compressible. However, after
-   compressing B,C,D we need to update the edges from A and E. So we need
-   the nodes A and E to be marked such that they get sent to the same
-   reducer as B,C,D when doing the merge.
-
-   The point of QuickMark is thus to set the "mertag" such that  when
-   QuickMerge is run A,B,C,D,E all get same to the same reducer and we can
-   do the merge in one shot.
-
+ * We use QuickMark + QuickMerge when the number of compressible nodes is
+ * below some threshold. In this case, we can send all the nodes to be
+ * compressed to a single reducer so that we can compress all the chains in
+ * one shot.
+ *
+ * Since the graph is represented as a collection of CompressibleNodeData,
+ * we already know which nodes in the graph are compressible.
+ *
+ * However, we also need to know which nodes are connected to nodes which
+ * will be compressed. e.g suppose we have the graph
+ * A->B->C->D
+ * E->B->C->D
+ * So the nodes B,C,D will all be marked as compressible. However, after
+ * compressing B,C,D we need to update the edges from A and E. So we need
+ * the nodes A and E to be marked such that they get sent to the same
+ * reducer as B,C,D when doing the merge.
+ *
+ * The point of QuickMark is thus to set the "mertag" such that  when
+ * QuickMerge is run A,B,C,D,E all get same to the same reducer and we can
+ * do the merge in one shot.
+ *
  * Mapper:  the mapper takes in CompressibleNodeData and sees if any node has strands that need to be compressed
  *          if there are NO Compressible Strands for that node
  *		mapper outputs nodeID as key and its CompressibleStrands as msg
@@ -79,7 +74,7 @@ import contrail.sequences.StrandsForEdge;
  *	    if there are Compressible strands (message is null)
  *		then it sets MerTag as 0 for that node
  */
-public class QuickMarkAvro extends Stage     {
+public class QuickMarkAvro extends MRStage     {
   private static final Logger sLogger = Logger.getLogger(QuickMarkAvro.class);
   public static final Schema REDUCE_OUT_SCHEMA =
       new GraphNodeData().getSchema();
@@ -137,8 +132,7 @@ public class QuickMarkAvro extends Stage     {
   }
 
   public static class QuickMarkReducer extends
-  AvroReducer<CharSequence, QuickMarkMessage, GraphNodeData> {
-
+      AvroReducer<CharSequence, QuickMarkMessage, GraphNodeData> {
     GraphNode node = null;
 
     public void configure(JobConf job) {
@@ -168,8 +162,11 @@ public class QuickMarkAvro extends Stage     {
       }
 
       if (sawnode != 1)	{
-        throw new IOException("ERROR: Didn't see exactly 1 nodemsg (" + sawnode + ") for " + nodeid.toString());
+        throw new IOException(String.format(
+            "ERROR: There should be exactly 1 node for nodeid:%s but there " +
+            "were %d nodes for this id.", nodeid.toString(), sawnode));
       }
+
       if (compresspair)     {
         KMerReadTag readtag = new KMerReadTag("compress", 0);
         //when QuickMerge is run all nodes that need to be compressed or are connected to compressed nodes will be sent to the same reducer
@@ -203,23 +200,11 @@ public class QuickMarkAvro extends Stage     {
   }
 
   @Override
-  public RunningJob runJob() throws Exception {
-    // TODO: set stage options using new method
+  protected void setupConfHook() {
+    JobConf conf = (JobConf) getConf();
+
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
-
-    sLogger.info(" - input: "  + inputPath);
-    sLogger.info(" - output: " + outputPath);
-
-    Configuration base_conf = getConf();
-    JobConf conf = null;
-    if (base_conf != null) {
-      conf = new JobConf(getConf(), this.getClass());
-    } else {
-      conf = new JobConf(this.getClass());
-    }
-
-    initializeJobConfiguration(conf);
 
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
@@ -235,29 +220,6 @@ public class QuickMarkAvro extends Stage     {
 
     AvroJob.setMapperClass(conf, QuickMarkMapper.class);
     AvroJob.setReducerClass(conf, QuickMarkReducer.class);
-
-    if (stage_options.containsKey("writeconfig")) {
-      writeJobConfig(conf);
-    } else {
-      // Delete the output directory if it exists already
-      Path out_path = new Path(outputPath);
-      if (FileSystem.get(conf).exists(out_path)) {
-        // TODO(jlewi): We should only delete an existing directory
-        // if explicitly told to do so.
-        sLogger.info("Deleting output path: " + out_path.toString() + " " +
-            "because it already exists.");
-        FileSystem.get(conf).delete(out_path, true);
-      }
-
-      long starttime = System.currentTimeMillis();
-      RunningJob job = JobClient.runJob(conf);
-      long endtime = System.currentTimeMillis();
-
-      float diff = (float) ((endtime - starttime) / 1000.0);
-      System.out.println("Runtime: " + diff + " s");
-      return job;
-    }
-    return null;
   }
 
   public static void main(String[] args) throws Exception {

@@ -46,14 +46,11 @@ import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -74,7 +71,7 @@ import org.apache.log4j.Logger;
  *   3) The destination node has an incoming edge corresponding to that
  *      edge.
  */
-public class ValidateGraph extends Stage {
+public class ValidateGraph extends MRStage {
   private static final Logger sLogger = Logger.getLogger(
       ValidateGraph.class);
 
@@ -89,6 +86,10 @@ public class ValidateGraph extends Stage {
       ContrailParameters.getInputOutputPathOptions()) {
       defs.put(def.getName(), def);
     }
+
+    ParameterDefinition kDef = ContrailParameters.getK();
+    defs.put(kDef.getName(), kDef);
+
     return Collections.unmodifiableMap(defs);
   }
 
@@ -343,7 +344,7 @@ public class ValidateGraph extends Stage {
    * @param job
    * @return
    */
-  public static long getErrorCount(RunningJob job) {
+  public long getErrorCount() {
     long value = 0;
     try {
       value =
@@ -356,28 +357,10 @@ public class ValidateGraph extends Stage {
   }
 
   @Override
-  public RunningJob runJob() throws Exception {
-    // Check for missing arguments.
-    String[] required_args = {"inputpath", "outputpath", "K"};
-    checkHasParametersOrDie(required_args);
-
+  protected void setupConfHook() {
+    JobConf conf = (JobConf) getConf();
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
-    int K = (Integer)stage_options.get("K");
-
-    sLogger.info(" - input: "  + inputPath);
-    sLogger.info(" - output: " + outputPath);
-
-    Configuration base_conf = getConf();
-    JobConf conf = null;
-    if (base_conf != null) {
-      conf = new JobConf(getConf(), this.getClass());
-    } else {
-      conf = new JobConf(this.getClass());
-    }
-    conf.setJobName("BuildGraph " + inputPath + " " + K);
-
-    initializeJobConfiguration(conf);
 
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
@@ -402,24 +385,6 @@ public class ValidateGraph extends Stage {
 
     AvroJob.setMapperClass(conf, ValidateGraphMapper.class);
     AvroJob.setReducerClass(conf, ValidateGraphReducer.class);
-
-    if (stage_options.containsKey("writeconfig")) {
-      writeJobConfig(conf);
-    } else {
-      // Delete the output directory if it exists already
-      Path outObj = new Path(outputPath);
-      if (FileSystem.get(conf).exists(outObj)) {
-        // TODO(jlewi): We should only delete an existing directory
-        // if explicitly told to do so.
-        sLogger.info("Deleting output path: " + outObj.toString() + " " +
-            "because it already exists.");
-        FileSystem.get(conf).delete(outObj, true);
-      }
-
-      RunningJob result = JobClient.runJob(conf);
-      return result;
-    }
-    return null;
   }
 
   public static void main(String[] args) throws Exception {

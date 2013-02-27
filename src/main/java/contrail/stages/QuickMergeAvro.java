@@ -33,18 +33,15 @@ import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
-public class QuickMergeAvro extends Stage {
+public class QuickMergeAvro extends MRStage {
   private static final Logger sLogger = Logger.getLogger(QuickMergeAvro.class);
 
   /**
@@ -220,48 +217,16 @@ public class QuickMergeAvro extends Stage {
       ContrailParameters.getInputOutputPathOptions()) {
       defs.put(def.getName(), def);
     }
+    ParameterDefinition kDef = ContrailParameters.getK();
+    defs.put(kDef.getName(), kDef);
     return defs;
   }
 
-  public int run(String[] args) throws Exception {
-    sLogger.info("Tool name: QuickMergeAvro");
-    parseCommandLine(args);
-    RunningJob job = runJob();
-    if (job == null) {
-      return 0;
-    }
-    if (job.isSuccessful()) {
-      return 0;
-    } else {
-      return -1;
-    }
-  }
-
   @Override
-  public RunningJob runJob() throws Exception {
-    String[] required_args = {"inputpath", "outputpath", "K"};
-    checkHasParametersOrDie(required_args);
-
+  protected void setupConfHook() {
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
-    int K = (Integer)stage_options.get("K");
-
-    sLogger.info(" - input: "  + inputPath);
-    sLogger.info(" - output: " + outputPath);
-
-    Configuration base_conf = getConf();
-    JobConf conf = null;
-    if (base_conf == null) {
-      conf = new JobConf(QuickMergeAvro.class);
-    } else {
-      conf = new JobConf(base_conf, QuickMergeAvro.class);
-    }
-    this.setConf(conf);
-
-    conf.setJobName("QuickMergeAvro " + inputPath + " " + K);
-
-    initializeJobConfiguration(conf);
-
+    JobConf conf = (JobConf) getConf();
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
@@ -272,42 +237,28 @@ public class QuickMergeAvro extends Stage {
 
     AvroJob.setMapperClass(conf, QuickMergeMapper.class);
     AvroJob.setReducerClass(conf, QuickMergeReducer.class);
+  }
 
-    if (stage_options.containsKey("writeconfig")) {
-      writeJobConfig(conf);
-    } else {
-      // Delete the output directory if it exists already
-      Path out_path = new Path(outputPath);
-      if (FileSystem.get(conf).exists(out_path)) {
-        // TODO(jlewi): We should only delete an existing directory
-        // if explicitly told to do so.
-        sLogger.info("Deleting output path: " + out_path.toString() + " " +
-            "because it already exists.");
-        FileSystem.get(conf).delete(out_path, true);
-      }
-
-      long starttime = System.currentTimeMillis();
-      RunningJob result = JobClient.runJob(conf);
-      long endtime = System.currentTimeMillis();
-      float diff = (float) ((endtime - starttime) / 1000.0);
-
-      sLogger.info("Runtime: " + diff + " s");
-      long numCompressedChains = result.getCounters().findCounter(
+  @Override
+  protected void postRunHook() {
+    try {
+      long numCompressedChains = job.getCounters().findCounter(
           NUM_COMPRESSED_CHAINS.group,
           NUM_COMPRESSED_CHAINS.tag).getValue();
-      long numCompressedNodes = result.getCounters().findCounter(
+      long numCompressedNodes = job.getCounters().findCounter(
           NUM_COMPRESSED_NODES.group,
           NUM_COMPRESSED_NODES.tag).getValue();
 
-      long numNodes = result.getCounters().findCounter(
+      long numNodes = job.getCounters().findCounter(
           "org.apache.hadoop.mapred.Task$Counter",
           "REDUCE_OUTPUT_RECORDS").getValue();
       sLogger.info("Number of chains compressed:" + numCompressedChains);
       sLogger.info("Number of nodes compressed:" + numCompressedNodes);
       sLogger.info("Number of nodes outputed:" + numNodes);
-      return result;
+    } catch (IOException e) {
+      sLogger.fatal("Couldn't get counters", e);
+      System.exit(-1);
     }
-    return null;
   }
 
   public static void main(String[] args) throws Exception {

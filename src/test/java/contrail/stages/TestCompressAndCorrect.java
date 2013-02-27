@@ -28,13 +28,22 @@ import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.hadoop.conf.Configuration;
+import org.junit.Before;
 import org.junit.Test;
 
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.graph.SimpleGraphBuilder;
+import contrail.util.ContrailLogger;
 
 public class TestCompressAndCorrect extends CompressAndCorrect {
+  @Before
+  public void setup() {
+    // Setup the logger so we don't simply exit on failure.
+    ContrailLogger.setExitOnFatal(false);
+    ContrailLogger.setTestMode(true);
+  }
+
   /**
    * Create a temporary directory.
    * @return
@@ -118,7 +127,9 @@ public class TestCompressAndCorrect extends CompressAndCorrect {
        "--outputpath=" + output_path.toURI().toString(),
        "--K=3", "--localnodes=3", "--tiplength=" + tipLength,
        "--bubble_edit_rate=" + bubbleEditRate,
-       "--bubble_length_threshold=" + bubbleLengthThreshold};
+       "--bubble_length_threshold=" + bubbleLengthThreshold,
+       "--compute_stats=false", "--length_thresh=5",
+       "--low_cov_thresh=5"};
 
     // Catch the following after debugging.
     try {

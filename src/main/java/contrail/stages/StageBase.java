@@ -16,11 +16,13 @@ package contrail.stages;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.hadoop.mapred.RunningJob;
+import org.apache.log4j.Appender;
 import org.apache.log4j.FileAppender;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
@@ -202,12 +204,28 @@ abstract public class StageBase extends Stage {
     String logFile = (String) stage_options.get("log_file");
 
     if (logFile != null && logFile.length() > 0) {
+      boolean hasAppender = false;
+
+      for (Enumeration<Appender> e = Logger.getRootLogger().getAllAppenders();
+           e.hasMoreElements(); ) {
+        Appender logger = e.nextElement();
+        if (logger.getName().equals(logFile)) {
+          // We've already setup the logger to the file so we don't setup
+          // another one because that would cause messages to be logged multiple
+          // times.
+          return;
+        }
+      }
       FileAppender fileAppender = new FileAppender();
       fileAppender.setFile(logFile);
       PatternLayout layout = new PatternLayout();
       layout.setConversionPattern("%d{ISO8601} %p %c: %m%n");
       fileAppender.setLayout(layout);
       fileAppender.activateOptions();
+
+      // Name the appender based on the file to write to so that we can
+      // check whether this appender has already been added.
+      fileAppender.setName(logFile);
       Logger.getRootLogger().addAppender(fileAppender);
       sLogger.info("Start logging");
       sLogger.info("Adding a file log appender to: " + logFile);
