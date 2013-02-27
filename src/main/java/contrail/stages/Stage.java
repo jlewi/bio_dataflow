@@ -90,10 +90,13 @@ import org.apache.log4j.PatternLayout;
  * when running from within java? Since stage implements Configured I think
  * the caller can just set the configuration. runJob should then initialize
  * its job configuration using the configuration stored in the class.
+ *
+ * TODO(jlewi): Move non deprecated methods into StageBase and get rid
+ * of this class
  */
+@Deprecated
 public abstract class Stage extends Configured implements Tool  {
-  private static final Logger sLogger =
-      Logger.getLogger(Stage.class);
+  private static final Logger sLogger = Logger.getLogger(Stage.class);
 
   public Stage() {
   }
@@ -129,8 +132,9 @@ public abstract class Stage extends Configured implements Tool  {
     }
 
     if (missing.size() > 0) {
-      sLogger.error(("Missing required arguments: " +
-                     StringUtils.join(missing, ",")));
+      sLogger.error(
+          this.getClass().getSimpleName() +": Missing required " +
+          "arguments: " + StringUtils.join(missing, ","));
       printHelp();
       // Should we exit or throw an exception?
       System.exit(0);
@@ -150,6 +154,10 @@ public abstract class Stage extends Configured implements Tool  {
     for (ParameterDefinition def: ContrailParameters.getCommon()) {
       parameters.put(def.getName(), def);
     }
+
+    // For legacy reasons we add K as a parameter always.
+    ParameterDefinition kDef = ContrailParameters.getK();
+    parameters.put(kDef.getName(), kDef);
     return Collections.unmodifiableMap(parameters);
   }
 
@@ -166,10 +174,18 @@ public abstract class Stage extends Configured implements Tool  {
   /**
    * This function logs the values of the options.
    */
-  private void logParameters() {
+  protected void logParameters() {
     ArrayList<String> keys = new ArrayList<String>();
     keys.addAll(stage_options.keySet());
     Collections.sort(keys);
+    ArrayList<String> commandLine = new ArrayList<String>();
+    for (String key : keys) {
+      commandLine.add(String.format(
+          "--%s=%s", key, stage_options.get(key).toString()));
+    }
+    // Print out all the parameters on one line. This is convenient
+    // for copying and pasting to rerun the stage.
+    sLogger.info(StringUtils.join(commandLine, " "));
     for (String key : keys) {
       sLogger.info(String.format(
           "Parameter: %s=%s", key, stage_options.get(key).toString()));
@@ -314,7 +330,9 @@ public abstract class Stage extends Configured implements Tool  {
     // TODO(jlewi): Should we check if getConf() returns null and if it does
     // either initialize it or throw an exception. Normally the configuration
     // should be initialized in the caller, e.g in main ToolRunner.run
-    // takes a configuration.
+    // takes a configuration. We really want to do this in runJob
+    // since we often invoke a stage by calling runJob directly.
+
     //
     // This function provides the entry point when running from the command
     // line; i.e. using ToolRunner.
@@ -326,8 +344,9 @@ public abstract class Stage extends Configured implements Tool  {
 
     parseCommandLine(args);
 
-    if (stage_options.containsKey("log_file")) {
-      String logFile = (String) (stage_options.get("log_file"));
+    String logFile = (String) stage_options.get("log_file");
+
+    if (logFile.length() > 0) {
       FileAppender fileAppender = new FileAppender();
       fileAppender.setFile(logFile);
       PatternLayout layout = new PatternLayout();
@@ -367,7 +386,8 @@ public abstract class Stage extends Configured implements Tool  {
   }
 
   /**
-   * Set the parameters for this stage. Any unset parameters will be
+   * Set the parameters for this stage. Any parameters which haven't been
+   * previously set and which aren't part of the input will be
    * initialized to the default values if there is one.
    */
   public void setParameters(Map<String, Object> values) {
@@ -385,6 +405,19 @@ public abstract class Stage extends Configured implements Tool  {
         stage_options.put(def.getName(), def.getDefault());
       }
     }
+
+
+    if (!(this instanceof StageBase)) {
+      // TODO(jeremy@lewi.us): For backwards compatibility with classes
+      // which are subclasses of Stage and not StageBase. if WriteConfig
+      // is the empty string we need to remove it as a parameter.
+      // This is because the old code assumed that if writeconfig isn't true
+      // it won't be a parameter.
+      String value = (String) stage_options.get("writeconfig");
+      if (value.length() == 0) {
+        stage_options.remove("writeconfig");
+      }
+    }
   }
 
   /**
@@ -393,7 +426,9 @@ public abstract class Stage extends Configured implements Tool  {
    * @param job
    * @return
    */
+  @Deprecated
   public StageInfo getStageInfo(RunningJob job) {
+    // TODO(jeremy@lewi.us): should be replaced by getStageInfo();
     StageInfo info = new StageInfo();
     info.setCounters(new ArrayList<CounterInfo>());
     info.setParameters(new ArrayList<StageParameter>());

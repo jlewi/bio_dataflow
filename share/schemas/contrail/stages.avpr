@@ -4,6 +4,11 @@
   "doc": "Data structures for recording information about the stages run.",
 
   "types": [
+     {"name": "StageState",
+      "type":  "enum",
+      "doc": "Stage of a job.",
+      "symbols": ["STARTED", "SUCCESS", "ERROR"]
+     },
      {"name": "CounterInfo",
       "type": "record",
       "doc": "This record records the value of a mapreduce counter.",
@@ -37,6 +42,10 @@
                   "type": "string",
                   "doc": "The class name for the stage."
                  },
+                 {"name": "state",
+                  "type": "StageState",
+                  "doc": "The state of the job."
+                 },
                  {"name": "parameters",
                   "type": {"type": "array", "items": "StageParameter"},
                   "doc": ["The list of parameters for the stage."]
@@ -49,6 +58,14 @@
                   "type": {"type": "array", "items": "StageInfo"},
                   "doc": ["If this stage runs any stages, this will be ",
                           "filled with info about them."]
+                 },
+                 {"name": "modified_parameters",
+                  "type": {"type": "array", "items": "StageParameter"},
+                  "doc": ["Sometimes parameters are modified by the code. We ",
+                          "want to record the modified values separatly from ",
+                          "the original values. For example, if the output ",
+                          "of a stage is moved this would recorded in ",
+                          "modified_parameters"]
                  }           
                 ]
      }     
