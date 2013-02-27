@@ -27,8 +27,13 @@ import contrail.stages.QuickMergeAvro;
 import contrail.stages.RemoveTipsAvro;
 import contrail.stages.StageInfo;
 import contrail.stages.StageParameter;
+import contrail.stages.StageState;
 import contrail.util.FileHelper;
 
+// TODO(jlewi): Better testing.
+// We should test the case where we have a pipeline that moves the output
+// produced by a stage. In this case the true outputpath should be stored
+// in the modified_parameters field of StageInfo.
 public class TestFindLastValidGraph {
 
   /**
@@ -43,8 +48,10 @@ public class TestFindLastValidGraph {
       String outputPath, Collection<GraphNode> nodes, String className) {
     StageInfo stageInfo = new StageInfo();
     stageInfo.setStageClass(className);
+    stageInfo.setState(StageState.SUCCESS);
     stageInfo.setCounters(new ArrayList<CounterInfo>());
     stageInfo.setParameters(new ArrayList<StageParameter>());
+    stageInfo.setModifiedParameters(new ArrayList<StageParameter>());
     stageInfo.setSubStages(new ArrayList<StageInfo>());
 
     File outputPathFile = new File(outputPath);
@@ -75,9 +82,11 @@ public class TestFindLastValidGraph {
     // Create a StageInfo representing the pipeline.
     StageInfo pipelineInfo = new StageInfo();
     pipelineInfo.setStageClass("TestPipeline");
+    pipelineInfo.setState(StageState.SUCCESS);
     pipelineInfo.setCounters(new ArrayList<CounterInfo>());
     pipelineInfo.setParameters(new ArrayList<StageParameter>());
     pipelineInfo.setSubStages(new ArrayList<StageInfo>());
+    pipelineInfo.setModifiedParameters(new ArrayList<StageParameter>());
 
     Integer K = 5;
     StageParameter kParameter = new StageParameter();
@@ -126,7 +135,6 @@ public class TestFindLastValidGraph {
       StageInfo stageInfo = createStage(
           outputPath, nodes, stage.getClass().getName());
       pipelineInfo.getSubStages().add(stageInfo);
-      testCase.errorStage = stageInfo;
     }
     {
       RemoveTipsAvro stage = new RemoveTipsAvro();
@@ -143,6 +151,8 @@ public class TestFindLastValidGraph {
       StageInfo stageInfo = createStage(
           outputPath, nodes, stage.getClass().getName());
       pipelineInfo.getSubStages().add(stageInfo);
+
+      testCase.errorStage = stageInfo;
     }
 
     testCase.jsonFile = FilenameUtils.concat(testDir, "stage_info.json");
@@ -181,10 +191,7 @@ public class TestFindLastValidGraph {
     parameters.put(
         "outputpath", FilenameUtils.concat(testDir, "validation"));
     findStage.setParameters(parameters);
-    try {
-      findStage.runJob();
-    } catch (Exception e) {
-      e.printStackTrace();
+    if (!findStage.execute()) {
       fail("Job failed");
     }
    assertEquals(testCase.errorStage, findStage.getErrorStage());

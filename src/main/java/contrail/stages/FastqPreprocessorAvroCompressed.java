@@ -30,20 +30,17 @@ import java.util.Map;
 import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroWrapper;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.MapReduceBase;
 import org.apache.hadoop.mapred.Mapper;
 import org.apache.hadoop.mapred.OutputCollector;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
@@ -59,7 +56,7 @@ import org.apache.hadoop.mapred.lib.NLineInputFormat;
  * because toString() is expensive.
  *
  */
-public class FastqPreprocessorAvroCompressed extends Stage {
+public class FastqPreprocessorAvroCompressed extends MRStage {
   private static final Logger sLogger =
       Logger.getLogger(FastqPreprocessorAvroCompressed.class);
 
@@ -67,8 +64,8 @@ public class FastqPreprocessorAvroCompressed extends Stage {
    * Mapper.
    */
   public static class FastqPreprocessorMapper extends MapReduceBase
-  implements Mapper<LongWritable, Text, AvroWrapper<CompressedRead>, NullWritable>
-  {
+    implements Mapper<LongWritable, Text, AvroWrapper<CompressedRead>,
+                      NullWritable> {
     private int idx = 0;
 
     private String filename = null;
@@ -103,8 +100,7 @@ public class FastqPreprocessorAvroCompressed extends Stage {
     private byte utf8_at;
     private byte utf8_space;
 
-    public void configure(JobConf job)
-    {
+    public void configure(JobConf job) {
       filename = job.get("map.input.file");
 
       boolean usesuffix = Integer.parseInt(job.get("PREPROCESS_SUFFIX")) == 1;
@@ -229,65 +225,32 @@ public class FastqPreprocessorAvroCompressed extends Stage {
   }
 
   @Override
-  public RunningJob runJob() throws Exception {
-    sLogger.info("Tool name: FastqPreprocessorAvroCompressed");
-    String inputPath = (String) stage_options.get("inputpath");
-    String outputPath = (String) stage_options.get("outputpath");
-    sLogger.info(" - input: "  + inputPath);
-    sLogger.info(" - output: " + outputPath);
-
-    Configuration base_conf = getConf();
-    JobConf conf = null;
-    if (base_conf != null) {
-      conf = new JobConf(getConf(), this.getClass());
-    } else {
-      conf = new JobConf(this.getClass());
-    }
-
-    sLogger.info("mapred.map.tasks=" + conf.get("mapred.map.tasks", ""));
-    conf.setJobName("FastqPreprocessorAvroCompressed " + inputPath);
+  protected void setupConfHook() {
+    JobConf conf = (JobConf) getConf();
 
     // Stage specific configuration options.
     conf.setLong("PREPROCESS_SUFFIX", 1);
+    String inputPath = (String) stage_options.get("inputpath");
+    String outputPath = (String) stage_options.get("outputpath");
 
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
     conf.setInputFormat(TextInputFormat.class);
-
     conf.setMapOutputKeyClass(Text.class);
     conf.setMapOutputValueClass(Text.class);
 
     conf.setMapperClass(FastqPreprocessorMapper.class);
 
     conf.setInputFormat(NLineInputFormat.class);
-    conf.setInt("mapred.line.input.format.linespermap", 2000000); // must be a multiple of 4
+    // linespermap must be a multiple of 4
+    conf.setInt("mapred.line.input.format.linespermap", 2000000);
 
     // This is a mapper only job.
     conf.setNumReduceTasks(0);
 
     // TODO(jlewi): use setoutput codec to set the compression codec.
     AvroJob.setOutputSchema(conf,new CompressedRead().getSchema());
-
-    if (stage_options.containsKey("writeconfig")) {
-      writeJobConfig(conf);
-    } else {
-      //delete the output directory if it exists already
-      FileSystem.get(conf).delete(new Path(outputPath), true);
-
-      long start_time = System.currentTimeMillis();
-      RunningJob job = JobClient.runJob(conf);
-      long numReads =
-          job.getCounters().findCounter(
-              "org.apache.hadoop.mapred.Task$Counter",
-              "MAP_OUTPUT_RECORDS").getValue();
-      sLogger.info("Number of reads:" + numReads);
-      long end_time = System.currentTimeMillis();
-      double nseconds = (end_time - start_time) / 1000.0;
-      sLogger.info("Job took: " + nseconds + " seconds");
-      return job;
-    }
-    return null;
   }
 
   /**
@@ -305,7 +268,6 @@ public class FastqPreprocessorAvroCompressed extends Stage {
     }
     return Collections.unmodifiableMap(defs);
   }
-
 
   public static void main(String[] args) throws Exception {
     int res = ToolRunner.run(

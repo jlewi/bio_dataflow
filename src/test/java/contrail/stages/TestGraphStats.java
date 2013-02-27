@@ -396,7 +396,7 @@ public class TestGraphStats extends GraphStats {
 
     // Catch the following after debugging.
     try {
-      stage.runJob();
+      stage.execute();
     } catch (Exception exception) {
       exception.printStackTrace();
       fail("Exception occured:" + exception.getMessage());

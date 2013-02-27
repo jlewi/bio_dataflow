@@ -18,6 +18,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -34,8 +35,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.RunningJob;
+
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 import org.codehaus.jackson.JsonFactory;
@@ -44,13 +44,15 @@ import org.codehaus.jackson.util.DefaultPrettyPrinter;
 
 import contrail.stages.BuildGraphAvro;
 import contrail.stages.CompressAndCorrect;
+import contrail.stages.CompressChains;
 import contrail.stages.ContrailParameters;
 import contrail.stages.PairMergeAvro;
 import contrail.stages.ParameterDefinition;
+import contrail.stages.PipelineStage;
 import contrail.stages.PopBubblesAvro;
 import contrail.stages.QuickMergeAvro;
+import contrail.stages.RemoveLowCoverageAvro;
 import contrail.stages.RemoveTipsAvro;
-import contrail.stages.Stage;
 import contrail.stages.StageInfo;
 import contrail.stages.StageParameter;
 import contrail.stages.ValidateGraph;
@@ -64,7 +66,7 @@ import contrail.stages.ValidateGraph;
  * the outputs of each stage in reverse order until we find the last
  * stage which produced a valid graph.
  */
-public class FindLastValidGraph extends Stage {
+public class FindLastValidGraph extends PipelineStage {
   private static final Logger sLogger = Logger.getLogger(
       FindLastValidGraph.class);
 
@@ -81,9 +83,6 @@ public class FindLastValidGraph extends Stage {
       ContrailParameters.getInputOutputPathOptions()) {
       defs.put(def.getName(), def);
     }
-
-    // Delete the parameter K.
-    defs.remove("K");
 
     // Overwrite the comment for the inputpath.
     ParameterDefinition input = new ParameterDefinition(
@@ -117,23 +116,6 @@ public class FindLastValidGraph extends Stage {
   }
 
   /**
-   * Return a set of the names of the stages that produce graphs to be checked.
-   * @return
-   */
-  private HashSet<String> listOfStages() {
-    HashSet<String> classNames = new HashSet<String>();
-
-    Stage[] validStages =
-      {new BuildGraphAvro(), new CompressAndCorrect(), new PopBubblesAvro(),
-        new PairMergeAvro(), new RemoveTipsAvro(), new QuickMergeAvro()};
-
-    for (Stage validStage : validStages) {
-      classNames.add(validStage.getClass().getName());
-    }
-    return classNames;
-  }
-
-  /**
    * Return the value of the specified parameter or null if it isn't found.
    * @param stage
    * @param name
@@ -141,10 +123,18 @@ public class FindLastValidGraph extends Stage {
    */
   private String getStageParameter(StageInfo stage, String name) {
     String value = null;
+
+    for (StageParameter parameter  : stage.getModifiedParameters()) {
+      if (parameter.getName().toString().equals(name)) {
+        value = parameter.getValue().toString();
+        return value;
+      }
+    }
+
     for (StageParameter parameter  : stage.getParameters()) {
       if (parameter.getName().toString().equals(name)) {
         value = parameter.getValue().toString();
-        break;
+        return value;
       }
     }
     return value;
@@ -194,67 +184,108 @@ public class FindLastValidGraph extends Stage {
     }
     Integer K = Integer.parseInt(kAsString);
 
-    // Get the stages in reverse order.
-    ArrayList<StageInfo> subStages = new ArrayList<StageInfo>();
-    subStages.addAll(pipelineInfo.getSubStages());
-    Collections.reverse(subStages);
+    // We need to do a depth first search.
+    ArrayList<StageInfo> stageStack = new ArrayList<StageInfo>();
 
-    // List of the stages which produce graphs to evaluate.
-    HashSet<String> stageNames = listOfStages();
+    stageStack.add(pipelineInfo);
+
     boolean foundValid = false;
 
-    int errorStageIndex = -1;
-    // TODO(jlewi): Stages like CompressAndCorrect which are themselves
-    // pipelines should set their StageInfo to include substages.
-    // We should then modify this process so that we include those stages
-    // here.
-    for (int stageIndex = 0; stageIndex < subStages.size(); ++stageIndex) {
-      StageInfo subStage = subStages.get(stageIndex);
-      if (!stageNames.contains(subStage.getStageClass().toString())) {
-        sLogger.info("Skipping the stage:" + subStage.getStageClass());
+    // Names of stages to treat as pipelines where we just add the substages.
+    HashSet<String> pipelineStageNames = new HashSet<String>();
+    pipelineStageNames.addAll(Arrays.asList(
+        CompressAndCorrect.class.getName(), CompressChains.class.getName()));
+
+    // Names of regular stages.
+    HashSet<String> regularStages = new HashSet<String>();
+    regularStages.addAll(Arrays.asList(
+        BuildGraphAvro.class.getName(), QuickMergeAvro.class.getName(),
+        PairMergeAvro.class.getName(), RemoveLowCoverageAvro.class.getName(),
+        PopBubblesAvro.class.getName(), RemoveTipsAvro.class.getName()));
+
+    errorStage = null;
+
+    int step = 0;
+    while (stageStack.size() > 0 && !foundValid) {
+      ++step;
+      StageInfo current = stageStack.remove(stageStack.size() - 1);
+
+      String stageClass = current.getStageClass().toString();
+
+      if (pipelineStageNames.contains(stageClass)) {
+        stageStack.addAll(current.getSubStages());
         continue;
       }
 
-      String outputPath = getStageParameter(subStage, "outputpath");
+      if (regularStages.contains(stageClass)) {
+        String outputPath = getStageParameter(current, "outputpath");
 
-      if (outputPath == null) {
-        sLogger.fatal(
-            "Could not determine the outputpath for stage:" +
-            subStage.getStageClass(),
-            new RuntimeException("Couldn't get outputpath."));
-        System.exit(-1);
-      }
-      sLogger.info(String.format(
-          "Checking stage:%s which produced:%s", subStage.getStageClass(),
-          outputPath));
+        if (outputPath == null) {
+          sLogger.fatal(
+              "Could not determine the outputpath for stage:" +
+              stageClass,
+              new RuntimeException("Couldn't get outputpath."));
+          System.exit(-1);
+        }
 
-      ValidateGraph validateStage = new ValidateGraph();
-      HashMap<String, Object> parameters = new HashMap<String, Object>();
-      parameters.put("inputpath", outputPath);
-      String subDir = String.format(
-          "step-%s-%s",sf.format(errorStageIndex), subStage.getStageClass());
-      parameters.put(
-          "outputpath", FilenameUtils.concat(validationDir, subDir));
-      parameters.put("K", K);
-      validateStage.setParameters(parameters);
-      RunningJob job  = null;
-      try {
-        job = validateStage.runJob();
-      } catch(Exception e) {
-        sLogger.fatal("There was a problem validating the graph.", e);
-        System.exit(-1);
+        // Make sure the path exists.
+        // Its possible the path exists but doesn't contain any avro files.
+        // We handle that possibility by checking the input records counter
+        // after the job runs.
+        Path graphPath = new Path(outputPath);
+        try {
+          if (!graphPath.getFileSystem(getConf()).exists(graphPath)) {
+            sLogger.info(String.format(
+                "Stage %s: The output no longer exists for this stage.",
+                stageClass));
+            // Continue with the other stages.
+            continue;
+          }
+        } catch (IOException e) {
+          sLogger.fatal("Couldn't verify that path exists:" + outputPath, e);
+        }
+        sLogger.info(String.format(
+            "Checking stage:%s which produced:%s", stageClass,
+            outputPath));
+        ValidateGraph validateStage = new ValidateGraph();
+        validateStage.initializeAsChild(validateStage);
+        validateStage.setParameter("inputpath", outputPath);
+        String subDir = String.format(
+            "step-%s-%s",sf.format(step), stageClass);
+        validateStage.setParameter(
+            "outputpath", FilenameUtils.concat(validationDir, subDir));
+        validateStage.setParameter("K", K);
+
+        executeChild(validateStage);
+
+        if (validateStage.getNumMapInputRecords() <= 0) {
+          // The graph was empty. For now treat this as an error.
+          sLogger.fatal(String.format(
+              "Stage %s. The input didn't contain any nodes.", stageClass));
+          System.exit(-1);
+        }
+
+        long errorCount = validateStage.getErrorCount();
+        if (errorCount == 0) {
+          foundValid = true;
+          continue;
+        } else {
+          errorStage = current;
+        }
+
+        sLogger.info(String.format(
+            "Stage %s. Number of errors: %d", stageClass, errorCount));
+        continue;
       }
 
-      long errorCount = ValidateGraph.getErrorCount(job);
-      if (errorCount == 0) {
-        errorStageIndex = stageIndex -1;
-        foundValid = true;
-        break;
+      if (current.getSubStages().size() > 0) {
+        // Default to checking its substages.
+        sLogger.info("Adding substages of stage:" + stageClass);
+        stageStack.addAll(current.getSubStages());
+        continue;
       }
-      sLogger.info(String.format(
-          "Stage %s. Number of errors: %d", subStage.getStageClass(),
-          errorCount));
-      ++errorStageIndex;
+      // Do nothing for all other stages.
+      sLogger.info("Skipping stage:" + stageClass);
     }
 
     if (!foundValid) {
@@ -262,12 +293,18 @@ public class FindLastValidGraph extends Stage {
       return;
     }
 
-    // Print out information about the stage that corrupts the graph.
-    errorStage = subStages.get(errorStageIndex);
-
-    sLogger.info(
-        "StageInfo for stage corrupting the graph:\n" +
-        stageInfoToString(errorStage));
+    if (errorStage != null) {
+      sLogger.info(
+          "Stage Corrupting the graph:\n" + stageInfoToString(errorStage));
+    } else {
+      if (foundValid) {
+        sLogger.info(
+            "The final stage produced a valid graph.");
+      } else {
+        sLogger.error(
+            "Could not find the stage corrupting the graph.");
+      }
+    }
   }
 
   /**
@@ -280,23 +317,8 @@ public class FindLastValidGraph extends Stage {
   }
 
   @Override
-  public RunningJob runJob() throws Exception {
-    // Check for missing arguments.
-    String[] required_args = {"inputpath", "outputpath"};
-    checkHasParametersOrDie(required_args);
-
-    Configuration base_conf = getConf();
-    JobConf conf = null;
-    if (base_conf != null) {
-      conf = new JobConf(getConf(), this.getClass());
-    } else {
-      conf = new JobConf(this.getClass());
-    }
-    initializeJobConfiguration(conf);
-
+  protected void stageMain() {
     findLastValidGraph();
-
-    return null;
   }
 
   public static void main(String[] args) throws Exception {

@@ -28,14 +28,11 @@ import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -54,7 +51,7 @@ import contrail.stages.GraphCounters.CounterName;
  * can be compressed if it is part of a linear chain; i.e there is a single
  * path through that node.
  */
-public class CompressibleAvro extends Stage {
+public class CompressibleAvro extends MRStage {
   private static final Logger sLogger = Logger.getLogger(
       CompressibleAvro.class);
 
@@ -138,10 +135,7 @@ public class CompressibleAvro extends Stage {
     public void map(GraphNodeData graph_data,
         AvroCollector<Pair<CharSequence, CompressibleMapOutput>> output,
         Reporter reporter) throws IOException {
-
-      // Set both fields of comp
       node.setData(graph_data);
-
       CompressibleMapOutput map_output = out_pair.value();
 
       // We consider the outgoing edges from both strands.
@@ -346,27 +340,10 @@ public class CompressibleAvro extends Stage {
   }
 
   @Override
-  public RunningJob runJob() throws Exception {
-    String[] required_args = {"inputpath", "outputpath"};
-    checkHasParametersOrDie(required_args);
-
+  protected void setupConfHook() {
+    JobConf conf = (JobConf) getConf();
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
-
-    sLogger.info(" - input: "  + inputPath);
-    sLogger.info(" - output: " + outputPath);
-
-    Configuration base_conf = getConf();
-    JobConf conf = null;
-    if (base_conf != null) {
-      conf = new JobConf(getConf(), CompressibleAvro.class);
-    } else {
-      conf = new JobConf(CompressibleAvro.class);
-    }
-    conf.setJobName("CompressibleAvro " + inputPath);
-
-    initializeJobConfiguration(conf);
-
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
@@ -377,26 +354,11 @@ public class CompressibleAvro extends Stage {
 
     AvroJob.setMapperClass(conf, CompressibleMapper.class);
     AvroJob.setReducerClass(conf, CompressibleReducer.class);
+  }
 
-    RunningJob job = null;
-    if (stage_options.containsKey("writeconfig")) {
-      writeJobConfig(conf);
-    } else {
-      // Delete the output directory if it exists already
-      Path out_path = new Path(outputPath);
-      if (FileSystem.get(conf).exists(out_path)) {
-        // TODO(jlewi): We should only delete an existing directory
-        // if explicitly told to do so.
-        sLogger.info("Deleting output path: " + out_path.toString() + " " +
-            "because it already exists.");
-        FileSystem.get(conf).delete(out_path, true);
-      }
-
-      long starttime = System.currentTimeMillis();
-      job = JobClient.runJob(conf);
-      long endtime = System.currentTimeMillis();
-
-      float diff = (float) ((endtime - starttime) / 1000.0);
+  @Override
+  protected void postRunHook() {
+    try {
       long numNodes = job.getCounters().findCounter(
           "org.apache.hadoop.mapred.Task$Counter",
           "MAP_INPUT_RECORDS").getValue();
@@ -406,9 +368,10 @@ public class CompressibleAvro extends Stage {
       sLogger.info("Number of nodes in graph:" + numNodes);
       sLogger.info(
           "Number of compressible nodes in graph:" + numCompressibleNodes);
-      sLogger.info("Runtime: " + diff + " s");
+    } catch (IOException e) {
+      sLogger.fatal("Couldn't get counters.", e);
+      System.exit(-1);
     }
-    return job;
   }
 
   public static void main(String[] args) throws Exception {

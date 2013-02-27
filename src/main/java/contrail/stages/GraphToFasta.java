@@ -27,19 +27,16 @@ import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroWrapper;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.MapReduceBase;
 import org.apache.hadoop.mapred.Mapper;
 import org.apache.hadoop.mapred.OutputCollector;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.mapred.TextOutputFormat;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
@@ -47,7 +44,7 @@ import org.apache.log4j.Logger;
 /**
  * Convert the graph to fasta files.
  */
-public class GraphToFasta extends Stage {
+public class GraphToFasta extends MRStage {
   private static final Logger sLogger = Logger.getLogger(GraphToFasta.class);
 
   /**
@@ -98,14 +95,11 @@ public class GraphToFasta extends Stage {
   }
 
   @Override
-  public RunningJob runJob() throws Exception {
+  protected void setupConfHook() {
+    JobConf conf = (JobConf) getConf();
+
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
-
-    sLogger.info(" - inputpath: "  + inputPath);
-    sLogger.info(" - outputpath: " + outputPath);
-
-    JobConf conf = new JobConf(GraphToFasta.class);
 
     AvroJob.setInputSchema(conf, GraphNodeData.SCHEMA$);
 
@@ -125,30 +119,6 @@ public class GraphToFasta extends Stage {
     // Make it mapper only.
     conf.setNumReduceTasks(0);
     conf.setMapperClass(GraphToFastqMapper.class);
-
-    if (stage_options.containsKey("writeconfig")) {
-      writeJobConfig(conf);
-    } else {
-      // Delete the output directory if it exists already
-      Path out_path = new Path(outputPath);
-      if (FileSystem.get(conf).exists(out_path)) {
-        // TODO(jlewi): We should only delete an existing directory
-        // if explicitly told to do so.
-        sLogger.info("Deleting output path: " + out_path.toString() + " " +
-            "because it already exists.");
-        FileSystem.get(conf).delete(out_path, true);
-      }
-
-      long starttime = System.currentTimeMillis();
-      RunningJob result = JobClient.runJob(conf);
-      long endtime = System.currentTimeMillis();
-
-      float diff = (float) ((endtime - starttime) / 1000.0);
-
-      System.out.println("Runtime: " + diff + " s");
-      return result;
-    }
-    return null;
   }
 
   public static void main(String[] args) throws Exception {

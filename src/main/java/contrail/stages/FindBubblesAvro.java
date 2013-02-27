@@ -29,17 +29,12 @@ import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
-import org.apache.log4j.Logger;
-
 import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
@@ -50,19 +45,20 @@ import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
 import contrail.stages.GraphCounters.CounterName;
+import contrail.util.ContrailLogger;
 
 /**
  * This stage finds redundant paths created by sequencing errors.
  *
- * Sequencing errors in the middle of reads creates redundant paths. These 
+ * Sequencing errors in the middle of reads creates redundant paths. These
  * redundant paths are found in formation of type X->{A,B}->Y, where X->{A,B}
- * means X has a path to each node in the set {A,B}. Similarly, {A,B}-> Y 
+ * means X has a path to each node in the set {A,B}. Similarly, {A,B}-> Y
  * means each node in the set {A, B} has a path to node Y.
- * 
- * If the paths for A and B are sufficiently similar, then then we can assume 
- * one of the paths is the result of sequencing errors and only keep the path 
+ *
+ * If the paths for A and B are sufficiently similar, then then we can assume
+ * one of the paths is the result of sequencing errors and only keep the path
  * with higher coverage.
- * This type of formation X->{A,B}->Y is called a "bubble". However, we also 
+ * This type of formation X->{A,B}->Y is called a "bubble". However, we also
  * compare each bubble to the direct paths between major and minor.
  *
  * Popping bubbles is done in two stages.
@@ -110,8 +106,9 @@ import contrail.stages.GraphCounters.CounterName;
  * won't work.
  */
 
-public class FindBubblesAvro extends Stage   {
-  private static final Logger sLogger = Logger.getLogger(FindBubblesAvro.class);
+public class FindBubblesAvro extends MRStage   {
+  private static final ContrailLogger sLogger = ContrailLogger.getLogger(
+      FindBubblesAvro.class);
 
   public static final Schema MAP_OUT_SCHEMA =
       Pair.getPairSchema(Schema.create(Schema.Type.STRING),
@@ -136,13 +133,16 @@ public class FindBubblesAvro extends Stage   {
         new ParameterDefinition("bubble_edit_rate",
             "We consider two sequences to be the same if their edit distance " +
             "is less then or equal to length * bubble_edit_rate.",
-            Float.class, new Float(0));
+            Float.class, null);
 
     ParameterDefinition bubble_length_threshold =
         new ParameterDefinition("bubble_length_threshold",
             "A threshold for sequence lengths. Only sequence's with lengths " +
             "less than this value can be bubbles.",
-            Integer.class, new Integer(0));
+            Integer.class, null);
+
+    ParameterDefinition kDef = ContrailParameters.getK();
+    defs.put(kDef.getName(), kDef);
 
     for (ParameterDefinition def:
       new ParameterDefinition[] {
@@ -250,7 +250,7 @@ public class FindBubblesAvro extends Stage   {
       // A boolean variable used for marking nodes which will be deleted because
       // they are sufficiently similar to another node.
       boolean popped;
-      // The strands type of the major and minor node 
+      // The strands type of the major and minor node
       abstract DNAStrand getMajorStrand();
       abstract DNAStrand getMinorStrand();
       abstract String getMajorNeighborID();
@@ -268,20 +268,20 @@ public class FindBubblesAvro extends Stage   {
 
     /**
      * This class is used by Indirect Paths between major and minor nodes
-     * An indirect path is a path between two nodes X &Y which passes through 
-     * some middle node e.g X->A->Y is an indirect path between X & Y. 
-     * 
+     * An indirect path is a path between two nodes X &Y which passes through
+     * some middle node e.g X->A->Y is an indirect path between X & Y.
+     *
      * For this middle Node, we identify the strand such
      * that there is an outgoing edge from the forward strand of its major
      * neighbor. We use this strand when computing the edit distance.
-     * 
+     *
      * IndirectPath sequence of X->A->Y is interpreted as X + A[K-1:] + Y[K-1:]
      * (where [K-1:] refers to substring from K-1 index to end of sequence)
-     * Since we wish to compare sequences of various Indirect Paths; we do not 
+     * Since we wish to compare sequences of various Indirect Paths; we do not
      * need to compare X and Y[K-1:] bases of Indirect Path sequence; as they
      * will be same of each path having same majors and minors (as X and Y).
-     * 
-     * Trimmed Sequence of an Indirect Path returns A[K-1:] sequence for path 
+     *
+     * Trimmed Sequence of an Indirect Path returns A[K-1:] sequence for path
      * X->A->Y (which is enough to compare various Indirect paths)
      */
     class IndirectPath extends PathBase {
@@ -300,9 +300,9 @@ public class FindBubblesAvro extends Stage   {
       boolean noMinor;
 
       /**
-       * This constructor accepts nodeData one of the middle Node of Indirect 
-       * Paths and sets the rest of class instances based on information 
-       * contained in nodeData 
+       * This constructor accepts nodeData one of the middle Node of Indirect
+       * Paths and sets the rest of class instances based on information
+       * contained in nodeData
        * @param middleNodeData
        * @param major
        */
@@ -393,17 +393,17 @@ public class FindBubblesAvro extends Stage   {
     }
 
     /**
-     * This class is used for identifying direct paths that occur between 
+     * This class is used for identifying direct paths that occur between
      * minor and major nodes
-     * 
+     *
      * DirectPath sequence of X->Y is interpreted as X + Y[K-1:]
      * (where [K-1:] refers to substring from K-1 index to end of sequence)
-     * Since we wish to compare sequences of various Indirect Paths and also 
-     * Direct Paths; we do not need to compare X and Y[K-1:] bases of Direct 
+     * Since we wish to compare sequences of various Indirect Paths and also
+     * Direct Paths; we do not need to compare X and Y[K-1:] bases of Direct
      * Path sequence; as they will be same of each path having same majors and
      * minors (as X and Y).
-     * 
-     * Trimmed Sequence of an Direct Path returns "" (empty) sequence for path 
+     *
+     * Trimmed Sequence of an Direct Path returns "" (empty) sequence for path
      * X->Y (which is enough to compare various Indirect paths)
      */
     public class DirectPath extends PathBase{
@@ -435,7 +435,7 @@ public class FindBubblesAvro extends Stage   {
 
         // trimmed sequence is the sequence of middle node minus overlapped
         // bases; Since there is no middle node in direct paths trimmedsequence
-        // is an empty sequence 
+        // is an empty sequence
         trimmedSequence = new Sequence("", DNAAlphabetFactory.create());
 
         // to calculate number of reads this edge points to; we get tags info.
@@ -481,10 +481,10 @@ public class FindBubblesAvro extends Stage   {
      *  This function returns all the path from node X to node Y
      *  where X and Y are major and minor nodes (not necessarily in order)
      */
-    private void addDirectPathList(CharSequence minor, 
+    private void addDirectPathList(CharSequence minor,
         List<PathBase> minor_list, GraphNode majorNode, int K)  {
-      //  By convention in FindBubbles  we align the middle node so that 
-      // there is an outgoing edge from the major node to the bubble node. 
+      //  By convention in FindBubbles  we align the middle node so that
+      // there is an outgoing edge from the major node to the bubble node.
       // Either strand of the major node could be involved.
       DirectPath temp = null;
       ArrayList<DirectPath> directPathList = new ArrayList<DirectPath>();
@@ -495,7 +495,7 @@ public class FindBubblesAvro extends Stage   {
           nodeMetaData.majorStrand, EdgeDirection.OUTGOING);
       for(EdgeTerminal terminal: terminals){
         if (terminal.equals(minorTerminal))  {
-          temp = new DirectPath(majorNode, minor, K); 
+          temp = new DirectPath(majorNode, minor, K);
           directPathList.add(temp);
         }
       }
@@ -515,7 +515,7 @@ public class FindBubblesAvro extends Stage   {
       int threshold;
 
       // Sort potential middle nodes in order of decreasing coverage.
-      Collections.sort(processList);      
+      Collections.sort(processList);
       for (int i = 0; i < processList.size(); i++)   {
         PathBase highCoveragePath = processList.get(i);
         if(highCoveragePath.popped)  {
@@ -531,8 +531,8 @@ public class FindBubblesAvro extends Stage   {
           // strands of the major and minor node.
           if((highCoveragePath.getMajorStrand() != lowCoveragePath.getMajorStrand()) ||
               (highCoveragePath.getMinorStrand() != lowCoveragePath.getMinorStrand())) {
-            continue; 
-          }  
+            continue;
+          }
 
           distance = highCoveragePath.getTrimmedSequence().computeEditDistance(
               lowCoveragePath.getTrimmedSequence());
@@ -602,13 +602,13 @@ public class FindBubblesAvro extends Stage   {
     }
 
     /**
-     * Output the messages to the minor node. 
+     * Output the messages to the minor node.
      * This function receives the PathBase list and outputs
-     * 1. Information to the minor node in the form of following schema: 
+     * 1. Information to the minor node in the form of following schema:
      *  -- Minor node ID (to which messages will be sent)
      *  -- List of deleted neighbors to be removed
      *  -- List of neighbors which are palindrome
-     *  
+     *
      * 2. Nodes from paths which weren't removed of major
      * @param processList
      * @param minor
@@ -639,12 +639,13 @@ public class FindBubblesAvro extends Stage   {
             }
             // This is a non-popped node so output the node.
             output.setNode(indirectPath.middleNode.getData());
-            collector.collect(output);    
+            collector.collect(output);
           }
         } else  {
-          DirectPath directPath = (DirectPath) markedPath;
+          // Else its a directpath in which case we would need to remove
+          // the edge to the major node.
           if(markedPath.popped) {
-            deletedNeighbors.add(directPath.minorID);
+            deletedNeighbors.add(majorNode.getNodeId());
           }
         }
       }
@@ -742,7 +743,7 @@ public class FindBubblesAvro extends Stage   {
           // marks nodes to be deleted for a particular list of minorID
           markRedundantPaths(minorPaths, reporter, minorID);
         }
-        // After removing redundant paths, we check any nodes which are still 
+        // After removing redundant paths, we check any nodes which are still
         //alive if they are palindromes.
         processPalindromes(minorPaths, reporter);
         reporter.incrCounter("Contrail", "edgeschecked", choices);
@@ -759,42 +760,11 @@ public class FindBubblesAvro extends Stage   {
     }
   }
 
-  // Run Tool
-  ///////////////////////////////////////////////////////////////////////////
-
-  public RunningJob runJob() throws Exception {
-    String[] requiredArgs = {"inputpath", "outputpath", "bubble_edit_rate",
-    "bubble_length_threshold"};
-    checkHasParametersOrDie(requiredArgs);
-
+  @Override
+  protected void setupConfHook() {
+    JobConf conf = (JobConf) getConf();
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
-    int K = (Integer)stage_options.get("K");
-
-    sLogger.info("Tool name: FindBubbles");
-    sLogger.info(" - input: "  + inputPath);
-    sLogger.info(" - output: " + outputPath);
-
-    int bubbleLengthThreshold =
-        (Integer)stage_options.get("bubble_length_threshold");
-    if (bubbleLengthThreshold <= K) {
-      sLogger.warn(
-          "FindBubbles will not run because bubble_length_threshold<=K so no " +
-          "nodes will be considered bubbles.");
-      return null;
-    }
-
-    Configuration base_conf = getConf();
-    JobConf conf = null;
-    if (base_conf != null) {
-      conf = new JobConf(getConf(), this.getClass());
-    }
-    else {
-      conf = new JobConf(this.getClass());
-    }
-    conf.setJobName("FindBubbles " + inputPath + " " + K);
-
-    initializeJobConfiguration(conf);
 
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
@@ -806,30 +776,43 @@ public class FindBubblesAvro extends Stage   {
 
     AvroJob.setMapperClass(conf, FindBubblesAvroMapper.class);
     AvroJob.setReducerClass(conf, FindBubblesAvroReducer.class);
-
-    //delete the output directory if it exists already
-    FileSystem.get(conf).delete(new Path(outputPath), true);
-
-    long starttime = System.currentTimeMillis();
-    RunningJob result = JobClient.runJob(conf);
-    long endtime = System.currentTimeMillis();
-
-    float diff = (float) ((endtime - starttime) / 1000.0);
-
-    long numToPop = result.getCounters().findCounter(
-        NUM_BUBBLES.group, NUM_BUBBLES.tag).getValue();
-
-    long numPalindromes = result.getCounters().findCounter(
-        NUM_PALINDROMES.group, NUM_PALINDROMES.tag).getValue();
-
-    sLogger.info("Number of nodes to pop:" + numToPop);
-    sLogger.info("Number of palindromes:" + numPalindromes);
-    sLogger.info("Runtime: " + diff + " s");
-    return result;
   }
 
-  // Main
-  ///////////////////////////////////////////////////////////////////////////
+  @Override
+  public List<InvalidParameter> validateParameters() {
+    List<InvalidParameter> items = super.validateParameters();
+
+    int bubbleLengthThreshold =
+        (Integer)stage_options.get("bubble_length_threshold");
+
+    int K = (Integer)stage_options.get("K");
+
+    if (bubbleLengthThreshold <= K) {
+      InvalidParameter item = new InvalidParameter(
+          "bubble_length_threshold",
+          "FindBubbles will not run because bubble_length_threshold<=K so no " +
+          "nodes will be considered bubbles.");
+      items.add(item);
+    }
+    return items;
+  }
+
+  @Override
+  protected void postRunHook() {
+    try {
+      long numToPop = job.getCounters().findCounter(
+          NUM_BUBBLES.group, NUM_BUBBLES.tag).getValue();
+
+      long numPalindromes = job.getCounters().findCounter(
+          NUM_PALINDROMES.group, NUM_PALINDROMES.tag).getValue();
+
+      sLogger.info("Number of nodes to pop:" + numToPop);
+      sLogger.info("Number of palindromes:" + numPalindromes);
+    } catch (IOException e) {
+      sLogger.fatal("Couldn't get counters.", e);
+      System.exit(-1);
+    }
+  }
 
   public static void main(String[] args) throws Exception   {
     int res = ToolRunner.run(new Configuration(), new FindBubblesAvro(), args);

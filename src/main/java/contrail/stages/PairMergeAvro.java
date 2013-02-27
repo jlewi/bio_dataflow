@@ -16,14 +16,11 @@ import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -54,7 +51,7 @@ import contrail.stages.GraphCounters.CounterName;
  * the forward strand of the down node always corresponds to the forward
  * strand of the merged node (see the javadoc for PairMarkAvro).
  */
-public class PairMergeAvro extends Stage {
+public class PairMergeAvro extends MRStage {
   private static final Logger sLogger = Logger.getLogger(PairMergeAvro.class);
 
 
@@ -403,41 +400,16 @@ public class PairMergeAvro extends Stage {
       ContrailParameters.getInputOutputPathOptions()) {
       defs.put(def.getName(), def);
     }
+    ParameterDefinition kDef = ContrailParameters.getK();
+    defs.put(kDef.getName(), kDef);
     return Collections.unmodifiableMap(defs);
   }
 
-  public int run(String[] args) throws Exception {
-    sLogger.info("Tool name: PairMergeAvro");
-    parseCommandLine(args);
-    runJob();
-    return 0;
-  }
-
   @Override
-  public RunningJob runJob() throws Exception {
-    String[] required_args = {"inputpath", "outputpath", "K"};
-    checkHasParametersOrDie(required_args);
-
+  protected void setupConfHook() {
+    JobConf conf = (JobConf) getConf();
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
-    int K = (Integer) stage_options.get("K");
-
-    sLogger.info(" - input: "  + inputPath);
-    sLogger.info(" - output: " + outputPath);
-    sLogger.info(" - K: " + K);
-
-    Configuration base_conf = getConf();
-    JobConf conf = null;
-    if (base_conf != null) {
-      conf = new JobConf(getConf(), PairMergeAvro.class);
-    } else {
-      conf = new JobConf(PairMergeAvro.class);
-    }
-
-    conf.setJobName("PairMergeAvro " + inputPath + " " + K);
-
-    initializeJobConfiguration(conf);
-
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
@@ -452,26 +424,11 @@ public class PairMergeAvro extends Stage {
 
     AvroJob.setMapperClass(conf, PairMergeMapper.class);
     AvroJob.setReducerClass(conf, PairMergeReducer.class);
+  }
 
-    if (stage_options.containsKey("writeconfig")) {
-      writeJobConfig(conf);
-    } else {
-      // Delete the output directory if it exists already
-      Path out_path = new Path(outputPath);
-      if (FileSystem.get(conf).exists(out_path)) {
-        // TODO(jlewi): We should only delete an existing directory
-        // if explicitly told to do so.
-        sLogger.info("Deleting output path: " + out_path.toString() + " " +
-            "because it already exists.");
-        FileSystem.get(conf).delete(out_path, true);
-      }
-
-      long starttime = System.currentTimeMillis();
-      RunningJob job = JobClient.runJob(conf);
-      long endtime = System.currentTimeMillis();
-
-      float diff = (float) ((endtime - starttime) / 1000.0);
-      sLogger.info("Runtime: " + diff + " s");
+  @Override
+  protected void postRunHook() {
+    try {
       long numCompressibleRemaining = job.getCounters().findCounter(
           NUM_REMAINING_COMPRESSIBLE.group,
           NUM_REMAINING_COMPRESSIBLE.tag).getValue();
@@ -481,9 +438,10 @@ public class PairMergeAvro extends Stage {
       sLogger.info(
           "Number of remaining nodes to compress:" + numCompressibleRemaining);
       sLogger.info("Number of nodes in graph:" + numNodes);
-      return job;
+    } catch (IOException e) {
+      sLogger.fatal("Couldn't get counters.", e);
+      System.exit(-1);
     }
-    return null;
   }
 
   public static void main(String[] args) throws Exception {

@@ -58,7 +58,7 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
     public HashMap<String, RemoveNeighborMessage> expected_messages;
     public Integer lengthThreshold = 5;
     public Float coverageThreshold = 4.0f;
-
+    public Integer minLength = 0;
     public MapTestCaseData () {
       expected_messages = new HashMap<String, RemoveNeighborMessage>();
     }
@@ -83,6 +83,23 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
     high_cov.expected_messages= expected_high_cov;
     return high_cov;
   }
+
+  // Short sequence (less than min_length) with high coverage.
+  // This node should be removed.
+ MapTestCaseData constructShortNodeTestCase()  {
+   MapTestCaseData testCase= new MapTestCaseData();
+   testCase.minLength = 10;
+   testCase.lengthThreshold = 20;
+   testCase.coverageThreshold = 5.0f;
+   GraphNode node = new GraphNode();
+   node.setCoverage(30);
+   Sequence seq = new Sequence("TCA", DNAAlphabetFactory.create());
+   node.setNodeId("TCA");
+   node.setSequence(seq);
+
+   testCase.node = node.getData();
+   return testCase;
+ }
 
   //short sequence (less than threshold) and also low coverage; hence classified Low coverage node
   MapTestCaseData constructLowCoverageNode()  {
@@ -207,6 +224,7 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
         stage.getParameterDefinitions();
 
     List <MapTestCaseData> testCases= new ArrayList<MapTestCaseData>();
+    testCases.add(constructShortNodeTestCase());
     testCases.add(constructDoubleEdge());
     testCases.add(constructLowCoverageNode());
     testCases.add(constructNonLowCoverageNode());
@@ -220,6 +238,8 @@ public class TestRemoveLowCoverageAvro extends RemoveLowCoverageAvro  {
           job, case_data.lengthThreshold);
       definitions.get("low_cov_thresh").addToJobConf(
           job, case_data.coverageThreshold);
+      definitions.get("min_length").addToJobConf(
+          job, case_data.minLength);
       mapper.configure(job);
 
       AvroCollectorMock<Pair<CharSequence, RemoveNeighborMessage>>

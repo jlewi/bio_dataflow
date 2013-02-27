@@ -25,14 +25,11 @@ import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -51,7 +48,7 @@ import contrail.graph.GraphNodeData;
  *
  * The reducer applies the delete edge messages to nodes and outputs the graph.
  */
-public class PopBubblesAvro extends Stage  {
+public class PopBubblesAvro extends MRStage  {
   private static final Logger sLogger = Logger.getLogger(PopBubblesAvro.class);
 
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
@@ -64,6 +61,7 @@ public class PopBubblesAvro extends Stage  {
       ContrailParameters.getInputOutputPathOptions()) {
       defs.put(def.getName(), def);
     }
+
     return defs;
   }
 
@@ -164,29 +162,11 @@ public class PopBubblesAvro extends Stage  {
   }
 
   @Override
-  public RunningJob runJob() throws Exception {
-    String[] required_args = {"inputpath", "outputpath"};
-    checkHasParametersOrDie(required_args);
-
+  protected void setupConfHook() {
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
 
-    sLogger.info("Tool name: PopBubbles");
-    sLogger.info(" - input: "  + inputPath);
-    sLogger.info(" - output: " + outputPath);
-
-    Configuration base_conf = getConf();
-    JobConf conf = null;
-    if (base_conf != null) {
-      conf = new JobConf(getConf(), this.getClass());
-    }
-    else {
-      conf = new JobConf(this.getClass());
-    }
-    conf.setJobName("PopBubbles " + inputPath);
-
-    initializeJobConfiguration(conf);
-
+    JobConf conf = (JobConf) getConf();
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
@@ -202,16 +182,19 @@ public class PopBubblesAvro extends Stage  {
     AvroJob.setReducerClass(conf, PopBubblesAvroReducer.class);
 
     AvroJob.setOutputSchema(conf, graphData.getSchema());
+  }
 
-    //delete the output directory if it exists already
-    FileSystem.get(conf).delete(new Path(outputPath), true);
-
-    RunningJob job = JobClient.runJob(conf);
-    long numNodes = job.getCounters().findCounter(
-        "org.apache.hadoop.mapred.Task$Counter",
-        "REDUCE_OUTPUT_RECORDS").getValue();
-    sLogger.info("Number of nodes outputed:" + numNodes);
-    return job;
+  @Override
+  protected void postRunHook() {
+    try {
+      long numNodes = job.getCounters().findCounter(
+          "org.apache.hadoop.mapred.Task$Counter",
+          "REDUCE_OUTPUT_RECORDS").getValue();
+      sLogger.info("Number of nodes outputed:" + numNodes);
+    } catch (IOException e) {
+      sLogger.fatal("Couldn't get counters.", e);
+      System.exit(-1);
+    }
   }
 
   public static void main(String[] args) throws Exception {
