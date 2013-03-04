@@ -537,9 +537,9 @@ public class FindBubblesAvro extends MRStage   {
           distance = highCoveragePath.getTrimmedSequence().computeEditDistance(
               lowCoveragePath.getTrimmedSequence());
 
-          threshold = (int) Math.max(
+          threshold = (int) Math.ceil(Math.max(
               highCoveragePath.getTrimmedSequence().size(),
-              lowCoveragePath.getTrimmedSequence().size() * bubbleEditRate);
+              lowCoveragePath.getTrimmedSequence().size()) * bubbleEditRate);
 
           reporter.incrCounter("Contrail", "pathschecked", 1);
           if (distance <= threshold)  {
