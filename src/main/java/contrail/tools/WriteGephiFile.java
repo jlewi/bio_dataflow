@@ -17,6 +17,7 @@ package contrail.tools;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -116,6 +117,16 @@ public class WriteGephiFile extends Stage {
         "num_hops", "(Optional) Number of hops to take starting at start_node.",
         Integer.class, null);
 
+    ParameterDefinition sequence = new ParameterDefinition(
+        "sequence",
+        "Include the contig sequence in the node metadata.", Boolean.class,
+        false);
+
+    ParameterDefinition r5 = new ParameterDefinition(
+        "r5tags",
+        "Include the r5tags.", Boolean.class,
+        false);
+
     ParameterDefinition tmpCheck = new ParameterDefinition(
         "disallow_tmp",
         "(Only for unittest) disables the check to see if the outputpath is " +
@@ -124,6 +135,8 @@ public class WriteGephiFile extends Stage {
     defs.put(start_node.getName(), start_node);
     defs.put(num_hops.getName(), num_hops);
     defs.put(tmpCheck.getName(), tmpCheck);
+    defs.put(sequence.getName(), sequence);
+    defs.put(r5.getName(), r5);
     return Collections.unmodifiableMap(defs);
   }
 
@@ -278,13 +291,22 @@ public class WriteGephiFile extends Stage {
       root.appendChild(attributes);
       attributes.setAttribute("class", "node");
 
-      nodeAttrIdMap.put("node-id", "0");
-      nodeAttrIdMap.put("out-degree", "1");
-      nodeAttrIdMap.put("in-degree", "2");
-      nodeAttrIdMap.put("length", "3");
-      nodeAttrIdMap.put("coverage", "4");
-      nodeAttrIdMap.put("sequence", "5");
-      nodeAttrIdMap.put("r5tags", "6");
+      List<String> fields = Arrays.asList(new String[]{
+          "node-id", "out-degree", "in-degree", "length", "coverage"});
+
+
+      if ((Boolean)stage_options.get("sequence")) {
+        fields.add("sequence");
+      }
+
+      if ((Boolean)stage_options.get("r5tags")) {
+        fields.add("r5tags");
+      }
+
+
+      for (int i = 0; i < fields.size(); ++i) {
+        nodeAttrIdMap.put(fields.get(i), Integer.toString(i));
+      }
 
       for (Entry<String, String> entry : nodeAttrIdMap.entrySet()) {
         Element attribute = doc.createElement("attribute");
@@ -293,7 +315,6 @@ public class WriteGephiFile extends Stage {
         attribute.setAttribute("type", "string");
         attributes.appendChild(attribute);
       }
-
     }
 
     edgeAttrIdMap = new HashMap<String, String> ();
