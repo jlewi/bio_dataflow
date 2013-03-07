@@ -16,6 +16,8 @@ package contrail.sequences;
 
 import java.io.PrintStream;
 
+import org.apache.commons.lang.StringUtils;
+
 /**
  * Utilities for working with fastq and fasta data.
  *
@@ -34,6 +36,19 @@ public class FastUtil {
     stream.append("\n+\n");
     stream.append(record.getQvalue());
     stream.append("\n");
+  }
+
+  /**
+   * Return the record. There is no newline at the end.
+   * @param record
+   * @return
+   */
+  public static String fastQRecordToString(FastQRecord record) {
+    return StringUtils.join(
+        new CharSequence[]{"@" + record.getId(), record.getRead(), "+",
+                           record.getQvalue()},
+        "\n");
+
   }
 
   /**
