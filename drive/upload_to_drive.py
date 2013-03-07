@@ -23,6 +23,7 @@ import stat
 import sys
 
 gflags.DEFINE_string("path", None, "The path to a file or directory to upload")
+gflags.DEFINE_string("name", None, "The name to assign the document. Defaults to the filename.")
 gflags.DEFINE_string("description", "", "Description for the file.")
 gflags.DEFINE_bool("convert", True, "Whether to convert the file.")
 
@@ -109,7 +110,10 @@ def main(argv):
     if file_ext == ".html":
       mime_type = "text/html"
 
-    name = os.path.basename(file_path)
+    if FLAGS.name:
+      name = FLAGS.name
+    else:
+      name = os.path.basename(file_path)
 
     body = {
       'title': name,
