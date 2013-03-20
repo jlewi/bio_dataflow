@@ -157,7 +157,16 @@ public class CorrectionPipelineRunner extends Stage{
     counterOptions.put("outputpath", kmerCountsPath);
     counterOptions.put("K", stage_options.get("K"));
     kmerCounter.setParameters(counterOptions);
-    runStage(kmerCounter);
+
+    // TODO(jeremy@lewi.us): We should be using executeChild
+    // once CorrectionPipelineRunner is converted to a subclass of
+    // PipelineStage
+    if (!kmerCounter.execute()) {
+      sLogger.fatal(
+          String.format(
+              "Stage %s had a problem", kmerCounter.getClass().getName()),
+          new RuntimeException("Stage failed"));
+    }
 
     // Convert KmerCounts to Text
     sLogger.info("Running ConvertKMerCountsToText");

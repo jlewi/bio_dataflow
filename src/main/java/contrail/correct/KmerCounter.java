@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.avro.Schema;
@@ -27,14 +28,11 @@ import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -44,15 +42,15 @@ import contrail.sequences.FastQRecord;
 import contrail.sequences.MatePair;
 import contrail.sequences.Sequence;
 import contrail.stages.ContrailParameters;
+import contrail.stages.MRStage;
 import contrail.stages.ParameterDefinition;
-import contrail.stages.Stage;
 
 /**
  * This class counts Kmers. The input is an avro file containing FastQRecord
  * records. Kmers are extracted from the "read" of FastQRecord.
  */
 
-public class KmerCounter extends Stage {
+public class KmerCounter extends MRStage {
   private static final Logger sLogger = Logger.getLogger(KmerCounter.class);
  /**
   * The input schema to this mapper is the fastqrecord schema
@@ -151,22 +149,25 @@ public class KmerCounter extends Stage {
   }
 
   @Override
-  public RunningJob runJob() throws Exception{
-    // Check for missing arguments.
-    String[] required_args = {
-        "inputpath", "outputpath", "K"};
-    checkHasParametersOrDie(required_args);
+  public List<InvalidParameter> validateParameters() {
+    ArrayList<InvalidParameter> items = new ArrayList<InvalidParameter>();
+    int K = (Integer) stage_options.get("K");
+
+    // K should be odd.
+    if (K <= 0) {
+      InvalidParameter item = new InvalidParameter(
+          "K", "K need s to be > 0");
+      items.add(item);
+    }
+    return items;
+  }
+
+  @Override
+  protected void setupConfHook() {
+    JobConf conf = (JobConf) getConf();
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
-    Integer K = (Integer) stage_options.get("K");
-    if (K <= 0) {
-      sLogger.fatal("K needs to be > 0", new IllegalArgumentException());
-      System.exit(-1);
-    }
-
-    JobConf conf = new JobConf(KmerCounter.class);
     conf.setJobName("Kmer Counter ");
-    initializeJobConfiguration(conf);
 
     ArrayList<Schema> schemas = new ArrayList<Schema>();
     schemas.add(new FastQRecord().getSchema());
@@ -175,26 +176,17 @@ public class KmerCounter extends Stage {
     FileInputFormat.setInputPaths(conf, inputPath);
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
     AvroJob.setInputSchema(conf, unionSchema);
-    AvroJob.setOutputSchema(conf, new Pair<CharSequence,Long>("", 0L).getSchema());
+    AvroJob.setOutputSchema(
+        conf, new Pair<CharSequence,Long>("", 0L).getSchema());
     AvroJob.setMapperClass(conf, KmerCounterMapper.class);
     AvroJob.setCombinerClass(conf, KmerCounterCombiner.class);
     AvroJob.setReducerClass(conf, KmerCounterReducer.class);
-    // Delete the output directory if it exists already
-    Path out_path = new Path(outputPath);
-    if (FileSystem.get(conf).exists(out_path)) {
-      FileSystem.get(conf).delete(out_path, true);
-    }
-    long starttime = System.currentTimeMillis();
-    RunningJob run = JobClient.runJob(conf);
-    long endtime = System.currentTimeMillis();
-    float diff = (float) ((endtime - starttime) / 1000.0);
-    System.out.println("Runtime: " + diff + " s");
-    return run;
   }
 
   @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
-    HashMap<String, ParameterDefinition> defs = new HashMap<String, ParameterDefinition>();
+    HashMap<String, ParameterDefinition> defs =
+        new HashMap<String, ParameterDefinition>();
     defs.putAll(super.createParameterDefinitions());
     for (ParameterDefinition def:
       ContrailParameters.getInputOutputPathOptions()) {
@@ -210,5 +202,4 @@ public class KmerCounter extends Stage {
     int res = ToolRunner.run(new Configuration(), new KmerCounter(), args);
     System.exit(res);
   }
-
 }
