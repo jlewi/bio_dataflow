@@ -15,6 +15,7 @@
 package contrail.correct;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
 import java.io.File;
@@ -43,7 +44,7 @@ public class TestFastQToAvro {
   @Test
   public void testRun() {
     Random generator = new Random();
-    int numFiles = 2;
+    int numFiles = 1;
     int numReads = 100;
     int readLength = 2000;
 
@@ -99,6 +100,7 @@ public class TestFastQToAvro {
     } catch (Exception exception) {
       fail("Exception occured:" + exception.getMessage());
     }
+
     long numInputs = 0;
     long numOutputs = 0;
 
@@ -132,6 +134,7 @@ public class TestFastQToAvro {
 
       while (reader.hasNext()) {
         FastQRecord record = reader.next();
+        assertFalse(outReads.containsKey(record.getId().toString()));
         outReads.put(record.getId().toString(), record);
       }
     }

@@ -106,7 +106,7 @@ public class FastQToAvro extends Stage {
 
     //Sets the parameters in JobConf
     initializeJobConfiguration(conf);
-    FileInputFormat.addInputPath(conf, new Path(inputPath));
+    FileInputFormat.addInputPaths(conf, inputPath);
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
     AvroJob.setOutputSchema(conf,new FastQRecord().getSchema());
 

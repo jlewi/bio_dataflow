@@ -46,6 +46,11 @@ class FastQRecordReader implements
   @Override
   public synchronized boolean next(LongWritable key, FastQWritable value)
       throws IOException {
+    // Check if we are at the end of the split.
+    if (getPos() >= end) {
+      return false;
+    }
+
     try {
       value.readFields(fileIn);
     } catch (EOFException e) {
@@ -72,7 +77,7 @@ class FastQRecordReader implements
   }
 
   public long getPos() throws IOException {
-    // TODO(jeremy@lewi.us): Does pos return the correct possition even
+    // TODO(jeremy@lewi.us): Does pos return the correct position even
     // if we buffered the input?
     return fileIn.getPos();
   }
