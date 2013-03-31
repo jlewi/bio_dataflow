@@ -89,7 +89,11 @@ public class FastQToAvro extends Stage {
 
   @Override
   public RunningJob runJob() throws Exception {
-    JobConf conf = new JobConf(FastQToAvro.class);
+    if (getConf() == null) {
+      setConf(new JobConf());
+    }
+    JobConf conf = new JobConf(getConf());
+    setConf(conf);
 
     conf.setJobName("FastQToAvro");
     String inputPath, outputPath;
