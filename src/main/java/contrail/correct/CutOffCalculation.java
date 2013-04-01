@@ -18,6 +18,7 @@ package contrail.correct;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -138,6 +139,34 @@ public class CutOffCalculation extends Stage {
     }
   }
 
+  /**
+   * Copy files to the output directory.
+   * @param names
+   */
+  private void copyFilesToOutputDir(String workDir, String[] names) {
+    // Copy the log files to the output directory.
+    FileSystem fs = null;
+    try {
+      fs = FileSystem.get(getConf());
+    } catch (IOException e) {
+      sLogger.fatal("Could not get filesystem.", e);
+    }
+
+    String outputPath = (String) stage_options.get("outputpath");
+    for (String name : names) {
+      // TODO(jeremy@lewi.us): Should we check the input file exists?
+      Path inPath = new Path(workDir.toString(), name);
+      Path outPath = new Path(outputPath, name);
+      sLogger.info(String.format(
+          "Copy %s to %s.", inPath.toString(), outPath.toString()));
+      try {
+        fs.copyFromLocalFile(inPath, outPath);
+      } catch (IOException e) {
+        sLogger.fatal("Could not copy file.", e);
+      }
+    }
+  }
+
   private int executeCovModel(String countFile) throws Exception {
     // TODO(jeremy@lewi.us): The python script is firing off an R script so R is
     // required.
@@ -164,8 +193,25 @@ public class CutOffCalculation extends Stage {
     if (ShellUtil.executeAndRedirect(
          command, workDir.toString(), "cov_model.py", sLogger, outStream) !=
          0 ){
+      // Check if the log file exists and if it does output it.
+      File rLogFile = new File(workDir.toString(), "r.log");
+      if (rLogFile.exists()) {
+        BufferedReader reader = new BufferedReader(
+            new InputStreamReader(new FileInputStream(rLogFile)));
+        for (String line = reader.readLine(); line != null;
+            line = reader.readLine()) {
+          sLogger.info("R LOG:" + line);
+        }
+        copyFilesToOutputDir(workDir.getPath(), new String[]{"r.log"});
+      } else {
+        sLogger.error("Log file doesn't exist:" + rLogFile.getPath());
+      }
+
+      String outLogFile = FilenameUtils.concat(
+          (String) stage_options.get("outputpath"), "r.log");
       sLogger.fatal(
-          "There was a problem running cov_model.py",
+          "There was a problem running cov_model.py. Check the R log file:"
+          + outLogFile,
           new RuntimeException("cov_model.py failed."));
       System.exit(-1);
     }
@@ -199,18 +245,9 @@ public class CutOffCalculation extends Stage {
     reader.close();
 
     // Copy the log files to the output directory.
-    FileSystem fs = FileSystem.get(getConf());
     String[] names = new String[] {
         "cov_model.output", "r.log", "cutoff.txt", "kmers.hist"};
-    String outputPath = (String) stage_options.get("outputpath");
-    for (String name : names) {
-      // TODO(jeremy@lewi.us): Should we check the input file exists?
-      Path inPath = new Path(workDir.toString(), name);
-      Path outPath = new Path(outputPath, name);
-      sLogger.info(String.format(
-          "Copy %s to %s.", inPath.toString(), outPath.toString()));
-      fs.copyFromLocalFile(inPath, outPath);
-    }
+    copyFilesToOutputDir(workDir.getPath(), names);
 
     // 1. Use shellUtil to execute the command from the directory
     // 2. How to get the cutoff from the result
