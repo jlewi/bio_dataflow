@@ -228,6 +228,28 @@ public class MRStage extends StageBase {
   }
 
   /**
+   * Return the specified counter.
+   *
+   * @param group
+   * @param name
+   * @return
+   */
+  public long getCounter(String group, String name) {
+    try {
+      if (!job.isSuccessful()) {
+        return -1;
+      }
+      return job.getCounters().findCounter(
+          group, name).getValue();
+
+    } catch (IOException e) {
+      sLogger.fatal("Couldn't get job state.", e);
+      System.exit(-1);
+    }
+    return -1;
+  }
+
+  /**
    * Run the stage after parsing the string arguments.
    */
   final public int run(String[] args) throws Exception {

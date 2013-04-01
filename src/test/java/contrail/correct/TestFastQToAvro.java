@@ -29,9 +29,6 @@ import org.apache.avro.file.DataFileReader;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.commons.io.FilenameUtils;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.RunningJob;
 import org.junit.Test;
 
 import contrail.sequences.AlphabetUtil;
@@ -40,7 +37,7 @@ import contrail.sequences.FastQRecord;
 import contrail.sequences.FastUtil;
 import contrail.util.FileHelper;
 
-public class TestFastQToAvro {
+public class TestFastQToAvro extends FastQToAvro {
   @Test
   public void testRun() {
     Random generator = new Random();
@@ -81,39 +78,21 @@ public class TestFastQToAvro {
     // Run it.
     FastQToAvro stage = new FastQToAvro();
 
-    // Set the split size because we want to divide the input into multiple
-    // splits to test that input splits are correct.
-    Configuration conf = stage.getConf();
-    if (conf == null) {
-      conf = new JobConf();
-    }
-    conf.setLong("FastQInputFormat.splitSize", 50000);
-    stage.setConf(conf);
-
     HashMap<String, Object> stageOptions = new HashMap<String, Object>();
     stageOptions.put("inputpath", tempDir.toURI().toString());
     stageOptions.put("outputpath", outputPath);
+    stageOptions.put("splitSize", 50000L);
     stage.setParameters(stageOptions);
-    RunningJob job = null;
-    try {
-      job = stage.runJob();
-    } catch (Exception exception) {
-      fail("Exception occured:" + exception.getMessage());
+
+    if (!stage.execute()) {
+      fail("FastQToAvro failed.");
     }
 
-    long numInputs = 0;
-    long numOutputs = 0;
+    long numInputs = stage.getNumMapInputRecords();
+    long numOutputs = stage.getCounter(
+        "org.apache.hadoop.mapred.Task$Counter",
+        "MAP_OUTPUT_RECORDS");
 
-    try {
-      numInputs = job.getCounters().findCounter(
-          "org.apache.hadoop.mapred.Task$Counter",
-          "MAP_INPUT_RECORDS").getValue();
-      numOutputs = job.getCounters().findCounter(
-          "org.apache.hadoop.mapred.Task$Counter",
-          "MAP_OUTPUT_RECORDS").getValue();
-    } catch (IOException ioe) {
-      fail("Exception occured:" + ioe.getMessage());
-    }
     assertEquals(numReads * numFiles, numInputs);
     assertEquals(numReads * numFiles, numOutputs);
 

@@ -45,13 +45,14 @@ public class FastQInputFormat extends
   private long splitSize;
   private Text buffer;
 
+  public static long DEFAULT_SPLIT_SIZE = 100*1000*1000L;
   public FastQInputFormat() {
     buffer = new Text();
   }
 
   @Override
   public void configure(JobConf job) {
-    splitSize = job.getLong("FastQInputFormat.splitSize", 100*1000*1000);
+    splitSize = job.getLong("FastQInputFormat.splitSize", DEFAULT_SPLIT_SIZE);
   }
 
   public FastQRecordReader getRecordReader(InputSplit genericSplit,
