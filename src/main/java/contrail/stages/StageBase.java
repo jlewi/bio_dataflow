@@ -209,7 +209,7 @@ abstract public class StageBase extends Stage {
       for (Enumeration<Appender> e = Logger.getRootLogger().getAllAppenders();
            e.hasMoreElements(); ) {
         Appender logger = e.nextElement();
-        if (logger.getName().equals(logFile)) {
+        if (logger.getName() != null && logger.getName().equals(logFile)) {
           // We've already setup the logger to the file so we don't setup
           // another one because that would cause messages to be logged multiple
           // times.
