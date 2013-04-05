@@ -32,10 +32,7 @@ public class FastQWritable implements Writable {
   private String qValue;
 
   public void write(DataOutput out) throws IOException {
-    out.writeBytes("@" + id + "\n");
-    out.writeBytes(dna + "\n");
-    out.writeBytes("+\n");
-    out.writeBytes(qValue + "\n");
+    out.writeBytes(toString());
   }
 
   public void readFields(DataInput in) throws IOException {
@@ -87,5 +84,14 @@ public class FastQWritable implements Writable {
 
   public void setQValue(String qValue) {
     this.qValue = qValue;
+  }
+
+  public String toString() {
+    StringBuilder builder = new StringBuilder();
+    builder.append("@" + id + "\n");
+    builder.append(dna + "\n");
+    builder.append("+\n");
+    builder.append(qValue);
+    return builder.toString();
   }
 }

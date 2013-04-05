@@ -31,6 +31,7 @@ import org.apache.hadoop.mapred.MapReduceBase;
 import org.apache.hadoop.mapred.Mapper;
 import org.apache.hadoop.mapred.OutputCollector;
 import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.mapred.TextOutputFormat;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
@@ -97,9 +98,9 @@ public class ReverseReads extends MRStage {
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
-    // Input
     conf.setMapperClass(ReverseMapper.class);
     conf.setInputFormat(FastQInputFormat.class);
+    conf.setOutputFormat(TextOutputFormat.class);
 
     //Map Only Job
     conf.setNumReduceTasks(0);

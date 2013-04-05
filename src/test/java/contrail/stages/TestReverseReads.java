@@ -16,11 +16,16 @@ package contrail.stages;
 
 import static org.junit.Assert.*;
 
+import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Random;
 
+import org.apache.avro.specific.SpecificData;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.NullWritable;
@@ -31,9 +36,14 @@ import contrail.OutputCollectorMock;
 import contrail.ReporterMock;
 import contrail.io.FastQWritable;
 import contrail.sequences.AlphabetUtil;
+import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAAlphabetWithNFactory;
 import contrail.sequences.DNAUtil;
+import contrail.sequences.FastQFileReader;
+import contrail.sequences.FastQRecord;
+import contrail.sequences.FastUtil;
 import contrail.sequences.Sequence;
+import contrail.util.FileHelper;
 
 public class TestReverseReads {
   /**
@@ -131,5 +141,86 @@ public class TestReverseReads {
       assertEquals(expected.getDNA(), actual.getDNA());
       assertEquals(expected.getQValue(), actual.getQValue());
     }
+  }
+
+  @Test
+  public void testRun() {
+    Random generator = new Random();
+    int numFiles = 1;
+    int numReads = 100;
+    int readLength = 2000;
+
+    File tempDir = FileHelper.createLocalTempDir();
+    String outputPath = FilenameUtils.concat(tempDir.getPath(), "output");
+
+    HashMap<String, FastQRecord> reads = new HashMap<String, FastQRecord>();
+
+    for (int fileIndex = 0; fileIndex < numFiles; ++fileIndex) {
+      File fastqFile = new File(
+          tempDir, String.format("reads_%d.fq", fileIndex));
+      PrintStream outStream = null;
+      try {
+        outStream = new PrintStream(fastqFile);
+      } catch (IOException exception) {
+        fail("Could not open output stream:" + exception.getMessage());
+      }
+
+      for (int i = 0; i < numReads; ++i) {
+        FastQRecord read = new FastQRecord();
+        read.setId(String.format("read_%d_%d", fileIndex, i));
+        read.setRead(AlphabetUtil.randomString(
+            generator, readLength, DNAAlphabetFactory.create()));
+        read.setQvalue(AlphabetUtil.randomString(
+            generator, readLength, DNAAlphabetFactory.create()));
+
+        FastUtil.writeFastQRecord(outStream, read);
+
+        // Reverse the read.
+        FastQRecord reversed = new FastQRecord();
+        Sequence sequence = new Sequence(
+            read.getRead().toString(), DNAAlphabetFactory.create());
+        reversed.setRead(DNAUtil.reverseComplement(sequence).toString());
+        reversed.setId(read.getId().toString());
+        reversed.setQvalue(StringUtils.reverse(read.getQvalue().toString()));
+        reads.put(read.getId().toString(), reversed);
+      }
+
+      outStream.close();
+    }
+
+    // Run it.
+    ReverseReads stage = new ReverseReads();
+    HashMap<String, Object> stageOptions = new HashMap<String, Object>();
+    stageOptions.put("inputpath", tempDir.toURI().toString());
+    stageOptions.put("outputpath", outputPath);
+    stage.setParameters(stageOptions);
+
+    if (!stage.execute()) {
+      fail("ReverseReads failed.");
+    }
+
+    long numInputs = stage.getNumMapInputRecords();
+    long numOutputs = stage.getCounter(
+        "org.apache.hadoop.mapred.Task$Counter",
+        "MAP_OUTPUT_RECORDS");
+
+    assertEquals(numReads * numFiles, numInputs);
+    assertEquals(numReads * numFiles, numOutputs);
+
+    ArrayList<String> outFiles = FileHelper.matchFiles(
+        FilenameUtils.concat(outputPath, "part-*"));
+
+    HashMap<String, FastQRecord> outReads = new HashMap<String, FastQRecord>();
+    for (String oFile : outFiles) {
+      FastQFileReader reader = new FastQFileReader(oFile);
+
+      while (reader.hasNext()) {
+        FastQRecord record = reader.next();
+        record = SpecificData.get().deepCopy(record.getSchema(), record);
+        assertFalse(outReads.containsKey(record.getId().toString()));
+        outReads.put(record.getId().toString(), record);
+      }
+    }
+    assertEquals(reads, outReads);
   }
 }

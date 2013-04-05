@@ -55,7 +55,22 @@ public class TestFastQWritable {
 
     String expectedOutput =
         "@" + record.getId() + "\n" + record.getDNA() + "\n+\n" +
-        record.getQValue() + "\n";
+        record.getQValue();
+    assertEquals(expectedOutput, output);
+  }
+
+  @Test
+  public void testToString() {
+    FastQWritable record = new FastQWritable();
+    record.setId("SRR1");
+    record.setDNA("GCT");
+    record.setQValue("!!2");
+
+    String output = record.toString();
+
+    String expectedOutput =
+        "@" + record.getId() + "\n" + record.getDNA() + "\n+\n" +
+        record.getQValue();
     assertEquals(expectedOutput, output);
   }
 }
