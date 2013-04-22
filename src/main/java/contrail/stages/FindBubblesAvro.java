@@ -415,7 +415,7 @@ public class FindBubblesAvro extends MRStage   {
       private Sequence trimmedSequence;
 
       public DirectPath(GraphNode majorNode, CharSequence minor, int K)  {
-
+        boolean found = false;
         // Find the strand of major node which has an outgoing edge to the
         // minor node.
         for(DNAStrand majorEdge: DNAStrand.values())  {
