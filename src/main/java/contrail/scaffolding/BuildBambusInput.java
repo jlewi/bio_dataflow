@@ -499,8 +499,14 @@ public class BuildBambusInput extends NonMRStage {
     String libFile = (String) this.stage_options.get("libsize");
     parseLibSizes(libFile);
 
-    ArrayList<String> readFiles = FileHelper.matchFiles(
-        (String) this.stage_options.get("reads_glob"));
+    ArrayList<String> readFiles = new ArrayList<String>();
+
+    String globs = (String) this.stage_options.get("reads_glob");
+    for (String glob : globs.split(",")) {
+      ArrayList<String> matches =  FileHelper.matchFiles(glob);
+      sLogger.info(String.format("%s matched %d files", glob, matches.size()));
+      readFiles.addAll(matches);
+    }
 
     if (readFiles.isEmpty()) {
       sLogger.fatal(
