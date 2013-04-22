@@ -41,6 +41,19 @@ public class FileHelper {
 
   /**
    * Create a local temporary directory.
+   *
+   * This function uses the system temporary directory. To control the
+   * location of the system directory you can set the VM argument
+   * java.io.tmpdir.
+   *
+   * e.g -Djava.io.tmpdir=/some/other/tmpdir
+   * in which case the created directory will be a sub directory of
+   * /some/other/tmpdir
+   *
+   * Note: When running hadoop the VM arguments for the main binary are
+   * set via the environment variable HADOOP_OPTS you cannot set them on
+   * the command line.
+   *
    * @return
    */
   static public File createLocalTempDir() {
