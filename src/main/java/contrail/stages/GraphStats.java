@@ -498,6 +498,8 @@ public class GraphStats extends MRStage {
       writer.append("<html><body>");
       writer.append(String.format("Number of nodes:%d", numNodes));
       writer.append("<br>");
+      writer.append("Path:" + (String)stage_options.get("inputpath"));
+      writer.append("<br><br>");
       writer.append("N50 Statistics");
       writer.append("<table border=1>");
       writer.append(
@@ -566,7 +568,7 @@ public class GraphStats extends MRStage {
     // Create an HTML report.
     long numNodes = -1;
     try {
-        job.getCounters().findCounter(
+        numNodes = job.getCounters().findCounter(
             "org.apache.hadoop.mapred.Task$Counter",
             "MAP_INPUT_RECORDS").getValue();
     } catch (IOException e) {
