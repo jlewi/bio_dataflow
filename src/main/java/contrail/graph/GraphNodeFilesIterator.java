@@ -14,12 +14,16 @@
 // Author: Jeremy Lewi(jeremy@lewi.us)
 package contrail.graph;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.log4j.Logger;
 
 import contrail.io.AvroFilesIterator;
 
@@ -32,6 +36,8 @@ import contrail.io.AvroFilesIterator;
  */
 public class GraphNodeFilesIterator
   implements Iterator<GraphNode>, Iterable<GraphNode> {
+  private static final Logger sLogger =
+      Logger.getLogger(GraphNodeFilesIterator.class);
 
   private AvroFilesIterator<GraphNodeData> filesIterator;
   private GraphNode node;
@@ -44,6 +50,39 @@ public class GraphNodeFilesIterator
     this.conf = conf;
     filesIterator = new AvroFilesIterator<GraphNodeData>(conf, files);
     node = new GraphNode();
+  }
+
+  /**
+   * Create the iterator from a glob expression matching the files to use.
+   * @return
+   */
+  public static GraphNodeFilesIterator fromGlob(
+      Configuration conf, String glob) {
+    // TODO(jeremy@lewi.us): We should check if the input path is a directory
+    // and if it is we should use its contents.
+    Path inputPath = new Path(glob);
+
+    FileStatus[] fileStates = null;
+    try {
+      FileSystem fs = inputPath.getFileSystem(conf);
+      fileStates = fs.globStatus(inputPath);
+    } catch (IOException e) {
+      sLogger.fatal("Could not get file status for inputpath:" + inputPath, e);
+      System.exit(-1);
+    }
+
+    ArrayList<Path> inputFiles = new ArrayList<Path>();
+
+    for (FileStatus status : fileStates) {
+     if (status.isDir()) {
+       sLogger.info("Skipping directory:" + status.getPath());
+         continue;
+      }
+      sLogger.info("Input file:" + status.getPath()) ;
+      inputFiles.add(status.getPath());
+    }
+
+    return new GraphNodeFilesIterator(conf, inputFiles);
   }
 
   @Override
