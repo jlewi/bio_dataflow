@@ -24,7 +24,7 @@
     <profile>
       <id>cdh4</id>
       <properties>
-	<hadoop-version>2.0.0-mr1-cdh4.0.1</hadoop-version>
+	<hadoop-version>2.0.0-mr1-cdh4.2.1</hadoop-version>
       </properties>
       <dependencies>
  	 <dependency>
@@ -44,7 +44,7 @@
     <profile>
       <id>cdh3</id>
       <properties>
-	<hadoop-version>0.20.2-cdh3u1</hadoop-version>
+	<hadoop-version>0.20.2-cdh3u6</hadoop-version>
       </properties>
     </profile>
   </profiles>
@@ -131,6 +131,11 @@
       <id>cloudera</id>
       <name>Cloudera  Repository</name>
       <url>https://repository.cloudera.com/content/repositories/releases</url>
+    </repository>
+    <repository>
+      <id>cloudera-artifactory</id>
+      <name>Cloudera  Repository Artifactory</name>
+      <url>https://repository.cloudera.com/artifactory/public</url>
     </repository>
   </repositories>
   <build>
