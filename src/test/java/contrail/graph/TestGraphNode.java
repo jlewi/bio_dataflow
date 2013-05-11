@@ -546,4 +546,34 @@ public class TestGraphNode {
 	  expectedNeighbors.add("newid");
 	  assertEquals(expectedNeighbors, node.getNeighborIds());
 	}
+
+
+	@Test
+	public void testFindStrandsForEdge() {
+	  for (EdgeDirection direction : EdgeDirection.values()) {
+	    GraphNode node = new GraphNode();
+	    node.setNodeId("somenode");
+	    Set<StrandsForEdge> expected = new HashSet<StrandsForEdge>();
+	    // Randomly decide whether to add an edge for each possible value
+	    // of edge strands.
+	    for (StrandsForEdge strands : StrandsForEdge.values()) {
+	      if (!generator.nextBoolean()) {
+	        continue;
+	      }
+	      DNAStrand thisStrand = StrandsUtil.src(strands);
+	      DNAStrand otherStrand = StrandsUtil.dest(strands);
+	      if (direction == EdgeDirection.OUTGOING) {
+	        node.addOutgoingEdge(
+	            thisStrand, new EdgeTerminal("other", otherStrand));
+	        expected.add(StrandsUtil.form(thisStrand, otherStrand));
+	      } else {
+	        node.addIncomingEdge(
+	            thisStrand, new EdgeTerminal("other", otherStrand));
+	        expected.add(StrandsUtil.form(otherStrand, thisStrand));
+	      }	      
+	    }
+	    Set<StrandsForEdge> strands = node.findStrandsForEdge("other", direction);
+	    assertEquals(expected, strands);
+	  }
+	}
 }
