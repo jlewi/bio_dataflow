@@ -95,6 +95,7 @@ public abstract class NonMRStage extends StageBase {
   final public boolean execute() {
     setupLogging();
     checkHasParametersOrDie(getRequiredParameters().toArray(new String[]{}));
+    setDefaultParameters();
     List<InvalidParameter> invalidParameters = validateParameters();
 
     stageState = StageState.STARTED;

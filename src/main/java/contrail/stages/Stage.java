@@ -409,7 +409,6 @@ public abstract class Stage extends Configured implements Tool  {
       }
     }
 
-
     if (!(this instanceof StageBase)) {
       // TODO(jeremy@lewi.us): For backwards compatibility with classes
       // which are subclasses of Stage and not StageBase. if WriteConfig
