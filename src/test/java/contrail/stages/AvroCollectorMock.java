@@ -11,7 +11,6 @@ import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.file.SeekableByteArrayInput;
-
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.avro.specific.SpecificDatumWriter;
@@ -27,7 +26,7 @@ public class AvroCollectorMock<VALUET> extends AvroCollector<VALUET>  {
   public List<VALUET> data = new ArrayList<VALUET>();
 
   private Schema value_schema;
-  private boolean getSchemaFromValue;
+  private final boolean getSchemaFromValue;
   /**
    * Default constructor.
    *
@@ -49,6 +48,7 @@ public class AvroCollectorMock<VALUET> extends AvroCollector<VALUET>  {
     getSchemaFromValue = false;
   }
 
+  @Override
   public void collect(VALUET value) {
     // TODO(jeremy@lewi.us): If our template declared VALUET as
     // extended org.apache.avro.specific.SpecificRecordBase we wouldn't
@@ -56,6 +56,8 @@ public class AvroCollectorMock<VALUET> extends AvroCollector<VALUET>  {
     // Make a copy of the object. However, that won't work for Pair.
     // The object should be an AVRO datum so we could use those methods to
     // copy it.
+    // TODO(jeremy@lewi.us): I think extended GenericContainer will work
+    // for both Pair and SpecificRecords.
     Class schemacls = value.getClass();
 
     if (getSchemaFromValue) {
