@@ -14,8 +14,9 @@
 // Author: Jeremy Lewi
 package contrail.util;
 
-import org.apache.log4j.Logger;
 import static org.junit.Assert.fail;
+
+import org.apache.log4j.Logger;
 
 /**
  * Custom logger for Contrail.
@@ -25,7 +26,7 @@ import static org.junit.Assert.fail;
  * logging a fatal message.
  */
 public class ContrailLogger {
-  private Logger logger;
+  private final Logger logger;
 
   // Whether or not we exit automatically for a fatal log message.
   protected static boolean exitOnFatal = true;
@@ -45,6 +46,19 @@ public class ContrailLogger {
 
   public void fatal(Object message, Throwable t) {
     logger.fatal(message, t);
+
+    if (exitOnFatal) {
+      System.exit(-1);
+    }
+
+    if (testMode) {
+      // Report this as a test failure.
+      fail("Fatal error.");
+    }
+  }
+
+  public void fatal(Object message) {
+    logger.fatal(message);
 
     if (exitOnFatal) {
       System.exit(-1);
