@@ -31,12 +31,12 @@ import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
+import contrail.graph.IndexedGraph;
 import contrail.sequences.DNAStrand;
 import contrail.stages.ContrailParameters;
 import contrail.stages.NonMRStage;
 import contrail.stages.ParameterDefinition;
 import contrail.stages.QuickMergeUtil;
-import contrail.util.IndexedGraph;
 
 /**
  * Find all paths between two nodes.
@@ -192,7 +192,7 @@ public class FindPaths extends NonMRStage {
   }
 
   protected void stageMain() {
-    IndexedGraph graph = new IndexedGraph(
+    IndexedGraph graph = IndexedGraph.buildFromFile(
         (String)stage_options.get("inputpath"), getConf());
 
     EdgeTerminal start = parseTerminal((String)stage_options.get("start"));

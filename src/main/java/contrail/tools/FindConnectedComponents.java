@@ -48,11 +48,11 @@ import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
+import contrail.graph.IndexedGraph;
 import contrail.sequences.DNAStrand;
 import contrail.stages.ContrailParameters;
 import contrail.stages.NonMRStage;
 import contrail.stages.ParameterDefinition;
-import contrail.util.IndexedGraph;
 
 /**
  * This stage uses an indexed graph to split the graph into connected
@@ -240,7 +240,7 @@ public class FindConnectedComponents extends NonMRStage {
     visitedIds = new HashSet<String>();
 
     createNodeIterator();
-    graph = new IndexedGraph(
+    graph = IndexedGraph.buildFromFile(
         (String)stage_options.get("inputpath"), getConf());
 
     // Writer for the connected components.
