@@ -16,12 +16,11 @@
 // Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.graph;
 
-import static org.junit.Assert.fail;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Formatter;
 import java.util.HashMap;
@@ -30,17 +29,25 @@ import java.util.List;
 
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileWriter;
+import org.apache.avro.hadoop.file.SortedKeyValueFile;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.specific.SpecificDatumWriter;
-
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
+import contrail.tools.CreateGraphIndex;
+import contrail.util.ContrailLogger;
 
 /**
  * Some miscellaneous utilities for working with graphs.
  */
 public class GraphUtil {
+  private static final ContrailLogger sLogger =
+      ContrailLogger.getLogger(CreateGraphIndex.class);
   /**
    * Check the suffix of src is a prefix of dest.
    * @param src
@@ -130,8 +137,89 @@ public class GraphUtil {
       }
       writer.close();
     } catch (IOException exception) {
-      fail("There was a problem writing the graph to an avro file. " +
-           "Exception: " + exception.getMessage());
+      sLogger.fatal(
+          "There was a problem writing the graph to an avro file. ",
+          exception);
+    }
+  }
+
+  /**
+   * Write the nodes to the path.
+   *
+   * @param conf
+   * @param path
+   * @param nodes
+   */
+  public static void writeGraphToPath(
+      Configuration conf, Path path, Iterable<GraphNode> nodes) {
+    FileSystem fs = null;
+    try{
+      fs = FileSystem.get(conf);
+    } catch (IOException e) {
+      sLogger.fatal("Can't get filesystem: " + e.getMessage(), e);
+    }
+
+    // Write the data to the file.
+    Schema schema = (new GraphNodeData()).getSchema();
+    DatumWriter<GraphNodeData> datumWriter =
+        new SpecificDatumWriter<GraphNodeData>(schema);
+    DataFileWriter<GraphNodeData> writer =
+        new DataFileWriter<GraphNodeData>(datumWriter);
+
+    try {
+      FSDataOutputStream outputStream = fs.create(path);
+      writer.create(schema, outputStream);
+      for (GraphNode node : nodes) {
+        writer.append(node.getData());
+      }
+      writer.close();
+    } catch (IOException exception) {
+      sLogger.fatal(
+          "There was a problem writing the N50 stats to an avro file. " +
+          "Exception: " + exception.getMessage(), exception);
+    }
+  }
+
+  /**
+   * Write a list of a graph nodes to an indexed avro file.
+   * @param avroFile
+   * @param nodes
+   */
+  public static void writeGraphToIndexedFile(
+      Configuration conf, Path outPath, List<GraphNode> nodes) {
+
+    // Sort the nodes.
+    Collections.sort(nodes, new GraphNode.NodeIdComparator());
+    SortedKeyValueFile.Writer.Options writerOptions =
+        new SortedKeyValueFile.Writer.Options();
+
+    GraphNodeData nodeData = new GraphNodeData();
+    writerOptions.withConfiguration(conf);
+    writerOptions.withKeySchema(Schema.create(Schema.Type.STRING));
+    writerOptions.withValueSchema(nodeData.getSchema());
+    writerOptions.withPath(outPath);
+
+    SortedKeyValueFile.Writer<CharSequence, GraphNodeData> writer = null;
+
+    try {
+      writer = new SortedKeyValueFile.Writer<CharSequence,GraphNodeData>(
+          writerOptions);
+    } catch (IOException e) {
+      sLogger.fatal("There was a problem creating file:" + outPath, e);
+    }
+
+    for (GraphNode node : nodes) {
+      try {
+        writer.append(node.getNodeId(), node.getData());
+      } catch (IOException e) {
+        sLogger.fatal("Could not append the data.", e);
+      }
+    }
+
+    try {
+      writer.close();
+    } catch (IOException e) {
+      sLogger.fatal("Could not close the file", e);
     }
   }
 

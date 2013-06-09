@@ -14,8 +14,10 @@
 // Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.util;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 
 /**
  * Some utilities for working CharSequence's.
@@ -36,7 +38,22 @@ public class CharUtil {
         throw new RuntimeException(
             "The collection of CharSequence's has duplicates");
       }
-      strings.add(items.toString());
+      strings.add(item.toString());
+    }
+    return strings;
+  }
+
+  /**
+   * Convert a collection of CharSequence's into a list of strings.
+   * @param items
+   * @return
+   */
+  public static List<String> toStringList(Collection<CharSequence> items) {
+    ArrayList<String> strings = new ArrayList<String>(items.size());
+    String value;
+    for (CharSequence item : items) {
+      value = item.toString();
+      strings.add(item.toString());
     }
     return strings;
   }

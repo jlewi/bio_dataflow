@@ -18,17 +18,26 @@ public class DNAUtil {
    * @param seq
    * @return
    */
-  public static Sequence reverseComplement(Sequence seq)
-  {
+  public static Sequence reverseComplement(Sequence seq) {
     Sequence complement = new Sequence(seq.getAlphabet(), seq.capacity());
-
-    for (int i = seq.size() - 1; i >= 0; i--)
-    {
+    for (int i = seq.size() - 1; i >= 0; i--) {
       int write = seq.size() - 1 - i;
-      if      (seq.at(i) == 'A') { complement.setAt(write, 'T'); }
-      else if (seq.at(i) == 'T') { complement.setAt(write, 'A'); }
-      else if (seq.at(i) == 'C') { complement.setAt(write, 'G'); }
-      else if (seq.at(i) == 'G') { complement.setAt(write, 'C'); }
+      char letter = seq.at(i);
+      if      (letter == 'A') {
+        complement.setAt(write, 'T');
+      }
+      else if (letter == 'T') {
+        complement.setAt(write, 'A');
+      }
+      else if (letter == 'C') {
+        complement.setAt(write, 'G');
+      }
+      else if (letter == 'G') {
+        complement.setAt(write, 'C');
+      } else {
+        // The other characters should represent unknown bases in the sequence.
+        complement.setAt(write,letter);
+      }
     }
 
     complement.setSize(seq.size());

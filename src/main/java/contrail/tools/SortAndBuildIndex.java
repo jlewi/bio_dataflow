@@ -14,6 +14,7 @@
 // Author: Jeremy Lewi(jeremy@lewi.us)
 package contrail.tools;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -22,11 +23,11 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 import contrail.stages.ParameterDefinition;
+import contrail.stages.PipelineStage;
 import contrail.stages.Stage;
 
 /**
@@ -34,7 +35,7 @@ import contrail.stages.Stage;
  * graph.
  *
  */
-public class SortAndBuildIndex extends Stage {
+public class SortAndBuildIndex extends PipelineStage {
   private static final Logger sLogger =
       Logger.getLogger(SortAndBuildIndex.class);
 
@@ -57,56 +58,47 @@ public class SortAndBuildIndex extends Stage {
   }
 
   @Override
-  public RunningJob runJob() throws Exception {
-    String[] required_args = {"inputpath", "outputpath"};
-    checkHasParametersOrDie(required_args);
-
+  protected void stageMain() {
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
 
     // Delete the output directory if it exists already
     Path outPath = new Path(outputPath);
-    if (FileSystem.get(getConf()).exists(outPath)) {
-      // TODO(jlewi): We should only delete an existing directory
-      // if explicitly told to do so.
-      sLogger.info("Deleting output path: " + outPath.toString() + " " +
-          "because it already exists.");
-      FileSystem.get(getConf()).delete(outPath, true);
+    try {
+      if (FileSystem.get(getConf()).exists(outPath)) {
+        // TODO(jlewi): We should only delete an existing directory
+        // if explicitly told to do so.
+        sLogger.info("Deleting output path: " + outPath.toString() + " " +
+            "because it already exists.");
+        FileSystem.get(getConf()).delete(outPath, true);
+      }
+    } catch (IOException e) {
+      sLogger.fatal("Couldn't delete:" + outputPath, e);
+      System.exit(-1);
     }
 
     // Sort the graph.
     SortGraph sortStage = new SortGraph();
-
-    HashMap<String, Object> sortParameters = new HashMap<String, Object>();
-    sortStage.setConf(getConf());
-    sortParameters.put("inputpath", inputPath);
+    sortStage.initializeAsChild(this);
+    sortStage.setParameter("inputpath", inputPath);
 
     String sortedGraph = FilenameUtils.concat(outputPath, "sorted");
-    sortParameters.put("outputpath", sortedGraph);
 
-    sortStage.setParameters(sortParameters);
+    sortStage.setParameter("outputpath", sortedGraph);
 
-    RunningJob job = sortStage.runJob();
-    if (!job.isSuccessful()) {
-      sLogger.fatal(
-          "Failed to sort the graph.", new RuntimeException("Sort Failed."));
-      System.exit(-1);
-    }
+    executeChild(sortStage);
 
     CreateGraphIndex indexStage = new CreateGraphIndex();
-    indexStage.setConf(getConf());
+    indexStage.initializeAsChild(this);
 
     String indexPath = FilenameUtils.concat(outputPath, "indexed");
-    HashMap<String, Object> indexParameters = new HashMap<String, Object>();
-    indexParameters.put("inputpath", sortedGraph);
-    indexParameters.put("outputpath", indexPath);
 
-    indexStage.setParameters(indexParameters);
+    indexStage.setParameter("inputpath", sortedGraph);
+    indexStage.setParameter("outputpath", indexPath);
 
-    indexStage.runJob();
+    executeChild(indexStage);
+
     sLogger.info("Indexed graph written to:" + indexPath);
-
-    return null;
   }
 
   public static void main(String[] args) throws Exception {

@@ -31,13 +31,12 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 import contrail.stages.ContrailParameters;
+import contrail.stages.NonMRStage;
 import contrail.stages.ParameterDefinition;
-import contrail.stages.Stage;
 import contrail.graph.GraphNodeData;
 
 /**
@@ -50,7 +49,7 @@ import contrail.graph.GraphNodeData;
  *
  * Note: This code requies Avro 1.7
  */
-public class CreateGraphIndex extends Stage {
+public class CreateGraphIndex extends NonMRStage {
   private static final Logger sLogger =
       Logger.getLogger(CreateGraphIndex.class);
 
@@ -240,12 +239,8 @@ public class CreateGraphIndex extends Stage {
   }
 
   @Override
-  public RunningJob runJob() throws Exception {
-    String[] required_args = {"inputpath", "outputpath"};
-    checkHasParametersOrDie(required_args);
-
+  protected void stageMain () {
     String inputPath = (String) stage_options.get("inputpath");
-
     List<String> graphFiles = getGraphFiles();
     if (graphFiles.size() == 0) {
       sLogger.fatal(
@@ -266,10 +261,13 @@ public class CreateGraphIndex extends Stage {
     writeSortedGraph(graphStreams);
 
     for (FSDataInputStream stream : streams) {
-      stream.close();
+      try {
+        stream.close();
+      } catch(IOException e) {
+        sLogger.fatal("Couldn't close stream", e);
+        System.exit(-1);
+      }
     }
-
-    return null;
   }
 
   public static void main(String[] args) throws Exception {

@@ -14,8 +14,6 @@
 // Author:Jeremy Lewi (jeremy@lewi.us)
 package contrail.tools;
 
-import static org.junit.Assert.*;
-
 import java.io.File;
 import java.util.HashMap;
 
@@ -53,11 +51,6 @@ public class TestSortGraph {
     stage.setParameters(params);
 
     // Catch the following after debugging.
-    try {
-      stage.runJob();
-    } catch (Exception exception) {
-      exception.printStackTrace();
-      fail("Exception occured:" + exception.getMessage());
-    }
+    stage.execute();
   }
 }

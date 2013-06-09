@@ -81,7 +81,10 @@ public class PrettyPrint extends Stage {
     }
     String inputFile = (String) this.stage_options.get("inputpath");
     String outputFile = (String) this.stage_options.get("outputpath");
-    FSDataInputStream inStream = fs.open(new Path(inputFile));
+    Path inPath = new Path(inputFile);
+    Path outPath = new Path(outputFile);
+    FSDataInputStream inStream = inPath.getFileSystem(getConf()).open(
+        inPath);
     GenericDatumReader<Object> reader = new GenericDatumReader<Object>();
     DataFileStream<Object> fileReader =
         new DataFileStream<Object>(inStream, reader);
@@ -90,7 +93,8 @@ public class PrettyPrint extends Stage {
       Schema schema = fileReader.getSchema();
       DatumWriter<Object> writer = new GenericDatumWriter<Object>(schema);
 
-      FSDataOutputStream outStream = fs.create(new Path(outputFile));
+      FSDataOutputStream outStream = outPath.getFileSystem(getConf()).create(
+          outPath);
       JsonFactory factory = new JsonFactory();
       JsonGenerator generator = factory.createJsonGenerator(outStream);
       generator.setPrettyPrinter(new DefaultPrettyPrinter());

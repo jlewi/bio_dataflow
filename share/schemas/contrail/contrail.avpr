@@ -174,7 +174,7 @@
                   "doc": ["Coverage is a float because when merging nodes it ",
                           "is set to a weighted average of the coverage of ",
                           "the nodes being merged."]
-                 },                 
+                 },
                  {"name": "sequence",
                   "type":"contrail.sequences.CompressedSequence",
                   "doc": ["Sequence of bytes representing the compressed ",
@@ -240,7 +240,7 @@
                 {"name": "node",
                  "type": "contrail.graph.GraphNodeData",
                  "doc": "The node data."}]
-    }, 
+    },
     {"name": "QuickMarkMessage",
      "type": "record",
      "doc": "Message used in the remove tip stage.",
@@ -252,7 +252,7 @@
                  "type": "boolean",
                  "doc": ["A boolean indicating the node should be sent to the reducer compressing chains in the QuickMerge phase"]
                  }
-                                      
+
                ]
     },
     {"name": "contrail.stages.EdgeUpdateForMerge",
@@ -309,23 +309,11 @@
 		               "doc": ["The enumeration for the edge strands we want to ",
 		                       "delete ."]
  		              },
-                  {"name": "node", 
+                  {"name": "node",
 		               "type": "contrail.graph.GraphNodeData",
                    "doc": "The GraphNodeData (may contain Tip or Non-Tip Node)"
-                  }                 
+                  }
                 ]
-     },
-     {"name": "contrail.stages.TagReadsOutput",
-      "type": "record",
-      "doc": ["Record used for the output of TagReadsWithContigID."],
-      "fields": [ {"name": "read",
-                   "type": ["null", "contrail.CompressedRead"],
-                   "doc": ["A read."]
-                   },
-                 {"name": "nodeID", "type": "string",
-                  "doc": "The id of a node to group with this read."
-                 }
-               ]
      },
      {"name": "contrail.graph.ValidateEdge",
       "type": "record",
@@ -373,7 +361,7 @@
                   "doc": "A message describing the error."
                  }
                 ]
-     },     
+     },
      {"name": "contrail.graph.GraphStatsData",
       "type": "record",
       "doc": "This record contains statistics about the graph.",
@@ -403,7 +391,7 @@
       "type": "record",
       "doc": ["This record contains the N50 statistics. The statistics are ",
               "computed with respect to all contigs with lengths in the ",
-              "range [minLength, maxLength]."], 
+              "range [minLength, maxLength]."],
       "fields": [{"name": "num_contigs",
                   "type": "long",
                   "doc": "Number of sequences in this range."
@@ -448,10 +436,10 @@
      "fields": [
                  {"name": "node", "type": ["null", "contrail.graph.GraphNodeData"],
                   "doc": "The node data"
-                 },                 
+                 },
                  {"name": "NodeIDtoRemove", "type": "string",
                   "doc": "The id of a neighbor to remove from the target of this message. This will be the empty string in the case where the message represents a node in the graph."
-                 } 
+                 }
                ]
     },
     {"name": "contrail.stages.FindBubblesOutput",
@@ -461,7 +449,7 @@
               "to the minor node telling it to remove edges to popped ",
               "bubbles."],
      "fields": [
-    		    {"name": "node", 
+    		    {"name": "node",
 		         "type": ["null", "contrail.graph.GraphNodeData"],
                   "doc": "The GraphNodeData"
                 },
@@ -470,18 +458,36 @@
                   "doc": "The id of the minor node to send the messages to."
                 },
                 {"name": "deleted_neighbors",
-                  "type": {"type": "array", 
+                  "type": {"type": "array",
                           "items": "string"},
                   "doc": ["A list of neighbors which have been deleted. We ",
                           "use a list because of cases like ",
                           "X->{A, B, C}->Y in which we need to tell Y to ",
-                          "remove edges from B and C."] 
+                          "remove edges from B and C."]
                 },
                 {"name": "palindrome_neighbors",
                  "type": {"type": "array", "items": "string"},
                  "doc": "A list of neighbors which are palindromes."
                 }
                ]
+    },
+    {"name": "contrail.graph.ConnectedComponentData",
+     "type": "record",
+     "doc": "Represents a connected component.",
+     "fields": [
+        { "name": "nodes",
+          "type": {"type": "array", "items": "contrail.graph.GraphNodeData"},
+          "doc": "Nodes in the connected component."
+        },
+        { "name": "sorted",
+          "type": "boolean",
+          "doc": "Nodes are sorted topologically."
+        },
+        { "name": "has_cycles",
+          "type": "boolean",
+          "doc": "The connected component contains cycles."
+        }
+     ]
     }
   ] // end types
 }

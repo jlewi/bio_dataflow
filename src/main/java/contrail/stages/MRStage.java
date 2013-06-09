@@ -29,7 +29,7 @@ import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.mapred.Counters.Group;
-import org.apache.log4j.Logger;
+import contrail.util.ContrailLogger;
 
 /**
  * Stage with hooks for customizing different parts of an MR execution.
@@ -44,7 +44,8 @@ import org.apache.log4j.Logger;
  * to allow the subclass to customize functionality at different points.
  */
 public class MRStage extends StageBase {
-  private static final Logger sLogger = Logger.getLogger(MRStage.class);
+  private static final ContrailLogger sLogger = ContrailLogger.getLogger(
+      MRStage.class);
   protected RunningJob job;
 
   public MRStage() {
@@ -219,6 +220,28 @@ public class MRStage extends StageBase {
       return job.getCounters().findCounter(
           "org.apache.hadoop.mapred.Task$Counter",
           "MAP_INPUT_RECORDS").getValue();
+
+    } catch (IOException e) {
+      sLogger.fatal("Couldn't get job state.", e);
+      System.exit(-1);
+    }
+    return -1;
+  }
+
+  /**
+   * Return the specified counter.
+   *
+   * @param group
+   * @param name
+   * @return
+   */
+  public long getCounter(String group, String name) {
+    try {
+      if (!job.isSuccessful()) {
+        return -1;
+      }
+      return job.getCounters().findCounter(
+          group, name).getValue();
 
     } catch (IOException e) {
       sLogger.fatal("Couldn't get job state.", e);

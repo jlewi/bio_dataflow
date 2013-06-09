@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -162,6 +163,23 @@ abstract public class StageBase extends Stage {
   }
 
   /**
+   * Set the default value for any parameters which aren't set and for which
+   * a default is supplied.
+   */
+  protected void setDefaultParameters() {
+    for (Iterator<ParameterDefinition> it =
+         getParameterDefinitions().values().iterator(); it.hasNext();) {
+      ParameterDefinition def = it.next();
+      // If the value hasn't be set and the parameter has a default value
+      // initialize it to the default value
+      if (!stage_options.containsKey(def.getName())
+          && def.getDefault() != null) {
+        stage_options.put(def.getName(), def.getDefault());
+      }
+    }
+  }
+
+  /**
    * Check whether parameters are valid.
    * Subclasses which override this method should call the base class
    *
@@ -209,7 +227,7 @@ abstract public class StageBase extends Stage {
       for (Enumeration<Appender> e = Logger.getRootLogger().getAllAppenders();
            e.hasMoreElements(); ) {
         Appender logger = e.nextElement();
-        if (logger.getName().equals(logFile)) {
+        if (logger.getName() != null && logger.getName().equals(logFile)) {
           // We've already setup the logger to the file so we don't setup
           // another one because that would cause messages to be logged multiple
           // times.
