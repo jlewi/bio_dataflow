@@ -740,13 +740,19 @@ public class FindBubblesAvro extends MRStage   {
             // has outdegree 1 from the forward strand.
             if (majorNode.degree(
                 indirectPath.majorStrand, EdgeDirection.OUTGOING) == 1) {
-              // We have a chain, i.e A->X->B and not a bubble
-              // A->{X,Y,...}->B this shouldn't happen and probably means
-              // the graph wasn't maximally compressed.
-              throw new RuntimeException(
-                  "We found a chain. This probably means the " +
-                  "graph wasn't maximally compressed before running " +
-                  "FindBubbles.");
+              if (majorNode.degree(
+                      indirectPath.majorStrand, EdgeDirection.INCOMING) == 0) {
+                // Do nothing. The major node could be a tip which didn't
+                // get removed. In this case do nothing.
+              } else {
+                // We have a chain, i.e A->X->B and not a bubble
+                // A->{X,Y,...}->B this shouldn't happen and probably means
+                // the graph wasn't maximally compressed.
+                throw new RuntimeException(
+                    "We found a chain. This probably means the " +
+                    "graph wasn't maximally compressed before running " +
+                    "FindBubbles.");
+              }
             }
           }
         } else {
