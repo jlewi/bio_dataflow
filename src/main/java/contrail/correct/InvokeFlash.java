@@ -125,7 +125,7 @@ public class InvokeFlash extends Stage {
       count++;
       correctUtil.addMateToArrayLists(mateRecord, fastqRecordsMateLeft, fastqRecordsMateRight);
       // Time to process one block
-      if(count ==blockSize){
+      if(count == blockSize){
         runFlashOnInMemoryReads(collector);
         count = 0;
       }
