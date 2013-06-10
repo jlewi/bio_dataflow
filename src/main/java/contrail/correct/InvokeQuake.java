@@ -247,6 +247,9 @@ public class InvokeQuake extends Stage{
       command.add(Integer.toString(K));
       command.add("-b");
       command.add(bitVectorPath);
+      // The headers option prevents quake info from being included in
+      // the output read id.
+      command.add("--headers");
       if (ShellUtil.execute(command, blockDir.getPath(), "quake", sLogger) !=
           0) {
         sLogger.fatal(
