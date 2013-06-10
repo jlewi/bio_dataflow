@@ -14,10 +14,8 @@
 // Author: Avijit Gupta (mailforavijit@gmail.com)
 
 package contrail.correct;
-import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -28,6 +26,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.log4j.Logger;
 
+import contrail.sequences.FastQFileReader;
 import contrail.sequences.FastQRecord;
 import contrail.sequences.MatePair;
 
@@ -114,17 +113,11 @@ public class CorrectUtil {
    */
   public void emitFastqFileToHDFS(File fastqFile, AvroCollector<FastQRecord> collector) throws IOException{
     FastQRecord read = new FastQRecord();
-    FileReader fstream = new FileReader(fastqFile);
-    BufferedReader fileReader = new BufferedReader(fstream);
-    String outId;
-    while((outId = fileReader.readLine())!=null){
-      read.setId(outId);
-      read.setRead(fileReader.readLine());
-      fileReader.readLine();// ignore+
-      read.setQvalue(fileReader.readLine());
+    FastQFileReader reader = new FastQFileReader(fastqFile.getAbsolutePath());
+    while(reader.hasNext()){
+      read = reader.next();
       collector.collect(read);
     }
-    fileReader.close();
-    fstream.close();
+    reader.close();
   }
 }

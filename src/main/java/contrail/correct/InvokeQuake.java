@@ -267,7 +267,6 @@ public class InvokeQuake extends Stage{
       sLogger.info("corrected path: " + correctedFilePath.getPath());
       correctUtil.emitFastqFileToHDFS(correctedFilePath, output);
 
-
       // Read the stats.
       File statsPath = new File(
           FilenameUtils.removeExtension(fastqPath) +  ".stats.txt");
