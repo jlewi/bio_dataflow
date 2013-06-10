@@ -15,7 +15,9 @@
 
 package contrail.correct;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -93,6 +95,7 @@ public class InvokeQuake extends Stage{
     private int blockSize;
     private CorrectUtil correctUtil;
     private AvroCollector<FastQRecord> outputCollector;
+    private Reporter reporter;
 
     // Keeps track of how many blocks of reads we have processed.
     private int block;
@@ -113,7 +116,7 @@ public class InvokeQuake extends Stage{
       fastqRecordList= new ArrayList<String>();
       count = 0;
       outputCollector = null;
-
+      reporter = null;
       block = 0;
 
       ParameterDefinition binaryDefinition =
@@ -182,27 +185,28 @@ public class InvokeQuake extends Stage{
       if(record instanceof FastQRecord){
         ++count;
         FastQRecord fastqRecord = (FastQRecord)record;
-        if(outputCollector == null){
-          outputCollector = collector;
-        }
         fastqRecordList.add(correctUtil.fastqRecordToString(fastqRecord));
+        reporter.incrCounter("contrail", "input-reads", 1);
       }
 
       if(record instanceof MatePair){
         MatePair mateRecord = (MatePair)record;
-        if(outputCollector == null){
-          outputCollector = collector;
-        }
         fastqRecordList.add(correctUtil.fastqRecordToString(
             mateRecord.getLeft()));
         fastqRecordList.add(correctUtil.fastqRecordToString(
             mateRecord.getRight()));
         count += 2;
+        reporter.incrCounter("contrail", "input-reads", 2);
+      }
+
+      if(outputCollector == null){
+        outputCollector = collector;
+        this.reporter = reporter;
       }
 
       // Time to process one block
       if(count == blockSize){
-        runQuakeOnInMemoryReads(collector);
+        runQuakeOnInMemoryReads(collector, reporter);
         count = 0;
       }
     }
@@ -213,7 +217,8 @@ public class InvokeQuake extends Stage{
      * @throws IOException
      */
     private void runQuakeOnInMemoryReads(
-        AvroCollector<FastQRecord> output) throws IOException {
+        AvroCollector<FastQRecord> output, Reporter reporter)
+            throws IOException {
       // Create a directory for this block of reads.
       // Hadoop should set the temporary directory to a unique directory for
       // each task attempt so we shouldn't need to worry about two tasks
@@ -262,6 +267,27 @@ public class InvokeQuake extends Stage{
       sLogger.info("corrected path: " + correctedFilePath.getPath());
       correctUtil.emitFastqFileToHDFS(correctedFilePath, output);
 
+
+      // Read the stats.
+      File statsPath = new File(
+          FilenameUtils.removeExtension(fastqPath) +  ".stats.txt");
+      FileReader fstream = new FileReader(statsPath);
+      BufferedReader fileReader = new BufferedReader(fstream);
+      String line;
+      while((line= fileReader.readLine()) != null){
+        String[] pieces = line.split(":", 2);
+        if (pieces.length != 2) {
+          reporter.incrCounter("contrail", "error-parsing-stats-line", 1);
+          continue;
+        }
+        reporter.incrCounter(
+            "contrail", "quake-reads-" + pieces[0].toLowerCase(),
+            Integer.parseInt(pieces[1].trim()));
+      }
+      fileReader.close();
+      fstream.close();
+
+
       // File.Delete won't work because the directory isn't empty.
       try {
         FileUtils.deleteDirectory(blockDir);
@@ -279,7 +305,7 @@ public class InvokeQuake extends Stage{
      */
     public void close() throws IOException{
       if(count > 0) {
-        runQuakeOnInMemoryReads(outputCollector);
+        runQuakeOnInMemoryReads(outputCollector, reporter);
       }
     }
   }
