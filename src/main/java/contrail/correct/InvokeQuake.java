@@ -31,21 +31,18 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.filecache.DistributedCache;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 import contrail.sequences.FastQRecord;
 import contrail.sequences.MatePair;
 import contrail.stages.ContrailParameters;
+import contrail.stages.MRStage;
 import contrail.stages.ParameterDefinition;
-import contrail.stages.Stage;
 import contrail.util.ShellUtil;
 
 
@@ -81,7 +78,7 @@ import contrail.util.ShellUtil;
  * to restructure the code or pipeline so that the input only consisted
  * of single or paired reads.
  */
-public class InvokeQuake extends Stage{
+public class InvokeQuake extends MRStage{
   private static final Logger sLogger = Logger.getLogger(InvokeQuake.class);
 
   public static class RunQuakeMapper extends AvroMapper<Object, FastQRecord>{
@@ -333,27 +330,23 @@ public class InvokeQuake extends Stage{
     for (ParameterDefinition def: ContrailParameters.getInputOutputPathOptions()) {
       defs.put(def.getName(), def);
     }
+
+    ParameterDefinition kDef = ContrailParameters.getK();
+    defs.put(kDef.getName(), kDef);
     return Collections.unmodifiableMap(defs);
   }
 
-  public RunningJob runJob() throws Exception {
-    // Check for missing arguments.
-    String[] required_args = {
-        "inputpath", "outputpath", "quake_binary", "bitvectorpath"};
-    checkHasParametersOrDie(required_args);
-    logParameters();
-    // TODO(jeremy@lewi.us): We should initialize the conf based on getConf().
-    JobConf conf = new JobConf(InvokeQuake.class);
-    conf.setJobName("Quake correction");
+  @Override
+  protected void setupConfHook() {
+    JobConf conf = (JobConf) getConf();
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
     String quakePath = (String) stage_options.get("quake_binary");
     String bitVectorPath = (String) stage_options.get("bitvectorpath");
     if(quakePath.length() == 0){
-      throw new Exception("Please specify Quake path");
-    }
-    if(bitVectorPath.length()== 0){
-      throw new Exception("Please specify bitvector path");
+      sLogger.fatal(
+          "Please specify Quake path",
+          new RuntimeException("Empty quake path."));
     }
 
     // TODO: We should check if the files aren't on HDFS and if they aren't
@@ -361,8 +354,6 @@ public class InvokeQuake extends Stage{
     DistributedCache.addCacheFile(new Path(quakePath).toUri(), conf);
     DistributedCache.addCacheFile(new Path(bitVectorPath).toUri(), conf);
 
-    // Sets the parameters in JobConf
-    initializeJobConfiguration(conf);
     // The input could either be a MatePair (For quake correction in Mate Pairs)
     // or FastQRecord (For quake correction in Non Mate Pairs)
     // We create a union schema of these so that our mapper is able to accept
@@ -380,17 +371,6 @@ public class InvokeQuake extends Stage{
     AvroJob.setOutputSchema(conf, new FastQRecord().getSchema());
     // Map Only Job
     conf.setNumReduceTasks(0);
-    // Delete the output directory if it exists already
-    Path out_path = new Path(outputPath);
-    if (FileSystem.get(conf).exists(out_path)) {
-      FileSystem.get(conf).delete(out_path, true);
-    }
-    long starttime = System.currentTimeMillis();
-    RunningJob result = JobClient.runJob(conf);
-    long endtime = System.currentTimeMillis();
-    float diff = (float) ((endtime - starttime) / 1000.0);
-    System.out.println("Runtime: " + diff + " s");
-    return result;
   }
 
   public static void main(String[] args) throws Exception {

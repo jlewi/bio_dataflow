@@ -157,6 +157,7 @@ public class MRStage extends StageBase {
       setConf(new JobConf(getConf(), this.getClass()));
     }
     JobConf conf = (JobConf) getConf();
+    conf.setJobName(this.getClass().getSimpleName());
     initializeJobConfiguration(conf);
 
     setupConfHook();
