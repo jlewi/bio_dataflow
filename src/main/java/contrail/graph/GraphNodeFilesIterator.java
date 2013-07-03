@@ -25,10 +25,10 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Logger;
 
-import contrail.io.AvroFilesIterator;
+import contrail.util.AvroFileContentsIterator;
 
 /**
- * GraphNodeFilesIterator is a simple wrapper for AvroFilesIterator
+ * GraphNodeFilesIterator is a simple wrapper for AvroFileContentsIterator
  * which takes care of casting the data in the files to a GraphNode.
  *
  * Note the GraphNode object returned by next is reused so make a copy
@@ -39,16 +39,22 @@ public class GraphNodeFilesIterator
   private static final Logger sLogger =
       Logger.getLogger(GraphNodeFilesIterator.class);
 
-  private AvroFilesIterator<GraphNodeData> filesIterator;
-  private GraphNode node;
-  private Configuration conf;
-  private ArrayList<Path> files;
+  private final AvroFileContentsIterator<GraphNodeData> filesIterator;
+  private final GraphNode node;
+  private final Configuration conf;
+  private final ArrayList<Path> files;
 
   public GraphNodeFilesIterator(Configuration conf, Collection<Path> files) {
     this.files = new ArrayList<Path>();
     this.files.addAll(files);
     this.conf = conf;
-    filesIterator = new AvroFilesIterator<GraphNodeData>(conf, files);
+
+    ArrayList<String> stringFiles = new ArrayList<String>();
+    for (Path path : this.files) {
+      stringFiles.add(path.toString());
+    }
+    filesIterator = new AvroFileContentsIterator<GraphNodeData>(
+        stringFiles, conf);
     node = new GraphNode();
   }
 
