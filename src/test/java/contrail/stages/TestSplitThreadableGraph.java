@@ -20,8 +20,8 @@ import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphTestUtil;
 import contrail.graph.GraphUtil;
+import contrail.io.AvroFileContentsIterator;
 import contrail.sequences.DNAStrand;
-import contrail.util.AvroFileContentsIterator;
 import contrail.util.CharUtil;
 import contrail.util.FileHelper;
 

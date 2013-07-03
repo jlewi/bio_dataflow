@@ -35,7 +35,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 
-import contrail.util.AvroFileContentsIterator;
+import contrail.io.AvroFileContentsIterator;
 import contrail.util.AvroFileUtil;
 import contrail.util.CharUtil;
 import contrail.util.FileHelper;

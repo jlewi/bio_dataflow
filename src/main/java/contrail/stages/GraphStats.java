@@ -54,8 +54,8 @@ import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.graph.GraphStatsData;
 import contrail.graph.GraphN50StatsData;
+import contrail.io.AvroFileContentsIterator;
 import contrail.sequences.DNAStrand;
-import contrail.util.AvroFileContentsIterator;
 
 /**
  * Compute statistics of the contigs.

@@ -39,7 +39,8 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
-import contrail.util.AvroFileContentsIterator;
+
+import contrail.io.AvroFileContentsIterator;
 import contrail.util.CharUtil;
 import contrail.util.ContrailLogger;
 

@@ -32,7 +32,7 @@ import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.graph.GraphTestUtil;
 import contrail.graph.GraphUtil;
-import contrail.util.AvroFileContentsIterator;
+import contrail.io.AvroFileContentsIterator;
 import contrail.util.AvroFileUtil;
 import contrail.util.FileHelper;
 

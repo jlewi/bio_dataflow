@@ -1,4 +1,4 @@
-package contrail.util;
+package contrail.io;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
@@ -16,6 +16,8 @@ import org.apache.avro.io.DatumWriter;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.hadoop.conf.Configuration;
 import org.junit.Test;
+
+import contrail.io.AvroFileContentsIterator;
 
 public class TestAvroFileContentsIterator {
   /**

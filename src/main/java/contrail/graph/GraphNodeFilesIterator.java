@@ -25,7 +25,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Logger;
 
-import contrail.util.AvroFileContentsIterator;
+import contrail.io.AvroFileContentsIterator;
 
 /**
  * GraphNodeFilesIterator is a simple wrapper for AvroFileContentsIterator
