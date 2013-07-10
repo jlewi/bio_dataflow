@@ -15,7 +15,7 @@
 
 package contrail.tools;
 
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.util.HashMap;
@@ -69,17 +69,13 @@ public class TestWriteGephiFile {
     String outPath = FilenameUtils.concat(tempDir.getPath(), "graph.gexf");
     parameters.put("outputpath", outPath);
 
-    // Disable the check to see if the output is in tmp because for the unittest
-    // it most likely will be.
+    // Disable the check to see if the output is in tmp because for the
+    // unittest it most likely will be.
     parameters.put("disallow_tmp", false);
     stage.setParameters(parameters);
     stage.setConf(new JobConf());
-    try {
-      stage.runJob();
-    } catch (Exception e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-      fail("WriteGephiFile threw an exception.");
-    }
+    stage.setParameter("start_node", node.getNodeId());
+    stage.setParameter("num_hops", 2);
+    assertTrue(stage.execute());
   }
 }

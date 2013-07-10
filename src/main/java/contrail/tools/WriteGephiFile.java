@@ -28,6 +28,7 @@ import java.util.Map.Entry;
 import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
+
 import org.apache.avro.file.DataFileStream;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
@@ -39,9 +40,9 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
+
 import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
@@ -52,9 +53,9 @@ import contrail.sequences.DNAStrand;
 import contrail.sequences.StrandsUtil;
 import contrail.stages.CompressibleNodeData;
 import contrail.stages.ContrailParameters;
+import contrail.stages.NonMRStage;
 import contrail.stages.NotImplementedException;
 import contrail.stages.ParameterDefinition;
-import contrail.stages.Stage;
 
 /**
  * Covert the graph into an gephi formatted XML file which can then be loaded
@@ -70,8 +71,10 @@ import contrail.stages.Stage;
  *
  * TODO(jlewi): We should make color vary depending on the
  * node's length and coverage.
+ *
+ * TODO(jeremy@lewi.us): Make this a subclass of WriteGephiFileBase.
  */
-public class WriteGephiFile extends Stage {
+public class WriteGephiFile extends NonMRStage {
   private static final Logger sLogger =
       Logger.getLogger(WriteGephiFile.class);
 
@@ -630,7 +633,7 @@ public class WriteGephiFile extends Stage {
   }
 
   @Override
-  public RunningJob runJob() throws Exception {
+  protected void stageMain() {
     try{
       fs = FileSystem.get(getConf());
     } catch (IOException e) {
@@ -677,7 +680,6 @@ public class WriteGephiFile extends Stage {
     writeGraph(nodesToPlot, outputPath);
 
     sLogger.info("Wrote: " + outputPath);
-    return null;
   }
 
   public static void main(String[] args) throws Exception {
