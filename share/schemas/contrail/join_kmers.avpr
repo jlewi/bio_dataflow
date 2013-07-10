@@ -1,0 +1,20 @@
+{
+  "namespace": "contrail.correct",
+  "protocol": "ContrailProtocol",
+  "doc": "Some records used by the correction code.",
+  "types": [
+    {"name": "Phase",
+     "type":  "enum",
+     "doc": "Enumeration for representing the phase.",
+     "symbols": ["BEFORE", "AFTER"]
+    },
+	{"name": "PhaseCounts",
+	 "type": "record",
+	 "doc": "Structure representing the counts.",
+	 "fields":[
+	 	{"name": "phase", "type": "Phase", "doc":"The phase."},
+	 	{"name": "count", "type": "long", "doc": "count."}
+	 ]
+	}	
+  ] // end types
+}
