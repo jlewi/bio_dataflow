@@ -35,7 +35,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 import org.codehaus.jackson.JsonFactory;
@@ -73,6 +72,7 @@ public class FindLastValidGraph extends PipelineStage {
   // Store the info for the stage causing problems.
   private StageInfo errorStage;
 
+  @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs =
         new HashMap<String, ParameterDefinition>();
@@ -248,7 +248,7 @@ public class FindLastValidGraph extends PipelineStage {
             "Checking stage:%s which produced:%s", stageClass,
             outputPath));
         ValidateGraph validateStage = new ValidateGraph();
-        validateStage.initializeAsChild(validateStage);
+        validateStage.initializeAsChild(this);
         validateStage.setParameter("inputpath", outputPath);
         String subDir = String.format(
             "step-%s-%s",sf.format(step), stageClass);
