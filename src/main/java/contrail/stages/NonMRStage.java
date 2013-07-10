@@ -64,6 +64,7 @@ public abstract class NonMRStage extends StageBase {
    * @param job
    * @return
    */
+  @Override
   public StageInfo getStageInfo() {
     StageInfo info = new StageInfo();
     info.setCounters(new ArrayList<CounterInfo>());
@@ -92,6 +93,7 @@ public abstract class NonMRStage extends StageBase {
    *
    * @return: True on success false otherwise.
    */
+  @Override
   final public boolean execute() {
     setupLogging();
     checkHasParametersOrDie(getRequiredParameters().toArray(new String[]{}));
@@ -118,7 +120,7 @@ public abstract class NonMRStage extends StageBase {
     }
     JobConf conf = (JobConf) getConf();
     initializeJobConfiguration(conf);
-
+    setupInfoWriter();
     logParameters();
 
     // Write the stageinfo if a writer is specified.
@@ -141,6 +143,7 @@ public abstract class NonMRStage extends StageBase {
   /**
    * Run the stage after parsing the string arguments.
    */
+  @Override
   final public int run(String[] args) throws Exception {
     //
     // This function provides the entry point when running from the command

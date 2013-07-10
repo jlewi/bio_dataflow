@@ -24,11 +24,12 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.Counters;
+import org.apache.hadoop.mapred.Counters.Group;
 import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.RunningJob;
-import org.apache.hadoop.mapred.Counters.Group;
+
 import contrail.util.ContrailLogger;
 
 /**
@@ -78,6 +79,7 @@ public class MRStage extends StageBase {
    * @param job
    * @return
    */
+  @Override
   public StageInfo getStageInfo() {
     StageInfo info = new StageInfo();
     info.setCounters(new ArrayList<CounterInfo>());
@@ -134,9 +136,11 @@ public class MRStage extends StageBase {
    *
    * @return: True on success false otherwise.
    */
+  @Override
   final public boolean execute() {
     setupLogging();
     checkHasParametersOrDie(getRequiredParameters().toArray(new String[]{}));
+    setDefaultParameters();
     List<InvalidParameter> invalidParameters = validateParameters();
 
     if (invalidParameters.size() > 0) {
@@ -159,7 +163,7 @@ public class MRStage extends StageBase {
     JobConf conf = (JobConf) getConf();
     conf.setJobName(this.getClass().getSimpleName());
     initializeJobConfiguration(conf);
-
+    setupInfoWriter();
     setupConfHook();
     logParameters();
     if (stage_options.containsKey("writeconfig") &&
@@ -254,6 +258,7 @@ public class MRStage extends StageBase {
   /**
    * Run the stage after parsing the string arguments.
    */
+  @Override
   final public int run(String[] args) throws Exception {
     //
     // This function provides the entry point when running from the command

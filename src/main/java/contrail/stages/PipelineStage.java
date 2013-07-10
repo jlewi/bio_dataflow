@@ -21,7 +21,6 @@ abstract public class PipelineStage extends NonMRStage {
   // Keep track of the stage info
   protected StageInfo stageInfo;
 
-
   // The stage we are currently executing if any.
   private StageBase current;
 
@@ -48,6 +47,7 @@ abstract public class PipelineStage extends NonMRStage {
     return status;
   }
 
+  @Override
   public StageInfo getStageInfo() {
     if (stageInfo == null) {
       // Initialize the stage info.

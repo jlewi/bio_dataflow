@@ -22,9 +22,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
-import org.w3c.dom.Document;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
+
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.Transformer;
@@ -50,6 +48,9 @@ import org.apache.hadoop.util.Tool;
 import org.apache.log4j.FileAppender;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
 /**
  * An abstract base class for each stage of processing.
@@ -329,6 +330,7 @@ public abstract class Stage extends Configured implements Tool  {
    * cause problems with the configuration not being set for the configured
    * object.
    */
+  @Override
   public int run(String[] args) throws Exception {
     // TODO(jlewi): Should we check if getConf() returns null and if it does
     // either initialize it or throw an exception. Normally the configuration
@@ -397,17 +399,6 @@ public abstract class Stage extends Configured implements Tool  {
     // TODO(jlewi): Should this method be public? Is it currently being used?
     // Copy the options from the input.
     stage_options.putAll(values);
-
-    for (Iterator<ParameterDefinition> it =
-            getParameterDefinitions().values().iterator(); it.hasNext();) {
-      ParameterDefinition def = it.next();
-      // If the value hasn't be set and the parameter has a default value
-      // initialize it to the default value
-      if (!stage_options.containsKey(def.getName())
-          && def.getDefault() != null) {
-        stage_options.put(def.getName(), def.getDefault());
-      }
-    }
 
     if (!(this instanceof StageBase)) {
       // TODO(jeremy@lewi.us): For backwards compatibility with classes
