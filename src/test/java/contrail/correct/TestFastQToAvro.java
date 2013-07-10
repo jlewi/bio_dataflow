@@ -47,12 +47,14 @@ public class TestFastQToAvro extends FastQToAvro {
 
     File tempDir = FileHelper.createLocalTempDir();
     String outputPath = FilenameUtils.concat(tempDir.getPath(), "output");
+    String inputPath = FilenameUtils.concat(tempDir.getPath(), "inputpath");
+    new File(inputPath).mkdir();
 
     HashMap<String, FastQRecord> reads = new HashMap<String, FastQRecord>();
 
     for (int fileIndex = 0; fileIndex < numFiles; ++fileIndex) {
       File fastqFile = new File(
-          tempDir, String.format("reads_%d.fq", fileIndex));
+          inputPath, String.format("reads_%d.fq", fileIndex));
       PrintStream outStream = null;
       try {
         outStream = new PrintStream(fastqFile);
@@ -79,7 +81,7 @@ public class TestFastQToAvro extends FastQToAvro {
     FastQToAvro stage = new FastQToAvro();
 
     HashMap<String, Object> stageOptions = new HashMap<String, Object>();
-    stageOptions.put("inputpath", tempDir.toURI().toString());
+    stageOptions.put("inputpath", inputPath);
     stageOptions.put("outputpath", outputPath);
     stageOptions.put("splitSize", 50000L);
     stage.setParameters(stageOptions);

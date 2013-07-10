@@ -14,7 +14,9 @@
 // Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.stages;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.IOException;
@@ -152,12 +154,16 @@ public class TestReverseReads {
 
     File tempDir = FileHelper.createLocalTempDir();
     String outputPath = FilenameUtils.concat(tempDir.getPath(), "output");
+    String inputPath = FilenameUtils.concat(tempDir.getPath(), "input");
+
+    // Create the directory for the input.
+    new File(inputPath).mkdir();
 
     HashMap<String, FastQRecord> reads = new HashMap<String, FastQRecord>();
 
     for (int fileIndex = 0; fileIndex < numFiles; ++fileIndex) {
       File fastqFile = new File(
-          tempDir, String.format("reads_%d.fq", fileIndex));
+          inputPath, String.format("reads_%d.fq", fileIndex));
       PrintStream outStream = null;
       try {
         outStream = new PrintStream(fastqFile);
@@ -191,7 +197,7 @@ public class TestReverseReads {
     // Run it.
     ReverseReads stage = new ReverseReads();
     HashMap<String, Object> stageOptions = new HashMap<String, Object>();
-    stageOptions.put("inputpath", tempDir.toURI().toString());
+    stageOptions.put("inputpath", FilenameUtils.concat(inputPath, "*.fq"));
     stageOptions.put("outputpath", outputPath);
     stage.setParameters(stageOptions);
 
