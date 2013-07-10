@@ -13,25 +13,22 @@ import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroWrapper;
 import org.apache.avro.mapred.Pair;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.MapReduceBase;
 import org.apache.hadoop.mapred.OutputCollector;
 import org.apache.hadoop.mapred.Reducer;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.mapred.TextOutputFormat;
 import org.apache.hadoop.util.ToolRunner;
 
 import contrail.stages.ContrailParameters;
+import contrail.stages.MRStage;
 import contrail.stages.ParameterDefinition;
-import contrail.stages.Stage;
 
 /**
  * This file converts an avro file of kmer count into a non Avro
@@ -39,7 +36,7 @@ import contrail.stages.Stage;
  * calculation
  *
  */
-public class ConvertKMerCountsToText extends Stage{
+public class ConvertKMerCountsToText extends MRStage {
   /* Simply reads the file from HDFS and gives it to the reducer*/
   public static class ConvertMapper extends AvroMapper
       <Pair<CharSequence, Long>, Pair<CharSequence, Long>> {
@@ -78,6 +75,7 @@ public class ConvertKMerCountsToText extends Stage{
     }
   }
 
+  @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs = new HashMap<String, ParameterDefinition>();
     defs.putAll(super.createParameterDefinitions());
@@ -87,13 +85,13 @@ public class ConvertKMerCountsToText extends Stage{
     return Collections.unmodifiableMap(defs);
   }
 
-  public RunningJob runJob() throws Exception {
-    logParameters();
+  @Override
+  protected void setupConfHook() {
     // Here the inputFile is not for a directory, but a specific path
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
 
-    JobConf conf = new JobConf(ConvertKMerCountsToText.class);
+    JobConf conf = (JobConf) getConf();
     Pair<CharSequence,Long> read = new Pair<CharSequence,Long>("", 0L);
     AvroJob.setInputSchema(conf, read.getSchema());
     AvroJob.setMapOutputSchema(
@@ -113,18 +111,6 @@ public class ConvertKMerCountsToText extends Stage{
     conf.setNumReduceTasks(1);
     conf.setOutputKeyClass(Text.class);
     conf.setOutputValueClass(LongWritable.class);
-
-    // Delete the output directory if it exists already
-    Path out_path = new Path(outputPath);
-    if (FileSystem.get(conf).exists(out_path)) {
-      FileSystem.get(conf).delete(out_path, true);
-    }
-    long starttime = System.currentTimeMillis();
-    RunningJob runingJob = JobClient.runJob(conf);
-    long endtime = System.currentTimeMillis();
-    float diff = (float) ((endtime - starttime) / 1000.0);
-    System.out.println("Runtime: " + diff + " s");
-    return runingJob;
   }
 
   public static void main(String[] args) throws Exception {
