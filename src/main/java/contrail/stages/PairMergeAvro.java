@@ -14,7 +14,6 @@ import org.apache.avro.mapred.AvroJob;
 import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
@@ -64,12 +63,14 @@ public class PairMergeAvro extends MRStage {
       AvroMapper<NodeInfoForMerge, Pair<CharSequence, NodeInfoForMerge>> {
     private GraphNode node;
     private Pair<CharSequence, NodeInfoForMerge> out_pair;
+    @Override
     public void configure(JobConf job) {
       node = new GraphNode();
       out_pair = new Pair<CharSequence, NodeInfoForMerge>(
           "", new NodeInfoForMerge());
     }
 
+    @Override
     public void map(NodeInfoForMerge node_info,
         AvroCollector<Pair<CharSequence, NodeInfoForMerge>> collector,
         Reporter reporter) throws IOException {
@@ -97,6 +98,7 @@ public class PairMergeAvro extends MRStage {
     private NodeReverser node_reverser;
     private CompressibleNodeData output;
     private NodeMerger nodeMerger;
+    @Override
     public void configure(JobConf job) {
       PairMergeAvro stage = new PairMergeAvro();
       Map<String, ParameterDefinition> definitions =
@@ -331,6 +333,7 @@ public class PairMergeAvro extends MRStage {
       return chain;
     }
 
+    @Override
     public void reduce(
         CharSequence nodeid, Iterable<NodeInfoForMerge> iterable,
         AvroCollector<CompressibleNodeData> collector, Reporter reporter)
@@ -360,9 +363,15 @@ public class PairMergeAvro extends MRStage {
       }
 
       if (nodes_to_merge.size() == 1) {
+        CompressibleNodeData node = nodes_to_merge.get(0).getCompressibleNode();
+        if (node.getCompressibleStrands() != CompressibleStrands.NONE) {
+          reporter.incrCounter(
+              NUM_REMAINING_COMPRESSIBLE.group, NUM_REMAINING_COMPRESSIBLE.tag,
+              1);
+          reporter.incrCounter("PairMergeAvro", "nodes-unmerged", 1);
+        }
         // Output the node
-        collector.collect(nodes_to_merge.get(0).getCompressibleNode());
-        reporter.incrCounter("PairMergeAvro", "nodes-unmerged", 1);
+        collector.collect(node);
         return;
       }
 
@@ -390,6 +399,7 @@ public class PairMergeAvro extends MRStage {
   /**
    * Get the parameters used by this stage.
    */
+  @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
       HashMap<String, ParameterDefinition> defs =
         new HashMap<String, ParameterDefinition>();

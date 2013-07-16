@@ -1,7 +1,8 @@
 // Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.stages;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.IOException;
@@ -129,6 +130,7 @@ public class TestPairMergeAvro extends PairMergeAvro {
     public ReducerTestCase() {
       input = new ArrayList<NodeInfoForMerge>();
       expected_output = new CompressibleNodeData();
+      num_remaining_compressible = 0;
     }
     public int K;
     public String reducer_key;
@@ -136,12 +138,17 @@ public class TestPairMergeAvro extends PairMergeAvro {
     public List<NodeInfoForMerge> input;
     // The expected output from the reducer.
     public CompressibleNodeData expected_output;
+
+    // The number of compressible nodes outputted by the reducer for this
+    // test case.
+    public int num_remaining_compressible;
   }
 
   // Asserts that the output of the reducer is correct for this test case.
   private void assertReducerTestCase(
       ReducerTestCase test_case,
-      AvroCollectorMock<CompressibleNodeData> collector_mock) {
+      AvroCollectorMock<CompressibleNodeData> collector_mock,
+      ReporterMock reporterMock) {
     assertEquals(1, collector_mock.data.size());
     CompressibleNodeData output = collector_mock.data.get(0);
 
@@ -156,6 +163,12 @@ public class TestPairMergeAvro extends PairMergeAvro {
     assertEquals(
         test_case.expected_output.getCompressibleStrands(),
         output.getCompressibleStrands());
+
+    assertEquals(
+        test_case.num_remaining_compressible,
+        reporterMock.getCounterValue(
+            PairMergeAvro.NUM_REMAINING_COMPRESSIBLE.group,
+            PairMergeAvro.NUM_REMAINING_COMPRESSIBLE.tag));
   }
 
   private ReducerTestCase reducerNoMergeTest() {
@@ -180,6 +193,7 @@ public class TestPairMergeAvro extends PairMergeAvro {
     test_case.expected_output =
         CompressUtil.copyCompressibleNode(compressible_node);
 
+    test_case.num_remaining_compressible = 1;
     return test_case;
   }
 
@@ -254,6 +268,8 @@ public class TestPairMergeAvro extends PairMergeAvro {
     test_case.expected_output.setNode(merged_node.getData());
     test_case.expected_output.setCompressibleStrands(
         CompressibleStrands.REVERSE);
+
+    test_case.num_remaining_compressible = 1;
     return test_case;
   }
 
@@ -324,7 +340,7 @@ public class TestPairMergeAvro extends PairMergeAvro {
     node_output.setCompressibleStrands(CompressibleStrands.BOTH);
     node_output.setNode(merged_node.clone().getData());
     test_case.expected_output = node_output;
-
+    test_case.num_remaining_compressible = 1;
     return test_case;
   }
 
@@ -345,6 +361,7 @@ public class TestPairMergeAvro extends PairMergeAvro {
     Reporter reporter = reporter_mock;
 
     for (ReducerTestCase test_case: testCases) {
+      reporter_mock.clearCounters();
       if (test_case.K != Integer.parseInt(job.get("K"))) {
         job.setLong("K", test_case.K);
         reducer.configure(job);
@@ -362,7 +379,7 @@ public class TestPairMergeAvro extends PairMergeAvro {
         fail("IOException occured in map: " + exception.getMessage());
       }
 
-      assertReducerTestCase(test_case, collector_mock);
+      assertReducerTestCase(test_case, collector_mock, reporter_mock);
     }
   }
 
