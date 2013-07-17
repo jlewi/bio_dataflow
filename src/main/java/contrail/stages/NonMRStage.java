@@ -127,7 +127,6 @@ public abstract class NonMRStage extends StageBase {
     if (infoWriter != null) {
       infoWriter.write(getWorkflowInfo());
     }
-
     stageMain();
 
     // TODO(jeremy@lewi.us): How to signify failure?

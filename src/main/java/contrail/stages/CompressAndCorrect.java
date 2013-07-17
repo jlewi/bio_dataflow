@@ -15,6 +15,7 @@
 
 package contrail.stages;
 
+import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.Collections;
 import java.util.Formatter;
@@ -22,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.util.ToolRunner;
@@ -42,6 +44,7 @@ public class CompressAndCorrect extends PipelineStage {
   /**
    * Get the parameters used by this stage.
    */
+  @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> definitions =
         new HashMap<String, ParameterDefinition>();
@@ -277,6 +280,48 @@ public class CompressAndCorrect extends PipelineStage {
   }
 
   /**
+   * Delete old step directories.
+   *
+   * We delete all paths "basePath/step_##" where ## is <= minStep;
+   *
+   * @param conf
+   * @param basePath
+   * @param minStep
+   */
+  protected static void deletePastSteps(
+      Configuration conf, String basePath, int minStep) {
+    FileSystem fs = null;
+    Path base = new Path(basePath);
+    try{
+      fs = base.getFileSystem(conf);
+    } catch (IOException e) {
+      throw new RuntimeException("Can't get filesystem: " + e.getMessage());
+    }
+    try {
+      FileStatus[] contents = fs.listStatus(base);
+      if (contents == null) {
+        // Path doesn't exist.
+        return;
+      }
+      for (FileStatus status : contents) {
+        Path itemPath = status.getPath();
+        String name = itemPath.getName();
+        if (!name.matches("step_[0123456789]*")) {
+          continue;
+        }
+        String[] pieces = name.split("_", 2);
+        int step = Integer.parseInt(pieces[1]);
+        if (step <= minStep) {
+          sLogger.info("Deleting: " + itemPath.toString());
+          fs.delete(itemPath, true);
+        }
+      }
+    } catch (IOException e) {
+      throw new RuntimeException("Problem moving the files: " + e.getMessage());
+    }
+  }
+
+  /**
    * Compress the graph as much as possible, removing tips and popping bubbles.
    *
    * @param step: Integer identifying the step number.
@@ -300,6 +345,12 @@ public class CompressAndCorrect extends PipelineStage {
       // from this round.
       String stepPath = new Path(
           tempPath(), "step_" +sf.format(step)).toString();
+
+      if ((Boolean) stage_options.get("cleanup")) {
+        // Delete the old step directories. We need to keep the current
+        // step and the previous step directory.
+        deletePastSteps(getConf(), tempPath(), step - 2);
+      }
 
       // Paths to use for this round. The paths for the compressed graph
       // and the error corrected graph.
@@ -439,7 +490,6 @@ public class CompressAndCorrect extends PipelineStage {
     finalPathParameter.setName("outputpath");
     finalPathParameter.setValue(outputPath);
     lastInfo.getModifiedParameters().add(finalPathParameter);
-
 
     // Clean up the intermediary directories.
     // TODO(jlewi): We might want to add an option to keep the intermediate
