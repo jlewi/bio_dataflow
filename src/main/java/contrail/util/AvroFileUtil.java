@@ -14,15 +14,24 @@
 // Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.util;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 
 import org.apache.avro.Schema;
+import org.apache.avro.file.DataFileReader;
+import org.apache.avro.file.DataFileStream;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericContainer;
+import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
+import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -30,6 +39,26 @@ import org.apache.hadoop.fs.Path;
 public class AvroFileUtil {
   private static final ContrailLogger sLogger =
       ContrailLogger.getLogger(AvroFileUtil.class);
+
+  /**
+   * Read all the records in a file.
+   */
+  public static <T> ArrayList<T> readRecords(String path, Schema schema) {
+    DatumReader<T> datum_reader = new SpecificDatumReader<T>(schema);
+    DataFileReader<T> reader = null;
+    try {
+      reader = new DataFileReader<T>(new File(path), datum_reader);
+    } catch(IOException e) {
+      sLogger.fatal("Could not read file", e);
+    }
+
+    ArrayList<T> output = new ArrayList<T>();
+    while(reader.hasNext()){
+      T record = reader.next();
+      output.add(record);
+    }
+    return output;
+  }
 
   /***
    * Write a collection of records to an avro file.
@@ -65,7 +94,7 @@ public class AvroFileUtil {
     }
   }
 
-  /***
+  /**
    * Write a collection of records to an avro file.
    *
    * Use this function when the schema can't be inferred from the type of
@@ -99,6 +128,28 @@ public class AvroFileUtil {
       sLogger.fatal(
           "There was a problem writing the N50 stats to an avro file. " +
           "Exception: " + exception.getMessage(), exception);
+    }
+  }
+
+  /**
+   * Determine the schema of a file.
+   */
+  public static Schema readFileSchema(Configuration conf, String path) {
+    GenericDatumReader<GenericRecord> reader =
+        new GenericDatumReader<GenericRecord>();
+    try {
+      Path filePath = new Path(path);
+      FileSystem fs = filePath.getFileSystem(conf);
+      FSDataInputStream inStream = fs.open(filePath);
+
+      DataFileStream<GenericRecord> avroStream =
+          new DataFileStream<GenericRecord>(inStream, reader);
+
+      return avroStream.getSchema();
+    } catch (IOException exception) {
+      throw new RuntimeException(
+          "There was a problem reading the nodes the graph to an avro file." +
+          " Exception:" + exception.getMessage());
     }
   }
 }
