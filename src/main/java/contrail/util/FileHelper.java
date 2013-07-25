@@ -23,11 +23,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.io.IOCase;
 import org.apache.commons.io.filefilter.WildcardFileFilter;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
 import org.apache.log4j.Logger;
 
 /**
@@ -127,9 +129,77 @@ public class FileHelper {
       return result;
     }
 
+
     for (File file : files) {
       result.add(file.getPath());
     }
     return result;
+  }
+
+  /**
+   * A path filter which matches globular expressions.
+   */
+  public static class GlobPathFilter implements PathFilter {
+    String pattern;
+
+    public GlobPathFilter(String glob) {
+      pattern = glob;
+    }
+
+    @Override
+    public boolean accept(Path path) {
+      String stripped = path.toUri().getPath();
+      boolean result = FilenameUtils.wildcardMatch(
+          stripped, pattern, IOCase.SENSITIVE);
+      return result;
+    }
+  }
+
+  /**
+   * Return a list of files matching a globular expression.
+   *
+   * If globOrDirectory points to a directory then we return all files matching
+   * globOrDirectory + defaultGlob.
+   *
+   * If globOrDirectory is not a directory then we treat it as a glob path.
+   * @param conf: Hadoop configuration.
+   * @param globOrDirectory: A directory or a globular expression.
+   * @param defaultGlob: The default file glob.
+   * @return
+   */
+  public static ArrayList<Path> matchGlobWithDefault(
+      Configuration conf, String globOrDirectory,  String defaultGlob) {
+    Path globOrDirectoryPath = new Path(globOrDirectory);
+    FileSystem fs = null;
+    try{
+      fs = FileSystem.get(conf);
+    } catch (IOException e) {
+      throw new RuntimeException("Can't get filesystem: " + e.getMessage());
+    }
+    GlobPathFilter filter;
+    Path directory;
+    try {
+      if (fs.exists(globOrDirectoryPath) &&
+          fs.getFileStatus(globOrDirectoryPath).isDir()) {
+        filter = new GlobPathFilter(FilenameUtils.concat(
+            globOrDirectory, defaultGlob));
+        directory = globOrDirectoryPath;
+      } else {
+        filter = new GlobPathFilter(globOrDirectory);
+        directory = new Path(FilenameUtils.getFullPath(globOrDirectory));
+      }
+    } catch(IOException e) {
+      throw new RuntimeException(e);
+    }
+
+    try {
+      ArrayList<Path> paths = new ArrayList<Path>();
+      for (FileStatus status : fs.listStatus(directory, filter)) {
+        paths.add(status.getPath());
+      }
+      return paths;
+    } catch (IOException e) {
+      throw new RuntimeException("Problem moving the files: " + e.getMessage());
+    }
   }
 }
