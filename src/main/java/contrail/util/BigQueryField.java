@@ -19,6 +19,8 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.apache.avro.Schema;
+import org.apache.avro.Schema.Type;
 import org.apache.commons.lang.StringUtils;
 
 /**
@@ -33,6 +35,24 @@ public class BigQueryField {
     this.name = name;
     this.type = type;
     fields = new ArrayList<BigQueryField>();
+  }
+
+  public BigQueryField(String name, Schema avroSchema) {
+    this.name = name;
+
+    BigQuerySchema bigQuerySchema = BigQuerySchema.fromAvroSchema(avroSchema);
+    fields = new ArrayList<BigQueryField>();
+
+    if (avroSchema.getType() == Type.RECORD) {
+      this.type = "record";
+      fields.addAll(bigQuerySchema);
+    } else if (bigQuerySchema.size() == 1) {
+      // Its a primitive type.
+      this.type =  bigQuerySchema.get(0).type;
+      this.mode =  bigQuerySchema.get(0).mode;
+    } else {
+      throw new RuntimeException("Don't know how to handle this schema.");
+    }
   }
 
   public BigQueryField() {
@@ -54,6 +74,7 @@ public class BigQueryField {
     return reserved;
   }
 
+  @Override
   public String toString() {
     // Make sure name isn't a reserved field.
     if (BigQueryField.getReserevedKeywords().contains(name.toLowerCase())) {

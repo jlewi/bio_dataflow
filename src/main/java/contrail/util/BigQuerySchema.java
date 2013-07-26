@@ -15,11 +15,11 @@ package contrail.util;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.avro.Schema;
 import org.apache.avro.Schema.Field;
 import org.apache.avro.Schema.Type;
-import org.apache.commons.lang.StringUtils;
 import org.codehaus.jackson.JsonGenerationException;
 import org.codehaus.jackson.map.JsonMappingException;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -33,12 +33,15 @@ import org.codehaus.jackson.map.annotate.JsonSerialize;
 public class BigQuerySchema extends ArrayList<BigQueryField> {
   @Override
   public String toString() {
-    String schema = "[" + StringUtils.join(this, ",") + "]";
-    return schema;
+    return toJson();
   }
 
+  /**
+   * Returns the json representation that BigQuery expects for schemas.
+   * @return
+   */
   public String toJson() {
- // Only include non null fields.
+    // Only include non null fields.
     ObjectMapper mapper = new ObjectMapper();
 
     mapper.getSerializationConfig().setSerializationInclusion(JsonSerialize.Inclusion.NON_NULL);
@@ -70,6 +73,11 @@ public class BigQuerySchema extends ArrayList<BigQueryField> {
    */
   public static BigQuerySchema fromAvroSchema(Schema schema) {
     BigQuerySchema bqSchema = new BigQuerySchema();
+
+    if (schema.getType() != Type.RECORD) {
+      throw new RuntimeException("Avro schema must be a record.");
+    }
+
     for (Field field : schema.getFields()) {
       // TODO(jeremy@lewi.us): Will we get data loss if we represent Avro
       // longs as big query integers? Big query only has the integer type.
@@ -83,6 +91,37 @@ public class BigQuerySchema extends ArrayList<BigQueryField> {
       } else if (field.schema().getType() == Type.FLOAT ||
                  field.schema().getType() == Type.DOUBLE) {
         bqSchema.add(new BigQueryField(field.name(), "float"));
+      } else if (field.schema().getType() == Type.RECORD) {
+        BigQuerySchema subRecord = BigQuerySchema.fromAvroSchema(
+            field.schema());
+        BigQueryField subField = new BigQueryField(field.name(), "record");
+        subField.fields.addAll(subRecord);
+        bqSchema.add(subField);
+      } else if (field.schema().getType() == Type.UNION) {
+        // The json encoder for a union just outputs a record. The field names
+        // are the fully qualified schema names. Only the field for the item
+        // actually represented in the schema is set.
+        List<Field> unionFields = new ArrayList<Field>();
+        for (Schema item : field.schema().getTypes()) {
+          if (item.getType() == Type.NULL) {
+            continue;
+          }
+          // JsonEncoder uses the fully qualified name of the schema as the
+          // field name. This creates problems for BigQuery so we only use
+          // the final part of the name. This is compatible with
+          // BigQueryJsonEncoder. There is a small possibility that we could
+          // have problems if we have two schemas with the same name in
+          // different namespaces appearing in the union.
+          Field avroField = new Field(item.getName(), item, null, null);
+          unionFields.add(avroField);
+        }
+        Schema recordSchema = Schema.createRecord(unionFields);
+        BigQueryField bigQueryField = new BigQueryField(
+            field.name(), recordSchema);
+        for (BigQueryField subField : bigQueryField.fields) {
+          subField.mode = "nullable";
+        }
+        bqSchema.add(bigQueryField);
       } else {
         throw new RuntimeException(
             "We don't know how to handle the avro schema:" +
