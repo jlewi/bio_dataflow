@@ -25,9 +25,9 @@ import java.util.Map;
 
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileStream;
-import org.apache.avro.io.DatumWriter;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
+import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.io.JsonEncoder;
 import org.apache.hadoop.conf.Configuration;
@@ -35,7 +35,6 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 import org.codehaus.jackson.JsonFactory;
@@ -43,8 +42,8 @@ import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.util.DefaultPrettyPrinter;
 
 import contrail.stages.ContrailParameters;
+import contrail.stages.NonMRStage;
 import contrail.stages.ParameterDefinition;
-import contrail.stages.Stage;
 
 /**
  * Pretty print avro files to json.
@@ -53,10 +52,11 @@ import contrail.stages.Stage;
  * 1. Allow the inputpath to specify a directory or glob path.
  * 2. If outputpath isn't specified dump to stdout.
  */
-public class PrettyPrint extends Stage {
+public class PrettyPrint extends NonMRStage {
   private static final Logger sLogger =
       Logger.getLogger(PrettyPrint.class);
 
+  @Override
   protected Map<String, ParameterDefinition>
       createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs =
@@ -113,17 +113,17 @@ public class PrettyPrint extends Stage {
     }
   }
 
-  @Override
-  public RunningJob runJob() throws Exception {
-    String[] required_args = {"inputpath"};
-    checkHasParametersOrDie(required_args);
-
-    prettyPrint();
-    return null;
-  }
-
   public static void main(String[] args) throws Exception {
     int res = ToolRunner.run(new Configuration(), new PrettyPrint(), args);
     System.exit(res);
+  }
+
+  @Override
+  protected void stageMain() {
+    try {
+      prettyPrint();
+    } catch (Exception e) {
+      sLogger.fatal("There was a problem pretty printing the avro data.", e);
+    }
   }
 }
