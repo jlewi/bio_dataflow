@@ -22,6 +22,7 @@ import org.junit.Test;
 import contrail.ReporterMock;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
+import contrail.graph.GraphUtil;
 import contrail.graph.SimpleGraphBuilder;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
@@ -159,7 +160,8 @@ public class TestPairMergeAvro extends PairMergeAvro {
     GraphNode merged_node = new GraphNode(output.getNode());
     GraphNode expected_node =
         new GraphNode(test_case.expected_output.getNode());
-    assertEquals(expected_node.getData(), merged_node.getData());
+
+    assertEquals(expected_node, merged_node);
     assertEquals(
         test_case.expected_output.getCompressibleStrands(),
         output.getCompressibleStrands());
@@ -270,6 +272,73 @@ public class TestPairMergeAvro extends PairMergeAvro {
         CompressibleStrands.REVERSE);
 
     test_case.num_remaining_compressible = 1;
+    return test_case;
+  }
+
+  private ReducerTestCase reducerMergeCycleTest() {
+    // Construct a simple reduce test case in which two nodes are merged and
+    // the resulting node has a self cycle.
+    // The input is A->B->A which gets compressed to AB->AB. We want to
+    // check that resulting merged node isn't marked as Compressible.
+
+    ReducerTestCase test_case = new ReducerTestCase();
+    test_case.K = 3;
+
+    SimpleGraphBuilder builder = new SimpleGraphBuilder();
+
+    builder.addNode("ACTGGAC");
+    builder.addNode("ACCCAC");
+
+    GraphNode nodeA = builder.findNodeForSequence("ACTGGAC");
+    GraphNode nodeB = builder.findNodeForSequence("ACCCAC");
+
+    GraphUtil.addBidirectionalEdge(
+        nodeA, DNAStrand.FORWARD, nodeB, DNAStrand.FORWARD);
+    GraphUtil.addBidirectionalEdge(
+        nodeB, DNAStrand.FORWARD, nodeA, DNAStrand.FORWARD);
+
+    test_case.input = new ArrayList<NodeInfoForMerge>();
+
+    {
+      CompressibleNodeData merge_data = new CompressibleNodeData();
+      merge_data.setCompressibleStrands(CompressibleStrands.BOTH);
+      merge_data.setNode(nodeA.clone().getData());
+
+      NodeInfoForMerge merge_info = new NodeInfoForMerge();
+      merge_info.setCompressibleNode(merge_data);
+      merge_info.setStrandToMerge(CompressibleStrands.FORWARD);
+      test_case.input.add(merge_info);
+    }
+    {
+      CompressibleNodeData merge_data = new CompressibleNodeData();
+      merge_data.setCompressibleStrands(CompressibleStrands.BOTH);
+      merge_data.setNode(nodeB.clone().getData());
+
+      // nodeB is the down node so we set strands to merge to none.
+      NodeInfoForMerge merge_info = new NodeInfoForMerge();
+      merge_info.setCompressibleNode(merge_data);
+      merge_info.setStrandToMerge(CompressibleStrands.NONE);
+      test_case.input.add(merge_info);
+    }
+
+    // Construct the expected output.
+    // The down node is nodeB. The down node preserves its strand.
+    GraphNode merged_node = new GraphNode();
+    merged_node.setNodeId(nodeB.getNodeId());
+    Sequence merged_sequence =
+        new Sequence("ACTGGACCCAC", DNAAlphabetFactory.create());
+    merged_node.setSequence(merged_sequence);
+
+    GraphUtil.addBidirectionalEdge(
+        merged_node, DNAStrand.FORWARD, merged_node, DNAStrand.FORWARD);
+
+    test_case.reducer_key = merged_node.getNodeId();
+    test_case.expected_output = new CompressibleNodeData();
+    test_case.expected_output.setNode(merged_node.getData());
+    test_case.expected_output.setCompressibleStrands(
+        CompressibleStrands.NONE);
+
+    test_case.num_remaining_compressible = 0;
     return test_case;
   }
 
@@ -389,6 +458,13 @@ public class TestPairMergeAvro extends PairMergeAvro {
     test_cases.add(reducerNoMergeTest());
     test_cases.add(reducerSimpleMergeTest());
     test_cases.add(reducerTwoMergeTest());
+    runReduceTestCases(test_cases);
+  }
+
+  @Test
+  public void testMergeCycleReducer() {
+    ArrayList<ReducerTestCase> test_cases = new ArrayList<ReducerTestCase>();
+    test_cases.add(reducerMergeCycleTest());
     runReduceTestCases(test_cases);
   }
 

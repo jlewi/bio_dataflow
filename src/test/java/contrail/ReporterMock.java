@@ -31,6 +31,12 @@ public class ReporterMock implements Reporter {
   }
 
   public long getCounterValue(String group, String counter) {
+    if (!counters.containsKey(group)) {
+      return 0L;
+    }
+    if (!counters.get(group).containsKey(counter)) {
+      return 0L;
+    }
     return counters.get(group).get(counter);
   }
 
