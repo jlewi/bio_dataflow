@@ -578,4 +578,66 @@ public class TestGraphNode {
       assertEquals(expected, strands);
     }
   }
+
+  @Test
+  public void testHasSelfCycle() {
+    // A node with a cycle.
+    GraphNode node = new GraphNode();
+    node.setNodeId("cycle");
+    GraphUtil.addBidirectionalEdge(
+        node, DNAStrand.REVERSE, node, DNAStrand.REVERSE);
+
+    assertTrue(node.hasSelfCycle());
+
+    // Add an edge to other nodes.
+    GraphNode other = new GraphNode();
+    other.setNodeId("other");
+
+    GraphUtil.addBidirectionalEdge(
+        node, DNAStrand.FORWARD, other, DNAStrand.FORWARD);
+
+    assertTrue(node.hasSelfCycle());
+    assertFalse(other.hasSelfCycle());
+
+    // Create a node with the edge A->R(A). This is not a self cycle.
+    GraphNode selfChain = new GraphNode();
+    selfChain.setNodeId("selfChain");
+    GraphUtil.addBidirectionalEdge(
+        selfChain, DNAStrand.FORWARD, selfChain, DNAStrand.REVERSE);
+
+    assertFalse(selfChain.hasSelfCycle());
+  }
+
+  @Test
+  public void testHasConnectedStrands() {
+    // Explicitly check both strands.
+    for (DNAStrand strand : DNAStrand.values()) {
+      GraphNode node = new GraphNode();
+      node.setNodeId("selfConnected");
+      GraphUtil.addBidirectionalEdge(
+          node, strand, node, DNAStrandUtil.flip(strand));
+
+      assertTrue(node.hasConnectedStrands());
+
+      // Add an edge to some other nodes.
+      GraphNode other = new GraphNode();
+      other.setNodeId("other");
+
+      GraphUtil.addBidirectionalEdge(
+          node, strand, other, DNAStrand.FORWARD);
+
+      assertTrue(node.hasConnectedStrands());
+      assertFalse(other.hasConnectedStrands());
+    }
+
+    {
+      // A node with a cycle should not return true.
+      GraphNode node = new GraphNode();
+      node.setNodeId("cycle");
+      GraphUtil.addBidirectionalEdge(
+          node, DNAStrand.REVERSE, node, DNAStrand.REVERSE);
+
+      assertFalse(node.hasConnectedStrands());
+    }
+  }
 }
