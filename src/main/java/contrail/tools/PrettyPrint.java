@@ -149,11 +149,6 @@ public class PrettyPrint extends NonMRStage {
     }
   }
 
-  public static void main(String[] args) throws Exception {
-    int res = ToolRunner.run(new Configuration(), new PrettyPrint(), args);
-    System.exit(res);
-  }
-
   @Override
   protected void stageMain() {
     try {
@@ -161,5 +156,10 @@ public class PrettyPrint extends NonMRStage {
     } catch (Exception e) {
       sLogger.fatal("There was a problem pretty printing the avro data.", e);
     }
+  }
+
+  public static void main(String[] args) throws Exception {
+    int res = ToolRunner.run(new Configuration(), new PrettyPrint(), args);
+    System.exit(res);
   }
 }
