@@ -109,10 +109,10 @@ public class WriteGephiFile extends NonMRStage {
 
     ParameterDefinition start_node = new ParameterDefinition(
         "start_node", "(Optional) if supplied num_hops must also be given.",
-        String.class, null);
+        String.class, "");
     ParameterDefinition num_hops = new ParameterDefinition(
         "num_hops", "(Optional) Number of hops to take starting at start_node.",
-        Integer.class, null);
+        Integer.class, 0);
 
     ParameterDefinition sequence = new ParameterDefinition(
         "sequence",
@@ -648,7 +648,8 @@ public class WriteGephiFile extends NonMRStage {
     sLogger.info(" - output: " + outputPath);
 
     Iterable<GraphNode> nodesToPlot;
-    if (stage_options.containsKey("start_node")) {
+    String start_nodes = (String) stage_options.get("start_node");
+    if (!start_nodes.isEmpty()) {
       // If we're plotting a subgraph then we need to be able to load
       // the particular node. We should really use an indexed AvroFile
       // to facilitate quick lookups.
