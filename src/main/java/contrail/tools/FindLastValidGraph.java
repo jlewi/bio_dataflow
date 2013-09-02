@@ -99,9 +99,10 @@ public class FindLastValidGraph extends PipelineStage {
     StageInfo stageInfo = new StageInfo();
 
     try {
-      FileSystem fs = FileSystem.get(this.getConf());
+      Path inPath = new Path(inputPath);
+      FileSystem fs = inPath.getFileSystem(this.getConf());
 
-      FSDataInputStream  stream = fs.open(new Path(inputPath));
+      FSDataInputStream stream = fs.open(inPath);
       JsonDecoder decoder = DecoderFactory.get().jsonDecoder(
           stageInfo.getSchema(), stream);
       SpecificDatumReader<StageInfo> reader =
