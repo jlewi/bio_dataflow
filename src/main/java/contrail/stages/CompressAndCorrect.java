@@ -40,7 +40,8 @@ import contrail.util.FileHelper;
  * by error correction until we have a round where the graph doesn't change.
  */
 public class CompressAndCorrect extends PipelineStage {
-  private static final Logger sLogger = Logger.getLogger(CompressChains.class);
+  private static final Logger sLogger = Logger.getLogger(
+      CompressAndCorrect.class);
   /**
    * Get the parameters used by this stage.
    */
@@ -320,7 +321,6 @@ public class CompressAndCorrect extends PipelineStage {
       throw new RuntimeException("Problem moving the files: " + e.getMessage());
     }
   }
-
   /**
    * Compress the graph as much as possible, removing tips and popping bubbles.
    *
@@ -359,6 +359,7 @@ public class CompressAndCorrect extends PipelineStage {
       String removeTipsPath = new Path(stepPath, "RemoveTips").toString();
 
       JobInfo compressResult = compressGraph(stepInputPath, compressedPath);
+
       sLogger.info(compressResult.logMessage);
       computeStats(stepPath, CompressChains.class.getName(), compressResult);
 
