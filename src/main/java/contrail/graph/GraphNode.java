@@ -18,6 +18,7 @@ import contrail.sequences.CompressedSequence;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAStrandUtil;
+import contrail.sequences.DNAUtil;
 import contrail.sequences.KMerReadTag;
 import contrail.sequences.Sequence;
 import contrail.sequences.StrandsForEdge;
@@ -70,6 +71,8 @@ public class GraphNode {
     private HashMap<EdgeTerminal, List<CharSequence>> r_edge_tags_map;
 
     private HashSet<String> neighborIds;
+
+    private boolean isPalindrome;
 
     public DerivedData(GraphNodeData data) {
       this.data = data;
@@ -317,6 +320,12 @@ public class GraphNode {
 
     public void setNeighborIds(HashSet<String> idSet) {
       neighborIds = idSet;
+    }
+
+    public boolean isPalindrome() {
+      Sequence sequence = new Sequence(DNAAlphabetFactory.create());
+      sequence.readCompressedSequence(data.getSequence());
+      return DNAUtil.isPalindrome(sequence);
     }
   }
 
@@ -673,6 +682,12 @@ public class GraphNode {
       neighbors.add(dest_node);
     }
 
+    if (isPalindrome()) {
+      // Since its a palindrome we use the convention of always using the
+      // forward strand.
+      strand = DNAStrand.FORWARD;
+    }
+
     List<EdgeData> list_edge_strands = dest_node.getEdges();
     if (list_edge_strands == null) {
       list_edge_strands = new ArrayList<EdgeData> ();
@@ -690,7 +705,7 @@ public class GraphNode {
       edge.setReadTags(new ArrayList<CharSequence>());
     }
 
-    if (tags !=null) {
+    if (tags != null) {
       if (edge.getReadTags().size() < MAXTHREADREADS){
         List<CharSequence> edge_tags = edge.getReadTags();
         long max_insert = MAXTHREADREADS - edge.getReadTags().size();
@@ -1243,6 +1258,13 @@ public class GraphNode {
       }
     }
     return neighbor;
+  }
+
+  /**
+   * Return's true if the sequence represented by this node is a palindrome.
+   */
+  public boolean isPalindrome() {
+    return derived_data.isPalindrome();
   }
 
   /**
