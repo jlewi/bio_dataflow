@@ -36,6 +36,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
@@ -234,10 +235,26 @@ public class GraphUtil {
   public static void addBidirectionalEdge(
       GraphNode src, DNAStrand srcStrand, GraphNode dest,
       DNAStrand destStrand) {
-    src.addOutgoingEdge(
-        srcStrand, new EdgeTerminal(dest.getNodeId(), destStrand));
-    dest.addIncomingEdge(
-        destStrand, new EdgeTerminal(src.getNodeId(), srcStrand));
+    addBidirectionalEdgeWithTags(src, srcStrand, dest, destStrand, null);
+  }
+
+  /**
+   * Add a bidirectional edge.
+   *
+   * This functions adds the edge
+   * (src, srcStrand)->(dest, destStrand) to src and the edge
+   * (dest, R(destStrand))->(src, destStrand) to dest,
+   * which ensures the graph is valid.
+   */
+  public static void addBidirectionalEdgeWithTags(
+      GraphNode src, DNAStrand srcStrand, GraphNode dest,
+      DNAStrand destStrand, Collection<? extends CharSequence> tags) {
+    src.addOutgoingEdgeWithTags(
+        srcStrand, new EdgeTerminal(dest.getNodeId(), destStrand), tags,
+        Integer.MAX_VALUE);
+    dest.addIncomingEdgeWithTags(
+        destStrand, new EdgeTerminal(src.getNodeId(), srcStrand), tags,
+        Integer.MAX_VALUE);
   }
 
   /**
