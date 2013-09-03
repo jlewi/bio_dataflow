@@ -5,6 +5,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
@@ -779,6 +780,15 @@ public class TestNodeMerger extends NodeMerger {
       GraphNode merged = merger.mergeConnectedStrands(node, 2);
       NodeDiff diff = expected.equalsWithInfo(merged);
       assertEquals(NodeDiff.NONE, diff);
+
+      // Make sure the new graph is valid and consistent with the other
+      // nodes.
+      HashMap<String, GraphNode> newGraph = new HashMap<String, GraphNode>();
+      for (GraphNode n : Arrays.asList(merged, nodeY, nodeZ)) {
+        newGraph.put(n.getNodeId(), n);
+      }
+      List<GraphError> errors = GraphUtil.validateGraph(newGraph, 3);
+      assertEquals(0, errors.size());
     }
   }
 
