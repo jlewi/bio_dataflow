@@ -562,6 +562,8 @@ public class BuildGraphAvro extends MRStage {
     int K = (Integer) stage_options.get("K");
 
     // K should be odd.
+    // If K isn't odd we will get palindromes and we won't preserve important
+    // direction information.
     if ((K % 2) == 0) {
       InvalidParameter item = new InvalidParameter(
           "K",
