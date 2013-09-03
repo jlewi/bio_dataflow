@@ -12,6 +12,7 @@ import java.util.Random;
 import org.junit.Before;
 import org.junit.Test;
 
+import contrail.graph.GraphNode.NodeDiff;
 import contrail.sequences.Alphabet;
 import contrail.sequences.AlphabetUtil;
 import contrail.sequences.DNAAlphabetFactory;
@@ -294,8 +295,8 @@ public class TestNodeMerger extends NodeMerger {
 
   protected static class NodesTestCase{
     // Chain of nodes to merge.
-    private ArrayList<EdgeTerminal> chain;
-    private HashMap<String, GraphNode> nodes;
+    private final ArrayList<EdgeTerminal> chain;
+    private final HashMap<String, GraphNode> nodes;
 
     // The expected merged node.
     private GraphNode expectedNode;
@@ -472,6 +473,7 @@ public class TestNodeMerger extends NodeMerger {
     // Create a node with some edges.
     GraphNode node = new GraphNode();
     node.getData().setNodeId(nodeid);
+    node.setSequence(sequence);
 
     int num_edges = generator.nextInt(15);
     for (int edge_index = 0; edge_index < num_edges; edge_index++) {
@@ -493,7 +495,6 @@ public class TestNodeMerger extends NodeMerger {
         node.addOutgoingEdgeWithTags(strand, terminal, tags, kMaxThreads);
       }
     }
-    node.setSequence(sequence);
 
     return node;
   }
@@ -559,8 +560,6 @@ public class TestNodeMerger extends NodeMerger {
       // Get the nodes for the merge.
       EdgeTerminal srcTerminal = graph.findEdgeTerminalForSequence("GGC");
       EdgeTerminal destTerminal = graph.findEdgeTerminalForSequence("GCC");
-      //GraphNode srcNode = graph.getNode(srcTerminal.nodeId);
-      //GraphNode destNode = graph.getNode(destTerminal.nodeId);
 
       ArrayList<EdgeTerminal> chain = new ArrayList<EdgeTerminal>();
       chain.add(srcTerminal);
@@ -715,5 +714,105 @@ public class TestNodeMerger extends NodeMerger {
     MergeResult result = merger.mergeNodes("merged", chain, nodes, overlap);
 
     assertTrue(expectedNode.equals(result.node));
+  }
+
+  @Test
+  public void testConnectedStrands() {
+    // This test is slightly different from mergeNodeWithRC because
+    // we are testing NodeMerger.mergeConnectedSrands.
+    // Suppose we have the graph Y->X->R(X)->Z
+    // and we call mergeConnectedStrands on X, we want to verify this produces
+    // the correct result. Most importantly we want to ensure that edge
+    // strands are preserved and consistent.
+    // The edge Y->X is represented as FF in node Y. The corresponding edge
+    // RC(X)->RC(Y) is represented as RR in node R.
+    // So after the merge the edge should be R(M)->R(Y) where M is the result
+    // of merging X and R(X).
+    // We also consider the graph.
+    // Y->R(X)->X->Z.
+    // In this case the edges in X are attached to the F strand.
+    for (DNAStrand xStrand : DNAStrand.values()) {
+      GraphNode node = new GraphNode();
+      node.setNodeId("X");
+
+      Sequence catSequence = new Sequence("CAT", DNAAlphabetFactory.create());
+      if (xStrand == DNAStrand.REVERSE) {
+        // Take the complete of the sequence so that the edge from Y will
+        // be the R strand of X.
+        node.setSequence(DNAUtil.reverseComplement(catSequence));
+      } else {
+        node.setSequence(catSequence);
+      }
+
+      GraphUtil.addBidirectionalEdge(
+          node, xStrand, node, DNAStrandUtil.flip(xStrand));
+
+      GraphNode nodeY = new GraphNode();
+      nodeY.setNodeId("Y");
+      nodeY.setSequence(new Sequence("TCA", DNAAlphabetFactory.create()));
+
+      GraphUtil.addBidirectionalEdge(
+          nodeY, DNAStrand.FORWARD, node, xStrand);
+
+      GraphNode nodeZ = GraphTestUtil.createNode("Z", "TGG");
+      GraphUtil.addBidirectionalEdge(
+          node, DNAStrandUtil.flip(xStrand), nodeZ, DNAStrand.FORWARD);
+
+      GraphNode expected = new GraphNode();
+      expected.setNodeId(node.getNodeId());
+      expected.setSequence(new Sequence("CATG", DNAAlphabetFactory.create()));
+
+      // The merged graph is Y,R(Z)->[X,R(X)] -> R(Y),Z
+      // When we merge the nodes X and R(X) we want to preserve the incoming
+      // edge to X and the outgoing edge to R(X). However, these incoming
+      // outgoing edges should only be represented once in the merged node
+      // as [X, R(X)] ->R(Y), Z. Furthermore, while both strands of the merged
+      // node are the same, the strand used should be consistent with the
+      // corresponding strand in nodes Y and Z for these edges.
+      expected.addIncomingEdge(
+          xStrand, new EdgeTerminal("Y", DNAStrand.FORWARD));
+      expected.addOutgoingEdge(
+          DNAStrandUtil.flip(xStrand),
+          new EdgeTerminal("Z", DNAStrand.FORWARD));
+
+      NodeMerger merger = new NodeMerger();
+      GraphNode merged = merger.mergeConnectedStrands(node, 2);
+      NodeDiff diff = expected.equalsWithInfo(merged);
+      assertEquals(NodeDiff.NONE, diff);
+    }
+  }
+
+  @Test
+  public void testConnectedStrandsNotMergeable() {
+    // We test NodeMerger.mergeConnectedSrands doesn't merge the strands
+    // when the strands can't be merged.
+    // Suppose we have the graph X->R(X),A
+    // and we call mergeConnectedStrands on X, no merge should happen
+    // because X has outdegree 2.
+    for (DNAStrand xStrand : DNAStrand.values()) {
+      GraphNode node = new GraphNode();
+      node.setNodeId("X");
+
+      Sequence catSequence = new Sequence("CAT", DNAAlphabetFactory.create());
+      if (xStrand == DNAStrand.REVERSE) {
+        // Take the complete of the sequence so that the edge from Y will
+        // be the R strand of X.
+        node.setSequence(DNAUtil.reverseComplement(catSequence));
+      } else {
+        node.setSequence(catSequence);
+      }
+
+      GraphUtil.addBidirectionalEdge(
+          node, xStrand, node, DNAStrandUtil.flip(xStrand));
+
+      GraphNode nodeA = GraphTestUtil.createNode("A", "ATGG");
+
+      GraphUtil.addBidirectionalEdge(
+          node, xStrand, nodeA, DNAStrand.FORWARD);
+
+      NodeMerger merger = new NodeMerger();
+      GraphNode merged = merger.mergeConnectedStrands(node, 2);
+      assertEquals(null, merged);
+    }
   }
 }
