@@ -40,6 +40,7 @@ import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
+import contrail.graph.NodeMerger;
 import contrail.graph.TailData;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.StrandsForEdge;
@@ -50,6 +51,9 @@ import contrail.stages.GraphCounters.CounterName;
  * This mapreduce stage marks nodes which can be compressed. A node
  * can be compressed if it is part of a linear chain; i.e there is a single
  * path through that node.
+ *
+ * The mapper also handles merging nodes with connected strands. For example,
+ * the node X->R(X) would be merged to form the sequence XR(X)[-1].
  */
 public class CompressibleAvro extends MRStage {
   private static final Logger sLogger = Logger.getLogger(
@@ -82,6 +86,7 @@ public class CompressibleAvro extends MRStage {
   /**
    * Get the parameters used by this stage.
    */
+  @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs =
       new HashMap<String, ParameterDefinition>();
@@ -92,6 +97,9 @@ public class CompressibleAvro extends MRStage {
       ContrailParameters.getInputOutputPathOptions()) {
       defs.put(def.getName(), def);
     }
+
+    ParameterDefinition kDef = ContrailParameters.getK();
+    defs.put(kDef.getName(), kDef);
     return Collections.unmodifiableMap(defs);
   }
 
@@ -102,15 +110,22 @@ public class CompressibleAvro extends MRStage {
     private GraphNode node = new GraphNode();
 
     // Output pair to use for the mapper.
-    private Pair<CharSequence, CompressibleMapOutput> out_pair = new
+    private final Pair<CharSequence, CompressibleMapOutput> out_pair = new
         Pair<CharSequence, CompressibleMapOutput>(MAP_OUT_SCHEMA);
 
     // Message to use; we use a static instance to avoid the cost
     // of recreating one every time we need one.
-    private CompressibleMessage message = new CompressibleMessage();
+    private final CompressibleMessage message = new CompressibleMessage();
 
+    private NodeMerger nodeMerger;
+
+    private int K;
+    @Override
     public void configure(JobConf job) {
+      nodeMerger = new NodeMerger();
       out_pair.value(new CompressibleMapOutput());
+
+      K = (Integer) ContrailParameters.getK().parseJobConf(job);
     }
 
     /**
@@ -138,6 +153,19 @@ public class CompressibleAvro extends MRStage {
       node.setData(graph_data);
       CompressibleMapOutput map_output = out_pair.value();
 
+      if (node.hasConnectedStrands()) {
+        reporter.incrCounter(
+            "Contrail","nodes-with-connected-strands", 1);
+
+        // We merge the strands if possible.
+        GraphNode newNode = nodeMerger.mergeConnectedStrands(node, K - 1);
+        if (newNode != null) {
+          reporter.incrCounter(
+              "Contrail","nodes-with-connected-strands-merged", 1);
+          node = newNode;
+        }
+      }
+
       // We consider the outgoing edges from both strands.
       // Recall that RC(X) -> Y  implies RC(Y) -> X.
       for (DNAStrand strand: DNAStrand.values()) {
@@ -152,7 +180,8 @@ public class CompressibleAvro extends MRStage {
 
           reporter.incrCounter("Contrail", "remotemark", 1);
 
-          // Send a message to the neighbor telling it this node is compressible.
+          // Send a message to the neighbor telling it this node is
+          // compressible.
           clearCompressibleMapOutput(map_output);
           out_pair.key(tail.terminal.nodeId);
 
@@ -168,7 +197,7 @@ public class CompressibleAvro extends MRStage {
       // Output the node in the graph.
       out_pair.key(node.getNodeId());
       clearCompressibleMapOutput(map_output);
-      map_output.setNode(graph_data);
+      map_output.setNode(node.getData());
       out_pair.value(map_output);
       output.collect(out_pair);
       reporter.incrCounter("Contrail", "nodes", 1);
@@ -184,22 +213,106 @@ public class CompressibleAvro extends MRStage {
       AvroReducer<CharSequence, CompressibleMapOutput, CompressibleNodeData> {
     private GraphNode node = new GraphNode();
 
-
-    // We store the nodes sending messages in two sets, one corresponding
-    // to messages to the forward strand and another corresponding to messages
-    // the reverse strand.
-    private HashSet<EdgeTerminal> f_terminals = new  HashSet<EdgeTerminal>();
-    private HashSet<EdgeTerminal> r_terminals = new  HashSet<EdgeTerminal>();
+    // We store the nodes sending messages in two sets.
+    // We use one set store messages to the forward strand and another
+    // corresponding to messages to the reverse strand.
+    private final HashSet<EdgeTerminal> f_terminals =
+        new HashSet<EdgeTerminal>();
+    private final HashSet<EdgeTerminal> r_terminals =
+        new HashSet<EdgeTerminal>();
 
     // The output from the reducer is a node annotated with information
     // about whether its attached to compressible nodes or not.
-    private CompressibleNodeData annotated_node =
+    private final CompressibleNodeData annotated_node =
         new CompressibleNodeData();
 
     // Clear the data in the node.
     private void clearAnnotatedNode(CompressibleNodeData node) {
       node.setNode(null);
       node.setCompressibleStrands(CompressibleStrands.NONE);
+    }
+
+    /**
+     * Determine if either of the node's strands are compressible.
+     *
+     * @return
+     */
+    private CompressibleStrands isCompressible() {
+      /*
+       * Now check if this node is compressible.
+       * Suppose we have edge X->Y. We can compress this edge
+       * if X has a single outgoing edge to Y and Y has a single
+       * incoming edge from X. We look at the tail for X to see
+       * if it has a single outgoing edge. The messages stored in
+       * f_terminals and r_terminals tells us if the node Y has a single
+       * incoming edge from X.
+       */
+      boolean f_compressible = false;
+      boolean r_compressible = false;
+      for (DNAStrand strand: DNAStrand.values()) {
+        // The annotated node always gives the compressible direction
+        // with respect to the forward strand.
+        HashSet<EdgeTerminal> terminals = f_terminals;
+        if (strand == DNAStrand.REVERSE) {
+          // If we can compress the reverse strand along its outgoing edge
+          // that corresponds to compressing the forward strand along its
+          // incoming edge.
+          terminals = r_terminals;
+        }
+        if (terminals.size() == 0) {
+          // There are no message in this direction so we don't be able
+          // to compress it.
+          continue;
+        }
+
+        TailData tail_data = node.getTail(
+            strand, EdgeDirection.OUTGOING);
+
+        if (tail_data == null) {
+          // There's no tail in this direction so we can't compress.
+          continue;
+        }
+
+        // Since there is a tail for this strand, check if there is a message
+        // from the node in the tail.
+        // Sanity check since we have a tail in this direction we should
+        // have at most a single message.
+        if (terminals.size() > 1) {
+          // We use an exception for now because we should
+          // treat this as an unrecoverable error.
+          throw new RuntimeException(
+              "Node: " + node.getNodeId() + "has a tail for strand: " +
+              strand + " but has more " +
+              "than 1 message for this strand. Number of messages is " +
+              terminals.size());
+        }
+        if (!terminals.iterator().next().nodeId.equals(
+            tail_data.terminal.nodeId)) {
+          EdgeTerminal next = terminals.iterator().next();
+          sLogger.fatal(
+              "Node: " + node.getNodeId() + "has a tail for strand: " +
+              strand + " to terminal " + tail_data.terminal.toString() + " " +
+              "but the compressible message is from terminal " +
+              next.toString(),
+              new RuntimeException("Inconsistent compressible messages."));
+        }
+
+        if (strand == DNAStrand.FORWARD) {
+          f_compressible = true;
+        }
+        if (strand == DNAStrand.REVERSE) {
+          r_compressible = true;
+        }
+      }
+
+      if (f_compressible && r_compressible) {
+        return CompressibleStrands.BOTH;
+      } else if (f_compressible) {
+        return CompressibleStrands.FORWARD;
+      } else if (r_compressible) {
+        return CompressibleStrands.REVERSE;
+      }
+      return CompressibleStrands.NONE;
     }
 
     @Override
@@ -239,6 +352,7 @@ public class CompressibleAvro extends MRStage {
 
         if (output.getMessage() != null) {
           CompressibleMessage msg = output.getMessage();
+
           // Edge is always an outgoing message from the source node.
           // So we reverse the edge strands to get the outgoing edges
           // from this node.
@@ -246,7 +360,6 @@ public class CompressibleAvro extends MRStage {
           EdgeTerminal terminal = new EdgeTerminal(
               msg.getFromNodeId().toString(),
               StrandsUtil.dest(strands));
-
           DNAStrand this_strand = StrandsUtil.src(strands);
           if (this_strand == DNAStrand.FORWARD) {
             f_terminals.add(terminal);
@@ -263,75 +376,11 @@ public class CompressibleAvro extends MRStage {
 
       annotated_node.setNode(node.getData());
 
-      /*
-       * Now check if this node is compressible.
-       * Suppose we have edge X->Y. We can compress this edge
-       * if X has a single outgoing edge to Y and Y has a single
-       * incoming edge from X. We look at the tail for X to see
-       * if it has a single outgoing edge. The messages stored in
-       * f_terminals and r_terminals tells us if the node Y has a single
-       * incoming edge from X.
-       */
-      boolean f_compressible = false;
-      boolean r_compressible = false;
-      for (DNAStrand strand: DNAStrand.values()) {
-        // The annotated node always gives the compressible direction
-        // with respect to the forward strand.
+      CompressibleStrands compressible_strands = null;
+      compressible_strands = isCompressible();
 
-        // EdgeDirection compressible_direction = EdgeDirection.OUTGOING;
-        HashSet<EdgeTerminal> terminals = f_terminals;
-        if (strand == DNAStrand.REVERSE) {
-          // If we can compress the reverse strand along its outgoing edge
-          // that corresponds to compressing the forward strand along its
-          // incoming edge.
-          //compressible_direction = EdgeDirection.INCOMING;
-          terminals = r_terminals;
-        }
-
-        TailData tail_data = node.getTail(
-            strand, EdgeDirection.OUTGOING);
-
-        if (tail_data == null) {
-          // There's no tail in this direction so we can't compress.
-          continue;
-        }
-
-        // Since there is a tail for this strand, check if there is a message
-        // from the node in the tail.
-        if (!terminals.contains(tail_data.terminal)) {
-          // We can't compress.
-          continue;
-        }
-
-        // Sanity check since we have a tail in this direction we should
-        // have at most a single message.
-        if (terminals.size() > 1) {
-          // We use an exception for now because we should
-          // treat this as an unrecoverable error.
-          throw new RuntimeException(
-              "Node: " + node.getNodeId() + "has a tail for strand: " +
-              strand + " but has more " +
-              "than 1 message for this strand. Number of messages is " +
-              terminals.size());
-        }
-
-        if (strand == DNAStrand.FORWARD) {
-          f_compressible = true;
-        }
-        if (strand == DNAStrand.REVERSE) {
-          r_compressible = true;
-        }
-
-      }
-      annotated_node.setCompressibleStrands(CompressibleStrands.NONE);
-      if (f_compressible && r_compressible) {
-        annotated_node.setCompressibleStrands(CompressibleStrands.BOTH);
-      } else if (f_compressible) {
-        annotated_node.setCompressibleStrands(CompressibleStrands.FORWARD);
-      } else if (r_compressible) {
-        annotated_node.setCompressibleStrands(CompressibleStrands.REVERSE);
-      }
-      if (f_compressible || r_compressible) {
+      annotated_node.setCompressibleStrands(compressible_strands);
+      if (compressible_strands != CompressibleStrands.NONE) {
         reporter.incrCounter(
             NUM_COMPRESSIBLE.group, NUM_COMPRESSIBLE.tag, 1);
       }
