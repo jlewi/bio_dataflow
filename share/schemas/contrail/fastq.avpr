@@ -37,7 +37,35 @@
                   "type":"contrail.sequences.FastQRecord"
                   }
                   ]
+        },
+        {"type": "record",
+        "name":"QuakeReadCorrection",
+        "doc": "Store information about the corrections quake made to a read.",
+        "fields": [ { "name":"corrected",
+                      "type": "boolean",
+                      "doc": "Read had errors that quake corrected."
+                    },
+	                { "name":"trim_length", 
+	                  "type":"int",
+	                  "doc": "Number of bases trimmed from the read."
+	                }
+                  ]
         }
-
+        ,
+        {"type": "record",
+        "name":"Read",
+        "doc": ["Represent a read. The read could be represented using a ", 
+                "variety of formats. We can also associate different metadata ",
+                "with the read."],
+        "fields": [ { "name":"fastq",
+                      "type": ["null", "contrail.sequences.FastQRecord"],
+                      "doc": "FastQ representation if supplied."
+                    },
+                    {
+                      "name":"quake_read_correction", 
+                       "type":"contrail.sequences.QuakeReadCorrection"
+                    }
+                  ]
+        }
         ] //end types
 }
