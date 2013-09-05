@@ -25,6 +25,7 @@ import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.graph.SimpleGraphBuilder;
 import contrail.sequences.KMerReadTag;
+import contrail.util.FileHelper;
 
 public class TestQuickMarkAvro extends QuickMarkAvro{
 
@@ -277,21 +278,7 @@ public class TestQuickMarkAvro extends QuickMarkAvro{
 	public void testRun() {
 		SimpleGraphBuilder builder = new SimpleGraphBuilder();
 		builder.addKMersForString("ACTGG", 3);
-		File temp = null;
-		try {
-			temp = File.createTempFile("temp", Long.toString(System.nanoTime()));
-		} catch (IOException exception) {
-			fail("Could not create temporary file. Exception:" +exception.getMessage());
-		}
-
-		if(!(temp.delete())){
-			throw new RuntimeException(
-					"Could not delete temp file: " + temp.getAbsolutePath());
-		}
-		if(!(temp.mkdir())) {
-			throw new RuntimeException(
-					"Could not create temp directory: " + temp.getAbsolutePath());
-		}
+		File temp = FileHelper.createLocalTempDir();
 		File avro_file = new File(temp, "graph.avro");
 		// Write the data to the file.
 		Schema schema = (new CompressibleNodeData()).getSchema();
