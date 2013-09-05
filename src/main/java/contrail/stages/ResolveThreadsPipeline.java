@@ -77,6 +77,7 @@ public class ResolveThreadsPipeline extends PipelineStage {
 
       // Split the graph into subgraphs for which we will resolve the threads.
       SplitThreadableGraph splitStage = new SplitThreadableGraph();
+      splitStage.initializeAsChild(this);
       String splitOutput = FilenameUtils.concat(
           stepDir, splitStage.getClass().getSimpleName());
       splitStage.setParameter("inputpath", inputPath);
@@ -95,6 +96,7 @@ public class ResolveThreadsPipeline extends PipelineStage {
 
       // Select the groups resolve.
       SelectThreadableGroups selectStage = new SelectThreadableGroups();
+      selectStage.initializeAsChild(this);
       selectStage.setParameter(
           "inputpath",
           FilenameUtils.concat(splitOutput, "*avro"));
@@ -114,6 +116,7 @@ public class ResolveThreadsPipeline extends PipelineStage {
       // Nodes which aren't threadable or neighbors of threadable nodes will
       // just be keyed by their node Id.
       RekeyByComponentId rekeyStage = new RekeyByComponentId();
+      rekeyStage.initializeAsChild(this);
       List<String> rekeyInputs = Arrays.asList(
           selectStage.getOutPath().toString(), inputPath);
       rekeyStage.setParameter("inputpath", StringUtils.join(rekeyInputs, ","));
@@ -129,6 +132,7 @@ public class ResolveThreadsPipeline extends PipelineStage {
 
       // Group the nodes by component.
       GroupByComponentId groupStage = new GroupByComponentId();
+      groupStage.initializeAsChild(this);
       groupStage.setParameter("inputpath", rekeyOutput);
 
       String groupOutput = FilenameUtils.concat(
@@ -143,6 +147,7 @@ public class ResolveThreadsPipeline extends PipelineStage {
 
       // Resolve the threads.
       ResolveThreads resolveStage = new ResolveThreads();
+      resolveStage.initializeAsChild(this);
       resolveStage.setParameter("inputpath", groupOutput);
 
       String resolveOutput = FilenameUtils.concat(
