@@ -166,6 +166,7 @@ public class CompressChains extends PipelineStage {
 
     while (lastremaining > 0) {
       stage++;
+      sLogger.info("CompressChains Step " + sf.format(stage) + " start.");
       pathsToDelete.clear();
 
       // Input path for marking nodes to be merged.
@@ -288,6 +289,8 @@ public class CompressChains extends PipelineStage {
           latest_path = convertedGraphPath;
           pathsToDelete.add(merged_graph_path);
         }
+
+        sLogger.info("CompressChains Step " + sf.format(stage) + " done.");
       }
 
       JobConf job_conf = new JobConf(CompressChains.class);
