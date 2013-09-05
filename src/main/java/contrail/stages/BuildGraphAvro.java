@@ -52,6 +52,7 @@ import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.FastQRecord;
 import contrail.sequences.KMerReadTag;
+import contrail.sequences.Read;
 import contrail.sequences.Sequence;
 import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
@@ -292,6 +293,10 @@ public class BuildGraphAvro extends MRStage {
         FastQRecord fastQRecord = (FastQRecord) inputRecord;
         readId = fastQRecord.getId();
         seq.readCharSequence(fastQRecord.getRead());
+      } else if (inputRecord instanceof Read) {
+        Read read = (Read) inputRecord;
+        readId = read.getFastq().getId();
+        seq.readCharSequence(read.getFastq().getRead());
       }
 
       seq = preprocessor.PreProcess(seq);
@@ -592,6 +597,7 @@ public class BuildGraphAvro extends MRStage {
     // input.
     schemas.add(read.getSchema());
     schemas.add(fastQRecord.getSchema());
+    schemas.add((new Read()).getSchema());
     Schema unionSchema = Schema.createUnion(schemas);
 
     AvroJob.setInputSchema(conf, unionSchema);

@@ -45,6 +45,8 @@ import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAStrandUtil;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.FastQRecord;
+import contrail.sequences.QuakeReadCorrection;
+import contrail.sequences.Read;
 import contrail.sequences.Sequence;
 import contrail.sequences.StrandsForEdge;
 import contrail.sequences.StrandsUtil;
@@ -118,9 +120,9 @@ public class TestBuildGraphAvro {
    * Helper class which contains the test data for the map phase.
    */
   public static class MapTestData {
-    private CompressedRead read;
-    private int K;
-    private String uncompressed;
+    private final CompressedRead read;
+    private final int K;
+    private final String uncompressed;
 
     /**
      * Create a specific test case.
@@ -171,6 +173,12 @@ public class TestBuildGraphAvro {
     }
   }
 
+  private enum ReadInputType {
+    COMPRESSED_READ,
+    READ,
+    FASTQ
+  }
+
   /**
    * Run the test on the mapper.
    *
@@ -178,7 +186,7 @@ public class TestBuildGraphAvro {
    *          FastQRecord. TODO(jlewi): We should probably test that chunk is
    *          set correctly.
    */
-  private void runMapTest(boolean useCompressedRead) {
+  private void runMapTest(ReadInputType inputType) {
     Alphabet alphabet = DNAAlphabetFactory.create();
 
     BuildGraphAvro stage = new BuildGraphAvro();
@@ -187,7 +195,8 @@ public class TestBuildGraphAvro {
 
     MapTestData test_data = MapTestData.RandomTest();
 
-    AvroCollectorMock<Pair<ByteBuffer, KMerEdge>> collector_mock = new AvroCollectorMock<Pair<ByteBuffer, KMerEdge>>();
+    AvroCollectorMock<Pair<ByteBuffer, KMerEdge>> collector_mock =
+        new AvroCollectorMock<Pair<ByteBuffer, KMerEdge>>();
 
     ReporterMock reporter_mock = new ReporterMock();
     Reporter reporter = reporter_mock;
@@ -200,17 +209,30 @@ public class TestBuildGraphAvro {
     mapper.configure(job);
 
     try {
-      Object inputRecord;
-      if (useCompressedRead) {
+      Object inputRecord = null;
+      switch(inputType) {
+      case COMPRESSED_READ:
         inputRecord = test_data.getRead();
-      } else {
+        break;
+      case FASTQ:
+      case READ:
         FastQRecord record = new FastQRecord();
         record.setId(test_data.getRead().getId());
         Sequence seq = new Sequence(alphabet);
         seq.readPackedBytes(test_data.getRead().getDna().array(), test_data
             .getRead().getLength());
         record.setRead(seq.toString());
-        inputRecord = record;
+        if (inputType == ReadInputType.FASTQ) {
+          inputRecord = record;
+        } else {
+          Read read = new Read();
+          read.setFastq(record);
+          read.setQuakeReadCorrection(new QuakeReadCorrection());
+          inputRecord = read;
+        }
+        break;
+       default:
+         fail("Unreognized input type.");
       }
 
       mapper.map(inputRecord, collector_mock, reporter);
@@ -310,7 +332,7 @@ public class TestBuildGraphAvro {
   public void testMapCompressedRead() {
     int ntrials = 10;
     for (int trial = 0; trial < ntrials; trial++) {
-      runMapTest(true);
+      runMapTest(ReadInputType.COMPRESSED_READ);
     }
   }
 
@@ -320,7 +342,17 @@ public class TestBuildGraphAvro {
   public void testMapFastQrecord() {
     int ntrials = 10;
     for (int trial = 0; trial < ntrials; trial++) {
-      runMapTest(false);
+      runMapTest(ReadInputType.FASTQ);
+    }
+  }
+
+  // Test the mapper operates correctly when the input is a Read
+  // record.
+  @Test
+  public void testMapRead() {
+    int ntrials = 10;
+    for (int trial = 0; trial < ntrials; trial++) {
+      runMapTest(ReadInputType.READ);
     }
   }
 
@@ -398,7 +430,7 @@ public class TestBuildGraphAvro {
   public static class ReduceTest {
     public String uncompressed;
     public int K;
-    private List<KMerEdge> input_edges;
+    private final List<KMerEdge> input_edges;
 
     private static Alphabet alphabet = DNAAlphabetFactory.create();
 
