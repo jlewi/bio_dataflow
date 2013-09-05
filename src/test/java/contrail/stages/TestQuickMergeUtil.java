@@ -1,8 +1,12 @@
 package contrail.stages;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Hashtable;
@@ -17,9 +21,10 @@ import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphError;
 import contrail.graph.GraphNode;
+import contrail.graph.GraphNode.NodeDiff;
+import contrail.graph.GraphTestUtil;
 import contrail.graph.GraphUtil;
 import contrail.graph.SimpleGraphBuilder;
-
 import contrail.sequences.AlphabetUtil;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
@@ -69,6 +74,7 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
     // The direction for the dna in this chain.
     DNAStrand dna_direction;
 
+    @Override
     public String toString() {
       return graph_node.getNodeId() + ":" + dna_direction.toString();
     }
@@ -549,88 +555,90 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
     // RC(y)->d, and RC(y)->RC(a)  in this case we can't merge RC(y) with d.
     // Lets test case 1 where d = RC(A)
     // e.g: ATCGAT with K = 3 gives rise to
-    // ATC->TCG->CGA->GATDownload raw patch set |
-    // ATG = RC(GAT)
+    // ATC->TCG->CGA->GAT
+    // ATC = RC(GAT)
     // TCG = RC(CGA)
+
     final int K = 3;
-    SimpleGraphBuilder graph = new SimpleGraphBuilder();
-    String true_sequence_str = "ATCGAT";
-    graph.addKMersForString(true_sequence_str, K);
-    Sequence true_canonical = new Sequence(
-        true_sequence_str, DNAAlphabetFactory.create());
-    DNAStrand true_strand = DNAUtil.canonicaldir(true_canonical);
-    true_canonical = DNAUtil.canonicalseq(true_canonical);
+    GraphNode nodeATC = GraphTestUtil.createNode("ATC", "ATC");
+    GraphNode nodeTCG = GraphTestUtil.createNode("TCG", "TCG");
+
+    GraphUtil.addBidirectionalEdge(
+        nodeATC, DNAStrand.FORWARD, nodeTCG, DNAStrand.FORWARD);
+    GraphUtil.addBidirectionalEdge(
+        nodeTCG, DNAStrand.FORWARD, nodeTCG, DNAStrand.REVERSE);
+    GraphUtil.addBidirectionalEdge(
+        nodeTCG, DNAStrand.REVERSE, nodeATC, DNAStrand.REVERSE);
 
     // Give GAT incoming degree 2 and ATC outdegree 2
-    // this way we can verify that these edges are preserved.
-    graph.addEdge("CAT", "ATC", 2);
-    graph.addEdge("TAT", "ATC", 2);
+    // So the graph is.
+    // {CAT,TAT}-> ATC->TCG->CGA->GAT->{ATA, ATT}
+    // But since ATC=RC(GAT). The actual graph is
+    //{CAT,TAT, RC(ATA), RC(ATT)}-> ATC->TCG->CGA->GAT->{RC(CAT), RC(TAT), ATA, ATT}
+    GraphNode nodeCAT = GraphTestUtil.createNode("CAT", "CAT");
+    GraphNode nodeTAT = GraphTestUtil.createNode("TAT", "TAT");
+    GraphUtil.addBidirectionalEdge(
+        nodeCAT, DNAStrand.FORWARD, nodeATC, DNAStrand.FORWARD);
+    GraphUtil.addBidirectionalEdge(
+        nodeTAT, DNAStrand.FORWARD, nodeATC, DNAStrand.FORWARD);
 
-    graph.addEdge("GAT", "ATA", 2);
-    graph.addEdge("GAT", "ATT", 2);
+    GraphNode nodeATA = GraphTestUtil.createNode("ATA", "ATA");
+    GraphNode nodeATT = GraphTestUtil.createNode("ATT", "ATT");
+    GraphUtil.addBidirectionalEdge(
+        nodeATC, DNAStrand.REVERSE, nodeATA, DNAStrand.FORWARD);
+    GraphUtil.addBidirectionalEdge(
+        nodeATC, DNAStrand.REVERSE, nodeATT, DNAStrand.FORWARD);
 
-    {
-      // TODO(jlewi): Verify test is setup correctly i.e we have a KMer
-      // and its reverse complement
-
-      // Minimial check that the graph is correct.
-      assertEquals(5, graph.getAllNodes().size());
+    HashMap<String, GraphNode> nodes = new HashMap<String, GraphNode>();
+    for (GraphNode node : Arrays.asList(
+        nodeATC, nodeTCG, nodeCAT, nodeTAT, nodeATA, nodeATT)) {
+      // Clone the node since merging the results will modify
+      // the non-merged nodes in place.
+      nodes.put(node.getNodeId(), node.clone());
     }
 
-    Hashtable<String, GraphNode> nodes = new Hashtable<String, GraphNode> ();
-    nodes.putAll(graph.getAllNodes());
-
-    GraphNode start_node;
-    {
-      int start = generator.nextInt(true_sequence_str.length() - K + 1);
-      EdgeTerminal terminal = graph.findEdgeTerminalForSequence(
-          true_sequence_str.substring(start, start + K));
-      start_node = graph.getNode(terminal.nodeId);
-    }
     NodesToMerge nodes_to_merge = QuickMergeUtil.findNodesToMerge(
-        graph.getAllNodes(), start_node);
+        nodes, nodeATC);
 
     ChainMergeResult result = QuickMergeUtil.mergeLinearChain(
         nodes, nodes_to_merge, K - 1);
 
-    // Check the merged sequence is correct.
-    assertEquals(true_canonical, result.merged_node.getSequence());
+    // Check the merged node is correct.
+    GraphNode expected = GraphTestUtil.createNode("ATC", "ATCGAT");
+    expected.addIncomingEdge(
+        DNAStrand.FORWARD,
+        new EdgeTerminal(nodeCAT.getNodeId(), DNAStrand.FORWARD));
+    expected.addIncomingEdge(
+        DNAStrand.FORWARD,
+        new EdgeTerminal(nodeTAT.getNodeId(), DNAStrand.FORWARD));
+
+    // Since the graph is A->...->RC(A)
+    // All incoming edges to A are the same edges as outgoing edges from RC(A).
+    // So NodeMerger only copies the incoming edges to A. So the
+    // Edges RC(A)->... are outgoing edges from the reverse strand of the merged
+    // node.
+    expected.addOutgoingEdge(
+        DNAStrand.REVERSE,
+        new EdgeTerminal(nodeATA.getNodeId(), DNAStrand.FORWARD));
+    expected.addOutgoingEdge(
+        DNAStrand.REVERSE,
+        new EdgeTerminal(nodeATT.getNodeId(), DNAStrand.FORWARD));
+
+    NodeDiff diff = expected.equalsWithInfo(result.merged_node);
+    assertEquals(NodeDiff.NONE, diff);
 
     HashSet<String> seen_nodeids = new HashSet<String>();
     seen_nodeids.add("ATC");
-    seen_nodeids.add("CGA");
+    seen_nodeids.add("TCG");
     assertEquals(
         seen_nodeids, result.merged_nodeids);
 
-    // Check that the edges at the start and end are correct.
-    {
-      List<EdgeTerminal> expected_outgoing = new ArrayList<EdgeTerminal>();
-
-      // Add the outgoing edges from GAT.
-      expected_outgoing.add(graph.findEdgeTerminalForSequence("ATA"));
-      expected_outgoing.add(graph.findEdgeTerminalForSequence("ATT"));
-
-      // Add the reverse complement for the incoming edges to ATC.
-      expected_outgoing.add(graph.findEdgeTerminalForSequence("ATG"));
-
-      List<EdgeTerminal> outgoing = result.merged_node.getEdgeTerminals(
-          true_strand, EdgeDirection.OUTGOING);
-      assertTrue(ListUtil.listsAreEqual(expected_outgoing, outgoing));
+    for (String mergedId : result.merged_nodeids) {
+      nodes.remove(mergedId);
     }
-    {
-      List<EdgeTerminal> expected_incoming = new ArrayList<EdgeTerminal>();
-
-      // Add the incoming edges to ATC.
-      expected_incoming.add(graph.findEdgeTerminalForSequence("CAT"));
-      expected_incoming.add(graph.findEdgeTerminalForSequence("TAT"));
-
-      // Add the reverse complement for the outgoing edges from GAT.
-      expected_incoming.add(graph.findEdgeTerminalForSequence("AAT"));
-
-      List<EdgeTerminal> incoming = result.merged_node.getEdgeTerminals(
-          true_strand, EdgeDirection.INCOMING);
-      assertTrue(ListUtil.listsAreEqual(expected_incoming, incoming));
-    }
+    nodes.put(result.merged_node.getNodeId(), result.merged_node);
+    List<GraphError> errors = GraphUtil.validateGraph(nodes, K);
+    assertTrue(errors.isEmpty());
   }
 
   @Test
@@ -905,6 +913,12 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
     expectedSelf.setSequence(
         new Sequence("ACTAGT", DNAAlphabetFactory.create()));
 
+    // Since X' = RC(X), there should be a single outgoing edge.
+    // The way NodeMerger works this will be on the R strand of the merged
+    // node.
+    expectedSelf.addOutgoingEdge(
+        DNAStrand.REVERSE, new EdgeTerminal("A", DNAStrand.REVERSE));
+
     GraphNode expectedBorder = new GraphNode();
     expectedBorder.setNodeId("A");
     expectedBorder.setSequence(
@@ -912,8 +926,7 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
 
     GraphUtil.addBidirectionalEdge(
         expectedBorder, DNAStrand.FORWARD, expectedSelf, DNAStrand.FORWARD);
-    GraphUtil.addBidirectionalEdge(
-        expectedSelf, DNAStrand.FORWARD, expectedBorder, DNAStrand.REVERSE);
+
 
     {
       HashMap<String, GraphNode> expectedNodes =
@@ -945,7 +958,8 @@ public class TestQuickMergeUtil extends QuickMergeUtil {
     mergedGraph.put(result.merged_node.getNodeId(), result.merged_node);
 
     // Check that the node was properly merged.
-    assertEquals(expectedSelf.getData(), result.merged_node.getData());
+    NodeDiff diff = expectedSelf.equalsWithInfo(result.merged_node);
+    assertEquals(NodeDiff.NONE, diff);
     assertEquals(expectedBorder.getData(), border.getData());
     List<GraphError> graphErrors = GraphUtil.validateGraph(mergedGraph, K);
     assertEquals(0, graphErrors.size());

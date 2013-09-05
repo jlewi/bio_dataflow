@@ -285,80 +285,69 @@ public class QuickMergeUtil {
     GraphNode mergedNode = mergeResult.node;
     DNAStrand mergedStrand = mergeResult.strand;
 
-    // Identify all the nodes which have edges to the ends of the chain
-    // but aren't part of the chain. We do this by adding the neighbors
-    // of the start and end nodes and then removing any nodes that are
-    // part of the chain.
-    HashSet<String> externalNodes = new HashSet<String>();
-
-    GraphNode startNode = nodes.get(nodes_to_merge.start_terminal.nodeId);
-    GraphNode endNode = nodes.get(nodes_to_merge.end_terminal.nodeId);
-    externalNodes.addAll(startNode.getNeighborIds());
-    externalNodes.addAll(endNode.getNeighborIds());
-    externalNodes.removeAll(result.merged_nodeids);
-
     // Now move all the edges.
-    for (String externalId : externalNodes) {
-      GraphNode externalNode = nodes.get(externalId);
+    // We want to be careful to handle cases such as A->...->R(A) so that
+    // we only move edges once.
+    HashSet<EdgeTerminal> oldTerminals = new HashSet<EdgeTerminal>();
+    // We need to move incoming edges to the start terminal and
+    // incoming edges to the flip of the end terminal.
+    oldTerminals.add(nodes_to_merge.start_terminal);
+    oldTerminals.add(nodes_to_merge.end_terminal.flip());
 
-      // In some edge cases a node might have edges to both ends of the
-      // chain e.g the chain A->R(A) and the ends might be the same node.
-      // So we copy the information needed for any new edges. We then
-      // remove the neighbor and then add the edges.
-      Set<DNAStrand> strandsToStart =
-          externalNode.findStrandsWithEdgeToTerminal(
-              nodes_to_merge.start_terminal, EdgeDirection.OUTGOING);
+    for (EdgeTerminal oldTerminal : oldTerminals) {
+      // Get the incoming terminals.
+      GraphNode oldNode = nodes.get(oldTerminal.nodeId);
+      List<EdgeTerminal> sourceTerminals = oldNode.getEdgeTerminals(
+          oldTerminal.strand, EdgeDirection.INCOMING);
 
-      HashMap<DNAStrand, List<CharSequence>> tagsToStart = null;
-
-      if (strandsToStart.size() > 0) {
-       tagsToStart = new HashMap<DNAStrand, List<CharSequence>>();
-       for (DNAStrand strand : strandsToStart) {
-         tagsToStart.put(
-             strand, externalNode.getTagsForEdge(
-                 strand, nodes_to_merge.start_terminal));
-       }
+      // Which terminal to use.
+      EdgeTerminal newTerminal = null;
+      if (oldTerminal.equals(nodes_to_merge.start_terminal)) {
+        newTerminal = new EdgeTerminal(
+            mergedNode.getNodeId(), mergedStrand);
+      } else {
+        // Since this is an incoming to the end terminal the new terminal
+        // will be the reverse of the merged strand.
+        newTerminal = new EdgeTerminal(
+            mergedNode.getNodeId(), DNAStrandUtil.flip(mergedStrand));
       }
+      for (EdgeTerminal source : sourceTerminals) {
+        if (result.merged_nodeids.contains(source.nodeId)) {
+          continue;
+        }
 
-      Set<DNAStrand> strandsFromEnd =
-          externalNode.findStrandsWithEdgeToTerminal(
-              nodes_to_merge.end_terminal, EdgeDirection.INCOMING);
+        GraphNode sourceNode = nodes.get(source.nodeId);
 
-      HashMap<DNAStrand, List<CharSequence>> tagsFromEnd = null;
+        // In some edge cases a node might have edges to both ends of the
+        // chain e.g the chain A->R(A) and the ends might be the same node.
+        // So we copy the information needed for any new edges. We then
+        // remove the neighbor and then add the edges.
+        Set<DNAStrand> strandsToTerminal =
+            sourceNode.findStrandsWithEdgeToTerminal(
+                oldTerminal, EdgeDirection.OUTGOING);
 
-      if (strandsFromEnd.size() > 0) {
-       tagsFromEnd = new HashMap<DNAStrand, List<CharSequence>>();
-       for (DNAStrand strand : strandsFromEnd) {
-         // We need to flip the edge because getTagsForEdge only works
-         // for outgoing edges; so we need to get the tags for the equivalent
-         // outgong edge.
-         tagsFromEnd.put(
-             strand, externalNode.getTagsForEdge(
-                 DNAStrandUtil.flip(strand),
-                 nodes_to_merge.end_terminal.flip()));
-       }
-      }
+        HashMap<DNAStrand, List<CharSequence>> tagsToStart = null;
 
-      // Remove the start and end terminals if they are currently
-      // neighbors. We assume that GraphNode.removeNeighbor has no effect
-      // if we remove a node which isn't a neighbor.
-      externalNode.removeNeighbor(startNode.getNodeId());
-      externalNode.removeNeighbor(endNode.getNodeId());
+        if (strandsToTerminal.size() > 0) {
+          tagsToStart = new HashMap<DNAStrand, List<CharSequence>>();
+          for (DNAStrand strand : strandsToTerminal) {
+            tagsToStart.put(
+                strand, sourceNode.getTagsForEdge(
+                    strand, oldTerminal));
+          }
+        }
 
-      // Add the edges to the merged node.
-      EdgeTerminal mergedTerminal = new EdgeTerminal(
-          mergedNode.getNodeId(), mergedStrand);
+        // Remove the start and end terminals if they are currently
+        // neighbors. We assume that GraphNode.removeNeighbor has no effect
+        // if we remove a node which isn't a neighbor.
+        sourceNode.removeNeighbor(oldTerminal.nodeId);
 
-      for (DNAStrand strand : strandsToStart) {
-        externalNode.addOutgoingEdgeWithTags(
-            strand, mergedTerminal, tagsToStart.get(strand),
-            tagsToStart.get(strand).size() + 1);
-      }
-
-      for (DNAStrand strand : strandsFromEnd) {
-        externalNode.addIncomingEdgeWithTags(
-            strand, mergedTerminal, tagsFromEnd.get(strand),
-            tagsFromEnd.get(strand).size() + 1);
+        // Add the edges to the merged node.
+        for (DNAStrand strand : strandsToTerminal) {
+          sourceNode.addOutgoingEdgeWithTags(
+              strand, newTerminal, tagsToStart.get(strand),
+              tagsToStart.get(strand).size() + 1);
+        }
       }
     }
 
