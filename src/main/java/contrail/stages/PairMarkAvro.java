@@ -104,7 +104,7 @@ public class PairMarkAvro extends MRStage {
    */
   private static class CompressibleNode {
     private CompressibleNodeData data;
-    private GraphNode node;
+    private final GraphNode node;
 
     public CompressibleNode() {
       // data gets set with setData.
@@ -125,7 +125,7 @@ public class PairMarkAvro extends MRStage {
      * @param strand
      * @return
      */
-    public boolean canCompress(DNAStrand strand){
+    public boolean canCompress(DNAStrand strand) {
       if (data.getCompressibleStrands() == CompressibleStrands.BOTH) {
         return true;
       }
@@ -140,6 +140,7 @@ public class PairMarkAvro extends MRStage {
       return false;
     }
 
+    @Override
     public String toString() {
       if (node == null) {
         return "";
@@ -156,6 +157,7 @@ public class PairMarkAvro extends MRStage {
     // The output for the mapper.
     private Pair<CharSequence, PairMarkOutput> out_pair;
 
+    @Override
     public void configure(JobConf job) {
       compressible_node = new CompressibleNode();
 
@@ -327,6 +329,7 @@ public class PairMarkAvro extends MRStage {
       return coin;
     }
 
+    @Override
     public void map(CompressibleNodeData node_data,
         AvroCollector<Pair<CharSequence, PairMarkOutput>> collector,
         Reporter reporter) throws IOException {
@@ -404,10 +407,12 @@ public class PairMarkAvro extends MRStage {
     // The output for the reducer.
     private NodeInfoForMerge output_node;
 
+    @Override
     public void configure(JobConf job) {
       output_node = new NodeInfoForMerge();
     }
 
+    @Override
     public void reduce(
         CharSequence nodeid, Iterable<PairMarkOutput> iterable,
         AvroCollector<NodeInfoForMerge> collector, Reporter reporter)
@@ -521,6 +526,7 @@ public class PairMarkAvro extends MRStage {
   /**
    * Return a list of parameters used by this stage.
    */
+  @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs =
       new HashMap<String, ParameterDefinition>();

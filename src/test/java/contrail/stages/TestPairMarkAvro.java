@@ -1,11 +1,14 @@
 // Author: Jeremy Lewi
 package contrail.stages;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,12 +20,14 @@ import org.apache.avro.mapred.Pair;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.thirdparty.guava.common.collect.Lists;
 import org.junit.Test;
 
 import contrail.ReporterMock;
 import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
+import contrail.graph.GraphTestUtil;
 import contrail.graph.GraphUtil;
 import contrail.graph.SimpleGraphBuilder;
 import contrail.graph.TailData;
@@ -30,6 +35,7 @@ import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.DNAStrand;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;
+import contrail.stages.CoinFlipper.CoinFlip;
 
 /** Extend PairMergeAvro so we can access the mapper and reducer.*/
 public class TestPairMarkAvro extends PairMarkAvro {
@@ -43,6 +49,7 @@ public class TestPairMarkAvro extends PairMarkAvro {
       tosses = new HashMap<String, CoinFlip>();
     }
 
+    @Override
     public CoinFlip flip(String seed) {
       if (!tosses.containsKey(seed)) {
         throw new RuntimeException("Flipper is missing seed:" + seed);
@@ -679,12 +686,12 @@ public class TestPairMarkAvro extends PairMarkAvro {
     runReducerTests(cases);
   }
 
-  @Test
-  public void testRun() {
-    // This function tests that we can run the MR job without errors.
-    // It doesn't test for correctness.
-    MapperTestCase test_case = this.mapperConvertDownToUpTest();
-
+  /**
+   * Run the complete MR job without doing anything funky.
+   *
+   * @param inputNodes
+   */
+  private void runJob(Collection<CompressibleNodeData> inputNodes) {
     File temp = null;
 
     try {
@@ -714,8 +721,8 @@ public class TestPairMarkAvro extends PairMarkAvro {
 
     try {
       writer.create(schema, avro_file);
-      for (MapperInputOutput input_output: test_case.inputs_outputs.values()) {
-        writer.append(input_output.input_node);
+      for (CompressibleNodeData node : inputNodes) {
+        writer.append(node);
       }
       writer.close();
     } catch (IOException exception) {
@@ -724,7 +731,7 @@ public class TestPairMarkAvro extends PairMarkAvro {
     }
 
     // Run it.
-    PairMarkAvro pair_merge = new PairMarkAvro();
+    PairMarkAvro stage = new PairMarkAvro();
     File output_path = new File(temp, "output");
 
     String[] args =
@@ -733,9 +740,225 @@ public class TestPairMarkAvro extends PairMarkAvro {
        "--randseed=12"};
 
     try {
-      pair_merge.run(args);
+      stage.run(args);
     } catch (Exception exception) {
       fail("Exception occured:" + exception.getMessage());
     }
+  }
+
+  @Test
+  public void testRun() {
+    MapperTestCase testCase = this.mapperConvertDownToUpTest();
+    ArrayList<CompressibleNodeData> inputNodes =
+        new ArrayList<CompressibleNodeData>();
+
+    for (MapperInputOutput inOut : testCase.inputs_outputs.values()) {
+      inputNodes.add(inOut.input_node);
+    }
+    // This function tests that we can run the MR job without errors.
+    // It doesn't test for correctness.
+    runJob(inputNodes);
+  }
+
+  private static class RunResults {
+    public RunResults() {
+      reduceOutputs = new HashMap<String, NodeInfoForMerge>();
+    }
+
+    public HashMap<String, ArrayList<PairMarkOutput>> mapOutputs;
+    public HashMap<String, NodeInfoForMerge> reduceOutputs;
+  }
+
+  /**
+   * Run the mapper and reducer but use the flipper passed in.
+   */
+  private RunResults runWithFlipper(
+      Collection<CompressibleNodeData> inputs, CoinFlipper flipper) {
+
+    PairMarkMapper mapper = new PairMarkMapper();
+
+    JobConf job = new JobConf(PairMarkMapper.class);
+    PairMarkAvro stage = new PairMarkAvro();
+    Map<String, ParameterDefinition> parameters =
+        stage.getParameterDefinitions();
+    parameters.get("randseed").addToJobConf(job, new Long(1));
+
+    mapper.configure(job);
+    mapper.setFlipper(flipper);
+
+    ReporterMock reporter_mock = new ReporterMock();
+    Reporter reporter = reporter_mock;
+
+    AvroCollectorMock<Pair<CharSequence, PairMarkOutput>> collector =
+      new AvroCollectorMock<Pair<CharSequence, PairMarkOutput>>();
+
+    for (CompressibleNodeData inputNode: inputs) {
+      try {
+        mapper.map( inputNode, collector, reporter);
+      }
+      catch (IOException exception){
+        fail("IOException occured in map: " + exception.getMessage());
+      }
+    }
+
+    // Group the mapper outputs by key.
+    HashMap<String, ArrayList<PairMarkOutput>> reducerPairs =
+        new HashMap<String, ArrayList<PairMarkOutput>>();
+
+    for (Pair<CharSequence, PairMarkOutput> pair : collector.data) {
+      String key = pair.key().toString();
+      if (!reducerPairs.containsKey(key)) {
+        reducerPairs.put(key,  new ArrayList<PairMarkOutput>());
+      }
+      reducerPairs.get(key).add(pair.value());
+    }
+
+    PairMarkReducer reducer = new PairMarkReducer();
+    reducer.configure(new JobConf(PairMarkReducer.class));
+
+    AvroCollectorMock<NodeInfoForMerge> reducerCollector =
+        new AvroCollectorMock<NodeInfoForMerge>();
+
+    ReporterMock reducerReporter = new ReporterMock();
+
+    for (String key : reducerPairs.keySet()) {
+      try {
+        reducer.reduce(
+            key, reducerPairs.get(key), reducerCollector, reducerReporter);
+      } catch (IOException e) {
+        fail(e.getMessage());
+      }
+    }
+
+    RunResults results = new RunResults();
+    results.mapOutputs = reducerPairs;
+
+    for (NodeInfoForMerge output : reducerCollector.data) {
+      String key =
+          output.getCompressibleNode().getNode().getNodeId().toString();
+      // Each node should appear once in the output
+      assertTrue(!results.reduceOutputs.containsKey(key));
+      results.reduceOutputs.put(key, output);
+    }
+
+    return results;
+  }
+
+  /**
+   * Helper function for comparing two NodeInfoForMerge.
+   *
+   * @param expected
+   * @param actual
+   */
+  private void assertNodeInfoForMergeEqual(
+      NodeInfoForMerge expected, NodeInfoForMerge actual) {
+    assertEquals(expected.getStrandToMerge(), actual.getStrandToMerge());
+    assertEquals(
+        expected.getCompressibleNode().getCompressibleStrands(),
+        actual.getCompressibleNode().getCompressibleStrands());
+    GraphNode expectedNode = new GraphNode(
+        expected.getCompressibleNode().getNode());
+    GraphNode actualNode = new GraphNode(
+        actual.getCompressibleNode().getNode());
+    GraphNode.NodeDiff diff = expectedNode.equalsWithInfo(actualNode);
+    assertEquals(GraphNode.NodeDiff.NONE, diff);
+  }
+
+  @Test
+  public void testPalindrome() {
+    // We test a particular case involving palindromes.
+    // Palindromes should be handled like any other case and this test confirms
+    // that.
+    // Suppose we have A->B->C->D
+    // B is a down node. A, C are up nodes (D isn't compressible).
+    // Suppose B is a down node and we are merging it with C.
+    // B preserves its strand and id so C sends a message to D telling D to
+    // move the edge C->D to the new new node BC.
+    //
+    // TODO(jeremy@lewi.us) should we run the test twice once where C
+    // uses the forward strand and the other where it uses the reverse strand?
+    GraphNode nodeA = GraphTestUtil.createNode("nodeA", "AAC");
+    GraphNode nodeB = GraphTestUtil.createNode("nodeB", "ACA");
+    GraphNode nodeC = GraphTestUtil.createNode("nodeC", "CATG");
+    GraphNode nodeD = GraphTestUtil.createNode("nodeD", "TGG");
+
+    GraphUtil.addBidirectionalEdge(
+        nodeA, DNAStrand.FORWARD, nodeB, DNAStrand.FORWARD);
+    GraphUtil.addBidirectionalEdge(
+        nodeB, DNAStrand.FORWARD, nodeC, DNAStrand.FORWARD);
+
+    GraphUtil.addBidirectionalEdge(
+        nodeC, DNAStrand.FORWARD, nodeD, DNAStrand.FORWARD);
+
+    CompressibleNodeData nodeACompressible = new CompressibleNodeData();
+    nodeACompressible.setNode(nodeA.getData());
+    nodeACompressible.setCompressibleStrands(CompressibleStrands.FORWARD);
+
+    CompressibleNodeData nodeBCompressible = new CompressibleNodeData();
+    nodeBCompressible.setNode(nodeB.getData());
+    nodeBCompressible.setCompressibleStrands(CompressibleStrands.BOTH);
+
+    // CompressibleAvro always marks the forward strand as the compressible
+    // strand for a palindrome. This field should be ignored if its a
+    // palindrome.
+    CompressibleNodeData nodeCCompressible = new CompressibleNodeData();
+    nodeCCompressible.setNode(nodeC.getData());
+    nodeCCompressible.setCompressibleStrands(CompressibleStrands.REVERSE);
+
+    // We mark node D as not being compressible. We didn't bother adding
+    // edges to make it truly not compressible.
+    CompressibleNodeData nodeDCompressible = new CompressibleNodeData();
+    nodeDCompressible.setNode(nodeD.getData());
+    nodeDCompressible.setCompressibleStrands(CompressibleStrands.NONE);
+
+    CoinFlipperFixed flipper = new CoinFlipperFixed();
+    flipper.tosses.put(nodeA.getNodeId(), CoinFlip.UP);
+    flipper.tosses.put(nodeB.getNodeId(), CoinFlip.DOWN);
+    flipper.tosses.put(nodeC.getNodeId(), CoinFlip.UP);
+    flipper.tosses.put(nodeD.getNodeId(), CoinFlip.DOWN);
+
+    RunResults results = runWithFlipper(
+        Lists.newArrayList(
+            nodeACompressible, nodeBCompressible, nodeCCompressible,
+            nodeDCompressible),
+        flipper);
+
+    // Node A should be marked to be compressed with Node B.
+    NodeInfoForMerge infoA = new NodeInfoForMerge();
+    infoA.setCompressibleNode(nodeACompressible);
+    infoA.setStrandToMerge(CompressibleStrands.FORWARD);
+
+    // Since B is the down node nothing happens.
+    NodeInfoForMerge infoB = new NodeInfoForMerge();
+    infoB.setCompressibleNode(nodeBCompressible);
+    infoB.setStrandToMerge(CompressibleStrands.NONE);
+
+    // C gets sent to B and sends a message to D.
+    NodeInfoForMerge infoC = new NodeInfoForMerge();
+    infoC.setCompressibleNode(nodeCCompressible);
+    infoC.setStrandToMerge(CompressibleStrands.REVERSE);
+
+    // NodeD should have its edge from C moved to point to the new merged
+    // node. The merged sequence for A->B->C will be AACATG.
+    // So clearly the edge to D("TG") is from the forward strand of the
+    // merged node.
+    GraphNode expectedD = GraphTestUtil.createNode(
+        "nodeD", nodeD.getSequence().toString());
+    expectedD.addIncomingEdge(
+        DNAStrand.FORWARD,
+        new EdgeTerminal(nodeB.getNodeId(), DNAStrand.FORWARD));
+
+    CompressibleNodeData expectedDCompressible = new CompressibleNodeData();
+    expectedDCompressible.setNode(expectedD.getData());
+    expectedDCompressible.setCompressibleStrands(CompressibleStrands.NONE);
+
+    NodeInfoForMerge infoD = new NodeInfoForMerge();
+    infoD.setCompressibleNode(expectedDCompressible);
+    infoD.setStrandToMerge(CompressibleStrands.NONE);
+
+    assertNodeInfoForMergeEqual(infoA, results.reduceOutputs.get(nodeA.getNodeId()));
+    assertNodeInfoForMergeEqual(infoB, results.reduceOutputs.get(nodeB.getNodeId()));
+    assertNodeInfoForMergeEqual(infoC, results.reduceOutputs.get(nodeC.getNodeId()));
+    assertNodeInfoForMergeEqual(infoD, results.reduceOutputs.get(nodeD.getNodeId()));
   }
 }
