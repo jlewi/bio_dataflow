@@ -19,6 +19,7 @@
 package contrail.stages;
 
 import java.io.IOException;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -47,9 +48,9 @@ import contrail.util.ContrailLogger;
 /**
  * Select a subset of the threadable node groupings for processing.
  *
- * SplitThreadableGraph splits the graph into subgroups consisting of threadable
- * nodes and their neighbors. We need to select a subset of groups such that
- * each node appears in at most one of these groups.
+ * SelectThreadableGraph splits the graph into subgroups consisting of
+ * threadable nodes and their neighbors. We need to select a subset of groups
+ * such that each node appears in at most one of these groups.
  */
 public class SelectThreadableGroups extends NonMRStage{
   // Total number of groups.
@@ -74,7 +75,14 @@ public class SelectThreadableGroups extends NonMRStage{
     ParameterDefinition maxGroupSize = new ParameterDefinition(
         "max_subgraph_size", "The maximum number of nodes in any of the " +
         "subgraphs.", Integer.class, new Integer(1000));
+
+    ParameterDefinition maxHeapUsage = new ParameterDefinition(
+        "max_heap_usage", "When the heap utilization exceeds this threshold  " +
+        "we will stop selecting threadable group. This should be expressed " +
+        "a percentage 0% - 100%.", Integer.class, new Integer(90));
+
     defs.put(maxGroupSize.getName(), maxGroupSize);
+    defs.put(maxHeapUsage.getName(), maxHeapUsage);
     return Collections.unmodifiableMap(defs);
   }
 
@@ -146,7 +154,53 @@ public class SelectThreadableGroups extends NonMRStage{
   }
 
   /**
-   * Group the threadable nodes into subgraphs.
+   * Return true if we are almost out of memory and the caller shouldn't
+   * continue. As part of this process we try to free memory by running
+   * garbage collection.
+   */
+  protected boolean almostOutOfMemory(double maxHeapUtilization) {
+    Runtime runtime = Runtime.getRuntime();
+    DecimalFormat sf = new DecimalFormat("00");
+
+    // Compute memory usage.
+    double utilization =
+        ((double)runtime.totalMemory()) / ((double)runtime.maxMemory()) * 100;
+
+    if (utilization < maxHeapUtilization) {
+      return false;
+    }
+
+    sLogger.info(String.format(
+        "Memory utilization: Total Memory: %d " +
+        "Max Memory:%d Utilization %s%%", runtime.totalMemory(),
+        runtime.maxMemory(), sf.format(utilization)));
+    // Lets try running garbage collection to free up some memory.
+    runtime.gc();
+
+    utilization =
+        ((double)runtime.totalMemory()) /
+        ((double)runtime.maxMemory()) * 100;
+    sLogger.info(String.format(
+        "After garbage collection memory usage:" +
+        "Total Memory: %d " +
+        "Max Memory:%d Utilization %s%%", runtime.totalMemory(),
+        runtime.maxMemory(), sf.format(utilization)));
+
+    if (utilization < (maxHeapUtilization - 10)) {
+      sLogger.info(
+          "Garbage collection freed up enough memory to continue with " +
+          "threadable subgraph selection.");
+      return false;
+    }
+
+    sLogger.info(
+        "Garbage collection did not free up enough memory to continue " +
+        "with threadable subgraph selection.");
+    return true;
+
+  }
+
+   /** Group the threadable nodes into subgraphs.
    *
    * @return: A list of subgraphs.
    */
@@ -168,6 +222,9 @@ public class SelectThreadableGroups extends NonMRStage{
 
     HashSet<Integer> groupsToMerge = new HashSet<Integer>();
     ArrayList<String> unassignedNodes = new ArrayList<String>();
+
+    Integer maxHeapUtilization =
+        (Integer) stage_options.get("max_heap_usage");
 
     for (List<CharSequence> group : threadableGroups) {
       ++numGroups;
@@ -240,6 +297,13 @@ public class SelectThreadableGroups extends NonMRStage{
       subGraphs.get(groupId).addAll(unassignedNodes);
       for (String node : unassignedNodes) {
         idToGroup.put(node,  groupId);
+      }
+
+      // Check if we are almost out of memory.
+      if (almostOutOfMemory(maxHeapUtilization.doubleValue())) {
+        sLogger.info(
+            "Halting selection of threadable subgraphs; almost out of memory.");
+        break;
       }
     }
 
