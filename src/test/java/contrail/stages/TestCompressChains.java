@@ -1,23 +1,21 @@
 //Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.stages;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.IOException;
-
-import org.junit.Test;
-
-import contrail.graph.GraphNode;
-import contrail.graph.GraphNodeData;
-import contrail.graph.SimpleGraphBuilder;
-
 
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.hadoop.conf.Configuration;
+import org.junit.Test;
+
+import contrail.graph.GraphNode;
+import contrail.graph.GraphNodeData;
+import contrail.graph.SimpleGraphBuilder;
 
 public class TestCompressChains extends CompressChains {
   @Test
@@ -75,11 +73,13 @@ public class TestCompressChains extends CompressChains {
     String[] args =
       {"--inputpath=" + temp.toURI().toString(),
        "--outputpath=" + output_path.toURI().toString(),
+       "--cleanup=true",
        "--K=3", "--localnodes=3"};
 
     // Catch the following after debugging.
     try {
       compress_chains.run(args);
+      System.out.println("Test dir:" + temp);
     } catch (Exception exception) {
       // TODO uncomment the following after debugging.
       exception.printStackTrace();

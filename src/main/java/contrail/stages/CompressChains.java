@@ -24,7 +24,6 @@ import java.util.HashSet;
 import java.util.Map;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.RunningJob;
@@ -67,7 +66,7 @@ public class CompressChains extends PipelineStage {
   private String finalGraphPath;
 
   // Seeds to use if any for pairmark avro.
-  private ArrayList<Integer> seeds;
+  private final ArrayList<Integer> seeds;
 
   public CompressChains() {
     seeds = new ArrayList<Integer>();
@@ -294,7 +293,9 @@ public class CompressChains extends PipelineStage {
       JobConf job_conf = new JobConf(CompressChains.class);
       if ((Boolean) stage_options.get("cleanup")) {
         for (String pathToDelete : pathsToDelete) {
-          FileSystem.get(job_conf).delete(new Path(pathToDelete), true);
+          sLogger.info("Deleting:" + pathToDelete);
+          Path toDelete = new Path(pathToDelete);
+          toDelete.getFileSystem(job_conf).delete(toDelete, true);
         }
       }
 
@@ -336,6 +337,7 @@ public class CompressChains extends PipelineStage {
   /**
    * Get the parameters used by this stage.
    */
+  @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> definitions =
         new HashMap<String, ParameterDefinition>();
