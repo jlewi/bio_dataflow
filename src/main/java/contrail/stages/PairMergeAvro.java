@@ -112,6 +112,8 @@ public class PairMergeAvro extends MRStage {
     /**
      * Determines whether the merged node resulting from chain is further
      * compressible.
+     * This function assumes the chain doesn't form a cycle so the caller
+     * should verify the chain isn't a cycle.
      * @param chain: The chain of nodes which are merged together.
      *   The forward strand of the merged node always corresponds to the
      *   forward strand of the down node. Furthermore, the nodes in
@@ -119,9 +121,6 @@ public class PairMergeAvro extends MRStage {
      *   is always merged. Thus, the forward strand of the merged node
      *   corresponds to the strands to merge in chain.
      * @return: Which strands if any of the merged node are compressible.
-     *   If the chain produces a node with an edge to itself e.g A->A
-     *   this would be marked as compressible. The caller should explicitly
-     *   handle that case by looking at the merged node.
      */
     protected CompressibleStrands isCompressible(Chain chain) {
       // We need to determine whether the merged node is compressible.
@@ -389,7 +388,8 @@ public class PairMergeAvro extends MRStage {
       CompressibleStrands compressible_strands;
       // Check if the merged_node is connected to itself. isCompressible
       // can't handle this.
-      if (merged_node.getNeighborIds().contains(merged_node.getNodeId())) {
+      if (merged_node.hasSelfCycle()) {
+        // We have a cycle so it isn't further compressible.
         compressible_strands = CompressibleStrands.NONE;
       } else {
         compressible_strands = isCompressible(chain);

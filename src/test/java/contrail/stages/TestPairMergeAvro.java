@@ -217,7 +217,6 @@ public class TestPairMergeAvro extends PairMergeAvro {
 
     test_case.input = new ArrayList<NodeInfoForMerge>();
 
-
     {
       GraphNode node = builder.getNode(builder.findNodeIdForSequence("ACT"));
       CompressibleNodeData merge_data = new CompressibleNodeData();
