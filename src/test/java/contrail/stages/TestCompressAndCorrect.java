@@ -17,16 +17,21 @@
 
 package contrail.stages;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.specific.SpecificDatumWriter;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.junit.Before;
 import org.junit.Test;
@@ -35,6 +40,7 @@ import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.graph.SimpleGraphBuilder;
 import contrail.util.ContrailLogger;
+import contrail.util.FileHelper;
 
 public class TestCompressAndCorrect extends CompressAndCorrect {
   @Before
@@ -42,30 +48,6 @@ public class TestCompressAndCorrect extends CompressAndCorrect {
     // Setup the logger so we don't simply exit on failure.
     ContrailLogger.setExitOnFatal(false);
     ContrailLogger.setTestMode(true);
-  }
-
-  /**
-   * Create a temporary directory.
-   * @return
-   */
-  private File createTempDir() {
-    File temp = null;
-    try {
-      temp = File.createTempFile("temp", Long.toString(System.nanoTime()));
-    } catch (IOException exception) {
-      fail("Could not create temporary file. Exception:" +
-          exception.getMessage());
-    }
-    if(!(temp.delete())){
-      throw new RuntimeException(
-          "Could not delete temp file: " + temp.getAbsolutePath());
-    }
-
-    if(!(temp.mkdir())) {
-      throw new RuntimeException(
-          "Could not create temp directory: " + temp.getAbsolutePath());
-    }
-    return temp;
   }
 
   private void writeGraph(File avroFile, Map<String, GraphNode> nodes) {
@@ -85,6 +67,35 @@ public class TestCompressAndCorrect extends CompressAndCorrect {
     } catch (IOException exception) {
       fail("There was a problem writing the graph to an avro file. Exception:" +
           exception.getMessage());
+    }
+  }
+
+  @Test
+  public void testDeletePastSteps() {
+    File temp = FileHelper.createLocalTempDir();
+    int step = 05;
+    HashMap<String, Boolean> dirs = new HashMap<String, Boolean>();
+    for (int i = 0; i < 10; ++i) {
+      String someDir = FilenameUtils.concat(
+          temp.getAbsolutePath(), String.format("step_%02d", i));
+      if (i <= step) {
+        dirs.put(someDir, true);
+      } else {
+        dirs.put(someDir, false);
+      }
+      new File(someDir).mkdirs();
+    }
+
+    CompressAndCorrect.deletePastSteps(
+        new Configuration(), temp.getAbsolutePath(), step);
+
+    for (Entry<String, Boolean> entry : dirs.entrySet()) {
+      File someDir = new File(entry.getKey());
+      if (entry.getValue()) {
+        assertFalse(someDir.exists());
+      } else {
+        assertTrue(someDir.exists());
+      }
     }
   }
 
@@ -109,7 +120,7 @@ public class TestCompressAndCorrect extends CompressAndCorrect {
     float bubbleEditRate = 1.0f / 10.0f;
     int bubbleLengthThreshold = 100;
 
-    File temp = createTempDir();
+    File temp = FileHelper.createLocalTempDir();
     File avroFile = new File(temp, "graph.avro");
 
     writeGraph(avroFile, builder.getAllNodes());
@@ -125,6 +136,7 @@ public class TestCompressAndCorrect extends CompressAndCorrect {
     String[] args =
       {"--inputpath=" + temp.toURI().toString(),
        "--outputpath=" + output_path.toURI().toString(),
+       "--cleanup=true",
        "--K=3", "--localnodes=3", "--tiplength=" + tipLength,
        "--bubble_edit_rate=" + bubbleEditRate,
        "--bubble_length_threshold=" + bubbleLengthThreshold,
