@@ -53,13 +53,16 @@ import contrail.stages.GraphCounters.CounterName;
  * 1. Sum of inDegree and outDegree is at most 1
  * 2. their sequence length being less than a particular limit (tiplength)
  *
- * We can have lots of tips along one strand; and sometimes all the edges in a particular Strand direction are tips,
- * In that case we only keep the longest one and remove all other shorter tips.
+ * We can have lots of tips along one strand; and sometimes all the edges in a
+ * particular Strand direction are tips, In that case we only keep the longest
+ * one and remove all other shorter tips.
 
  * Mapper:
  *   -- Identify the tips
- *   -- Tell the corresponding neighbor that I am the tip by sending Removetip Message
- *   -- collect nodeID of terminal and Removetip Message (contains complement of Strand to neighbor, nodeID of tip)
+ *   -- Tell the corresponding neighbor that I am the tip by sending Removetip
+ *      Message
+ *   -- collect nodeID of terminal and Removetip Message (contains complement of
+ *      Strand to neighbor, nodeID of tip)
 
  * Reducer:
  *  -- we identify the best-tip (longest tip) in both kind of DNAStrands
@@ -68,12 +71,15 @@ import contrail.stages.GraphCounters.CounterName;
 public class RemoveTipsAvro extends MRStage {
   private static final Logger sLogger = Logger.getLogger(RemoveTipsAvro.class);
 
-  public static final Schema MAP_OUT_SCHEMA = Pair.getPairSchema(Schema.create(Schema.Type.STRING), (new RemoveTipMessage()).getSchema());
-  private static Pair<CharSequence, RemoveTipMessage> out_pair = new Pair<CharSequence, RemoveTipMessage>(MAP_OUT_SCHEMA);
+  public static final Schema MAP_OUT_SCHEMA = Pair.getPairSchema(
+      Schema.create(Schema.Type.STRING), (new RemoveTipMessage()).getSchema());
+  private static Pair<CharSequence, RemoveTipMessage> out_pair =
+      new Pair<CharSequence, RemoveTipMessage>(MAP_OUT_SCHEMA);
 
   public final static CounterName NUM_REMOVED =
       new CounterName("Contrail", "remove-tips-num-clipped");
 
+  @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs =
         new HashMap<String, ParameterDefinition>();
@@ -109,6 +115,7 @@ public class RemoveTipsAvro extends MRStage {
     public static boolean VERBOSE = false;
     public static RemoveTipMessage msg= null;
 
+    @Override
     public void configure(JobConf job) {
       RemoveTipsAvro stage = new RemoveTipsAvro();
       Map<String, ParameterDefinition> definitions = stage.getParameterDefinitions();
@@ -124,9 +131,13 @@ public class RemoveTipsAvro extends MRStage {
       node = new GraphNode(graph_data);
       int fdegree = node.degree(DNAStrand.FORWARD);
       int rdegree = node.degree(DNAStrand.REVERSE);
+
+      int inDegree = node.degree(DNAStrand.FORWARD, EdgeDirection.INCOMING);
+      int outDegree = node.degree(DNAStrand.FORWARD, EdgeDirection.OUTGOING);
+
       int len     = graph_data.getSequence().getLength();
 
-      if ((fdegree == 0) && (rdegree == 0))   {
+      if ((inDegree == 0) && (outDegree == 0))   {
         if (node.getSequence().size() <= tiplength) {
           reporter.incrCounter("Contrail", "RemoveTips-island-removed", 1);
           return;
@@ -140,7 +151,12 @@ public class RemoveTipsAvro extends MRStage {
         return;
       }
 
-      if ((len <= tiplength) && (fdegree + rdegree <= 1))  {
+      // We need to make sure the node doesn't have connected strands.
+      // e.g A->R(A) inDegree + outdegree = 1 because the edge is only
+      // stored once.
+      // a cycle A->A would have indgree + outdegree =2.
+      if ((len <= tiplength) && (inDegree + outDegree <= 1) &&
+          !node.hasConnectedStrands())  {
         reporter.incrCounter("Contrail", "tips_found", 1);
 
         if (VERBOSE)	{
@@ -162,8 +178,7 @@ public class RemoveTipsAvro extends MRStage {
         msg.setEdgeStrands(key);
         out_pair.set( terminals.get(0).nodeId, msg);
         output.collect(out_pair);
-      }
-      else	{
+      } else	{
         msg.setNode(graph_data);
         msg.setEdgeStrands(null); /*setEdgeStrands is set null to indicate
 							  that this node is normal, not a tip*/
@@ -183,6 +198,7 @@ public class RemoveTipsAvro extends MRStage {
     GraphNode actual_node= null;
     GraphNode tip_node = null;
 
+    @Override
     public void configure(JobConf job) {
       temp_node = new GraphNode();
       actual_node= new GraphNode();

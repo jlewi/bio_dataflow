@@ -28,8 +28,10 @@ import contrail.RemoveTipMessage;
 import contrail.ReporterMock;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
+import contrail.graph.GraphUtil;
 import contrail.graph.SimpleGraphBuilder;
 import contrail.sequences.DNAAlphabetFactory;
+import contrail.sequences.DNAStrand;
 import contrail.sequences.Sequence;
 import contrail.sequences.StrandsForEdge;
 
@@ -169,11 +171,34 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
     testCase.node = node.getData();
     testCase.tiplength = node.getSequence().size() * 2;
 
-    RemoveTipMessage message= new RemoveTipMessage();
+    testCase.expected_message = null;
+    return testCase;
+  }
+
+  private MapTestCaseData constructMapCycle() {
+    // We construct the following special case where a node is connected
+    // to itself with an edge for strands FR. This is an important case
+    // because it means the reverse complement of the edge is the same edge FR.
+    // This test ensures we properly detect this is not a tip.
+    MapTestCaseData testCase = new MapTestCaseData();
+
+    GraphNode node = new GraphNode();
+    node.setNodeId("cycle");
+    node.setSequence(new Sequence(
+        "CGTATACCATATATATCATATATATGATATATATGGTATAC",
+        DNAAlphabetFactory.create()));
+
+    GraphUtil.addBidirectionalEdge(
+        node, DNAStrand.FORWARD, node, DNAStrand.REVERSE);
+    testCase.node = node.getData();
+    testCase.tiplength = node.getSequence().size() * 2;
+
+    RemoveTipMessage message = new RemoveTipMessage();
     message.setNode(node.clone().getData());
     message.setEdgeStrands(null);
 
-    testCase.expected_message = null;
+    testCase.expected_message = new Pair<CharSequence, RemoveTipMessage>(
+        node.getNodeId(), message);
     return testCase;
   }
 
@@ -191,9 +216,11 @@ public class TestRemoveTipsAvro extends RemoveTipsAvro{
     JobConf job = new JobConf(RemoveTipsAvro.RemoveTipsAvroMapper.class);
 
     // Construct the different test cases.
-    List <MapTestCaseData> test_cases = constructMapCases();
+    List <MapTestCaseData> test_cases = new ArrayList<MapTestCaseData>();
+    test_cases.addAll(constructMapCases());
     test_cases.add(constructMapKeepIsland());
     test_cases.add(constructMapRemoveIsland());
+    test_cases.add(constructMapCycle());
     for (MapTestCaseData case_data : test_cases) {
       definitions.get("tiplength").addToJobConf(
           job, new Integer(case_data.tiplength));
