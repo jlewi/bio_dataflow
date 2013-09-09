@@ -336,6 +336,30 @@ public class GraphUtil {
   }
 
   /**
+   * Validate a graph that fits in memory.
+   *
+   * @param nodes
+   * @param K
+   * @return
+   */
+  public static List<GraphError> validateGraph(
+      Collection<GraphNode> nodes, int K) {
+    HashMap<String, GraphNode> nodesMap = new HashMap<String, GraphNode>();
+    List<GraphError> errors = new ArrayList<GraphError>();
+    for (GraphNode node : nodes) {
+      if (nodesMap.containsKey(node.getNodeId())) {
+        GraphError error = new GraphError();
+        error.setErrorCode(GraphErrorCodes.DUPLICATE_NODE);
+        error.setMessage("Node: " + node.getNodeId() + " is duplicated");
+        errors.add(error);
+      }
+      nodesMap.put(node.getNodeId(), node);
+    }
+    errors.addAll(validateGraph(nodesMap, K));
+    return errors;
+  }
+
+  /**
    * A comparator which can be used to sort nodes lexicogrphaically based on
    * node id.
    */
