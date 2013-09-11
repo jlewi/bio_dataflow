@@ -30,18 +30,16 @@ import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 import contrail.sequences.FastQRecord;
 import contrail.sequences.MatePair;
 import contrail.stages.ContrailParameters;
+import contrail.stages.MRStage;
 import contrail.stages.ParameterDefinition;
-import contrail.stages.Stage;
 import contrail.util.FileHelper;
 import contrail.util.ShellUtil;
 
@@ -60,7 +58,7 @@ import contrail.util.ShellUtil;
  * blocks of files when they are of no use.
  */
 
-public class InvokeFlash extends Stage {
+public class InvokeFlash extends MRStage {
   private static final Logger sLogger = Logger.getLogger(InvokeFlash.class);
   public static class RunFlashMapper extends AvroMapper<MatePair, FastQRecord>{
     private String localOutFolderPath = null;
@@ -202,7 +200,8 @@ public class InvokeFlash extends Stage {
   /* creates the custom definitions that we need for this phase*/
   @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
-    HashMap<String, ParameterDefinition> defs = new HashMap<String, ParameterDefinition>();
+    HashMap<String, ParameterDefinition> defs =
+        new HashMap<String, ParameterDefinition>();
     defs.putAll(super.createParameterDefinitions());
     ParameterDefinition flashBinary = new ParameterDefinition(
     "flash_binary", "The URI of the flash binary. To use a filesystem other " +
@@ -212,37 +211,29 @@ public class InvokeFlash extends Stage {
     ParameterDefinition blockSize = new ParameterDefinition(
         "block_size", "block_size number of records are" +
         " written to local files at a time.", Integer.class, new Integer(10000));
-    for (ParameterDefinition def: new ParameterDefinition[] {flashBinary, blockSize}) {
+    for (ParameterDefinition def:
+         new ParameterDefinition[] {flashBinary, blockSize}) {
       defs.put(def.getName(), def);
     }
-    for (ParameterDefinition def: ContrailParameters.getInputOutputPathOptions()) {
+    for (ParameterDefinition def:
+         ContrailParameters.getInputOutputPathOptions()) {
       defs.put(def.getName(), def);
     }
     return Collections.unmodifiableMap(defs);
   }
 
   @Override
-  public RunningJob runJob() throws Exception {
-    logParameters();
-    Configuration base_conf = getConf();
-    JobConf conf = null;
-    if (base_conf != null) {
-      conf = new JobConf(getConf(), this.getClass());
-    } else {
-      conf = new JobConf(this.getClass());
-    }
-    conf.setJobName("Flash invocation");
+  public void  setupConfHook() {
+    JobConf conf = (JobConf) getConf();
+
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
     String flashBinary = (String) stage_options.get("flash_binary");
-    if (flashBinary.length() == 0) {
-      throw new Exception("Flash binary location required");
-    }
 
-    // Delete the output directory if it exists already
-    Path out_path = new Path(outputPath);
-    if (out_path.getFileSystem(conf).exists(out_path)) {
-      out_path.getFileSystem(conf).delete(out_path, true);
+    // TODO(jeremy@lewi.us): We should add appropriate argument validation
+    // to ensure we never reach this point if no binary is given.
+    if (flashBinary.length() == 0) {
+      sLogger.fatal("Flash binary location required");
     }
 
     // TODO: Distribute the flash binary to the workers. We need to copy the
@@ -255,26 +246,17 @@ public class InvokeFlash extends Stage {
     URI flashCacheURI = new Path(flashBinary).toUri();
     DistributedCache.addCacheFile(flashCacheURI, conf);
 
-    //Sets the parameters in JobConf
-    initializeJobConfiguration(conf);
     AvroJob.setMapperClass(conf, RunFlashMapper.class);
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
-    //Input
+    // Input
     MatePair read = new MatePair();
     AvroJob.setInputSchema(conf, read.getSchema());
     AvroJob.setOutputSchema(conf, new FastQRecord().getSchema());
 
-    //Map Only Job
+    // Map Only Job
     conf.setNumReduceTasks(0);
-
-    long starttime = System.currentTimeMillis();
-    RunningJob result = JobClient.runJob(conf);
-    long endtime = System.currentTimeMillis();
-    float diff = (float) ((endtime - starttime) / 1000.0);
-    System.out.println("Runtime: " + diff + " s");
-    return result;
   }
 
   public static void main(String[] args) throws Exception {
