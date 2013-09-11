@@ -67,9 +67,10 @@ import contrail.util.ContrailLogger;
  *
  * FindBubbles looks for the bubbles in the graph; i.e. those nodes
  *  1. that have indegree=1 and outdegree=1,
- *  2. their Sequence length is less than some threshold,
- *  3. the edit distance between the sequences for nodes A and B are less than
- *     some THRESHOLD.
+ *  2. that have distinct incoming and outgoing terminals,
+ *  3. that have lengths less than some threshold, and
+ *  4. for which the edit distance between the sequences for nodes A and B are
+ *     less than some THRESHOLD.
  *
  * The Mapper finds potential bubbles (e.g nodes A & B) by looking for paths
  * which satisfy criterion #1 & #2 above. These nodes are then shipped to
@@ -85,17 +86,12 @@ import contrail.util.ContrailLogger;
  * edges to node B which was deleted.
  *
  * Special Cases:
- * 1. Palindromes. A bubble can be created by a palindrome, a sequence
- *    which equals its reverse complement. Palindromes can be created when
- *    two sequences are merged. This can create a bubble
- *    X->{A, R(A)} -> Y  where A=R(A). Unfortunately, the distributed algorithm
- *    for doing pair wise merges means we can't deal with palindromes when
- *    doing the merge.
- *
- *    The reducer identifies bubbles formed by palindromes. If such a bubble
- *    is detected then the bubble is popped by ensuring all edges from
- *    the major neighbor target the forward strand of the node and all edges
- *    from the minor target the reverse strand of the palindrome.
+ * 1. Bubbles formed by the same strands of a node.
+ *    Consider the graph  {X_1,...X_n}->{A, R(A}}->{R(X_1),...,R(Xn)}
+ *    So the two strands of node A are a potential bubble.
+ *    The code currently doesn't handle this case. Nodes like A will not be
+ *    considered as potential bubbles. However, we add a counter to count these
+ *    nodes so we can see the potential impact of ignoring them.
  *
  * 2. Major and minor node are the same. For example suppose we have the
  *    graph  X->{A, B}->R(X). For the most part we can handle this like
@@ -157,10 +153,78 @@ public class FindBubblesAvro extends MRStage   {
   }
 
   /**
+   * Check whether a node could be a bubble.
+   *
+   * This function returns false for nodes which form a bubble with themselves
+   * e.g suppose we have the graph X->{A, R(A)}->R(X). A forms a potential
+   * bubble with its two strands but this function will return false for this
+   * case.
+   *
+   * @param node
+   * @param lengthThreshold
+   * @return
+   */
+  protected static boolean isPotentialBubble(GraphNode node) {
+    int outDegree = node.degree(DNAStrand.FORWARD, EdgeDirection.OUTGOING);
+    int inDegree = node.degree(DNAStrand.FORWARD, EdgeDirection.INCOMING);
+
+    // Node must have indegree=outdegree=1 in order to be a bubble.
+    if (outDegree != 1 || inDegree !=1) {
+      return false;
+    }
+
+    // The incoming and outgoing edge terminals must be distinct in order
+    // to be a bubble.
+    EdgeTerminal incoming = node.getEdgeTerminals(
+        DNAStrand.FORWARD, EdgeDirection.INCOMING).get(0);
+    EdgeTerminal outgoing = node.getEdgeTerminals(
+        DNAStrand.FORWARD, EdgeDirection.OUTGOING).get(0);
+    if (incoming.equals(outgoing)) {
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Check if the two strands of a node form a bubble.
+   *
+   * e.g suppose we have the graph X->{A, R(A)}->Z which implies
+   * {X, R(Z)}-> {A, R(A)}->{R(X), Z}.
+   * So A has indegree=outdegree=N where N could be a variable number of nodes.
+   * The criterion in this case is that indegree=outdegree and
+   * The set of outgoing terminals for the forward and reverse strands are the
+   * same
+   *
+   * @param node
+   * @return
+   */
+  protected static boolean isSelfBubble(GraphNode node) {
+    int outDegree = node.degree(DNAStrand.FORWARD, EdgeDirection.OUTGOING);
+    int inDegree = node.degree(DNAStrand.FORWARD, EdgeDirection.INCOMING);
+
+    if (outDegree != inDegree) {
+      return false;
+    }
+
+    // TODO(jeremy@lewi.us): Should we consider the special case where
+    // indegree=outdegree=0?
+    Set<EdgeTerminal> forwardSet = node.getEdgeTerminalsSet(
+        DNAStrand.FORWARD, EdgeDirection.OUTGOING);
+    Set<EdgeTerminal> reverseSet = node.getEdgeTerminalsSet(
+        DNAStrand.REVERSE, EdgeDirection.OUTGOING);
+
+    if (!forwardSet.equals(reverseSet)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
    * The mapper identifies potential bubbles.
    */
   public static class FindBubblesAvroMapper extends
-  AvroMapper<GraphNodeData, Pair<CharSequence,GraphNodeData>>    {
+      AvroMapper<GraphNodeData, Pair<CharSequence,GraphNodeData>>    {
     int bubbleLenThresh = 0;
     GraphNode node = null;
 
@@ -183,12 +247,21 @@ public class FindBubblesAvro extends MRStage   {
         Reporter reporter) throws IOException   {
       node.setData(graphData);
 
-      int sequenceLength = graphData.getSequence().getLength();
-      int outDegree = node.degree(DNAStrand.FORWARD, EdgeDirection.OUTGOING);
-      int inDegree = node.degree(DNAStrand.FORWARD, EdgeDirection.INCOMING);
-      // check if node can't be a bubble
-      if ((sequenceLength >= bubbleLenThresh) || (outDegree != 1) ||
-          (inDegree != 1))  {
+      if (isSelfBubble(node)) {
+        reporter.incrCounter("Contrail", "self-bubble-unpopped", 1);
+        outPair.set(node.getNodeId(), graphData);
+        output.collect(outPair);
+        return;
+      }
+
+      if (!isPotentialBubble(node)) {
+        outPair.set(node.getNodeId(), graphData);
+        output.collect(outPair);
+        return;
+      }
+
+      if (node.getSequence().size() > bubbleLenThresh) {
+        reporter.incrCounter("Contrail", "potential-bubble-too-long", 1);
         outPair.set(node.getNodeId(), graphData);
         output.collect(outPair);
         return;
@@ -218,7 +291,6 @@ public class FindBubblesAvro extends MRStage   {
     private GraphNode majorNode = null;
     private GraphNode middleNode = null;
     private FindBubblesOutput output = null;
-    private BubbleUtil bubbleUtil = null;
 
     public void configure(JobConf job) {
       FindBubblesAvro stage = new FindBubblesAvro();
@@ -228,7 +300,7 @@ public class FindBubblesAvro extends MRStage   {
       bubbleEditRate= (Float)(
           definitions.get("bubble_edit_rate").parseJobConf(job));
       K = (Integer)(definitions.get("K").parseJobConf(job));
-      if(K <= 0)  {
+      if (K <= 0)  {
         throw new RuntimeException("K should be greater than zero.");
       }
 
@@ -236,10 +308,7 @@ public class FindBubblesAvro extends MRStage   {
       middleNode = new GraphNode();
       output = new FindBubblesOutput();
       output.setDeletedNeighbors(new ArrayList<CharSequence>());
-      output.setPalindromeNeighbors(new ArrayList<CharSequence>());
-      bubbleUtil = new BubbleUtil();
     }
-
 
     /**
      * This class describes the Path instance between major and minor node
@@ -587,39 +656,11 @@ public class FindBubblesAvro extends MRStage   {
     }
 
     /**
-     * Check every non-popped node to see if its a palindrome. If it is
-     * a palindrome then make sure all edges to it are to the forward strand.
-     *
-     * @param minor_list
-     * @param reporter
-     */
-    void processPalindromes (
-        List<PathBase> minorList, Reporter reporter) {
-      for (PathBase path: minorList) {
-        if(path instanceof IndirectPath) {
-          IndirectPath indirectPath = (IndirectPath) path;
-          if (indirectPath.popped) {
-            continue;
-          }
-          if (!indirectPath.isPalindrome()) {
-            continue;
-          }
-          reporter.incrCounter(NUM_PALINDROMES.group, NUM_PALINDROMES.tag, 1);
-
-          bubbleUtil.fixEdgesToPalindrome(
-              majorNode, indirectPath.middleNode.getNodeId(), true);
-          bubbleUtil.fixEdgesFromPalindrome(indirectPath.middleNode);
-        }
-      }
-    }
-
-    /**
      * Output the messages to the minor node.
      * This function receives the PathBase list and outputs
      * 1. Information to the minor node in the form of following schema:
      *  -- Minor node ID (to which messages will be sent)
      *  -- List of deleted neighbors to be removed
-     *  -- List of neighbors which are palindrome
      *
      * 2. Nodes from paths which weren't removed of major
      * @param processList
@@ -633,11 +674,8 @@ public class FindBubblesAvro extends MRStage   {
       output.setNode(null);
       output.setMinorNodeId("");
       output.getDeletedNeighbors().clear();
-      output.getPalindromeNeighbors().clear();
 
       ArrayList<CharSequence> deletedNeighbors = new ArrayList<CharSequence>();
-      ArrayList<CharSequence> palindromeNeighbors =
-          new ArrayList<CharSequence>();
 
       for(PathBase markedPath : processList) {
         if(markedPath instanceof IndirectPath) {
@@ -647,7 +685,6 @@ public class FindBubblesAvro extends MRStage   {
             deletedNeighbors.add(((IndirectPath) markedPath).middleNode.getNodeId());
           } else {
             if (indirectPath.isPalindrome()) {
-              palindromeNeighbors.add(indirectPath.middleNode.getNodeId());
             }
             // This is a non-popped node so output the node.
             output.setNode(indirectPath.middleNode.getData());
@@ -670,7 +707,6 @@ public class FindBubblesAvro extends MRStage   {
       output.setNode(null);
       output.setMinorNodeId(minor);
       output.setDeletedNeighbors(deletedNeighbors);
-      output.setPalindromeNeighbors(palindromeNeighbors);
       collector.collect(output);
     }
 
@@ -734,25 +770,22 @@ public class FindBubblesAvro extends MRStage   {
 
         if (choices <= 1) {
           IndirectPath indirectPath = (IndirectPath) minorPaths.get(0);
-          // Check if this middleNode is a palindrome.
-          if (!DNAUtil.isPalindrome(indirectPath.alignedSequence)) {
-            // Check if we have a chain. We have a chain if the major node
-            // has outdegree 1 from the forward strand.
+          // Check if we have a chain. We have a chain if the major node
+          // has outdegree 1 from the forward strand.
+          if (majorNode.degree(
+              indirectPath.majorStrand, EdgeDirection.OUTGOING) == 1) {
             if (majorNode.degree(
-                indirectPath.majorStrand, EdgeDirection.OUTGOING) == 1) {
-              if (majorNode.degree(
-                      indirectPath.majorStrand, EdgeDirection.INCOMING) == 0) {
-                // Do nothing. The major node could be a tip which didn't
-                // get removed. In this case do nothing.
-              } else {
-                // We have a chain, i.e A->X->B and not a bubble
-                // A->{X,Y,...}->B this shouldn't happen and probably means
-                // the graph wasn't maximally compressed.
-                throw new RuntimeException(
-                    "We found a chain. This probably means the " +
-                    "graph wasn't maximally compressed before running " +
-                    "FindBubbles.");
-              }
+                    indirectPath.majorStrand, EdgeDirection.INCOMING) == 0) {
+              // Do nothing. The major node could be a tip which didn't
+              // get removed. In this case do nothing.
+            } else {
+              // We have a chain, i.e A->X->B and not a bubble
+              // A->{X,Y,...}->B this shouldn't happen and probably means
+              // the graph wasn't maximally compressed.
+              throw new RuntimeException(
+                  "We found a chain. This probably means the " +
+                  "graph wasn't maximally compressed before running " +
+                  "FindBubbles.");
             }
           }
         } else {
@@ -761,9 +794,6 @@ public class FindBubblesAvro extends MRStage   {
           // marks nodes to be deleted for a particular list of minorID
           markRedundantPaths(minorPaths, reporter, minorID);
         }
-        // After removing redundant paths, we check any nodes which are still
-        //alive if they are palindromes.
-        processPalindromes(minorPaths, reporter);
         reporter.incrCounter("Contrail", "edgeschecked", choices);
         outputMessages(minorPaths, minorID, collector);
       }
@@ -772,7 +802,6 @@ public class FindBubblesAvro extends MRStage   {
       output.setNode(majorNode.getData());
       output.setMinorNodeId("");
       output.getDeletedNeighbors().clear();
-      output.getPalindromeNeighbors().clear();
       collector.collect(output);
 
     }

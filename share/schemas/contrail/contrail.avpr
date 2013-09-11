@@ -464,10 +464,6 @@
                           "use a list because of cases like ",
                           "X->{A, B, C}->Y in which we need to tell Y to ",
                           "remove edges from B and C."]
-                },
-                {"name": "palindrome_neighbors",
-                 "type": {"type": "array", "items": "string"},
-                 "doc": "A list of neighbors which are palindromes."
                 }
                ]
     },

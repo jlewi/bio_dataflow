@@ -171,17 +171,13 @@ public class CompressAndCorrect extends PipelineStage {
 
     executeChild(findStage);
 
-    // Check if any bubbles or palindromes were found.
+    // Check if any bubbles were found.
     long bubblesFound = findStage.job.getCounters().findCounter(
         FindBubblesAvro.NUM_BUBBLES.group,
         FindBubblesAvro.NUM_BUBBLES.tag).getValue();
 
-    long palindromesFound = findStage.job.getCounters().findCounter(
-        FindBubblesAvro.NUM_PALINDROMES.group,
-        FindBubblesAvro.NUM_PALINDROMES.tag).getValue();
-
-    if (bubblesFound == 0 && palindromesFound == 0) {
-      // Since no bubbles and no palindromes were found,
+    if (bubblesFound == 0) {
+      // Since no bubbles were found,
       // we don't need to run the second phase of pop bubbles.
       JobInfo result = new JobInfo();
       result.graphChanged = false;
@@ -189,7 +185,7 @@ public class CompressAndCorrect extends PipelineStage {
       // the graph.
       result.graphPath = inputPath;
       result.logMessage =
-          "FindBubbles found 0 bubbles and 0 palindromes.";
+          "FindBubbles found 0 bubbles.";
       return result;
     }
 

@@ -51,6 +51,7 @@ import contrail.graph.GraphNodeData;
 public class PopBubblesAvro extends MRStage  {
   private static final Logger sLogger = Logger.getLogger(PopBubblesAvro.class);
 
+  @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs =
         new HashMap<String, ParameterDefinition>();
@@ -70,11 +71,13 @@ public class PopBubblesAvro extends MRStage  {
                        Pair<CharSequence, FindBubblesOutput>> {
     Pair<CharSequence, FindBubblesOutput> outPair = null;
 
+    @Override
     public void configure(JobConf job)   {
       outPair = new Pair<CharSequence, FindBubblesOutput> (
           "", new FindBubblesOutput());
     }
 
+    @Override
     public void map(FindBubblesOutput input,
         AvroCollector<Pair<CharSequence, FindBubblesOutput>> collector,
         Reporter reporter) throws IOException {
@@ -92,9 +95,8 @@ public class PopBubblesAvro extends MRStage  {
     extends AvroReducer<CharSequence, FindBubblesOutput, GraphNodeData> {
     GraphNode node = null;
     ArrayList<String> neighborsToRemove;
-    ArrayList<String> palindromeNeighbors;
-    BubbleUtil bubbleUtil;
 
+    @Override
     public void configure(JobConf job) {
       PopBubblesAvro stage = new PopBubblesAvro();
       Map<String, ParameterDefinition> definitions =
@@ -102,10 +104,9 @@ public class PopBubblesAvro extends MRStage  {
 
       node = new GraphNode();
       neighborsToRemove = new ArrayList<String>();
-      palindromeNeighbors = new ArrayList<String>();
-      bubbleUtil = new BubbleUtil();
     }
 
+    @Override
     public void reduce(
         CharSequence nodeid, Iterable<FindBubblesOutput> iterable,
         AvroCollector<GraphNodeData> output, Reporter reporter)
@@ -113,7 +114,6 @@ public class PopBubblesAvro extends MRStage  {
       int sawNode = 0;
       Iterator<FindBubblesOutput> iter = iterable.iterator();
       neighborsToRemove.clear();
-      palindromeNeighbors.clear();
 
       while(iter.hasNext()) {
         FindBubblesOutput input = iter.next();
@@ -125,9 +125,6 @@ public class PopBubblesAvro extends MRStage  {
         } else {
           for (CharSequence  neighbor : input.getDeletedNeighbors()) {
             neighborsToRemove.add(neighbor.toString());
-          }
-          for (CharSequence  neighbor : input.getPalindromeNeighbors()) {
-            palindromeNeighbors.add(neighbor.toString());
           }
         }
       }
@@ -153,10 +150,6 @@ public class PopBubblesAvro extends MRStage  {
         reporter.incrCounter("Contrail", "linksremoved", 1);
       }
 
-      for (String neighborID : palindromeNeighbors) {
-        bubbleUtil.fixEdgesToPalindrome(node, neighborID, false);
-        reporter.incrCounter("Contrail", "palindromes-fixed", 1);
-      }
       output.collect(node.getData());
     }
   }
