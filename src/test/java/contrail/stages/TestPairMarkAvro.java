@@ -8,6 +8,7 @@ import static org.junit.Assert.fail;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -20,7 +21,6 @@ import org.apache.avro.mapred.Pair;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.thirdparty.guava.common.collect.Lists;
 import org.junit.Test;
 
 import contrail.ReporterMock;
@@ -918,7 +918,7 @@ public class TestPairMarkAvro extends PairMarkAvro {
     flipper.tosses.put(nodeD.getNodeId(), CoinFlip.DOWN);
 
     RunResults results = runWithFlipper(
-        Lists.newArrayList(
+        Arrays.asList(
             nodeACompressible, nodeBCompressible, nodeCCompressible,
             nodeDCompressible),
         flipper);
