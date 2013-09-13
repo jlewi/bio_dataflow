@@ -8,23 +8,13 @@ import java.util.Map;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
-import org.apache.log4j.Logger;
 
-import contrail.correct.BuildBitVector;
-import contrail.correct.ConvertKMerCountsToText;
-import contrail.correct.CutOffCalculation;
-import contrail.correct.FastQToAvro;
-import contrail.correct.InvokeFlash;
-import contrail.correct.InvokeQuake;
-import contrail.correct.JoinReads;
-import contrail.correct.KmerCounter;
 import contrail.stages.ContrailParameters;
-import contrail.stages.NotImplementedException;
 import contrail.stages.ParameterDefinition;
+import contrail.stages.PipelineStage;
 import contrail.stages.Stage;
+import contrail.util.ContrailLogger;
 
 
 // TODO(jeremy@lewi.us): Why is bitvectorpath listed as an argument
@@ -48,8 +38,9 @@ import contrail.stages.Stage;
 // I think just has to do with treating both pairs of a read the "same".
 // Currently we don't use that mode and treat all reads as non-mate pairs
 // for the purpose of quake.
-public class CorrectionPipelineRunner extends Stage{
-  private static final Logger sLogger = Logger.getLogger(CorrectionPipelineRunner.class);
+public class CorrectionPipelineRunner extends PipelineStage{
+  private static final ContrailLogger sLogger = ContrailLogger.getLogger(
+      CorrectionPipelineRunner.class);
 
   public CorrectionPipelineRunner() {
     // Initialize the stage options to the defaults. We do this here
@@ -58,6 +49,7 @@ public class CorrectionPipelineRunner extends Stage{
     setDefaultParameters();
   }
 
+  @Override
   protected void setDefaultParameters() {
     // This function is intended to be overloaded in subclasses which
     // customize the parameters for different datasets.
@@ -73,7 +65,8 @@ public class CorrectionPipelineRunner extends Stage{
     definitions.putAll(super.createParameterDefinitions());
     // We add all the options for the stages we depend on.
     Stage[] substages =
-      {new JoinReads(), new InvokeFlash(), new KmerCounter(), new ConvertKMerCountsToText(), new CutOffCalculation(),
+      {new JoinReads(), new InvokeFlash(), new KmerCounter(),
+       new ConvertKMerCountsToText(), new CutOffCalculation(),
        new BuildBitVector(), new InvokeQuake()};
 
     for (Stage stage: substages) {
@@ -109,14 +102,21 @@ public class CorrectionPipelineRunner extends Stage{
    * @param flashInputAvroPath
    * @return
    */
-  private RunningJob runJoinMatePairs(String inputPath, String outputPath) {
+  private void runJoinMatePairs(String inputPath, String outputPath) {
     sLogger.info("Join mate pairs.");
     JoinReads stage = new JoinReads();
+    stage.initializeAsChild(this);
+
     HashMap<String, Object> parameters =new HashMap<String, Object>();
     parameters.put("inputpath", inputPath);
     parameters.put("outputpath", outputPath);
     stage.setParameters(parameters);
-    return runStage(stage);
+
+    if (!executeChild(stage)) {
+      sLogger.fatal(String.format(
+          "Stage %s had a problem", stage.getClass().getName()),
+          new RuntimeException("Stage failure."));
+    }
   }
 
   /**
@@ -176,6 +176,7 @@ public class CorrectionPipelineRunner extends Stage{
     // Convert KmerCounts to Text
     sLogger.info("Running ConvertKMerCountsToText");
     ConvertKMerCountsToText converter = new ConvertKMerCountsToText();
+    converter.initializeAsChild(this);
     HashMap<String, Object> convertOptions = new HashMap<String, Object>();
 
     String textCountsPath = FilenameUtils.concat(
@@ -183,11 +184,17 @@ public class CorrectionPipelineRunner extends Stage{
     convertOptions.put("inputpath", kmerCountsPath);
     convertOptions.put("outputpath", textCountsPath);
     converter.setParameters(convertOptions);
-    runStage(converter);
+    if (!executeChild(converter)) {
+      sLogger.fatal(String.format(
+          "Stage %s had a problem", converter.getClass().getName()),
+          new RuntimeException("Stage failure."));
+      System.exit(-1);
+    }
 
     // Cutoff calculation stage
     sLogger.info("Running CutOffCalculation");
     CutOffCalculation cutoffStage = new CutOffCalculation();
+    cutoffStage.initializeAsChild(this);
 
     Map<String, Object> cutoffOptions = ContrailParameters.extractParameters(
         stage_options, cutoffStage.getParameterDefinitions().values());
@@ -197,12 +204,18 @@ public class CorrectionPipelineRunner extends Stage{
     cutoffOptions.put("inputpath", textCountsPath);
     cutoffOptions.put("outputpath", cutoffPath);
     cutoffStage.setParameters(cutoffOptions);
-    runStage(cutoffStage);
+    if (!executeChild(cutoffStage)) {
+      sLogger.fatal(String.format(
+          "Stage %s had a problem", cutoffStage.getClass().getName()),
+          new RuntimeException("Stage failure."));
+      System.exit(-1);
+    }
 
     // Bitvector construction
     sLogger.info("Running BuildBitVector");
     int cutoff = cutoffStage.getCutoff();
     BuildBitVector bitVectorStage = new BuildBitVector();
+    bitVectorStage.initializeAsChild(this);
 
     String bitVectorPath = FilenameUtils.concat(
         outputPath, bitVectorStage.getClass().getSimpleName());
@@ -213,20 +226,16 @@ public class CorrectionPipelineRunner extends Stage{
     vectorOptions.put("outputpath", bitVectorPath);
     vectorOptions.put("cutoff", cutoff);
     bitVectorStage.setParameters(vectorOptions);
-    if (!bitVectorStage.execute()) {
+    if (!executeChild(bitVectorStage)) {
       sLogger.fatal(
           "Stage: " +  bitVectorStage.getClass().getSimpleName() + " failed.",
           new RuntimeException("Stage failure."));
       System.exit(-1);
     }
-    if (!bitVectorStage.execute()) {
-      sLogger.fatal(
-          "BuildBitVector failed.", new RuntimeException("Stage failur"));
-      System.exit(-1);
-    }
 
     sLogger.info("Running Quake.");
     InvokeQuake quakeStage = new InvokeQuake();
+    quakeStage.initializeAsChild(this);
     Map<String, Object> quakeOptions = ContrailParameters.extractParameters(
         stage_options, quakeStage.getParameterDefinitions().values());
     quakeOptions.put("inputpath", StringUtils.join(inputGlobs, ","));
@@ -238,7 +247,12 @@ public class CorrectionPipelineRunner extends Stage{
         "bitvectorpath", bitVectorStage.getBitVectorPath().toString());
     quakeStage.setParameters(quakeOptions);
 
-    runStage(quakeStage);
+    if (!executeChild(quakeStage)) {
+      sLogger.fatal(
+          "Stage: " +  quakeStage.getClass().getSimpleName() + " failed.",
+          new RuntimeException("Stage failure."));
+      System.exit(-1);
+    }
   }
 
   private class FlashResults {
@@ -284,6 +298,7 @@ public class CorrectionPipelineRunner extends Stage{
     {
       sLogger.info("Running Flash");
       InvokeFlash invokeFlash = new InvokeFlash();
+      invokeFlash.initializeAsChild(this);
 
       Map<String, Object> parameters =
           ContrailParameters.extractParameters(
@@ -291,7 +306,12 @@ public class CorrectionPipelineRunner extends Stage{
       parameters.put("inputpath", flashJoinedPath);
       parameters.put("outputpath", flashOutput);
       invokeFlash.setParameters(parameters);
-      runStage(invokeFlash);
+
+      if (!executeChild(invokeFlash)) {
+        sLogger.fatal(String.format(
+            "Stage %s had a problem", invokeFlash.getClass().getName()),
+            new RuntimeException("Stage failure."));
+      }
     }
 
     FlashResults results = new FlashResults();
@@ -308,69 +328,15 @@ public class CorrectionPipelineRunner extends Stage{
     runQuake(flashResults);
   }
 
-  /**
-   * Runs a particular stage.
-   *
-   * This is a simple wrapper for handling stage failures.
-   *
-   * @param stage
-   * @param inputPath
-   * @param flashBinary
-   * @param outputDirectory
-   * @return
-   * @throws Exception
-   */
-  private RunningJob runStage(Stage stage) {
-    RunningJob job = null;
+  @Override
+  public void stageMain() {
     try {
-      job = stage.runJob();
-      if (job !=null && !job.isSuccessful()) {
-        sLogger.fatal(
-            String.format(
-                "Stage %s had a problem", stage.getClass().getName()),
-            new RuntimeException("Stage failed"));
-        System.exit(-1);
-      }
+      runCorrectionPipeline();
     } catch (Exception e) {
-      sLogger.fatal(
-          "Stage: " + stage.getClass().getSimpleName() + " failed.", e);
+      sLogger.fatal("AssembleContigs failed.", e);
       System.exit(-1);
     }
-    return job;
   }
-
-  @Override
-  public RunningJob runJob() throws Exception {
-    // Check for missing arguments.
-    String[] required_args = {
-        "flash_binary", "no_flash_input", "flash_input", "outputpath",
-        "K", "cov_model", "quake_binary"};
-    checkHasParametersOrDie(required_args);
-
-    Configuration baseConf = getConf();
-    JobConf conf = null;
-    if (baseConf != null) {
-      conf = new JobConf(getConf(), this.getClass());
-    } else {
-      conf = new JobConf(this.getClass());
-    }
-
-    initializeJobConfiguration(conf);
-    if (stage_options.containsKey("writeconfig")) {
-      throw new NotImplementedException(
-          "Support for writeconfig isn't implemented yet for " +
-          "AssembleContigs");
-    } else {
-      long starttime = System.currentTimeMillis();
-      runCorrectionPipeline();
-      long endtime = System.currentTimeMillis();
-
-      float diff = (float) ((endtime - starttime) / 1000.0);
-      sLogger.info("Runtime: " + diff + " s");
-    }
-    return null;
-  }
-
   public static void main(String[] args) throws Exception {
     int res = ToolRunner.run(
         new Configuration(), new CorrectionPipelineRunner(), args);

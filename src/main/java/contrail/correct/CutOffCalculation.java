@@ -26,19 +26,19 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.StringTokenizer;
+
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
+
 import contrail.stages.ContrailParameters;
+import contrail.stages.NonMRStage;
 import contrail.stages.ParameterDefinition;
-import contrail.stages.Stage;
 import contrail.util.FileHelper;
 import contrail.util.ShellUtil;
 
@@ -58,9 +58,10 @@ import contrail.util.ShellUtil;
  *  run on it to calculate the cutoff value. The value is read from the output stream of the
  *  cov_model.py process.
  */
-public class CutOffCalculation extends Stage {
+public class CutOffCalculation extends NonMRStage {
   private int cutoff;
-  private static final Logger sLogger = Logger.getLogger(CutOffCalculation.class);
+  private static final Logger sLogger = Logger.getLogger(
+      CutOffCalculation.class);
 
   public int getCutoff() {
     if (cutoff == 0) {
@@ -259,6 +260,7 @@ public class CutOffCalculation extends Stage {
    return calculatedCutoff;
   }
 
+  @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs =new HashMap<String, ParameterDefinition>();
     defs.putAll(super.createParameterDefinitions());
@@ -276,32 +278,19 @@ public class CutOffCalculation extends Stage {
     return Collections.unmodifiableMap(defs);
   }
 
-  public RunningJob runJob(){
-    // Check for missing arguments.
-    String[] required_args = {"cov_model"};
-    checkHasParametersOrDie(required_args);
-    logParameters();
-    Configuration base_conf = getConf();
-    JobConf conf = null;
-    if (base_conf != null) {
-      conf = new JobConf(getConf(), this.getClass());
-    } else {
-      conf = new JobConf(this.getClass());
-    }
-    setConf(conf);
-    try{
-      calculateCutoff();
-      sLogger.info("Cutoff: " + getCutoff());
-    }
-    catch(Exception e){
-      sLogger.fatal("Failed to compute cutoff.", e);
-      System.exit(-1);
-    }
-    return null;
-  }
-
   public static void main(String[] args) throws Exception {
     int res = ToolRunner.run(new Configuration(), new CutOffCalculation(), args);
     System.exit(res);
+  }
+
+  @Override
+  protected void stageMain() {
+    try{
+      calculateCutoff();
+      sLogger.info("Cutoff: " + getCutoff());
+    } catch(Exception e){
+      sLogger.fatal("Failed to compute cutoff.", e);
+      System.exit(-1);
+    }
   }
 }
