@@ -208,7 +208,7 @@ public class FileHelper {
     Path globOrDirectoryPath = new Path(globOrDirectory);
     FileSystem fs = null;
     try{
-      fs = FileSystem.get(conf);
+      fs = globOrDirectoryPath.getFileSystem(conf);
     } catch (IOException e) {
       throw new RuntimeException("Can't get filesystem: " + e.getMessage());
     }
