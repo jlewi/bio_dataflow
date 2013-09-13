@@ -15,24 +15,18 @@ import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
 import org.apache.avro.specific.SpecificData;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.FileInputFormat;
-import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 import contrail.sequences.FastQRecord;
 import contrail.sequences.MatePair;
 import contrail.stages.ContrailParameters;
+import contrail.stages.MRStage;
 import contrail.stages.ParameterDefinition;
-import contrail.stages.Stage;
 
-public class JoinReads extends Stage {
+public class JoinReads extends MRStage {
 
   private static final Logger sLogger = Logger.getLogger(JoinReads.class);
   public static final Schema fast_q_record = (new FastQRecord()).getSchema();
@@ -103,7 +97,7 @@ public class JoinReads extends Stage {
       FastQRecord mate_1 = iter.next();
       // We need to make a copy of the record because it will be overwritten
       // when we call next.
-      mate_1 = (FastQRecord) SpecificData.get().deepCopy(
+      mate_1 = SpecificData.get().deepCopy(
           mate_1.getSchema(), mate_1);
       if(!iter.hasNext()) {
         return;
@@ -116,22 +110,11 @@ public class JoinReads extends Stage {
   }
 
   @Override
-  public RunningJob runJob() throws Exception {
-
-    String[] required_args = {"inputpath", "outputpath"};
-    checkHasParametersOrDie(required_args);
+  protected void setupConfHook() {
     String inputPath = (String) stage_options.get("inputpath");
     String outputPath = (String) stage_options.get("outputpath");
 
-    System.out.println(inputPath + "+" +outputPath);
-    Configuration base_conf = getConf();
-    JobConf conf = null;
-    if (base_conf != null) {
-      conf = new JobConf(getConf(), this.getClass());
-    } else {
-      conf = new JobConf(this.getClass());
-    }
-    conf.setJobName("Join Reads "+ inputPath);
+    JobConf conf = (JobConf) getConf();
     FastQRecord read = new FastQRecord();
 
     Pair<CharSequence, FastQRecord> map_output =
@@ -143,33 +126,6 @@ public class JoinReads extends Stage {
 
     AvroJob.setMapperClass(conf, JoinMapper.class);
     AvroJob.setReducerClass(conf, JoinReducer.class);
-
-    if (stage_options.containsKey("writeconfig")) {
-      writeJobConfig(conf);
-    } else {
-      // Delete the output directory if it exists already
-      Path out_path = new Path(outputPath);
-      if (FileSystem.get(conf).exists(out_path)) {
-        // TODO(jlewi): We should only delete an existing directory
-        // if explicitly told to do so.
-        sLogger.info("Deleting output path: " + out_path.toString() + " " +
-            "because it already exists.");
-        FileSystem.get(conf).delete(out_path, true);
-      }
-
-      FileInputFormat.addInputPath(conf, new Path(inputPath));
-      FileOutputFormat.setOutputPath(conf, new Path(outputPath));
-
-      long starttime = System.currentTimeMillis();
-      RunningJob result = JobClient.runJob(conf);
-
-      long endtime = System.currentTimeMillis();
-      float diff = (float) ((endtime - starttime) / 1000.0);
-
-      sLogger.info("Runtime: " + diff + " s");
-      return result;
-    }
-    return null;
   }
 
   public static void main(String[] args) throws Exception {
