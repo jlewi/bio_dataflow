@@ -53,7 +53,6 @@ public class TestAvroToBigQueryJson {
       fastq.setId(String.format("read-%d", i));
       fastq.setQvalue("ABCDEF");
       fastq.setRead(AlphabetUtil.randomString(generator, 10, alphabet));
-      fastq.setRead("ACT");
       QuakeReadCorrection correction = new QuakeReadCorrection();
       read.setQuakeReadCorrection(correction);
 
