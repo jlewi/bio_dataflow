@@ -84,4 +84,29 @@ public class TestFileHelper {
     assertEquals(2, matches.size());
     assertEquals(expected, pathToStringSet(matches));
   }
+
+  @Test
+  public void testMatchGlobWithFileSystem() {
+    // Test that the match works when we provide a glob path that includes
+    // the filesystem.
+    String tempDir = FileHelper.createLocalTempDir().getAbsolutePath();
+    Configuration conf = new Configuration();
+
+    for (String name : new String[]{"file", "file1.rnd", "file2.rnd"}) {
+      Path path = new Path(FilenameUtils.concat(tempDir, name));
+      List<String> nodeData = Arrays.asList("some text");
+      AvroFileUtil.writeRecords(
+          conf, path, nodeData, Schema.create(Type.STRING));
+    }
+
+    // The glob path and default glob should be different.
+    ArrayList<Path> matches = FileHelper.matchGlobWithDefault(
+        conf, "file://" + FilenameUtils.concat(tempDir, "*.rnd"), "*.avro");
+
+    HashSet<String> expected = new HashSet<String>();
+    expected.add(FilenameUtils.concat(tempDir, "file1.rnd"));
+    expected.add(FilenameUtils.concat(tempDir, "file2.rnd"));
+    assertEquals(2, matches.size());
+    assertEquals(expected, pathToStringSet(matches));
+  }
 }
