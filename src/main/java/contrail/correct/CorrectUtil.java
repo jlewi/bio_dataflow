@@ -29,6 +29,8 @@ import org.apache.log4j.Logger;
 import contrail.sequences.FastQFileReader;
 import contrail.sequences.FastQRecord;
 import contrail.sequences.MatePair;
+import contrail.sequences.QuakeReadCorrection;
+import contrail.sequences.Read;
 
 /**
  * Utility functions for correction pipeline
@@ -106,16 +108,69 @@ public class CorrectUtil {
   }
 
   /**
+   * Convert a fastq record returned by Quake to a Read record.
+   * @param fastq
+   * @param read
+   */
+  public void convertFastQToRead(FastQRecord fastq, Read read) {
+    // Split the string based on whitespace. "\s" matches a whitespace
+    // character and the + modifier causes it to be matched one or more
+    // times. An extra "\" is needed to escape the "\s".
+    // For more info:
+    // http://docs.oracle.com/javase/tutorial/essential/regex/
+    String[] tokens = fastq.getId().toString().split("\\s+");
+
+    read.setFastq(fastq);
+    // First token should be the read.
+    fastq.setId(tokens[0]);
+
+    // Reset quake corrections to the defaults.
+    read.getQuakeReadCorrection().setCorrected(false);
+    read.getQuakeReadCorrection().setTrimLength(0);
+    for (int i = 1; i < tokens.length; ++i) {
+      String token = tokens[i];
+      if (token.toLowerCase().startsWith("correct")) {
+        read.getQuakeReadCorrection().setCorrected(true);
+      } else if (token.toLowerCase().startsWith("trim=")) {
+        String value = token.split("=", 2)[1];
+        read.getQuakeReadCorrection().setTrimLength(Integer.parseInt(value));
+      }
+    }
+  }
+
+  /**
    * Emits a fastQ file from local FS onto HDFS.
    * @param fastqFile : The file to be emitted
    * @param output : An instance of the outputCollector
    * @throws IOException
    */
-  public void emitFastqFileToHDFS(File fastqFile, AvroCollector<FastQRecord> collector) throws IOException{
-    FastQRecord read = new FastQRecord();
+  public void emitFastqFileToHDFS(
+      File fastqFile, AvroCollector<FastQRecord> collector) throws IOException{
+    FastQRecord fastq = new FastQRecord();
     FastQFileReader reader = new FastQFileReader(fastqFile.getAbsolutePath());
     while(reader.hasNext()){
-      read = reader.next();
+      fastq = reader.next();
+      collector.collect(fastq);
+    }
+    reader.close();
+  }
+
+  /**
+   * Emits a fastQ file from local FS onto HDFS.
+   * @param fastqFile : The file to be emitted
+   * @param output : An instance of the outputCollector
+   * @throws IOException
+   */
+  public void emitQuakeFastqFileToHDFS(
+      File fastqFile, AvroCollector<Read> collector) throws IOException{
+    FastQRecord fastq = new FastQRecord();
+    Read read = new Read();
+    read.setQuakeReadCorrection(new QuakeReadCorrection());
+    FastQFileReader reader = new FastQFileReader(fastqFile.getAbsolutePath());
+    while(reader.hasNext()){
+      fastq = reader.next();
+
+      convertFastQToRead(fastq, read);
       collector.collect(read);
     }
     reader.close();

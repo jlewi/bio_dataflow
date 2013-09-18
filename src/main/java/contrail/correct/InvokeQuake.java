@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+
 import org.apache.avro.Schema;
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroJob;
@@ -38,8 +39,10 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
+
 import contrail.sequences.FastQRecord;
 import contrail.sequences.MatePair;
+import contrail.sequences.Read;
 import contrail.stages.ContrailParameters;
 import contrail.stages.MRStage;
 import contrail.stages.ParameterDefinition;
@@ -57,7 +60,7 @@ import contrail.util.ShellUtil;
  * Assumptions:
  * 1. Quake binary is available, and its path specified in the parameters. This is used
  *     later to load the binary from the location into Distributed Cache
- * 2. We have access to a system temp directoy on each node; i.e the java
+ * 2. We have access to a system temp directory on each node; i.e the java
  *   command File.createTempFile succeeds.
  * 3. The bitvector of kmers above the cutoff has been constructed and is
  *   available at a location specified in the input
@@ -81,7 +84,7 @@ import contrail.util.ShellUtil;
 public class InvokeQuake extends MRStage{
   private static final Logger sLogger = Logger.getLogger(InvokeQuake.class);
 
-  public static class RunQuakeMapper extends AvroMapper<Object, FastQRecord>{
+  public static class RunQuakeMapper extends AvroMapper<Object, Read>{
     private String quakeHome = null;
     private String bitVectorPath = null;
     // fastqRecordList is used in case the input AVRO file follows FastQRecord schema
@@ -91,7 +94,7 @@ public class InvokeQuake extends MRStage{
     private int count;
     private int blockSize;
     private CorrectUtil correctUtil;
-    private AvroCollector<FastQRecord> outputCollector;
+    private AvroCollector<Read> outputCollector;
     private Reporter reporter;
 
     // Keeps track of how many blocks of reads we have processed.
@@ -176,8 +179,9 @@ public class InvokeQuake extends MRStage{
       sLogger.info("BitVector Location: " + bitVectorPath);
     }
 
+    @Override
     public void map(
-        Object record, AvroCollector<FastQRecord> collector, Reporter reporter)
+        Object record, AvroCollector<Read> collector, Reporter reporter)
             throws IOException {
       if(record instanceof FastQRecord){
         ++count;
@@ -214,7 +218,7 @@ public class InvokeQuake extends MRStage{
      * @throws IOException
      */
     private void runQuakeOnInMemoryReads(
-        AvroCollector<FastQRecord> output, Reporter reporter)
+        AvroCollector<Read> output, Reporter reporter)
             throws IOException {
       // Create a directory for this block of reads.
       // Hadoop should set the temporary directory to a unique directory for
@@ -244,9 +248,6 @@ public class InvokeQuake extends MRStage{
       command.add(Integer.toString(K));
       command.add("-b");
       command.add(bitVectorPath);
-      // The headers option prevents quake info from being included in
-      // the output read id.
-      command.add("--headers");
       if (ShellUtil.execute(command, blockDir.getPath(), "quake", sLogger) !=
           0) {
         sLogger.fatal(
@@ -265,7 +266,7 @@ public class InvokeQuake extends MRStage{
             new RuntimeException("Problem with quake"));
       }
       sLogger.info("corrected path: " + correctedFilePath.getPath());
-      correctUtil.emitFastqFileToHDFS(correctedFilePath, output);
+      correctUtil.emitQuakeFastqFileToHDFS(correctedFilePath, output);
 
       // Read the stats.
       File statsPath = new File(
@@ -302,6 +303,7 @@ public class InvokeQuake extends MRStage{
     /**
      * Writes out the remaining chunk of data which is a non multiple of blockSize
      */
+    @Override
     public void close() throws IOException{
       if(count > 0) {
         runQuakeOnInMemoryReads(outputCollector, reporter);
@@ -312,6 +314,7 @@ public class InvokeQuake extends MRStage{
   /**
    *  creates the custom definitions that we need for this phase
    */
+  @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs =
         new HashMap<String, ParameterDefinition>();
@@ -368,7 +371,7 @@ public class InvokeQuake extends MRStage{
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
     // Input
     AvroJob.setInputSchema(conf, unionSchema);
-    AvroJob.setOutputSchema(conf, new FastQRecord().getSchema());
+    AvroJob.setOutputSchema(conf, new Read().getSchema());
     // Map Only Job
     conf.setNumReduceTasks(0);
   }

@@ -17,6 +17,7 @@ package contrail.correct;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -24,6 +25,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.StringTokenizer;
+
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.DataFileWriter;
@@ -32,9 +34,13 @@ import org.apache.avro.io.DatumWriter;
 import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
+import org.apache.log4j.Logger;
 
-import contrail.sequences.MatePair;
 import contrail.sequences.FastQRecord;
+import contrail.sequences.MatePair;
+import contrail.sequences.Read;
+import contrail.util.AvroFileUtil;
 import contrail.util.FileHelper;
 
 /**
@@ -44,13 +50,14 @@ import contrail.util.FileHelper;
  *
  */
 public class TestInvokeQuake {
+  private static final Logger sLogger = Logger.getLogger(TestInvokeQuake.class);
 
   private String quakeBinaryPath = "";
   private String bitVectorPath = "";
-  private byte[] numericBitVector = {-1, -1, -5, -1, -1, -33, -1, -1};
-  private int K = 3;
+  private final byte[] numericBitVector = {-1, -1, -5, -1, -1, -33, -1, -1};
+  private final int K = 3;
   // 5 records - added a \ at 27:212, 22:239 & 27:226 because of presence of "
-  private String mateFastq =
+  private final String mateFastq =
       "SRR022868.8762453/1 TAATTTAACTTTGTCTGATAATTGTACGCTTAAATCAACGTCTTTCGGTAAAATATCAGATTGTGCTGGAATTAATAACACATCATCAACCGTTAATGATT II0IIII8IIIIIIIII=I,IIIIIIIIIII,1+II4)HIBIIII?IIE6*(1I1;I,E&I+I9I5/IA&&3=+#I)%+(5*2&&/0%+#\"/$(%$*0%(+ " +
       "SRR022868.8762453/2 AGGCTGTTTTTAATGTGGGAAAGTAAATTTGCAAAAGAATCATTAACGTTTGATGATGTGTTATTAATTCCAGCACAATCTGATATTTTACCGAAAGACGT CIIIIIIIIIII>IIIIII&,5II+(*IIIID:*&5I4.II*II.)CI5AI;5IC+0I%1(6&26&-,.)+#2.*3)%-.0-$'%&'&)%)&,$##&#+'+ " +
       "SRR022868.8762473/1 TTTTTATTTAAATTAATCATATAATTGCGAGGAGAATATTATGGATTTCGTTAATAATGATACAAGACAAATTGCTAAAAACTTATTAGGTGTCAAAGTGA IIIIIIII=@=FIIIIIIIIIIIIIIIII3II%I>/I,II=III2IIIIII:<1F/7I<I5B<4-I*9;&-A)I?@,$*)')/020+(;/#@+,,#%6%?' " +
@@ -63,7 +70,7 @@ public class TestInvokeQuake {
       "SRR022868.8762492/2 TGTCGGTAAGAAAAATGAACATTGAAAACTGAATGACAATATGTCAACGTTAATTCCAAAAAACGTAACTATAAGTTACAAACATTATTTAGTACTTATTT IIIIII0IHI?III49B&:852ID'4A;)56.%/B(7(%/)E.*@(+/+#0&)*/(,&&%+(,('$)((+%%$&$%+$(#&$$#$)$&*&&#$#'%&$&!# " ;
 
   // We use | as delimitors since spaces appear in corrected read's sequence IDs
-  private String correctedMatePairReads =
+  private final String correctedMatePairReads =
       "SRR022868.8762453/1|TAATTTAACTTTGTCTGATAATTGTACGCTTAAATCAACGTCTTTCGGTAAAATATCAGATTGTGCTGGAATTAATAACACATCATCAACCGTTAATGATT|II0IIII8IIIIIIIII=I,IIIIIIIIIII,1+II4)HIBIIII?IIE6*(1I1;I,E&I+I9I5/IA&&3=+#I)%+(5*2&&/0%+#\"/$(%$*0%(+|" +
       "SRR022868.8762473/1|TTTTTATTTAAATTAATCATATAATTGCGAGGAGAATATTATGGATTTCGTTAATAATGATACAAGACAAATTGCTAAAAACTTATTAGGTGTCAAAGTGA|IIIIIIII=@=FIIIIIIIIIIIIIIIII3II%I>/I,II=III2IIIIII:<1F/7I<I5B<4-I*9;&-A)I?@,$*)')/020+(;/#@+,,#%6%?'|" +
       "SRR022868.8762473/2|TTCCACGATGTAGCCTGTATACGTTTGAGTGGTATCCTGATAAATCACTTTGACACCTAATAAGTTTTTAGCAATTTGTCTTGTATCATTATTAACGAAAT|IIIIIIIIIIIIIIIIGIIII4I5GII.I)II1&9F/II&:*I&I62(744I723.3=>/90&@5?1,<&1-,'.,/,&-2*+.&&+%/)(--$#(,%##*|" +
@@ -75,20 +82,20 @@ public class TestInvokeQuake {
       "SRR022868.8762492/2|TGTCGGTAAGAAAAATGAACATTGAAAACTGAATGACAATATGTCAACGTTAATTCCAAAAAACGTAACTATAAGTTACAAACATTATTTAGTACTTAT|IIIIII0IHI?III49B&:852ID'4A;)56.%/B(7(%/)E.*@(+/+#0&)*/(,&&%+(,('$)((+%%$&$%+$(#&$$#$)$&*&&#$#'%&$&|" ;
 
   // 5 records - added a \ at 27:212, 22:239 & 27:226 because of presence of "
-  private String inputSinglesFastq =
+  private final String inputSinglesFastq =
       "SRR022868.8762453 AGGCTGTTTTTAATGTGGGAAAGTAAATTTGCAAAAGAATCATTAACGTTTGATGATGTGTTATTAATTCCAGCACAATCTGATATTTTACCGAAAGACGT CIIIIIIIIIII>IIIIII&,5II+(*IIIID:*&5I4.II*II.)CI5AI;5IC+0I%1(6&26&-,.)+#2.*3)%-.0-$'%&'&)%)&,$##&#+'+ " +
       "SRR022868.8762473 TTCCACGATGTAGCCTGTATACGTTTGAGTGGTATCCTGATAAATCACTTTGACACCTAATAAGTTTTTAGCAATTTGTCTTGTATCATTATTAACGAAAT IIIIIIIIIIIIIIIIGIIII4I5GII.I)II1&9F/II&:*I&I62(744I723.3=>/90&@5?1,<&1-,'.,/,&-2*+.&&+%/)(--$#(,%##* " +
       "SRR022868.8762487 ACGAACGAAACAATTGCCAGACGTGTATCCAATTAACCGAAACAAAGCTAATGTATCGTTTTAAATAGATAAACAAAGGTAATTGGTTTAATACCGTCACA 59IABIII6EIIAIIIII;I;EI9I:;IID-&II+9C9I%*(9+-&..;&()5'&6-:'0,/*&*((*%+%#%&&#$*&$&\")%&*%&&#%(''\")$*#&# " +
       "SRR022868.8762490 ATTAAATCATCAAGGTATATTGGAATGTCTTGTTGTTGATATCGTGTTTGTGAACTGATTCCTAACACTCTACCTCTAACTGAAATTTCTTCACATTCTTC ,IIDI:IIIII8III+/I4IIIF,/I$IFHI97=IC6>)8&4.I6?47-1&2%(*2;&+,)(,&&*'&1-)#+%%+)$%))'$$$'%&)%'(%$%+%&$(& " +
       "SRR022868.8762492 TGTCGGTAAGAAAAATGAACATTGAAAACTGAATGACAATATGTCAACGTTAATTCCAAAAAACGTAACTATAAGTTACAAACATTATTTAGTACTTATTT IIIIII0IHI?III49B&:852ID'4A;)56.%/B(7(%/)E.*@(+/+#0&)*/(,&&%+(,('$)((+%%$&$%+$(#&$$#$)$&*&&#$#'%&$&!# " ;
 
-  private String correctedSingleReads =
+  private final String correctedSingleReads =
       "SRR022868.8762473|TTCCACGATGTAGCCTGTATACGTTTGAGTGGTATCCTGATAAATCACTTTGACACCTAATAAGTTTTTAGCAATTTGTCTTGTATCATTATTAACGAAAT|IIIIIIIIIIIIIIIIGIIII4I5GII.I)II1&9F/II&:*I&I62(744I723.3=>/90&@5?1,<&1-,'.,/,&-2*+.&&+%/)(--$#(,%##*|" +
       "SRR022868.8762487|ACGAACGAAACAATTGCCAGACGTGTATCCAATTAACCGAAACAAAGCTAATGTATCGTTTTAAATAGATAAACAAAGGTAATTGGTTTAATACCGTCAC|59IABIII6EIIAIIIII;I;EI9I:;IID-&II+9C9I%*(9+-&..;&()5'&6-:'0,/*&*((*%+%#%&&#$*&$&\")%&*%&&#%(''\")$*#&|" +
       "SRR022868.8762490|ATTAAATCATCAAGGTATATTGGAATGTCTTGTTGTTGATATCGTGTTTGTGAACTGATTCCTAACACTCTACCTCTAACTGAAATTTCTTCACATTCTTC|,IIDI:IIIII8III+/I4IIIF,/I$IFHI97=IC6>)8&4.I6?47-1&2%(*2;&+,)(,&&*'&1-)#+%%+)$%))'$$$'%&)%'(%$%+%&$(&|" +
       "SRR022868.8762492|TGTCGGTAAGAAAAATGAACATTGAAAACTGAATGACAATATGTCAACGTTAATTCCAAAAAACGTAACTATAAGTTACAAACATTATTTAGTACTTAT|IIIIII0IHI?III49B&:852ID'4A;)56.%/B(7(%/)E.*@(+/+#0&)*/(,&&%+(,('$)((+%%$&$%+$(#&$$#$)$&*&&#$#'%&$&|" ;
 
-  private int blockSize = 3;
+  private final int blockSize = 3;
 
   public void testMatePairMap() throws IOException {
     File temp = FileHelper.createLocalTempDir();
@@ -97,19 +104,20 @@ public class TestInvokeQuake {
     runQuakeMateTest(temp, flashInput, outputFile);
     System.out.println("Hadoop job successfully completed");
     File outputAvroFile = new File(outputFile, "part-00000.avro");
-    Schema schema = (new FastQRecord()).getSchema();
-    DatumReader<FastQRecord> datum_reader =
-        new SpecificDatumReader<FastQRecord>(schema);
-    DataFileReader<FastQRecord> reader =
-        new DataFileReader<FastQRecord>(outputAvroFile, datum_reader);
+    Schema schema = (new Read()).getSchema();
+    DatumReader<Read> datum_reader =
+        new SpecificDatumReader<Read>(schema);
+    DataFileReader<Read> reader =
+        new DataFileReader<Read>(outputAvroFile, datum_reader);
     int numberOfFastqReads = 0;
-    ArrayList<FastQRecord> output = new ArrayList<FastQRecord>();
+    ArrayList<Read> output = new ArrayList<Read>();
     while(reader.hasNext()){
-      FastQRecord record = reader.next();
+      Read record = reader.next();
       output.add(record);
       numberOfFastqReads++;
     }
-    HashMap<String, String> expectedHashMap = getExpectedHashMap(correctedMatePairReads);
+    HashMap<String, Read> expectedHashMap = getExpectedHashMap(
+        correctedMatePairReads);
     assertEquals(expectedHashMap.size(), numberOfFastqReads);
     assertMapOutput(output, expectedHashMap);
     if(temp.exists()){
@@ -124,21 +132,15 @@ public class TestInvokeQuake {
     File flashInput = new File(temp, "quakeInput.avro");
     runSinglesQuakeTest(temp, flashInput, outputFile);
     System.out.println("Hadoop job successfully completed");
-    File outputAvroFile = new File(outputFile, "part-00000.avro");
-    Schema schema = (new FastQRecord()).getSchema();
-    DatumReader<FastQRecord> datum_reader =
-        new SpecificDatumReader<FastQRecord>(schema);
-    DataFileReader<FastQRecord> reader =
-        new DataFileReader<FastQRecord>(outputAvroFile, datum_reader);
-    int numberOfFastqReads = 0;
-    ArrayList<FastQRecord> output = new ArrayList<FastQRecord>();
-    while(reader.hasNext()){
-      FastQRecord record = reader.next();
-      output.add(record);
-      numberOfFastqReads++;
-    }
-    HashMap<String, String> expectedHashMap = getExpectedHashMap(correctedSingleReads);
-    assertEquals(expectedHashMap.size(),numberOfFastqReads);
+    String outputAvroFile = FilenameUtils.concat(
+        outputFile.getAbsolutePath(), "part-00000.avro");
+
+    ArrayList<Read> output = AvroFileUtil.readRecords(
+        outputAvroFile, new Read().getSchema());
+
+    HashMap<String, Read> expectedHashMap =
+        getExpectedHashMap(correctedSingleReads);
+    assertEquals(expectedHashMap.size(), output.size());
     assertMapOutput(output, expectedHashMap);
     if(temp.exists()){
       FileUtils.deleteDirectory(temp);
@@ -146,15 +148,25 @@ public class TestInvokeQuake {
     System.out.println("Non Mate Pair Correctness Test PASSED");
   }
 
-  private void assertMapOutput(ArrayList<FastQRecord> actualOutput, HashMap<String, String> expectedHashMap){
-    Iterator<FastQRecord> iterator = actualOutput.iterator();
+  private void assertMapOutput(
+      ArrayList<Read> actualOutput, HashMap<String, Read> expectedHashMap){
+    Iterator<Read> iterator = actualOutput.iterator();
     while (iterator.hasNext()) {
-      FastQRecord flashedRecord = iterator.next();
-      String id = flashedRecord.getId().toString();
-      String dna = flashedRecord.getRead().toString();
-      String qvalue = flashedRecord.getQvalue().toString();
-      String receivedValue = dna + " " + qvalue;
-      assertEquals(expectedHashMap.get(id), receivedValue);
+      Read read = iterator.next();
+      Read expected = expectedHashMap.get(read.getFastq().getId().toString());
+      // TODO(jeremy@lewi.us): The test currently doesn't set
+      // QuakeReadCorrection for the expected value so we only check the fastq
+      // record.
+      assertEquals(
+          expected.getFastq().getId().toString(),
+          read.getFastq().getId().toString());
+      assertEquals(
+          expected.getFastq().getRead().toString(),
+          read.getFastq().getRead().toString());
+      assertEquals(
+          expected.getFastq().getQvalue().toString(),
+          read.getFastq().getQvalue().toString());
+      assertEquals(expected.getFastq(), read.getFastq());
     }
   }
 
@@ -202,58 +214,66 @@ public class TestInvokeQuake {
   }
 
   private void writeMatePairDataToFile(File outFile){
-       // Write the data to the file.
-       Schema schema = (new MatePair()).getSchema();
-       DatumWriter<MatePair> datum_writer =
-           new SpecificDatumWriter<MatePair>(schema);
-       DataFileWriter<MatePair> writer =
-           new DataFileWriter<MatePair>(datum_writer);
-       StringTokenizer st = new StringTokenizer(mateFastq, " ");
-       try {
-         writer.create(schema, outFile);
-         while(st.hasMoreTokens()){
-           MatePair mateRecord = getMateRecord(st);
-           writer.append(mateRecord);
-         }
-         writer.close();
-       } catch (IOException exception) {
-         fail("There was a problem writing to an avro file. Exception:" +
-             exception.getMessage());
-       }
-     }
+    // Write the data to the file.
+    Schema schema = (new MatePair()).getSchema();
+    DatumWriter<MatePair> datum_writer =
+        new SpecificDatumWriter<MatePair>(schema);
+    DataFileWriter<MatePair> writer =
+        new DataFileWriter<MatePair>(datum_writer);
+    StringTokenizer st = new StringTokenizer(mateFastq, " ");
+    try {
+      writer.create(schema, outFile);
+      while(st.hasMoreTokens()){
+        MatePair mateRecord = getMateRecord(st);
+        writer.append(mateRecord);
+      }
+      writer.close();
+    } catch (IOException exception) {
+      fail("There was a problem writing to an avro file. Exception:" +
+          exception.getMessage());
+    }
+  }
 
   private void writeSinglesDataToFile(File outFile){
     // Write the data to the file.
-       Schema schema = (new FastQRecord()).getSchema();
-       DatumWriter<FastQRecord> datum_writer =
-           new SpecificDatumWriter<FastQRecord>(schema);
-       DataFileWriter<FastQRecord> writer =
-           new DataFileWriter<FastQRecord>(datum_writer);
-       StringTokenizer st = new StringTokenizer(inputSinglesFastq, " ");
-       try {
-         writer.create(schema, outFile);
-         while(st.hasMoreTokens()){
-           FastQRecord record = new FastQRecord();
-           record.setId(st.nextToken());
-           record.setRead(st.nextToken());
-           record.setQvalue(st.nextToken());
-           writer.append(record);
-         }
-         writer.close();
-       } catch (IOException exception) {
-         fail("There was a problem writing to an avro file. Exception:" +
-             exception.getMessage());
-       }
-     }
-  private HashMap<String, String> getExpectedHashMap(String correctedReads){
-    HashMap<String, String> expectedHashMap = new HashMap<String, String>();
+    Schema schema = (new FastQRecord()).getSchema();
+    DatumWriter<FastQRecord> datum_writer =
+        new SpecificDatumWriter<FastQRecord>(schema);
+    DataFileWriter<FastQRecord> writer =
+        new DataFileWriter<FastQRecord>(datum_writer);
+    StringTokenizer st = new StringTokenizer(inputSinglesFastq, " ");
+    try {
+      writer.create(schema, outFile);
+      while(st.hasMoreTokens()){
+        FastQRecord record = new FastQRecord();
+        record.setId(st.nextToken());
+        record.setRead(st.nextToken());
+        record.setQvalue(st.nextToken());
+        writer.append(record);
+      }
+      writer.close();
+    } catch (IOException exception) {
+      fail("There was a problem writing to an avro file. Exception:" +
+          exception.getMessage());
+    }
+  }
+
+  private HashMap<String, Read> getExpectedHashMap(String correctedReads){
+    HashMap<String, Read> expectedHashMap = new HashMap<String, Read>();
     StringTokenizer tokenizer = new StringTokenizer(correctedReads, "|");
-    while(tokenizer.hasMoreTokens()){
-      String seqId = tokenizer.nextToken();
-      String dna = tokenizer.nextToken();
-      String qvalue = tokenizer.nextToken();
-      String expectedString = dna +" " + qvalue;
-      expectedHashMap.put(seqId, expectedString);
+    while(tokenizer.hasMoreTokens()) {
+      FastQRecord fastq = new FastQRecord();
+      fastq.setId(tokenizer.nextToken());
+      fastq.setRead(tokenizer.nextToken());
+      fastq.setQvalue(tokenizer.nextToken());
+      Read read = new Read();
+      read.setFastq(fastq);
+
+      // TODO(jeremy@lewi.us): We should set QuakeReadCorrection to the
+      // actual expected values and not just ignore it.
+      read.setQuakeReadCorrection(null);
+
+      expectedHashMap.put(fastq.getId().toString(), read);
     }
     return expectedHashMap;
   }
@@ -280,6 +300,18 @@ public class TestInvokeQuake {
     if(args.length!=1 || !args[0].contains("--quake_binary=")){
       throw new RuntimeException("Specify --quake_binary parameter only\nArgument Example: --quake_binary=/path/to/flash/binary");
     }
+
+    // Clean up the directory to use for the block directory if it exists.
+    // TODO(jeremy@lewi.us): We should really come up with a way to use
+    // a unique directory for each run of the test.
+    File blockDir = new File(FilenameUtils.concat(
+        FileUtils.getTempDirectory().getPath(),
+        String.format("block_%05d", 0)));
+    if (blockDir.exists()) {
+      sLogger.info("Deleting directory:" + blockDir.toString());
+      FileUtils.deleteQuietly(blockDir);
+    }
+
     TestInvokeQuake tester = new TestInvokeQuake();
     tester.quakeBinaryPath = args[0].substring(args[0].indexOf('=')+1);
     if(tester.quakeBinaryPath.trim().length() == 0){
