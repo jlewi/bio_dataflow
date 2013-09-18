@@ -24,11 +24,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.io.FilenameUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
+
 import contrail.stages.BuildGraphAvro;
 import contrail.stages.CompressAndCorrect;
 import contrail.stages.FastqPreprocessorAvroCompressed;
@@ -38,7 +38,6 @@ import contrail.stages.ParameterDefinition;
 import contrail.stages.PipelineStage;
 import contrail.stages.QuickMergeAvro;
 import contrail.stages.StageBase;
-import contrail.stages.StageInfoWriter;
 
 /**
  * A pipeline for assembling the contigs.
@@ -79,6 +78,7 @@ public class AssembleContigs extends PipelineStage {
     return Collections.unmodifiableMap(definitions);
   }
 
+  @Override
   protected void setDefaultParameters() {
     // This function is intended to be overloaded in subclasses which
     // customize the parameters for different datasets.
@@ -87,10 +87,6 @@ public class AssembleContigs extends PipelineStage {
   private void processGraph() throws Exception {
     // TODO(jlewi): Does this function really need to throw an exception?
     String outputPath = (String) stage_options.get("outputpath");
-
-    infoWriter = new StageInfoWriter(
-        getConf(), FilenameUtils.concat(outputPath,  "stage_info"));
-
     ArrayList<StageBase> subStages = new ArrayList<StageBase>();
 
     String inFormat = (String) stage_options.get("input_format");
