@@ -35,6 +35,7 @@ import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.util.ToolRunner;
+
 import contrail.graph.EdgeDirection;
 import contrail.graph.EdgeTerminal;
 import contrail.graph.GraphNode;
@@ -55,7 +56,7 @@ import contrail.util.ContrailLogger;
  * means X has a path to each node in the set {A,B}. Similarly, {A,B}-> Y
  * means each node in the set {A, B} has a path to node Y.
  *
- * If the paths for A and B are sufficiently similar, then then we can assume
+ * If the paths for A and B are sufficiently similar, then we can infer that
  * one of the paths is the result of sequencing errors and only keep the path
  * with higher coverage.
  * This type of formation X->{A,B}->Y is called a "bubble". However, we also
@@ -98,7 +99,7 @@ import contrail.util.ContrailLogger;
  *    any another bubble. Except that we can pop the bubble in the reducer
  *    since we have access to the minor node.
  *
- * Important: The graph must be maximally be compressed otherwise this code
+ * Important: The graph must be maximally compressed otherwise this code
  * won't work.
  */
 
@@ -119,6 +120,7 @@ public class FindBubblesAvro extends MRStage   {
   public final static CounterName NUM_PALINDROMES =
       new CounterName("Contrail", "find-bubbles-num-palindromes");
 
+  @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs =
         new HashMap<String, ParameterDefinition>();
@@ -230,6 +232,7 @@ public class FindBubblesAvro extends MRStage   {
 
     private Pair<CharSequence, GraphNodeData> outPair;
 
+    @Override
     public void configure(JobConf job)    {
       FindBubblesAvro stage= new FindBubblesAvro();
       Map<String, ParameterDefinition> definitions =
@@ -242,6 +245,7 @@ public class FindBubblesAvro extends MRStage   {
       outPair = new Pair<CharSequence, GraphNodeData>("", new GraphNodeData());
     }
 
+    @Override
     public void map(GraphNodeData graphData,
         AvroCollector<Pair<CharSequence, GraphNodeData>> output,
         Reporter reporter) throws IOException   {
@@ -292,6 +296,7 @@ public class FindBubblesAvro extends MRStage   {
     private GraphNode middleNode = null;
     private FindBubblesOutput output = null;
 
+    @Override
     public void configure(JobConf job) {
       FindBubblesAvro stage = new FindBubblesAvro();
       Map<String, ParameterDefinition> definitions =
@@ -329,6 +334,7 @@ public class FindBubblesAvro extends MRStage   {
       /**
        * compareTo sorts the nodes based on path coverage in descending order.
        */
+      @Override
       public int compareTo(PathBase o) {
         PathBase co = o;
         return (int)(co.getCoverage() - getCoverage());
@@ -354,14 +360,14 @@ public class FindBubblesAvro extends MRStage   {
      * X->A->Y (which is enough to compare various Indirect paths)
      */
     class IndirectPath extends PathBase {
-      private GraphNode middleNode;
+      private final GraphNode middleNode;
       private String minorID;
       private Boolean isPalindromeValue;
       private DNAStrand middleNodeStrand;
-      private DNAStrand majorStrand;
-      private DNAStrand minorStrand;
-      private Sequence alignedSequence;
-      private Sequence trimmedSequence;
+      private final DNAStrand majorStrand;
+      private final DNAStrand minorStrand;
+      private final Sequence alignedSequence;
+      private final Sequence trimmedSequence;
 
       // This boolean indicates we have the special case where the
       // two terminals for the middleNode are different strands of the major
@@ -476,12 +482,12 @@ public class FindBubblesAvro extends MRStage   {
      * X->Y (which is enough to compare various Indirect paths)
      */
     public class DirectPath extends PathBase{
-      private float edgeCoverage;
-      private CharSequence minorID;
+      private final float edgeCoverage;
+      private final CharSequence minorID;
 
       private DNAStrand majorStrand;
       private DNAStrand minorStrand;
-      private Sequence trimmedSequence;
+      private final Sequence trimmedSequence;
 
       public DirectPath(GraphNode majorNode, CharSequence minor, int K)  {
         boolean found = false;
@@ -710,6 +716,7 @@ public class FindBubblesAvro extends MRStage   {
       collector.collect(output);
     }
 
+    @Override
     public void reduce(CharSequence nodeID, Iterable<GraphNodeData> iterable,
         AvroCollector<FindBubblesOutput> collector, Reporter reporter)
             throws IOException {
