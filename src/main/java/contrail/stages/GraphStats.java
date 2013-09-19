@@ -73,10 +73,10 @@ public class GraphStats extends PipelineStage {
     definitions.putAll(super.createParameterDefinitions());
 
     // We add all the options for the stages we depend on.
-    Stage[] substages =
+    StageBase[] substages =
       {new LengthStats(), new GraphN50Stats()};
 
-    for (Stage stage: substages) {
+    for (StageBase stage: substages) {
       definitions.putAll(stage.getParameterDefinitions());
     }
     return Collections.unmodifiableMap(definitions);

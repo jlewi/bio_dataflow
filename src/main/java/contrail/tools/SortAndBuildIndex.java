@@ -28,7 +28,7 @@ import org.apache.log4j.Logger;
 
 import contrail.stages.ParameterDefinition;
 import contrail.stages.PipelineStage;
-import contrail.stages.Stage;
+import contrail.stages.StageBase;
 
 /**
  * This program sorts the graph and then builds an indexed avro file for the
@@ -48,9 +48,9 @@ public class SortAndBuildIndex extends PipelineStage {
         new HashMap<String, ParameterDefinition>();
     definitions.putAll(super.createParameterDefinitions());
     // We add all the options for the stages we depend on.
-    Stage[] substages = {new SortGraph(), new CreateGraphIndex()};
+    StageBase[] substages = {new SortGraph(), new CreateGraphIndex()};
 
-    for (Stage stage: substages) {
+    for (StageBase stage: substages) {
       definitions.putAll(stage.getParameterDefinitions());
     }
 

@@ -13,7 +13,7 @@ import org.apache.hadoop.util.ToolRunner;
 import contrail.stages.ContrailParameters;
 import contrail.stages.ParameterDefinition;
 import contrail.stages.PipelineStage;
-import contrail.stages.Stage;
+import contrail.stages.StageBase;
 import contrail.util.ContrailLogger;
 
 
@@ -64,12 +64,12 @@ public class CorrectionPipelineRunner extends PipelineStage{
         new HashMap<String, ParameterDefinition>();
     definitions.putAll(super.createParameterDefinitions());
     // We add all the options for the stages we depend on.
-    Stage[] substages =
+    StageBase[] substages =
       {new JoinReads(), new InvokeFlash(), new KmerCounter(),
        new ConvertKMerCountsToText(), new CutOffCalculation(),
        new BuildBitVector(), new InvokeQuake()};
 
-    for (Stage stage: substages) {
+    for (StageBase stage: substages) {
       definitions.putAll(stage.getParameterDefinitions());
     }
 

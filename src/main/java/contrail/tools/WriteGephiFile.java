@@ -640,10 +640,6 @@ public class WriteGephiFile extends NonMRStage {
       sLogger.fatal(e.getMessage(), e);
       System.exit(-1);
     }
-    // Check for missing arguments.
-    String[] required_args = {"inputpath", "outputpath"};
-    checkHasParametersOrDie(required_args);
-
     String outputPath = (String) stage_options.get("outputpath");
     sLogger.info(" - output: " + outputPath);
 

@@ -14,39 +14,106 @@
 // Author:Jeremy Lewi (jeremy@lewi.us)
 package contrail.stages;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+
 import org.apache.commons.cli.CommandLine;
-import org.apache.hadoop.mapred.RunningJob;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.GnuParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.conf.Configured;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.util.Tool;
 import org.apache.log4j.Appender;
 import org.apache.log4j.FileAppender;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
 /**
- * Base class for stages
+ * An abstract base class for each stage of processing.
  *
- * This class is a replacement for Stage.
+ * To create a new stage you should overload the following methods
+ *   * createParameterDefinitions(): This function returns a map of parameter
+ *      definitions which the stage can take. You should always start by calling
+ *      the implementation in the base class and adding the result to
+ *      a new Map. Its good practice to return an unmodifiable map
+ *      by invoking Collections.unmodifiableMap();
+ *
+ *
+ * This class is designed to accommodate running stages in two different ways
+ *   1. Directly via the command line.
+ *   2. Running the stage from within java.
+ *
+ * Executing the stage from the command line:
+ *   To make the stage executable from the command line you would add a main
+ *   function to your subclass. Your main function should use ToolRunner
+ *   to invoke run(String[]) so that generic hadoop options get parsed
+ *   and added to the configuration.
+ *
+ * Executing the stage from within java:
+ *   Call runJob(). This runs the job once it has been setup.
+ *
+ * TODO(jlewi): We should add a function setOptionValuesFromStrings
+ * which would set the arguments by parsing the command line options. This
+ * would make it more consistent with how we run stages from a binary.
+ *
+ * TODO(jlewi): Do we need some way to pass along generic hadoop options
+ * when running from within java? Since stage implements Configured I think
+ * the caller can just set the configuration. runJob should then initialize
+ * its job configuration using the configuration stored in the class.
+ *
  */
-abstract public class StageBase extends Stage {
+abstract public class StageBase extends Configured implements Tool {
   private static final Logger sLogger = Logger.getLogger(StageBase.class);
 
   protected StageInfoWriter infoWriter;
 
   // The stage if any which launched this stage.
   private StageBase parent;
+
+  /**
+   * A set of key value pairs of options used to configure the stage.
+   * These could come from either command line options or previous stages.
+   * The data gets passed to the mapper and reducer via the Hadoop
+   * Job Configuration.
+   */
+  protected HashMap<String, Object > stage_options =
+      new HashMap<String, Object>();
+
+  /**
+   * Definitions of the parameters. Subclasses can access it
+   * by calling getParameterDefinitions.
+   */
+  private Map<String, ParameterDefinition> definitions = null;
+
   /**
    * This function creates the set of parameter definitions for this stage.
    * Overload this function in your subclass to set the definitions for the
    * stage.
    */
-  @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> parameters =
         new HashMap<String, ParameterDefinition>();
@@ -62,6 +129,16 @@ abstract public class StageBase extends Stage {
 
     parameters.put(stageInfoPath.getName(), stageInfoPath);
     return Collections.unmodifiableMap(parameters);
+  }
+
+  /**
+   * Return a list of the parameter definitions for this stage.
+   */
+  final public Map<String, ParameterDefinition> getParameterDefinitions() {
+    if (definitions == null) {
+      definitions = createParameterDefinitions();
+    }
+    return definitions;
   }
 
   /**
@@ -81,7 +158,6 @@ abstract public class StageBase extends Stage {
 
     return required;
   }
-
 
   /**
    * Initialize the stage by inheriting the settings from other.
@@ -187,7 +263,6 @@ abstract public class StageBase extends Stage {
     }
   }
 
-  @Override
   protected void parseCommandLine(CommandLine line) {
     HashMap<String, Object> parameters = new HashMap<String, Object>();
 
@@ -212,6 +287,43 @@ abstract public class StageBase extends Stage {
   }
 
   /**
+   * Print the help message.
+   */
+  protected void printHelp() {
+    HelpFormatter formatter = new HelpFormatter();
+    Options options = new Options();
+    for (Iterator<ParameterDefinition> it =
+        getParameterDefinitions().values().iterator(); it.hasNext();) {
+      options.addOption(it.next().getOption());
+    }
+    formatter.printHelp(
+        "hadoop jar CONTRAILJAR MAINCLASS [options]", options);
+  }
+
+  /**
+   * Set the parameters for this stage. Any parameters which haven't been
+   * previously set and which aren't part of the input will be
+   * initialized to the default values if there is one.
+   */
+  public void setParameters(Map<String, Object> values) {
+    // TODO(jlewi): Should this method be public? Is it currently being used?
+    // Copy the options from the input.
+    stage_options.putAll(values);
+
+    if (!(this instanceof StageBase)) {
+      // TODO(jeremy@lewi.us): For backwards compatibility with classes
+      // which are subclasses of Stage and not StageBase. if WriteConfig
+      // is the empty string we need to remove it as a parameter.
+      // This is because the old code assumed that if writeconfig isn't true
+      // it won't be a parameter.
+      String value = (String) stage_options.get("writeconfig");
+      if (value.length() == 0) {
+        stage_options.remove("writeconfig");
+      }
+    }
+  }
+
+  /**
    * Check whether parameters are valid.
    * Subclasses which override this method should call the base class
    *
@@ -227,29 +339,57 @@ abstract public class StageBase extends Stage {
   }
 
   /**
-   * Run the job.
+   * Check if the indicated options have been supplied to the stage
+   * and if not exit the process printing the help message.
    *
-   * @return
-   * @throws Exception
+   * @param required: List of required options.
    */
-  @Override
-  @Deprecated
-  final public RunningJob runJob() throws Exception {
-    // TODO(jeremy@lewi.us): Get rid of this method as soon as we get
-    // rid of stage.
-    throw new RuntimeException("No longer supported");
+  protected void checkHasParametersOrDie(String[] required) {
+    ArrayList<String> missing = new ArrayList<String>();
+    for (String arg_name: required) {
+      if (!stage_options.containsKey(arg_name) ||
+           stage_options.get(arg_name) == null) {
+        missing.add(arg_name);
+      }
+    }
+
+    if (missing.size() > 0) {
+      sLogger.error(
+          this.getClass().getSimpleName() +": Missing required " +
+          "arguments: " + StringUtils.join(missing, ","));
+      printHelp();
+      // Should we exit or throw an exception?
+      System.exit(0);
+    }
   }
 
   /**
-   * Run the stage.
-   * TODO(jlewi): run is deprecated in favor of runJob();
+   * Initialize the hadoop job configuration with information needed for this
+   * stage.
+   *
+   * @param conf: The job configuration.
    */
-  @Override
-  @Deprecated
-  final protected int run() throws Exception {
-    // TODO(jeremy@lewi.us): Get rid of this method as soon as we get
-    // rid of stage.
-    throw new RuntimeException("No longer supported");
+  protected void initializeJobConfiguration(JobConf conf) {
+    // List of options which shouldn't be added to the configuration
+    HashSet<String> exclude = new HashSet<String>();
+    exclude.add("writeconfig");
+    exclude.add("foroozie");
+    // Loop over all the stage options and add them to the configuration
+    // so that they get passed to the mapper and reducer.
+    for (Iterator<String> key_it = stage_options.keySet().iterator();
+        key_it.hasNext();) {
+      String key = key_it.next();
+      if (exclude.contains(key)) {
+        continue;
+      }
+      if (!getParameterDefinitions().containsKey(key)) {
+        throw new RuntimeException(
+            "Stage:" + this.getClass().getName() + " Doesn't take parameter:" +
+            key);
+      }
+      ParameterDefinition def = getParameterDefinitions().get(key);
+      def.addToJobConf(conf, stage_options.get(key));
+    }
   }
 
   protected void setupLogging() {
@@ -320,16 +460,122 @@ abstract public class StageBase extends Stage {
   }
 
   /**
-   * Return information about the stage.
-   *
-   * @param job
-   * @return
+   * This function logs the values of the options.
    */
-  @Override
-  @Deprecated
-  final public StageInfo getStageInfo(RunningJob job) {
-    // TODO(jeremy@lewi.us): Get rid of this method as soon as we get
-    // rid of stage.
-    throw new RuntimeException("No longer supported");
+  protected void logParameters() {
+    ArrayList<String> keys = new ArrayList<String>();
+    keys.addAll(stage_options.keySet());
+    Collections.sort(keys);
+    ArrayList<String> commandLine = new ArrayList<String>();
+    for (String key : keys) {
+      commandLine.add(String.format(
+          "--%s=%s", key, stage_options.get(key).toString()));
+    }
+    // Print out all the parameters on one line. This is convenient
+    // for copying and pasting to rerun the stage.
+    sLogger.info(String.format(
+        "%s: Parameters: %s", this.getClass().getSimpleName(),
+        StringUtils.join(commandLine, " ")));
+    for (String key : keys) {
+      sLogger.info(String.format(
+          "%s: Parameter: %s=%s", this.getClass().getSimpleName(), key,
+          stage_options.get(key).toString()));
+    }
+  }
+
+  /**
+   * Process the command line options.
+   *
+   * TODO(jlewi): How should we inform the user of missing arguments?
+   */
+  protected void parseCommandLine(String[] application_args) {
+    // Generic hadoop options should have been parsed out already
+    // assuming run(String[]) was invoked via ToolRunner.run.
+    // Therefore args should only contain the remaining non generic options.
+    // IMPORTANT: Generic options must appear first on the command line i.e
+    // before any non generic options.
+    Options options = new Options();
+
+    for (Iterator<ParameterDefinition> it =
+          getParameterDefinitions().values().iterator(); it.hasNext();) {
+      options.addOption(it.next().getOption());
+    }
+    CommandLineParser parser = new GnuParser();
+    CommandLine line;
+    try
+    {
+      line = parser.parse(options, application_args);
+      parseCommandLine(line);
+    }
+    catch( ParseException exp )
+    {
+      // oops, something went wrong
+      System.err.println( "Parsing failed.  Reason: " + exp.getMessage() );
+      System.exit(1);
+    }
+  }
+
+  /**
+   * Write the job configuration to an XML file specified in the stage option.
+   */
+  protected void writeJobConfig(JobConf conf) {
+    Path jobpath = new Path((String) stage_options.get("writeconfig"));
+
+    // Do some postprocessing of the job configuration before we write it.
+    // Overwrite the file if it exists.
+    try {
+      // We need to use the original configuration because that will have
+      // the filesystem.
+      FSDataOutputStream writer = jobpath.getFileSystem(conf).create(
+          jobpath, true);
+      conf.writeXml(writer);
+      writer.close();
+    } catch (IOException exception) {
+      sLogger.error("Exception occured while writing job configuration to:" +
+                    jobpath.toString());
+      sLogger.error("Exception:" + exception.toString());
+    }
+
+    // Post process the configuration to remove properties which shouldn't
+    // be specified for oozie.
+    // TODO(jlewi): This won't work if the file is on HDFS.
+    if (stage_options.containsKey("foroozie")) {
+      File xml_file = new File(jobpath.toUri());
+      try {
+        // Oozie requires certain properties to be specified in the workflow
+        // and not in the individual job configuration stages.
+        HashSet<String> exclude = new HashSet<String>();
+        exclude.add("fs.default.name");
+        exclude.add("fs.defaultFS");
+        exclude.add("mapred.job.tracker");
+        exclude.add("mapred.jar");
+
+        DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
+        Document doc = dBuilder.parse(xml_file);
+        NodeList name_nodes = doc.getElementsByTagName("name");
+        for (int index = 0; index < name_nodes.getLength(); ++index) {
+          Node node = name_nodes.item(index);
+          String property_name = node.getTextContent();
+          if (exclude.contains(property_name)) {
+            Node parent = node.getParentNode();
+            Node grand_parent = parent.getParentNode();
+            grand_parent.removeChild(parent);
+          }
+        }
+        // write the content into xml file
+        TransformerFactory transformerFactory = TransformerFactory.newInstance();
+        Transformer transformer = transformerFactory.newTransformer();
+        DOMSource source = new DOMSource(doc);
+        StreamResult result = new StreamResult(xml_file);
+        transformer.transform(source, result);
+      } catch (Exception exception) {
+        sLogger.error("Exception occured while parsing:" +
+              xml_file.toString());
+        sLogger.error("Exception:" + exception.toString());
+      }
+    }
+
+    sLogger.info("Wrote job config to:" + jobpath.toString());
   }
 }

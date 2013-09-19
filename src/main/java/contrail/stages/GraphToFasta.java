@@ -14,9 +14,6 @@
 // Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.stages;
 
-import contrail.graph.GraphNode;
-import contrail.graph.GraphNodeData;
-
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -41,6 +38,9 @@ import org.apache.hadoop.mapred.TextOutputFormat;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
+import contrail.graph.GraphNode;
+import contrail.graph.GraphNodeData;
+
 /**
  * Convert the graph to fasta files.
  */
@@ -50,6 +50,7 @@ public class GraphToFasta extends MRStage {
   /**
    * Get the parameters used by this stage.
    */
+  @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs =
         new HashMap<String, ParameterDefinition>();
@@ -73,6 +74,7 @@ public class GraphToFasta extends MRStage {
     private Text textOutput;
     private GraphNode node;
     private String[] lines;
+    @Override
     public void configure(JobConf job) {
       textOutput = new Text();
       node = new GraphNode();
@@ -81,6 +83,7 @@ public class GraphToFasta extends MRStage {
       lines = new String[2];
     }
 
+    @Override
     public void map(AvroWrapper<GraphNodeData> nodeData, NullWritable inputValue,
         OutputCollector<Text, NullWritable> output, Reporter reporter)
             throws IOException {
@@ -102,8 +105,6 @@ public class GraphToFasta extends MRStage {
     String outputPath = (String) stage_options.get("outputpath");
 
     AvroJob.setInputSchema(conf, GraphNodeData.SCHEMA$);
-
-    initializeJobConfiguration(conf);
 
     FileInputFormat.addInputPath(conf, new Path(inputPath));
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));

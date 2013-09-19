@@ -51,11 +51,11 @@ public class CompressAndCorrect extends PipelineStage {
         new HashMap<String, ParameterDefinition>();
 
     // We add all the options for the stages we depend on.
-    Stage[] substages =
+    StageBase[] substages =
       {new CompressChains(), new RemoveTipsAvro(), new FindBubblesAvro(),
        new PopBubblesAvro(), new RemoveLowCoverageAvro()};
 
-    for (Stage stage: substages) {
+    for (StageBase stage: substages) {
       definitions.putAll(stage.getParameterDefinitions());
     }
 
