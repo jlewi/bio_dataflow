@@ -174,6 +174,12 @@ public class MRStage extends StageBase {
       // TODO(jlewi): We should add an option to disable this so we don't
       // accidentally override data.
       Path outPath = FileOutputFormat.getOutputPath(conf);
+      if (outPath == null) {
+        sLogger.fatal(
+            "No output path is set in the job configuration. Did you set it " +
+            "in setupConfHook()?");
+        System.exit(-1);
+      }
       try {
         FileSystem outFs = outPath.getFileSystem(conf);
         if (outFs.exists(outPath)) {

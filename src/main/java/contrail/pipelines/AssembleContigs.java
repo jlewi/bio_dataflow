@@ -82,6 +82,7 @@ public class AssembleContigs extends PipelineStage {
   protected void setDefaultParameters() {
     // This function is intended to be overloaded in subclasses which
     // customize the parameters for different datasets.
+    super.setDefaultParameters();
   }
 
   private void processGraph() throws Exception {

@@ -38,7 +38,7 @@ import contrail.util.ContrailLogger;
 // I think just has to do with treating both pairs of a read the "same".
 // Currently we don't use that mode and treat all reads as non-mate pairs
 // for the purpose of quake.
-public class CorrectionPipelineRunner extends PipelineStage{
+public class CorrectionPipelineRunner extends PipelineStage {
   private static final ContrailLogger sLogger = ContrailLogger.getLogger(
       CorrectionPipelineRunner.class);
 
@@ -53,6 +53,7 @@ public class CorrectionPipelineRunner extends PipelineStage{
   protected void setDefaultParameters() {
     // This function is intended to be overloaded in subclasses which
     // customize the parameters for different datasets.
+    super.setDefaultParameters();
   }
 
   /**
@@ -77,6 +78,7 @@ public class CorrectionPipelineRunner extends PipelineStage{
     // automatically or are derived from other parameters.
     definitions.remove("cutoff");
     definitions.remove("bitvectorpath");
+    definitions.remove("inputpath");
 
     //The outputpath is a name of a directory in which all the outputs are placed
     ParameterDefinition flashInputPath = new ParameterDefinition(

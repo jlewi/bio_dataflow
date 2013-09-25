@@ -15,6 +15,9 @@ import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
 import org.apache.avro.specific.SpecificData;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.mapred.FileInputFormat;
+import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.util.ToolRunner;
@@ -119,6 +122,9 @@ public class JoinReads extends MRStage {
 
     Pair<CharSequence, FastQRecord> map_output =
         new Pair<CharSequence, FastQRecord>("", new FastQRecord());
+
+    FileInputFormat.addInputPaths(conf, inputPath);
+    FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 
     AvroJob.setInputSchema(conf, read.getSchema());
     AvroJob.setMapOutputSchema(conf, map_output.getSchema());
