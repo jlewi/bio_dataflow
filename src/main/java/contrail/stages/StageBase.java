@@ -254,7 +254,7 @@ abstract public class StageBase extends Configured implements Tool {
     for (Iterator<ParameterDefinition> it =
          getParameterDefinitions().values().iterator(); it.hasNext();) {
       ParameterDefinition def = it.next();
-      // If the value hasn't be set and the parameter has a default value
+      // If the value hasn't been set and the parameter has a default value
       // initialize it to the default value
       if (!stage_options.containsKey(def.getName())
           && def.getDefault() != null) {

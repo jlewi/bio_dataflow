@@ -24,6 +24,7 @@ public class AssembleRhodobacterContigs extends AssembleContigs {
   /**
    * Set the default parameters for the staph dataset.
    */
+  @Override
   protected void setDefaultParameters() {
     // Set any parameters to the default value if they haven't already been
     // set.
@@ -49,6 +50,12 @@ public class AssembleRhodobacterContigs extends AssembleContigs {
     if (!stage_options.containsKey("MAXTHREADREADS")) {
       stage_options.put("MAXTHREADREADS", new Integer(0));
     }
+
+    // Call the base class to set any remaining parameters which haven't been
+    // initialized. We do this at the end of this function because we want
+    // the defaults set here to take precedence over the defaults in the base
+    // class.
+    super.setDefaultParameters();
   }
 
   public static void main(String[] args) throws Exception {
