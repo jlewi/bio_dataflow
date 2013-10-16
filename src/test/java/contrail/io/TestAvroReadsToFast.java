@@ -15,12 +15,18 @@
 package contrail.io;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Random;
 
 import org.apache.avro.mapred.AvroWrapper;
+import org.apache.commons.io.FilenameUtils;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
@@ -35,6 +41,8 @@ import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.FastQRecord;
 import contrail.sequences.QuakeReadCorrection;
 import contrail.sequences.Read;
+import contrail.util.AvroFileUtil;
+import contrail.util.FileHelper;
 
 public class TestAvroReadsToFast {
   @Test
@@ -112,5 +120,57 @@ public class TestAvroReadsToFast {
       // TODO Auto-generated catch block
       e.printStackTrace();
     }
+  }
+
+
+  @Test
+  public void testRun() {
+    File tempDir = FileHelper.createLocalTempDir();
+    String inputpath = FilenameUtils.concat(tempDir.toString(), "input");
+    String outputpath = FilenameUtils.concat(tempDir.toString(), "output");
+
+    Random generator = new Random();
+    Alphabet alphabet = DNAAlphabetFactory.create();
+
+    ArrayList<Read> read_records = new ArrayList<Read>();
+    for (int i = 0; i < 10; ++i) {
+      Read read = new Read();
+      FastQRecord fastq = new FastQRecord();
+      read.setFastq(fastq);
+      fastq.setId(String.format("read-%d", i));
+      fastq.setQvalue("ABCDEF");
+      fastq.setRead(AlphabetUtil.randomString(generator, 10, alphabet));
+      QuakeReadCorrection correction = new QuakeReadCorrection();
+      read.setQuakeReadCorrection(correction);
+      correction.setCorrected(false);
+      correction.setTrimLength(10);
+
+      read_records.add(read);
+    }
+
+    ArrayList<FastQRecord> fastq_records = new ArrayList<FastQRecord>();
+    // Check it works when input is a FastQRecord.
+    for (int i = 0; i < 10; ++i) {
+      FastQRecord fastq = new FastQRecord();
+      fastq.setId(String.format("read-%d", i));
+      fastq.setQvalue("ABCDEF");
+      fastq.setRead(AlphabetUtil.randomString(generator, 10, alphabet));
+      fastq_records.add(fastq);
+    }
+
+    AvroFileUtil.writeRecords(
+        new Configuration(),
+        new Path(FilenameUtils.concat(inputpath, "fastq.avro")),
+        fastq_records);
+
+    AvroFileUtil.writeRecords(
+        new Configuration(),
+        new Path(FilenameUtils.concat(inputpath, "reads.avro")),
+        read_records);
+
+    AvroReadsToFast stage = new AvroReadsToFast();
+    stage.setParameter("inputpath", inputpath);
+    stage.setParameter("outputpath", outputpath);
+    assertTrue(stage.execute());
   }
 }

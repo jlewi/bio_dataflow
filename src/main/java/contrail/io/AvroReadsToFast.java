@@ -119,8 +119,6 @@ public class AvroReadsToFast extends MRStage {
     inputSchemas.add((new Read()).getSchema());
     inputSchemas.add((new FastQRecord()).getSchema());
     AvroJob.setInputSchema(conf, Schema.createUnion(inputSchemas));
-
-    AvroJob.setInputSchema(conf, (new Read()).getSchema());
     AvroInputFormat<Object> input_format = new AvroInputFormat<Object>();
     conf.setInputFormat(input_format.getClass());
     conf.setOutputFormat(TextOutputFormat.class);
