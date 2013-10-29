@@ -52,7 +52,7 @@ import contrail.stages.ParameterDefinition;
  */
 public class AvroReadsToFast extends MRStage {
   private static final Logger sLogger = Logger.getLogger(
-      TestAvroReadsToFast.class);
+      AvroReadsToFast.class);
 
   public static class ToFastMapper extends MapReduceBase
       implements Mapper<AvroWrapper<Object>, NullWritable,
