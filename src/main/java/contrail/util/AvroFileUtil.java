@@ -14,8 +14,10 @@
 // Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.util;
 
+import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 
@@ -28,6 +30,8 @@ import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
+import org.apache.avro.io.DecoderFactory;
+import org.apache.avro.io.JsonDecoder;
 import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.hadoop.conf.Configuration;
@@ -58,6 +62,48 @@ public class AvroFileUtil {
       output.add(record);
     }
     return output;
+  }
+
+  /**
+   * Read records from a json file produced with PrettyPrint.
+   */
+  public static <T> ArrayList<T> readJsonRecords(
+      InputStream inStream, Schema schema) {
+    ArrayList<T> records = new ArrayList<T>();
+    try {
+      SpecificDatumReader<T> reader = new SpecificDatumReader<T>(schema);
+      JsonDecoder decoder = DecoderFactory.get().jsonDecoder(schema , inStream);
+
+      try {
+        while (true) {
+          T datum = reader.read(null, decoder);
+          records.add(datum);
+        }
+      } catch(EOFException e) {
+        // Reached the end of the file.
+      }
+
+    } catch(IOException e) {
+      sLogger.fatal("IOException.", e);
+    }
+    return records;
+  }
+
+  /**
+   * Read records from a json file produced with PrettyPrint.
+   */
+  public static <T> ArrayList<T> readJsonRecords(
+      Configuration conf, Path path, Schema schema) {
+    ArrayList<T> records = null;
+    try {
+      FSDataInputStream inStream = path.getFileSystem(conf).open(path);
+
+      records = readJsonRecords(inStream, schema);
+      inStream.close();
+    } catch(IOException e) {
+      sLogger.fatal("IOException.", e);
+    }
+    return records;
   }
 
   /***
