@@ -240,6 +240,26 @@ public class MRStage extends StageBase {
   }
 
   /**
+   * Return the number of reduce output records.
+   * @return: If the job hasn't run returns -1.
+   */
+  public long getNumReduceOutputRecords() {
+    try {
+      if (!job.isSuccessful()) {
+        return -1;
+      }
+      return job.getCounters().findCounter(
+          "org.apache.hadoop.mapred.Task$Counter",
+          "REDUCE_OUTPUT_RECORDS").getValue();
+
+    } catch (IOException e) {
+      sLogger.fatal("Couldn't get job state.", e);
+      System.exit(-1);
+    }
+    return -1;
+  }
+
+  /**
    * Return the specified counter.
    *
    * @param group
