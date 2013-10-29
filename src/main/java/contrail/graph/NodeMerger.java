@@ -218,9 +218,7 @@ public class NodeMerger {
    * Merge a bunch of nodes into a new node.
    * @param newId: The id to assign the merged node.
    * @param chain: A collection of the terminals to merge.
-   * @param nodes: A map containing the actual nodes. Should also
-   *   contain nodes with edges to the nodes at the ends of
-   *   terminals if moving the edges.
+   * @param nodes: A map containing the actual nodes.
    * @param overlap: The number of bases that should overlap between
    *   the two sequences.
    * @return
@@ -229,6 +227,11 @@ public class NodeMerger {
    * The coverage lengths for the source and destination are automatically
    * computed as the number of KMers overlapping by K-1 bases would span
    * the source and destination sequences. K = overlap +1.
+   *
+   * Important: This function doesn't change any nodes not in the chain.
+   * So nodes with edges to the ends of the chain still need to be updated.
+   *
+   * See also: QuickMergeUtil.mergeLinearChain.
    */
   public MergeResult mergeNodes(
       String newId, List<EdgeTerminal> chain, Map<String, GraphNode> nodes,

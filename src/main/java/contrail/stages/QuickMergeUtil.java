@@ -251,6 +251,8 @@ public class QuickMergeUtil {
    * The graph after the merge is given by removing from nodes the merged nodes
    * as given by ChainMergeResult.merged_nodeids and then adding
    * ChainMergeResult.merged_node.
+   *
+   * TODO(jeremy@lewi.us): Should we move this function into NodeMerger?
    */
   public static ChainMergeResult mergeLinearChain(
       Map<String, GraphNode> nodes, NodesToMerge nodes_to_merge, int overlap) {
