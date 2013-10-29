@@ -14,12 +14,7 @@
 // Author: Michael Schatz, Jeremy Lewi
 package contrail.stages;
 
-import contrail.graph.GraphNode;
-import contrail.graph.GraphNodeData;
-import contrail.stages.GraphCounters.CounterName;
-
 import java.io.IOException;
-
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -40,6 +35,10 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
+
+import contrail.graph.GraphNode;
+import contrail.graph.GraphNodeData;
+import contrail.stages.GraphCounters.CounterName;
 
 public class QuickMergeAvro extends MRStage {
   private static final Logger sLogger = Logger.getLogger(QuickMergeAvro.class);
@@ -66,11 +65,24 @@ public class QuickMergeAvro extends MRStage {
   public static final Schema REDUCE_OUT_SCHEMA =
       new GraphNodeData().getSchema();
 
+  public static String KMerTag(GraphNodeData data) {
+    // The key is the read tag along with the chunk.
+    // We want to group KMers coming from the same read as they are likely
+    // to form linear chains. We need to use the chunk as well because
+    // the chunk segments tags based on repeat KMers.
+    // TODO(jeremy@lewi.us): We should probably be using
+    // KMerReadTag.toString();
+    String mertag = data.getMertag().getReadTag().toString() + "_" +
+        data.getMertag().getChunk();
+    return mertag;
+  }
+
   public static class QuickMergeMapper extends
       AvroMapper<GraphNodeData, Pair<CharSequence, GraphNodeData>> {
 
     private Pair<CharSequence, GraphNodeData> out_pair;
 
+    @Override
     public void configure(JobConf job) {
       out_pair = new Pair<CharSequence, GraphNodeData>(MAP_OUT_SCHEMA);
     }
@@ -87,12 +99,7 @@ public class QuickMergeAvro extends MRStage {
         GraphNodeData graph_data,
         AvroCollector<Pair<CharSequence, GraphNodeData>> output,
         Reporter reporter) throws IOException {
-      // The key is the read tag along with the chunk.
-      // We want to group KMers coming from the same read as they are likely
-      // to form linear chains. We need to use the chunk as well because
-      // the chunk segments tags based on repeat KMers.
-      String mertag = graph_data.getMertag().getReadTag().toString() + "_" +
-          graph_data.getMertag().getChunk();
+      String mertag = KMerTag(graph_data);
 
       out_pair.set(mertag, graph_data);
       output.collect(out_pair);
@@ -114,6 +121,7 @@ public class QuickMergeAvro extends MRStage {
     private static int K = 0;
     public static boolean VERBOSE = false;
 
+    @Override
     public void configure(JobConf job) {
       QuickMergeAvro stage = new QuickMergeAvro();
       Map<String, ParameterDefinition> definitions =
@@ -206,6 +214,7 @@ public class QuickMergeAvro extends MRStage {
     }
   }
 
+  @Override
   protected Map<String, ParameterDefinition>
       createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs =

@@ -242,6 +242,27 @@ public class QuickMergeUtil {
   }
 
   /**
+   * This class is used to keep track of the edges we will need to add to
+   * the graph.
+   */
+  private static class EdgeToAdd {
+    public EdgeToAdd() {
+    }
+
+    // The node to add the edge to.
+    public String nodeId;
+
+    // The strand to add the edge to.
+    public DNAStrand strand;
+
+    // The destination terminal.
+    public EdgeTerminal destination;
+
+    // Tags to include with the edge.
+    public List<CharSequence> tags;
+  }
+
+  /**
    * Merge together a set of nodes forming a chain.
    * @param nodes
    * @param nodes_to_merge
@@ -296,6 +317,12 @@ public class QuickMergeUtil {
     oldTerminals.add(nodes_to_merge.start_terminal);
     oldTerminals.add(nodes_to_merge.end_terminal.flip());
 
+    // We want to determine all the edges to add before adding any of them.
+    // If we start modifying the graph while still determining edges to add
+    // will cause problems because we will be confusing newly added edges with
+    // old edges.
+    ArrayList<EdgeToAdd> newEdges = new ArrayList<EdgeToAdd>();
+
     for (EdgeTerminal oldTerminal : oldTerminals) {
       // Get the incoming terminals.
       GraphNode oldNode = nodes.get(oldTerminal.nodeId);
@@ -346,13 +373,23 @@ public class QuickMergeUtil {
 
         // Add the edges to the merged node.
         for (DNAStrand strand : strandsToTerminal) {
-          sourceNode.addOutgoingEdgeWithTags(
-              strand, newTerminal, tagsToStart.get(strand),
-              tagsToStart.get(strand).size() + 1);
+          EdgeToAdd newEdge = new EdgeToAdd();
+          newEdge.nodeId = sourceNode.getNodeId();
+          newEdge.strand = strand;
+          newEdge.destination = newTerminal;
+          newEdge.tags = tagsToStart.get(strand);
+          newEdges.add(newEdge);
         }
       }
     }
 
+    // Add all the outgoing edges.
+    for (EdgeToAdd edgeToAdd : newEdges) {
+      GraphNode sourceNode = nodes.get(edgeToAdd.nodeId);
+      sourceNode.addOutgoingEdgeWithTags(
+          edgeToAdd.strand, edgeToAdd.destination, edgeToAdd.tags,
+          edgeToAdd.tags.size() + 1);
+    }
     result.merged_node = mergedNode;
     return result;
   }
