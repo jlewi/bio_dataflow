@@ -1,13 +1,5 @@
 package contrail.stages;
 
-import contrail.CompressedRead;
-import contrail.ContrailConfig;
-import contrail.ReporterMock;
-import contrail.sequences.Alphabet;
-import contrail.sequences.DNAAlphabetFactory;
-import contrail.sequences.Sequence;
-import contrail.util.ByteUtil;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
@@ -15,8 +7,15 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-
 import org.junit.Test;
+
+import contrail.CompressedRead;
+import contrail.ContrailConfig;
+import contrail.ReporterMock;
+import contrail.sequences.Alphabet;
+import contrail.sequences.DNAAlphabetFactory;
+import contrail.sequences.Sequence;
+import contrail.util.ByteUtil;
 
 public class TestFastqPreProcessorAvroCompressed {
   /**
@@ -85,7 +84,7 @@ public class TestFastqPreProcessorAvroCompressed {
 
     JobConf job = new JobConf(
         FastqPreprocessorAvroCompressed.FastqPreprocessorMapper.class);
-    ContrailConfig.initializeConfiguration(job);
+    job.setLong("PREPROCESS_SUFFIX", ContrailConfig.PREPROCESS_SUFFIX);
     mapper.configure(job);
 
     // Test some actua data from a fastq file.
