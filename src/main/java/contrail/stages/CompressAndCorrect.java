@@ -320,7 +320,8 @@ public class CompressAndCorrect extends PipelineStage {
   /**
    * Compress the graph as much as possible, removing tips and popping bubbles.
    *
-   * @param step: Integer identifying the step number.
+   * @param step: Integer identifying the last step number. This will be
+   *   incremented to generate this step.
    */
   private CompressionResult compressAsMuchAsPossible(
       int step, String stepInputPath) throws Exception {
