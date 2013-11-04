@@ -1,0 +1,5025 @@
+{
+  "stage_class" : "contrail.pipelines.AssembleRhodobacterContigs",
+  "state" : "STARTED",
+  "parameters" : [ {
+    "name" : "K",
+    "value" : "41"
+  }, {
+    "name" : "MAXR5",
+    "value" : "0"
+  }, {
+    "name" : "MAXTHREADREADS",
+    "value" : "1000"
+  }, {
+    "name" : "RECORD_ALL_THREADS",
+    "value" : "false"
+  }, {
+    "name" : "TRIM3",
+    "value" : "0"
+  }, {
+    "name" : "TRIM5",
+    "value" : "0"
+  }, {
+    "name" : "bubble_edit_rate",
+    "value" : "0.05"
+  }, {
+    "name" : "bubble_length_threshold",
+    "value" : "500"
+  }, {
+    "name" : "cleanup",
+    "value" : "true"
+  }, {
+    "name" : "compute_stats",
+    "value" : "false"
+  }, {
+    "name" : "foroozie",
+    "value" : "false"
+  }, {
+    "name" : "help",
+    "value" : "false"
+  }, {
+    "name" : "input_format",
+    "value" : "avro"
+  }, {
+    "name" : "inputpath",
+    "value" : "/staph/corrected_reads_1015_2028/quake/InvokeQuake"
+  }, {
+    "name" : "length_thresh",
+    "value" : "82"
+  }, {
+    "name" : "localnodes",
+    "value" : "10000"
+  }, {
+    "name" : "log_file",
+    "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+  }, {
+    "name" : "low_cov_thresh",
+    "value" : "5.0"
+  }, {
+    "name" : "max_reads",
+    "value" : "250"
+  }, {
+    "name" : "min_length",
+    "value" : "0"
+  }, {
+    "name" : "outputpath",
+    "value" : "/staph/contigs.1029_1542.K41"
+  }, {
+    "name" : "resume",
+    "value" : "false"
+  }, {
+    "name" : "seeds",
+    "value" : ""
+  }, {
+    "name" : "stage",
+    "value" : "0"
+  }, {
+    "name" : "stageinfopath",
+    "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+  }, {
+    "name" : "tiplength",
+    "value" : "82"
+  }, {
+    "name" : "writeconfig",
+    "value" : ""
+  } ],
+  "counters" : [ ],
+  "sub_stages" : [ {
+    "stage_class" : "contrail.stages.BuildGraphAvro",
+    "state" : "SUCCESS",
+    "parameters" : [ {
+      "name" : "K",
+      "value" : "41"
+    }, {
+      "name" : "MAXR5",
+      "value" : "0"
+    }, {
+      "name" : "MAXTHREADREADS",
+      "value" : "1000"
+    }, {
+      "name" : "RECORD_ALL_THREADS",
+      "value" : "false"
+    }, {
+      "name" : "TRIM3",
+      "value" : "0"
+    }, {
+      "name" : "TRIM5",
+      "value" : "0"
+    }, {
+      "name" : "foroozie",
+      "value" : "false"
+    }, {
+      "name" : "help",
+      "value" : "false"
+    }, {
+      "name" : "inputpath",
+      "value" : "/staph/corrected_reads_1015_2028/quake/InvokeQuake"
+    }, {
+      "name" : "log_file",
+      "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+    }, {
+      "name" : "max_reads",
+      "value" : "250"
+    }, {
+      "name" : "outputpath",
+      "value" : "/staph/contigs.1029_1542.K41/contrail.stages.BuildGraphAvro"
+    }, {
+      "name" : "stageinfopath",
+      "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+    }, {
+      "name" : "writeconfig",
+      "value" : ""
+    } ],
+    "counters" : [ {
+      "value" : 92,
+      "name" : "Launched reduce tasks"
+    }, {
+      "value" : 1190614,
+      "name" : "Aggregate execution time of mappers(ms)"
+    }, {
+      "value" : 0,
+      "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+    }, {
+      "value" : 0,
+      "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+    }, {
+      "value" : 96,
+      "name" : "Launched map tasks"
+    }, {
+      "value" : 96,
+      "name" : "Data-local map tasks"
+    }, {
+      "value" : 1837645,
+      "name" : "Aggregate execution time of reducers(ms)"
+    }, {
+      "value" : 20203,
+      "name" : "reads-num-edges-(5,10]"
+    }, {
+      "value" : 516829,
+      "name" : "reads-num-edges-(10,...]"
+    }, {
+      "value" : 2205999,
+      "name" : "reads_short"
+    }, {
+      "value" : 68965547,
+      "name" : "reads-goodbp"
+    }, {
+      "value" : 13824,
+      "name" : "reads-num-edges-(1,5]"
+    }, {
+      "value" : 3065956,
+      "name" : "node-count"
+    }, {
+      "value" : 5444,
+      "name" : "reads-num-edges-1"
+    }, {
+      "value" : 556300,
+      "name" : "reads-good"
+    }, {
+      "value" : 7255507640,
+      "name" : "MAPRFS_BYTES_READ"
+    }, {
+      "value" : 8875796485,
+      "name" : "MAPRFS_BYTES_WRITTEN"
+    }, {
+      "value" : 10421164,
+      "name" : "FILE_BYTES_WRITTEN"
+    }, {
+      "value" : 2762299,
+      "name" : "Map input records"
+    }, {
+      "value" : 3410463480,
+      "name" : "Reduce shuffle bytes"
+    }, {
+      "value" : 184628988,
+      "name" : "Spilled Records"
+    }, {
+      "value" : 3258260496,
+      "name" : "Map output bytes"
+    }, {
+      "value" : 3278980,
+      "name" : "CPU_MILLISECONDS"
+    }, {
+      "value" : 368702328,
+      "name" : "Map input bytes"
+    }, {
+      "value" : 0,
+      "name" : "Combine input records"
+    }, {
+      "value" : 12096,
+      "name" : "SPLIT_RAW_BYTES"
+    }, {
+      "value" : 92314494,
+      "name" : "Reduce input records"
+    }, {
+      "value" : 3065956,
+      "name" : "Reduce input groups"
+    }, {
+      "value" : 0,
+      "name" : "Combine output records"
+    }, {
+      "value" : 100286144512,
+      "name" : "PHYSICAL_MEMORY_BYTES"
+    }, {
+      "value" : 3065956,
+      "name" : "Reduce output records"
+    }, {
+      "value" : 532670033920,
+      "name" : "VIRTUAL_MEMORY_BYTES"
+    }, {
+      "value" : 92314494,
+      "name" : "Map output records"
+    }, {
+      "value" : 33719,
+      "name" : "GC time elapsed (ms)"
+    } ],
+    "sub_stages" : [ ],
+    "modified_parameters" : [ ]
+  }, {
+    "stage_class" : "contrail.stages.QuickMergeAvro",
+    "state" : "SUCCESS",
+    "parameters" : [ {
+      "name" : "K",
+      "value" : "41"
+    }, {
+      "name" : "foroozie",
+      "value" : "false"
+    }, {
+      "name" : "help",
+      "value" : "false"
+    }, {
+      "name" : "inputpath",
+      "value" : "/staph/contigs.1029_1542.K41/contrail.stages.BuildGraphAvro"
+    }, {
+      "name" : "log_file",
+      "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+    }, {
+      "name" : "outputpath",
+      "value" : "/staph/contigs.1029_1542.K41/contrail.stages.QuickMergeAvro"
+    }, {
+      "name" : "stageinfopath",
+      "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+    }, {
+      "name" : "writeconfig",
+      "value" : ""
+    } ],
+    "counters" : [ {
+      "value" : 92,
+      "name" : "Launched reduce tasks"
+    }, {
+      "value" : 582593,
+      "name" : "Aggregate execution time of mappers(ms)"
+    }, {
+      "value" : 0,
+      "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+    }, {
+      "value" : 0,
+      "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+    }, {
+      "value" : 92,
+      "name" : "Launched map tasks"
+    }, {
+      "value" : 92,
+      "name" : "Data-local map tasks"
+    }, {
+      "value" : 1054062,
+      "name" : "Aggregate execution time of reducers(ms)"
+    }, {
+      "value" : 3065956,
+      "name" : "nodes"
+    }, {
+      "value" : 6114217057,
+      "name" : "MAPRFS_BYTES_READ"
+    }, {
+      "value" : 4347175376,
+      "name" : "MAPRFS_BYTES_WRITTEN"
+    }, {
+      "value" : 10575012,
+      "name" : "FILE_BYTES_WRITTEN"
+    }, {
+      "value" : 3065956,
+      "name" : "Map input records"
+    }, {
+      "value" : 2044439269,
+      "name" : "Reduce shuffle bytes"
+    }, {
+      "value" : 6131912,
+      "name" : "Spilled Records"
+    }, {
+      "value" : 2049775215,
+      "name" : "Map output bytes"
+    }, {
+      "value" : 2069610,
+      "name" : "CPU_MILLISECONDS"
+    }, {
+      "value" : 1989628357,
+      "name" : "Map input bytes"
+    }, {
+      "value" : 0,
+      "name" : "Combine input records"
+    }, {
+      "value" : 12420,
+      "name" : "SPLIT_RAW_BYTES"
+    }, {
+      "value" : 3065956,
+      "name" : "Reduce input records"
+    }, {
+      "value" : 74147,
+      "name" : "Reduce input groups"
+    }, {
+      "value" : 0,
+      "name" : "Combine output records"
+    }, {
+      "value" : 57330089984,
+      "name" : "PHYSICAL_MEMORY_BYTES"
+    }, {
+      "value" : 253055,
+      "name" : "Reduce output records"
+    }, {
+      "value" : 522366521344,
+      "name" : "VIRTUAL_MEMORY_BYTES"
+    }, {
+      "value" : 3065956,
+      "name" : "Map output records"
+    }, {
+      "value" : 10808,
+      "name" : "GC time elapsed (ms)"
+    }, {
+      "value" : 2894464,
+      "name" : "num-compressed-nodes-in-chains"
+    }, {
+      "value" : 81563,
+      "name" : "num-compressed-chains"
+    } ],
+    "sub_stages" : [ ],
+    "modified_parameters" : [ ]
+  }, {
+    "stage_class" : "contrail.stages.CompressAndCorrect",
+    "state" : "STARTED",
+    "parameters" : [ {
+      "name" : "K",
+      "value" : "41"
+    }, {
+      "name" : "bubble_edit_rate",
+      "value" : "0.05"
+    }, {
+      "name" : "bubble_length_threshold",
+      "value" : "500"
+    }, {
+      "name" : "cleanup",
+      "value" : "true"
+    }, {
+      "name" : "compute_stats",
+      "value" : "false"
+    }, {
+      "name" : "foroozie",
+      "value" : "false"
+    }, {
+      "name" : "help",
+      "value" : "false"
+    }, {
+      "name" : "inputpath",
+      "value" : "/staph/contigs.1029_1542.K41/contrail.stages.QuickMergeAvro"
+    }, {
+      "name" : "length_thresh",
+      "value" : "82"
+    }, {
+      "name" : "localnodes",
+      "value" : "10000"
+    }, {
+      "name" : "log_file",
+      "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+    }, {
+      "name" : "low_cov_thresh",
+      "value" : "5.0"
+    }, {
+      "name" : "min_length",
+      "value" : "0"
+    }, {
+      "name" : "outputpath",
+      "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect"
+    }, {
+      "name" : "resume",
+      "value" : "false"
+    }, {
+      "name" : "seeds",
+      "value" : ""
+    }, {
+      "name" : "stage",
+      "value" : "0"
+    }, {
+      "name" : "stageinfopath",
+      "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+    }, {
+      "name" : "tiplength",
+      "value" : "82"
+    }, {
+      "name" : "writeconfig",
+      "value" : ""
+    } ],
+    "counters" : [ ],
+    "sub_stages" : [ {
+      "stage_class" : "contrail.stages.CompressChains",
+      "state" : "SUCCESS",
+      "parameters" : [ {
+        "name" : "K",
+        "value" : "41"
+      }, {
+        "name" : "cleanup",
+        "value" : "true"
+      }, {
+        "name" : "foroozie",
+        "value" : "false"
+      }, {
+        "name" : "help",
+        "value" : "false"
+      }, {
+        "name" : "inputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.QuickMergeAvro"
+      }, {
+        "name" : "localnodes",
+        "value" : "10000"
+      }, {
+        "name" : "log_file",
+        "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+      }, {
+        "name" : "outputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains"
+      }, {
+        "name" : "resume",
+        "value" : "false"
+      }, {
+        "name" : "seeds",
+        "value" : ""
+      }, {
+        "name" : "stage",
+        "value" : "0"
+      }, {
+        "name" : "stageinfopath",
+        "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+      }, {
+        "name" : "writeconfig",
+        "value" : ""
+      } ],
+      "counters" : [ ],
+      "sub_stages" : [ {
+        "stage_class" : "contrail.stages.CompressibleAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "K",
+          "value" : "41"
+        }, {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.QuickMergeAvro"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_00"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 468178,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 721709,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 253055,
+          "name" : "nodes"
+        }, {
+          "value" : 487765,
+          "name" : "remotemark"
+        }, {
+          "value" : 247887,
+          "name" : "compressible"
+        }, {
+          "value" : 717729734,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 717251621,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10717244,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 253055,
+          "name" : "Map input records"
+        }, {
+          "value" : 245426009,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 1481640,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 244714051,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 1434240,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 223319640,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 12420,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 740820,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 253055,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 45939859456,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 253055,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522347008000,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 740820,
+          "name" : "Map output records"
+        }, {
+          "value" : 4411,
+          "name" : "GC time elapsed (ms)"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ ]
+      }, {
+        "stage_class" : "contrail.stages.PairMarkAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_00"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_01/marked_graph"
+        }, {
+          "name" : "randseed",
+          "value" : "7037748"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 547316,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 711894,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 101992,
+          "name" : "nodes_to_merge"
+        }, {
+          "value" : 151063,
+          "name" : "nodes"
+        }, {
+          "value" : 247887,
+          "name" : "compressible"
+        }, {
+          "value" : 693402689,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 692935112,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10949452,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 253055,
+          "name" : "Map input records"
+        }, {
+          "value" : 195534313,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 713696,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 233188774,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 1517170,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 223550111,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 16560,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 356848,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 253055,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 46065979392,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 253055,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522348888064,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 356848,
+          "name" : "Map output records"
+        }, {
+          "value" : 5010,
+          "name" : "GC time elapsed (ms)"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ ]
+      }, {
+        "stage_class" : "contrail.stages.PairMergeAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "K",
+          "value" : "41"
+        }, {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_01/marked_graph"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_01/merged_graph"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 483852,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 739724,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 139639,
+          "name" : "nodes_left_to_compress"
+        }, {
+          "value" : 682164838,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 614439785,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10829668,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 64204,
+          "name" : "nodes-unmerged"
+        }, {
+          "value" : 183683,
+          "name" : "nodes-merged"
+        }, {
+          "value" : 253055,
+          "name" : "Map input records"
+        }, {
+          "value" : 203010787,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 506110,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 227642276,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 1437480,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 223803446,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 17756,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 253055,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 151063,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 45699862528,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 151063,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522348052480,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 253055,
+          "name" : "Map output records"
+        }, {
+          "value" : 4845,
+          "name" : "GC time elapsed (ms)"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ ]
+      }, {
+        "stage_class" : "contrail.stages.PairMarkAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_01/merged_graph"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_02/marked_graph"
+        }, {
+          "name" : "randseed",
+          "value" : "6806224"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 468461,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 639064,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 57191,
+          "name" : "nodes_to_merge"
+        }, {
+          "value" : 93872,
+          "name" : "nodes"
+        }, {
+          "value" : 139639,
+          "name" : "compressible"
+        }, {
+          "value" : 484202405,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 483631600,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10954236,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 151063,
+          "name" : "Map input records"
+        }, {
+          "value" : 139318144,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 420208,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 162427208,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 1238800,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 156832885,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 17756,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 210104,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 151063,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 44775960576,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 151063,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522342666240,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 210104,
+          "name" : "Map output records"
+        }, {
+          "value" : 2195,
+          "name" : "GC time elapsed (ms)"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ ]
+      }, {
+        "stage_class" : "contrail.stages.PairMergeAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "K",
+          "value" : "41"
+        }, {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_02/marked_graph"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_02/merged_graph"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 410038,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 659382,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 78421,
+          "name" : "nodes_left_to_compress"
+        }, {
+          "value" : 477809004,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 441865946,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10829668,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 36389,
+          "name" : "nodes-unmerged"
+        }, {
+          "value" : 103250,
+          "name" : "nodes-merged"
+        }, {
+          "value" : 151063,
+          "name" : "Map input records"
+        }, {
+          "value" : 144342572,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 302126,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 159265036,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 1204890,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 156984188,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 17756,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 151063,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 93872,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 44826660864,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 93872,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522351976448,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 151063,
+          "name" : "Map output records"
+        }, {
+          "value" : 2674,
+          "name" : "GC time elapsed (ms)"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ ]
+      }, {
+        "stage_class" : "contrail.stages.PairMarkAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_02/merged_graph"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_03/marked_graph"
+        }, {
+          "name" : "randseed",
+          "value" : "2840502"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 396620,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 585523,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 31917,
+          "name" : "nodes_to_merge"
+        }, {
+          "value" : 61955,
+          "name" : "nodes"
+        }, {
+          "value" : 78421,
+          "name" : "compressible"
+        }, {
+          "value" : 373934178,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 373306102,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10954236,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 93872,
+          "name" : "Map input records"
+        }, {
+          "value" : 114108489,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 254186,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 125082682,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 1022750,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 121795622,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 17756,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 127093,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 93872,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 43579924480,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 93872,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522344034304,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 127093,
+          "name" : "Map output records"
+        }, {
+          "value" : 310,
+          "name" : "GC time elapsed (ms)"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ ]
+      }, {
+        "stage_class" : "contrail.stages.PairMergeAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "K",
+          "value" : "41"
+        }, {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_03/marked_graph"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_03/merged_graph"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 360530,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 607978,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 44139,
+          "name" : "nodes_left_to_compress"
+        }, {
+          "value" : 370334902,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 350807894,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10829668,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 20567,
+          "name" : "nodes-unmerged"
+        }, {
+          "value" : 57854,
+          "name" : "nodes-merged"
+        }, {
+          "value" : 93872,
+          "name" : "Map input records"
+        }, {
+          "value" : 107360571,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 187744,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 123294539,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 1024850,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 121889654,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 17756,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 93872,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 61955,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 43340918784,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 61955,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522346319872,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 93872,
+          "name" : "Map output records"
+        }, {
+          "value" : 65,
+          "name" : "GC time elapsed (ms)"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ ]
+      }, {
+        "stage_class" : "contrail.stages.PairMarkAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_03/merged_graph"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_04/marked_graph"
+        }, {
+          "name" : "randseed",
+          "value" : "6647549"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 349674,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 556705,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 17940,
+          "name" : "nodes_to_merge"
+        }, {
+          "value" : 44015,
+          "name" : "nodes"
+        }, {
+          "value" : 44139,
+          "name" : "compressible"
+        }, {
+          "value" : 315015216,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 314355105,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10954236,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 61955,
+          "name" : "Map input records"
+        }, {
+          "value" : 93995141,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 161486,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 105114255,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 880980,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 103117138,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 17756,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 80743,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 61955,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 42365452288,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 61955,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522414280704,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 80743,
+          "name" : "Map output records"
+        }, {
+          "value" : 0,
+          "name" : "GC time elapsed (ms)"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ ]
+      }, {
+        "stage_class" : "contrail.stages.PairMergeAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "K",
+          "value" : "41"
+        }, {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_04/marked_graph"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_04/merged_graph"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 345874,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 577050,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 25056,
+          "name" : "nodes_left_to_compress"
+        }, {
+          "value" : 312977669,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 301906336,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10829668,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 11650,
+          "name" : "nodes-unmerged"
+        }, {
+          "value" : 32489,
+          "name" : "nodes-merged"
+        }, {
+          "value" : 61955,
+          "name" : "Map input records"
+        }, {
+          "value" : 90724750,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 123910,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 104094094,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 899450,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 103179135,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 17756,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 61955,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 44015,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 42180231168,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 44015,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522410582016,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 61955,
+          "name" : "Map output records"
+        }, {
+          "value" : 0,
+          "name" : "GC time elapsed (ms)"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ ]
+      }, {
+        "stage_class" : "contrail.stages.PairMarkAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_04/merged_graph"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_05/marked_graph"
+        }, {
+          "name" : "randseed",
+          "value" : "2970887"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 339582,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 541339,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 10122,
+          "name" : "nodes_to_merge"
+        }, {
+          "value" : 33893,
+          "name" : "nodes"
+        }, {
+          "value" : 25056,
+          "name" : "compressible"
+        }, {
+          "value" : 282641456,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 281963391,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10954236,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 44015,
+          "name" : "Map input records"
+        }, {
+          "value" : 87256295,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 109662,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 94140376,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 840630,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 92862294,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 17756,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 54831,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 44015,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 42284224512,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 44015,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522341285888,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 54831,
+          "name" : "Map output records"
+        }, {
+          "value" : 148,
+          "name" : "GC time elapsed (ms)"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ ]
+      }, {
+        "stage_class" : "contrail.stages.PairMergeAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "K",
+          "value" : "41"
+        }, {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_05/marked_graph"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_05/merged_graph"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 333925,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 568124,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 14393,
+          "name" : "nodes_left_to_compress"
+        }, {
+          "value" : 281466803,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 274958669,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10829668,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 6753,
+          "name" : "nodes-unmerged"
+        }, {
+          "value" : 18303,
+          "name" : "nodes-merged"
+        }, {
+          "value" : 44015,
+          "name" : "Map input records"
+        }, {
+          "value" : 88039083,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 88030,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 93544673,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 870480,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 92906337,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 17756,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 44015,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 33893,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 41750753280,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 33893,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522343444480,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 44015,
+          "name" : "Map output records"
+        }, {
+          "value" : 0,
+          "name" : "GC time elapsed (ms)"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ ]
+      }, {
+        "stage_class" : "contrail.stages.PairMarkAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_05/merged_graph"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_06/marked_graph"
+        }, {
+          "name" : "randseed",
+          "value" : "1611911"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 338327,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 527794,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 5834,
+          "name" : "nodes_to_merge"
+        }, {
+          "value" : 28059,
+          "name" : "nodes"
+        }, {
+          "value" : 14393,
+          "name" : "compressible"
+        }, {
+          "value" : 264614809,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 263926540,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10954236,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 33893,
+          "name" : "Map input records"
+        }, {
+          "value" : 81320171,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 80656,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 88030233,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 809480,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 87152695,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 17756,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 40328,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 33893,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 41557045248,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 33893,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522342522880,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 40328,
+          "name" : "Map output records"
+        }, {
+          "value" : 0,
+          "name" : "GC time elapsed (ms)"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ ]
+      }, {
+        "stage_class" : "contrail.stages.PairMergeAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "K",
+          "value" : "41"
+        }, {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_06/marked_graph"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_06/merged_graph"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 321254,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 562720,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 8189,
+          "name" : "nodes_left_to_compress"
+        }, {
+          "value" : 263914634,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 259857812,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10829668,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 3750,
+          "name" : "nodes-unmerged"
+        }, {
+          "value" : 10643,
+          "name" : "nodes-merged"
+        }, {
+          "value" : 33893,
+          "name" : "Map input records"
+        }, {
+          "value" : 80562609,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 67786,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 87668101,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 832580,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 87186534,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 17756,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 33893,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 28059,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 41064308736,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 28059,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522342895616,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 33893,
+          "name" : "Map output records"
+        }, {
+          "value" : 0,
+          "name" : "GC time elapsed (ms)"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ ]
+      }, {
+        "stage_class" : "contrail.stages.QuickMarkAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_06/merged_graph"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_07/marked_graph"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 321184,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 514410,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 28059,
+          "name" : "nodes"
+        }, {
+          "value" : 8189,
+          "name" : "compressible"
+        }, {
+          "value" : 10421,
+          "name" : "nodes_to_send_to_compressor"
+        }, {
+          "value" : 254527682,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 254090413,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10719452,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 28059,
+          "name" : "Map input records"
+        }, {
+          "value" : 79578504,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 91500,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 84621504,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 754630,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 83884204,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 17756,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 45750,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 28059,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 40435298304,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 28059,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522344620032,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 45750,
+          "name" : "Map output records"
+        }, {
+          "value" : 0,
+          "name" : "GC time elapsed (ms)"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ ]
+      }, {
+        "stage_class" : "contrail.stages.QuickMergeAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "K",
+          "value" : "41"
+        }, {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_07/marked_graph"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains/temp/step_07/merged_graph"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 309962,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 508425,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 28059,
+          "name" : "nodes"
+        }, {
+          "value" : 255002855,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 250468375,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10617700,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 28059,
+          "name" : "Map input records"
+        }, {
+          "value" : 84233632,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 56118,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 84741566,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 740640,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 84209615,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 17756,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 28059,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 17639,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 40296583168,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 21273,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522344632320,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 28059,
+          "name" : "Map output records"
+        }, {
+          "value" : 85,
+          "name" : "GC time elapsed (ms)"
+        }, {
+          "value" : 8189,
+          "name" : "num-compressed-nodes-in-chains"
+        }, {
+          "value" : 1403,
+          "name" : "num-compressed-chains"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains"
+        } ]
+      } ],
+      "modified_parameters" : [ ]
+    }, {
+      "stage_class" : "contrail.stages.RemoveTipsAvro",
+      "state" : "SUCCESS",
+      "parameters" : [ {
+        "name" : "K",
+        "value" : "41"
+      }, {
+        "name" : "foroozie",
+        "value" : "false"
+      }, {
+        "name" : "help",
+        "value" : "false"
+      }, {
+        "name" : "inputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/CompressChains"
+      }, {
+        "name" : "log_file",
+        "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+      }, {
+        "name" : "outputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/RemoveTips"
+      }, {
+        "name" : "stageinfopath",
+        "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+      }, {
+        "name" : "tiplength",
+        "value" : "82"
+      }, {
+        "name" : "writeconfig",
+        "value" : ""
+      } ],
+      "counters" : [ {
+        "value" : 92,
+        "name" : "Launched reduce tasks"
+      }, {
+        "value" : 330143,
+        "name" : "Aggregate execution time of mappers(ms)"
+      }, {
+        "value" : 0,
+        "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+      }, {
+        "value" : 0,
+        "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+      }, {
+        "value" : 92,
+        "name" : "Launched map tasks"
+      }, {
+        "value" : 92,
+        "name" : "Data-local map tasks"
+      }, {
+        "value" : 502906,
+        "name" : "Aggregate execution time of reducers(ms)"
+      }, {
+        "value" : 4661,
+        "name" : "tips_found"
+      }, {
+        "value" : 127,
+        "name" : "tips_kept"
+      }, {
+        "value" : 4591,
+        "name" : "remove-tips-num-clipped"
+      }, {
+        "value" : 288,
+        "name" : "RemoveTips-island-removed"
+      }, {
+        "value" : 16324,
+        "name" : "nodes"
+      }, {
+        "value" : 243070693,
+        "name" : "MAPRFS_BYTES_READ"
+      }, {
+        "value" : 241669942,
+        "name" : "MAPRFS_BYTES_WRITTEN"
+      }, {
+        "value" : 10651372,
+        "name" : "FILE_BYTES_WRITTEN"
+      }, {
+        "value" : 21273,
+        "name" : "Map input records"
+      }, {
+        "value" : 80063004,
+        "name" : "Reduce shuffle bytes"
+      }, {
+        "value" : 41970,
+        "name" : "Spilled Records"
+      }, {
+        "value" : 80702264,
+        "name" : "Map output bytes"
+      }, {
+        "value" : 729040,
+        "name" : "CPU_MILLISECONDS"
+      }, {
+        "value" : 80413435,
+        "name" : "Map input bytes"
+      }, {
+        "value" : 0,
+        "name" : "Combine input records"
+      }, {
+        "value" : 15364,
+        "name" : "SPLIT_RAW_BYTES"
+      }, {
+        "value" : 20985,
+        "name" : "Reduce input records"
+      }, {
+        "value" : 16324,
+        "name" : "Reduce input groups"
+      }, {
+        "value" : 0,
+        "name" : "Combine output records"
+      }, {
+        "value" : 39865688064,
+        "name" : "PHYSICAL_MEMORY_BYTES"
+      }, {
+        "value" : 16451,
+        "name" : "Reduce output records"
+      }, {
+        "value" : 522346229760,
+        "name" : "VIRTUAL_MEMORY_BYTES"
+      }, {
+        "value" : 20985,
+        "name" : "Map output records"
+      }, {
+        "value" : 0,
+        "name" : "GC time elapsed (ms)"
+      } ],
+      "sub_stages" : [ ],
+      "modified_parameters" : [ ]
+    }, {
+      "stage_class" : "contrail.stages.CompressChains",
+      "state" : "SUCCESS",
+      "parameters" : [ {
+        "name" : "K",
+        "value" : "41"
+      }, {
+        "name" : "cleanup",
+        "value" : "true"
+      }, {
+        "name" : "foroozie",
+        "value" : "false"
+      }, {
+        "name" : "help",
+        "value" : "false"
+      }, {
+        "name" : "inputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/RemoveTips"
+      }, {
+        "name" : "localnodes",
+        "value" : "10000"
+      }, {
+        "name" : "log_file",
+        "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+      }, {
+        "name" : "outputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_02/CompressChains"
+      }, {
+        "name" : "resume",
+        "value" : "false"
+      }, {
+        "name" : "seeds",
+        "value" : ""
+      }, {
+        "name" : "stage",
+        "value" : "0"
+      }, {
+        "name" : "stageinfopath",
+        "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+      }, {
+        "name" : "writeconfig",
+        "value" : ""
+      } ],
+      "counters" : [ ],
+      "sub_stages" : [ {
+        "stage_class" : "contrail.stages.CompressibleAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "K",
+          "value" : "41"
+        }, {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_01/RemoveTips"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_02/CompressChains/temp/step_00"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 331651,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 510021,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 16451,
+          "name" : "nodes"
+        }, {
+          "value" : 23606,
+          "name" : "remotemark"
+        }, {
+          "value" : 5627,
+          "name" : "compressible"
+        }, {
+          "value" : 242708624,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 242013915,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10727916,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 16451,
+          "name" : "Map input records"
+        }, {
+          "value" : 72180615,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 80114,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 80816121,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 758540,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 79748592,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 14996,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 40057,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 16451,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 40815841280,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 16451,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522345172992,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 40057,
+          "name" : "Map output records"
+        }, {
+          "value" : 0,
+          "name" : "GC time elapsed (ms)"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ ]
+      }, {
+        "stage_class" : "contrail.stages.QuickMarkAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_02/CompressChains/temp/step_00"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_02/CompressChains/temp/step_01/marked_graph"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 310470,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 503116,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 16451,
+          "name" : "nodes"
+        }, {
+          "value" : 5627,
+          "name" : "compressible"
+        }, {
+          "value" : 9634,
+          "name" : "nodes_to_send_to_compressor"
+        }, {
+          "value" : 241518535,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 240675366,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10714668,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 16451,
+          "name" : "Map input records"
+        }, {
+          "value" : 74551332,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 58620,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 80221373,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 704830,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 79765043,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 16560,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 29310,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 16451,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 39700242432,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 16451,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522348904448,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 29310,
+          "name" : "Map output records"
+        }, {
+          "value" : 0,
+          "name" : "GC time elapsed (ms)"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ ]
+      }, {
+        "stage_class" : "contrail.stages.QuickMergeAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "K",
+          "value" : "41"
+        }, {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_02/CompressChains/temp/step_01/marked_graph"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_02/CompressChains/temp/step_01/merged_graph"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 300248,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 479332,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 16451,
+          "name" : "nodes"
+        }, {
+          "value" : 240755204,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 230238813,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10617700,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 16451,
+          "name" : "Map input records"
+        }, {
+          "value" : 79377452,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 32902,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 79918463,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 632960,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 79683358,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 17756,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 16451,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 6818,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 38909349888,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 12909,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522340589568,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 16451,
+          "name" : "Map output records"
+        }, {
+          "value" : 131,
+          "name" : "GC time elapsed (ms)"
+        }, {
+          "value" : 5627,
+          "name" : "num-compressed-nodes-in-chains"
+        }, {
+          "value" : 2085,
+          "name" : "num-compressed-chains"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_02/CompressChains"
+        } ]
+      } ],
+      "modified_parameters" : [ ]
+    }, {
+      "stage_class" : "contrail.stages.RemoveTipsAvro",
+      "state" : "SUCCESS",
+      "parameters" : [ {
+        "name" : "K",
+        "value" : "41"
+      }, {
+        "name" : "foroozie",
+        "value" : "false"
+      }, {
+        "name" : "help",
+        "value" : "false"
+      }, {
+        "name" : "inputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_02/CompressChains"
+      }, {
+        "name" : "log_file",
+        "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+      }, {
+        "name" : "outputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_02/RemoveTips"
+      }, {
+        "name" : "stageinfopath",
+        "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+      }, {
+        "name" : "tiplength",
+        "value" : "82"
+      }, {
+        "name" : "writeconfig",
+        "value" : ""
+      } ],
+      "counters" : [ {
+        "value" : 92,
+        "name" : "Launched reduce tasks"
+      }, {
+        "value" : 298053,
+        "name" : "Aggregate execution time of mappers(ms)"
+      }, {
+        "value" : 0,
+        "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+      }, {
+        "value" : 0,
+        "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+      }, {
+        "value" : 92,
+        "name" : "Launched map tasks"
+      }, {
+        "value" : 92,
+        "name" : "Data-local map tasks"
+      }, {
+        "value" : 494848,
+        "name" : "Aggregate execution time of reducers(ms)"
+      }, {
+        "value" : 100,
+        "name" : "tips_found"
+      }, {
+        "value" : 100,
+        "name" : "remove-tips-num-clipped"
+      }, {
+        "value" : 1,
+        "name" : "RemoveTips-island-removed"
+      }, {
+        "value" : 12808,
+        "name" : "nodes"
+      }, {
+        "value" : 211265459,
+        "name" : "MAPRFS_BYTES_READ"
+      }, {
+        "value" : 210510666,
+        "name" : "MAPRFS_BYTES_WRITTEN"
+      }, {
+        "value" : 10651372,
+        "name" : "FILE_BYTES_WRITTEN"
+      }, {
+        "value" : 12909,
+        "name" : "Map input records"
+      }, {
+        "value" : 69927715,
+        "name" : "Reduce shuffle bytes"
+      }, {
+        "value" : 25816,
+        "name" : "Spilled Records"
+      }, {
+        "value" : 70076618,
+        "name" : "Map output bytes"
+      }, {
+        "value" : 665180,
+        "name" : "CPU_MILLISECONDS"
+      }, {
+        "value" : 69905267,
+        "name" : "Map input bytes"
+      }, {
+        "value" : 0,
+        "name" : "Combine input records"
+      }, {
+        "value" : 15364,
+        "name" : "SPLIT_RAW_BYTES"
+      }, {
+        "value" : 12908,
+        "name" : "Reduce input records"
+      }, {
+        "value" : 12808,
+        "name" : "Reduce input groups"
+      }, {
+        "value" : 0,
+        "name" : "Combine output records"
+      }, {
+        "value" : 38897254400,
+        "name" : "PHYSICAL_MEMORY_BYTES"
+      }, {
+        "value" : 12808,
+        "name" : "Reduce output records"
+      }, {
+        "value" : 522345742336,
+        "name" : "VIRTUAL_MEMORY_BYTES"
+      }, {
+        "value" : 12908,
+        "name" : "Map output records"
+      }, {
+        "value" : 0,
+        "name" : "GC time elapsed (ms)"
+      } ],
+      "sub_stages" : [ ],
+      "modified_parameters" : [ ]
+    }, {
+      "stage_class" : "contrail.stages.CompressChains",
+      "state" : "SUCCESS",
+      "parameters" : [ {
+        "name" : "K",
+        "value" : "41"
+      }, {
+        "name" : "cleanup",
+        "value" : "true"
+      }, {
+        "name" : "foroozie",
+        "value" : "false"
+      }, {
+        "name" : "help",
+        "value" : "false"
+      }, {
+        "name" : "inputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_02/RemoveTips"
+      }, {
+        "name" : "localnodes",
+        "value" : "10000"
+      }, {
+        "name" : "log_file",
+        "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+      }, {
+        "name" : "outputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_03/CompressChains"
+      }, {
+        "name" : "resume",
+        "value" : "false"
+      }, {
+        "name" : "seeds",
+        "value" : ""
+      }, {
+        "name" : "stage",
+        "value" : "0"
+      }, {
+        "name" : "stageinfopath",
+        "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+      }, {
+        "name" : "writeconfig",
+        "value" : ""
+      } ],
+      "counters" : [ ],
+      "sub_stages" : [ {
+        "stage_class" : "contrail.stages.CompressibleAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "K",
+          "value" : "41"
+        }, {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_02/RemoveTips"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_03/CompressChains/temp/step_00"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 327700,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 504035,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 12808,
+          "name" : "nodes"
+        }, {
+          "value" : 16497,
+          "name" : "remotemark"
+        }, {
+          "value" : 116,
+          "name" : "compressible"
+        }, {
+          "value" : 212451576,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 211753224,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10727916,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 12808,
+          "name" : "Map input records"
+        }, {
+          "value" : 68106105,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 58610,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 70646421,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 751480,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 69886382,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 14996,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 29305,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 12808,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 40635011072,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 12808,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522341953536,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 29305,
+          "name" : "Map output records"
+        }, {
+          "value" : 0,
+          "name" : "GC time elapsed (ms)"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ ]
+      }, {
+        "stage_class" : "contrail.stages.QuickMarkAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_03/CompressChains/temp/step_00"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_03/CompressChains/temp/step_01/marked_graph"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 304221,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 494135,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 12808,
+          "name" : "nodes"
+        }, {
+          "value" : 116,
+          "name" : "compressible"
+        }, {
+          "value" : 283,
+          "name" : "nodes_to_send_to_compressor"
+        }, {
+          "value" : 211281070,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 210585116,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10714668,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 12808,
+          "name" : "Map input records"
+        }, {
+          "value" : 63096271,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 26192,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 70074210,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 688380,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 69899190,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 16560,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 13096,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 12808,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 39436759040,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 12808,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522341908480,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 13096,
+          "name" : "Map output records"
+        }, {
+          "value" : 0,
+          "name" : "GC time elapsed (ms)"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ ]
+      }, {
+        "stage_class" : "contrail.stages.QuickMergeAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "K",
+          "value" : "41"
+        }, {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_03/CompressChains/temp/step_01/marked_graph"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_03/CompressChains/temp/step_01/merged_graph"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 294716,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 495244,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 12808,
+          "name" : "nodes"
+        }, {
+          "value" : 211689864,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 210573874,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10617700,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 12808,
+          "name" : "Map input records"
+        }, {
+          "value" : 69900403,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 25616,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 70257783,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 658770,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 69964720,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 17756,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 12808,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 12526,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 38794878976,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 12750,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522345545728,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 12808,
+          "name" : "Map output records"
+        }, {
+          "value" : 0,
+          "name" : "GC time elapsed (ms)"
+        }, {
+          "value" : 116,
+          "name" : "num-compressed-nodes-in-chains"
+        }, {
+          "value" : 58,
+          "name" : "num-compressed-chains"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_03/CompressChains"
+        } ]
+      } ],
+      "modified_parameters" : [ ]
+    }, {
+      "stage_class" : "contrail.stages.RemoveTipsAvro",
+      "state" : "SUCCESS",
+      "parameters" : [ {
+        "name" : "K",
+        "value" : "41"
+      }, {
+        "name" : "foroozie",
+        "value" : "false"
+      }, {
+        "name" : "help",
+        "value" : "false"
+      }, {
+        "name" : "inputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_03/CompressChains"
+      }, {
+        "name" : "log_file",
+        "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+      }, {
+        "name" : "outputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_03/RemoveTips"
+      }, {
+        "name" : "stageinfopath",
+        "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+      }, {
+        "name" : "tiplength",
+        "value" : "82"
+      }, {
+        "name" : "writeconfig",
+        "value" : ""
+      } ],
+      "counters" : [ {
+        "value" : 92,
+        "name" : "Launched reduce tasks"
+      }, {
+        "value" : 314094,
+        "name" : "Aggregate execution time of mappers(ms)"
+      }, {
+        "value" : 0,
+        "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+      }, {
+        "value" : 0,
+        "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+      }, {
+        "value" : 92,
+        "name" : "Launched map tasks"
+      }, {
+        "value" : 92,
+        "name" : "Data-local map tasks"
+      }, {
+        "value" : 493646,
+        "name" : "Aggregate execution time of reducers(ms)"
+      }, {
+        "value" : 1,
+        "name" : "tips_found"
+      }, {
+        "value" : 1,
+        "name" : "remove-tips-num-clipped"
+      }, {
+        "value" : 12749,
+        "name" : "nodes"
+      }, {
+        "value" : 210307312,
+        "name" : "MAPRFS_BYTES_READ"
+      }, {
+        "value" : 209571887,
+        "name" : "MAPRFS_BYTES_WRITTEN"
+      }, {
+        "value" : 10651372,
+        "name" : "FILE_BYTES_WRITTEN"
+      }, {
+        "value" : 12750,
+        "name" : "Map input records"
+      }, {
+        "value" : 68986253,
+        "name" : "Reduce shuffle bytes"
+      }, {
+        "value" : 25500,
+        "name" : "Spilled Records"
+      }, {
+        "value" : 69756735,
+        "name" : "Map output bytes"
+      }, {
+        "value" : 680640,
+        "name" : "CPU_MILLISECONDS"
+      }, {
+        "value" : 69587030,
+        "name" : "Map input bytes"
+      }, {
+        "value" : 0,
+        "name" : "Combine input records"
+      }, {
+        "value" : 15364,
+        "name" : "SPLIT_RAW_BYTES"
+      }, {
+        "value" : 12750,
+        "name" : "Reduce input records"
+      }, {
+        "value" : 12749,
+        "name" : "Reduce input groups"
+      }, {
+        "value" : 0,
+        "name" : "Combine output records"
+      }, {
+        "value" : 39162994688,
+        "name" : "PHYSICAL_MEMORY_BYTES"
+      }, {
+        "value" : 12749,
+        "name" : "Reduce output records"
+      }, {
+        "value" : 522355388416,
+        "name" : "VIRTUAL_MEMORY_BYTES"
+      }, {
+        "value" : 12750,
+        "name" : "Map output records"
+      }, {
+        "value" : 0,
+        "name" : "GC time elapsed (ms)"
+      } ],
+      "sub_stages" : [ ],
+      "modified_parameters" : [ ]
+    }, {
+      "stage_class" : "contrail.stages.CompressChains",
+      "state" : "SUCCESS",
+      "parameters" : [ {
+        "name" : "K",
+        "value" : "41"
+      }, {
+        "name" : "cleanup",
+        "value" : "true"
+      }, {
+        "name" : "foroozie",
+        "value" : "false"
+      }, {
+        "name" : "help",
+        "value" : "false"
+      }, {
+        "name" : "inputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_03/RemoveTips"
+      }, {
+        "name" : "localnodes",
+        "value" : "10000"
+      }, {
+        "name" : "log_file",
+        "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+      }, {
+        "name" : "outputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_04/CompressChains"
+      }, {
+        "name" : "resume",
+        "value" : "false"
+      }, {
+        "name" : "seeds",
+        "value" : ""
+      }, {
+        "name" : "stage",
+        "value" : "0"
+      }, {
+        "name" : "stageinfopath",
+        "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+      }, {
+        "name" : "writeconfig",
+        "value" : ""
+      } ],
+      "counters" : [ ],
+      "sub_stages" : [ {
+        "stage_class" : "contrail.stages.CompressibleAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "K",
+          "value" : "41"
+        }, {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_03/RemoveTips"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_04/CompressChains/temp/step_00"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 317334,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 503646,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 12749,
+          "name" : "nodes"
+        }, {
+          "value" : 16381,
+          "name" : "remotemark"
+        }, {
+          "value" : 2,
+          "name" : "compressible"
+        }, {
+          "value" : 211544895,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 210846484,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10727916,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 12749,
+          "name" : "Map input records"
+        }, {
+          "value" : 61811046,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 58260,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 70342671,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 720870,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 69587513,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 14996,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 29130,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 12749,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 40070643712,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 12749,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522341191680,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 29130,
+          "name" : "Map output records"
+        }, {
+          "value" : 0,
+          "name" : "GC time elapsed (ms)"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ ]
+      }, {
+        "stage_class" : "contrail.stages.QuickMarkAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_04/CompressChains/temp/step_00"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_04/CompressChains/temp/step_01/marked_graph"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 304286,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 497486,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 12749,
+          "name" : "nodes"
+        }, {
+          "value" : 2,
+          "name" : "compressible"
+        }, {
+          "value" : 5,
+          "name" : "nodes_to_send_to_compressor"
+        }, {
+          "value" : 210371594,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 209600208,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10714668,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 12749,
+          "name" : "Map input records"
+        }, {
+          "value" : 67330825,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 25508,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 69769426,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 691660,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 69600262,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 16560,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 12754,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 12749,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 39429238784,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 12749,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522347679744,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 12754,
+          "name" : "Map output records"
+        }, {
+          "value" : 18,
+          "name" : "GC time elapsed (ms)"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ ]
+      }, {
+        "stage_class" : "contrail.stages.QuickMergeAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "K",
+          "value" : "41"
+        }, {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_04/CompressChains/temp/step_01/marked_graph"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_04/CompressChains/temp/step_01/merged_graph"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 288903,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 497697,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 12749,
+          "name" : "nodes"
+        }, {
+          "value" : 210572492,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 209833305,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10617700,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 12749,
+          "name" : "Map input records"
+        }, {
+          "value" : 69392636,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 25498,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 69886479,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 663610,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 69590360,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 17756,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 12749,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 12745,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 38915751936,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 12748,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522341154816,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 12749,
+          "name" : "Map output records"
+        }, {
+          "value" : 0,
+          "name" : "GC time elapsed (ms)"
+        }, {
+          "value" : 2,
+          "name" : "num-compressed-nodes-in-chains"
+        }, {
+          "value" : 1,
+          "name" : "num-compressed-chains"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_04/CompressChains"
+        } ]
+      } ],
+      "modified_parameters" : [ ]
+    }, {
+      "stage_class" : "contrail.stages.RemoveTipsAvro",
+      "state" : "SUCCESS",
+      "parameters" : [ {
+        "name" : "K",
+        "value" : "41"
+      }, {
+        "name" : "foroozie",
+        "value" : "false"
+      }, {
+        "name" : "help",
+        "value" : "false"
+      }, {
+        "name" : "inputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_04/CompressChains"
+      }, {
+        "name" : "log_file",
+        "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+      }, {
+        "name" : "outputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_04/RemoveTips"
+      }, {
+        "name" : "stageinfopath",
+        "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+      }, {
+        "name" : "tiplength",
+        "value" : "82"
+      }, {
+        "name" : "writeconfig",
+        "value" : ""
+      } ],
+      "counters" : [ {
+        "value" : 92,
+        "name" : "Launched reduce tasks"
+      }, {
+        "value" : 304969,
+        "name" : "Aggregate execution time of mappers(ms)"
+      }, {
+        "value" : 0,
+        "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+      }, {
+        "value" : 0,
+        "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+      }, {
+        "value" : 92,
+        "name" : "Launched map tasks"
+      }, {
+        "value" : 92,
+        "name" : "Data-local map tasks"
+      }, {
+        "value" : 492706,
+        "name" : "Aggregate execution time of reducers(ms)"
+      }, {
+        "value" : 12748,
+        "name" : "nodes"
+      }, {
+        "value" : 210314567,
+        "name" : "MAPRFS_BYTES_READ"
+      }, {
+        "value" : 209579270,
+        "name" : "MAPRFS_BYTES_WRITTEN"
+      }, {
+        "value" : 10651372,
+        "name" : "FILE_BYTES_WRITTEN"
+      }, {
+        "value" : 12748,
+        "name" : "Map input records"
+      }, {
+        "value" : 69145976,
+        "name" : "Reduce shuffle bytes"
+      }, {
+        "value" : 25496,
+        "name" : "Spilled Records"
+      }, {
+        "value" : 69759141,
+        "name" : "Map output bytes"
+      }, {
+        "value" : 677060,
+        "name" : "CPU_MILLISECONDS"
+      }, {
+        "value" : 69589473,
+        "name" : "Map input bytes"
+      }, {
+        "value" : 0,
+        "name" : "Combine input records"
+      }, {
+        "value" : 15364,
+        "name" : "SPLIT_RAW_BYTES"
+      }, {
+        "value" : 12748,
+        "name" : "Reduce input records"
+      }, {
+        "value" : 12748,
+        "name" : "Reduce input groups"
+      }, {
+        "value" : 0,
+        "name" : "Combine output records"
+      }, {
+        "value" : 39123910656,
+        "name" : "PHYSICAL_MEMORY_BYTES"
+      }, {
+        "value" : 12748,
+        "name" : "Reduce output records"
+      }, {
+        "value" : 522346926080,
+        "name" : "VIRTUAL_MEMORY_BYTES"
+      }, {
+        "value" : 12748,
+        "name" : "Map output records"
+      }, {
+        "value" : 0,
+        "name" : "GC time elapsed (ms)"
+      } ],
+      "sub_stages" : [ ],
+      "modified_parameters" : [ ]
+    }, {
+      "stage_class" : "contrail.stages.FindBubblesAvro",
+      "state" : "SUCCESS",
+      "parameters" : [ {
+        "name" : "K",
+        "value" : "41"
+      }, {
+        "name" : "bubble_edit_rate",
+        "value" : "0.05"
+      }, {
+        "name" : "bubble_length_threshold",
+        "value" : "500"
+      }, {
+        "name" : "foroozie",
+        "value" : "false"
+      }, {
+        "name" : "help",
+        "value" : "false"
+      }, {
+        "name" : "inputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_04/RemoveTips"
+      }, {
+        "name" : "log_file",
+        "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+      }, {
+        "name" : "outputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_04/PoppedBubbles/FindBubbles"
+      }, {
+        "name" : "stageinfopath",
+        "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+      }, {
+        "name" : "writeconfig",
+        "value" : ""
+      } ],
+      "counters" : [ {
+        "value" : 92,
+        "name" : "Launched reduce tasks"
+      }, {
+        "value" : 310440,
+        "name" : "Aggregate execution time of mappers(ms)"
+      }, {
+        "value" : 0,
+        "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+      }, {
+        "value" : 0,
+        "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+      }, {
+        "value" : 92,
+        "name" : "Launched map tasks"
+      }, {
+        "value" : 92,
+        "name" : "Data-local map tasks"
+      }, {
+        "value" : 503852,
+        "name" : "Aggregate execution time of reducers(ms)"
+      }, {
+        "value" : 26,
+        "name" : "self-bubble-unpopped"
+      }, {
+        "value" : 6333,
+        "name" : "edgeschecked"
+      }, {
+        "value" : 553,
+        "name" : "pathschecked"
+      }, {
+        "value" : 5777,
+        "name" : "minorchecked"
+      }, {
+        "value" : 53,
+        "name" : "potential-bubble-too-long"
+      }, {
+        "value" : 523,
+        "name" : "find-bubbles-num-bubbles"
+      }, {
+        "value" : 6333,
+        "name" : "linkschecked"
+      }, {
+        "value" : 210289276,
+        "name" : "MAPRFS_BYTES_READ"
+      }, {
+        "value" : 209575867,
+        "name" : "MAPRFS_BYTES_WRITTEN"
+      }, {
+        "value" : 10661492,
+        "name" : "FILE_BYTES_WRITTEN"
+      }, {
+        "value" : 12748,
+        "name" : "Map input records"
+      }, {
+        "value" : 65173175,
+        "name" : "Reduce shuffle bytes"
+      }, {
+        "value" : 25496,
+        "name" : "Spilled Records"
+      }, {
+        "value" : 69746393,
+        "name" : "Map output bytes"
+      }, {
+        "value" : 678460,
+        "name" : "CPU_MILLISECONDS"
+      }, {
+        "value" : 69590084,
+        "name" : "Map input bytes"
+      }, {
+        "value" : 0,
+        "name" : "Combine input records"
+      }, {
+        "value" : 14996,
+        "name" : "SPLIT_RAW_BYTES"
+      }, {
+        "value" : 12748,
+        "name" : "Reduce input records"
+      }, {
+        "value" : 6415,
+        "name" : "Reduce input groups"
+      }, {
+        "value" : 0,
+        "name" : "Combine output records"
+      }, {
+        "value" : 39115362304,
+        "name" : "PHYSICAL_MEMORY_BYTES"
+      }, {
+        "value" : 18002,
+        "name" : "Reduce output records"
+      }, {
+        "value" : 522340233216,
+        "name" : "VIRTUAL_MEMORY_BYTES"
+      }, {
+        "value" : 12748,
+        "name" : "Map output records"
+      }, {
+        "value" : 0,
+        "name" : "GC time elapsed (ms)"
+      } ],
+      "sub_stages" : [ ],
+      "modified_parameters" : [ ]
+    }, {
+      "stage_class" : "contrail.stages.PopBubblesAvro",
+      "state" : "SUCCESS",
+      "parameters" : [ {
+        "name" : "foroozie",
+        "value" : "false"
+      }, {
+        "name" : "help",
+        "value" : "false"
+      }, {
+        "name" : "inputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_04/PoppedBubbles/FindBubbles"
+      }, {
+        "name" : "log_file",
+        "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+      }, {
+        "name" : "outputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_04/PoppedBubbles/PopBubbles"
+      }, {
+        "name" : "stageinfopath",
+        "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+      }, {
+        "name" : "writeconfig",
+        "value" : ""
+      } ],
+      "counters" : [ {
+        "value" : 92,
+        "name" : "Launched reduce tasks"
+      }, {
+        "value" : 311046,
+        "name" : "Aggregate execution time of mappers(ms)"
+      }, {
+        "value" : 0,
+        "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+      }, {
+        "value" : 0,
+        "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+      }, {
+        "value" : 92,
+        "name" : "Launched map tasks"
+      }, {
+        "value" : 92,
+        "name" : "Data-local map tasks"
+      }, {
+        "value" : 496497,
+        "name" : "Aggregate execution time of reducers(ms)"
+      }, {
+        "value" : 523,
+        "name" : "linksremoved"
+      }, {
+        "value" : 210487667,
+        "name" : "MAPRFS_BYTES_READ"
+      }, {
+        "value" : 209531899,
+        "name" : "MAPRFS_BYTES_WRITTEN"
+      }, {
+        "value" : 10722948,
+        "name" : "FILE_BYTES_WRITTEN"
+      }, {
+        "value" : 18002,
+        "name" : "Map input records"
+      }, {
+        "value" : 64293504,
+        "name" : "Reduce shuffle bytes"
+      }, {
+        "value" : 36004,
+        "name" : "Spilled Records"
+      }, {
+        "value" : 69823822,
+        "name" : "Map output bytes"
+      }, {
+        "value" : 704620,
+        "name" : "CPU_MILLISECONDS"
+      }, {
+        "value" : 69583603,
+        "name" : "Map input bytes"
+      }, {
+        "value" : 0,
+        "name" : "Combine input records"
+      }, {
+        "value" : 16376,
+        "name" : "SPLIT_RAW_BYTES"
+      }, {
+        "value" : 18002,
+        "name" : "Reduce input records"
+      }, {
+        "value" : 12225,
+        "name" : "Reduce input groups"
+      }, {
+        "value" : 0,
+        "name" : "Combine output records"
+      }, {
+        "value" : 39600365568,
+        "name" : "PHYSICAL_MEMORY_BYTES"
+      }, {
+        "value" : 12225,
+        "name" : "Reduce output records"
+      }, {
+        "value" : 522346803200,
+        "name" : "VIRTUAL_MEMORY_BYTES"
+      }, {
+        "value" : 18002,
+        "name" : "Map output records"
+      }, {
+        "value" : 0,
+        "name" : "GC time elapsed (ms)"
+      } ],
+      "sub_stages" : [ ],
+      "modified_parameters" : [ ]
+    }, {
+      "stage_class" : "contrail.stages.CompressChains",
+      "state" : "SUCCESS",
+      "parameters" : [ {
+        "name" : "K",
+        "value" : "41"
+      }, {
+        "name" : "cleanup",
+        "value" : "true"
+      }, {
+        "name" : "foroozie",
+        "value" : "false"
+      }, {
+        "name" : "help",
+        "value" : "false"
+      }, {
+        "name" : "inputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_04/PoppedBubbles/PopBubbles"
+      }, {
+        "name" : "localnodes",
+        "value" : "10000"
+      }, {
+        "name" : "log_file",
+        "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+      }, {
+        "name" : "outputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_05/CompressChains"
+      }, {
+        "name" : "resume",
+        "value" : "false"
+      }, {
+        "name" : "seeds",
+        "value" : ""
+      }, {
+        "name" : "stage",
+        "value" : "0"
+      }, {
+        "name" : "stageinfopath",
+        "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+      }, {
+        "name" : "writeconfig",
+        "value" : ""
+      } ],
+      "counters" : [ ],
+      "sub_stages" : [ {
+        "stage_class" : "contrail.stages.CompressibleAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "K",
+          "value" : "41"
+        }, {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_04/PoppedBubbles/PopBubbles"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_05/CompressChains/temp/step_00"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 326141,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 502533,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 12225,
+          "name" : "nodes"
+        }, {
+          "value" : 16179,
+          "name" : "remotemark"
+        }, {
+          "value" : 1040,
+          "name" : "compressible"
+        }, {
+          "value" : 210926987,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 210226764,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10733068,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 12225,
+          "name" : "Map input records"
+        }, {
+          "value" : 67035615,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 56808,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 70132182,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 726700,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 69393367,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 16284,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 28404,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 12225,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 40063868928,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 12225,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522345512960,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 28404,
+          "name" : "Map output records"
+        }, {
+          "value" : 0,
+          "name" : "GC time elapsed (ms)"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ ]
+      }, {
+        "stage_class" : "contrail.stages.QuickMarkAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_05/CompressChains/temp/step_00"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_05/CompressChains/temp/step_01/marked_graph"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 302649,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 495340,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 12225,
+          "name" : "nodes"
+        }, {
+          "value" : 1040,
+          "name" : "compressible"
+        }, {
+          "value" : 1412,
+          "name" : "nodes_to_send_to_compressor"
+        }, {
+          "value" : 209852142,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 209063013,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10714668,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 12225,
+          "name" : "Map input records"
+        }, {
+          "value" : 65111111,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 28726,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 69604401,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 696950,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 69405592,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 16560,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 14363,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 12225,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 39304564736,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 12225,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522342719488,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 14363,
+          "name" : "Map output records"
+        }, {
+          "value" : 0,
+          "name" : "GC time elapsed (ms)"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ ]
+      }, {
+        "stage_class" : "contrail.stages.QuickMergeAvro",
+        "state" : "SUCCESS",
+        "parameters" : [ {
+          "name" : "K",
+          "value" : "41"
+        }, {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_05/CompressChains/temp/step_01/marked_graph"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_05/CompressChains/temp/step_01/merged_graph"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ {
+          "value" : 92,
+          "name" : "Launched reduce tasks"
+        }, {
+          "value" : 304264,
+          "name" : "Aggregate execution time of mappers(ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+        }, {
+          "value" : 0,
+          "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+        }, {
+          "value" : 92,
+          "name" : "Launched map tasks"
+        }, {
+          "value" : 92,
+          "name" : "Data-local map tasks"
+        }, {
+          "value" : 493998,
+          "name" : "Aggregate execution time of reducers(ms)"
+        }, {
+          "value" : 12225,
+          "name" : "nodes"
+        }, {
+          "value" : 209859043,
+          "name" : "MAPRFS_BYTES_READ"
+        }, {
+          "value" : 208051520,
+          "name" : "MAPRFS_BYTES_WRITTEN"
+        }, {
+          "value" : 10617700,
+          "name" : "FILE_BYTES_WRITTEN"
+        }, {
+          "value" : 12225,
+          "name" : "Map input records"
+        }, {
+          "value" : 69327698,
+          "name" : "Reduce shuffle bytes"
+        }, {
+          "value" : 24450,
+          "name" : "Spilled Records"
+        }, {
+          "value" : 69637601,
+          "name" : "Map output bytes"
+        }, {
+          "value" : 673850,
+          "name" : "CPU_MILLISECONDS"
+        }, {
+          "value" : 69377947,
+          "name" : "Map input bytes"
+        }, {
+          "value" : 0,
+          "name" : "Combine input records"
+        }, {
+          "value" : 17756,
+          "name" : "SPLIT_RAW_BYTES"
+        }, {
+          "value" : 12225,
+          "name" : "Reduce input records"
+        }, {
+          "value" : 10814,
+          "name" : "Reduce input groups"
+        }, {
+          "value" : 0,
+          "name" : "Combine output records"
+        }, {
+          "value" : 39034789888,
+          "name" : "PHYSICAL_MEMORY_BYTES"
+        }, {
+          "value" : 11379,
+          "name" : "Reduce output records"
+        }, {
+          "value" : 522342232064,
+          "name" : "VIRTUAL_MEMORY_BYTES"
+        }, {
+          "value" : 12225,
+          "name" : "Map output records"
+        }, {
+          "value" : 12,
+          "name" : "GC time elapsed (ms)"
+        }, {
+          "value" : 1040,
+          "name" : "num-compressed-nodes-in-chains"
+        }, {
+          "value" : 194,
+          "name" : "num-compressed-chains"
+        } ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_05/CompressChains"
+        } ]
+      } ],
+      "modified_parameters" : [ ]
+    }, {
+      "stage_class" : "contrail.stages.RemoveTipsAvro",
+      "state" : "SUCCESS",
+      "parameters" : [ {
+        "name" : "K",
+        "value" : "41"
+      }, {
+        "name" : "foroozie",
+        "value" : "false"
+      }, {
+        "name" : "help",
+        "value" : "false"
+      }, {
+        "name" : "inputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_05/CompressChains"
+      }, {
+        "name" : "log_file",
+        "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+      }, {
+        "name" : "outputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_05/RemoveTips"
+      }, {
+        "name" : "stageinfopath",
+        "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+      }, {
+        "name" : "tiplength",
+        "value" : "82"
+      }, {
+        "name" : "writeconfig",
+        "value" : ""
+      } ],
+      "counters" : [ {
+        "value" : 92,
+        "name" : "Launched reduce tasks"
+      }, {
+        "value" : 306283,
+        "name" : "Aggregate execution time of mappers(ms)"
+      }, {
+        "value" : 0,
+        "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+      }, {
+        "value" : 0,
+        "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+      }, {
+        "value" : 92,
+        "name" : "Launched map tasks"
+      }, {
+        "value" : 92,
+        "name" : "Data-local map tasks"
+      }, {
+        "value" : 491269,
+        "name" : "Aggregate execution time of reducers(ms)"
+      }, {
+        "value" : 11379,
+        "name" : "nodes"
+      }, {
+        "value" : 206415518,
+        "name" : "MAPRFS_BYTES_READ"
+      }, {
+        "value" : 205679246,
+        "name" : "MAPRFS_BYTES_WRITTEN"
+      }, {
+        "value" : 10651372,
+        "name" : "FILE_BYTES_WRITTEN"
+      }, {
+        "value" : 11379,
+        "name" : "Map input records"
+      }, {
+        "value" : 68083638,
+        "name" : "Reduce shuffle bytes"
+      }, {
+        "value" : 22758,
+        "name" : "Spilled Records"
+      }, {
+        "value" : 68455003,
+        "name" : "Map output bytes"
+      }, {
+        "value" : 679590,
+        "name" : "CPU_MILLISECONDS"
+      }, {
+        "value" : 68308724,
+        "name" : "Map input bytes"
+      }, {
+        "value" : 0,
+        "name" : "Combine input records"
+      }, {
+        "value" : 15364,
+        "name" : "SPLIT_RAW_BYTES"
+      }, {
+        "value" : 11379,
+        "name" : "Reduce input records"
+      }, {
+        "value" : 11379,
+        "name" : "Reduce input groups"
+      }, {
+        "value" : 0,
+        "name" : "Combine output records"
+      }, {
+        "value" : 39140536320,
+        "name" : "PHYSICAL_MEMORY_BYTES"
+      }, {
+        "value" : 11379,
+        "name" : "Reduce output records"
+      }, {
+        "value" : 522349903872,
+        "name" : "VIRTUAL_MEMORY_BYTES"
+      }, {
+        "value" : 11379,
+        "name" : "Map output records"
+      }, {
+        "value" : 0,
+        "name" : "GC time elapsed (ms)"
+      } ],
+      "sub_stages" : [ ],
+      "modified_parameters" : [ ]
+    }, {
+      "stage_class" : "contrail.stages.FindBubblesAvro",
+      "state" : "SUCCESS",
+      "parameters" : [ {
+        "name" : "K",
+        "value" : "41"
+      }, {
+        "name" : "bubble_edit_rate",
+        "value" : "0.05"
+      }, {
+        "name" : "bubble_length_threshold",
+        "value" : "500"
+      }, {
+        "name" : "foroozie",
+        "value" : "false"
+      }, {
+        "name" : "help",
+        "value" : "false"
+      }, {
+        "name" : "inputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_05/RemoveTips"
+      }, {
+        "name" : "log_file",
+        "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+      }, {
+        "name" : "outputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_05/PoppedBubbles/FindBubbles"
+      }, {
+        "name" : "stageinfopath",
+        "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+      }, {
+        "name" : "writeconfig",
+        "value" : ""
+      } ],
+      "counters" : [ {
+        "value" : 92,
+        "name" : "Launched reduce tasks"
+      }, {
+        "value" : 288727,
+        "name" : "Aggregate execution time of mappers(ms)"
+      }, {
+        "value" : 0,
+        "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+      }, {
+        "value" : 0,
+        "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+      }, {
+        "value" : 92,
+        "name" : "Launched map tasks"
+      }, {
+        "value" : 92,
+        "name" : "Data-local map tasks"
+      }, {
+        "value" : 496200,
+        "name" : "Aggregate execution time of reducers(ms)"
+      }, {
+        "value" : 42,
+        "name" : "self-bubble-unpopped"
+      }, {
+        "value" : 5391,
+        "name" : "edgeschecked"
+      }, {
+        "value" : 5357,
+        "name" : "minorchecked"
+      }, {
+        "value" : 31,
+        "name" : "pathschecked"
+      }, {
+        "value" : 85,
+        "name" : "potential-bubble-too-long"
+      }, {
+        "value" : 5391,
+        "name" : "linkschecked"
+      }, {
+        "value" : 206391986,
+        "name" : "MAPRFS_BYTES_READ"
+      }, {
+        "value" : 205815713,
+        "name" : "MAPRFS_BYTES_WRITTEN"
+      }, {
+        "value" : 10661492,
+        "name" : "FILE_BYTES_WRITTEN"
+      }, {
+        "value" : 11379,
+        "name" : "Map input records"
+      }, {
+        "value" : 65077958,
+        "name" : "Reduce shuffle bytes"
+      }, {
+        "value" : 22758,
+        "name" : "Spilled Records"
+      }, {
+        "value" : 68443624,
+        "name" : "Map output bytes"
+      }, {
+        "value" : 651040,
+        "name" : "CPU_MILLISECONDS"
+      }, {
+        "value" : 68308360,
+        "name" : "Map input bytes"
+      }, {
+        "value" : 0,
+        "name" : "Combine input records"
+      }, {
+        "value" : 14996,
+        "name" : "SPLIT_RAW_BYTES"
+      }, {
+        "value" : 11379,
+        "name" : "Reduce input records"
+      }, {
+        "value" : 5988,
+        "name" : "Reduce input groups"
+      }, {
+        "value" : 0,
+        "name" : "Combine output records"
+      }, {
+        "value" : 38940962816,
+        "name" : "PHYSICAL_MEMORY_BYTES"
+      }, {
+        "value" : 16736,
+        "name" : "Reduce output records"
+      }, {
+        "value" : 522345431040,
+        "name" : "VIRTUAL_MEMORY_BYTES"
+      }, {
+        "value" : 11379,
+        "name" : "Map output records"
+      }, {
+        "value" : 0,
+        "name" : "GC time elapsed (ms)"
+      } ],
+      "sub_stages" : [ ],
+      "modified_parameters" : [ ]
+    }, {
+      "stage_class" : "contrail.stages.RemoveLowCoverageAvro",
+      "state" : "SUCCESS",
+      "parameters" : [ {
+        "name" : "K",
+        "value" : "41"
+      }, {
+        "name" : "foroozie",
+        "value" : "false"
+      }, {
+        "name" : "help",
+        "value" : "false"
+      }, {
+        "name" : "inputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_05/RemoveTips"
+      }, {
+        "name" : "length_thresh",
+        "value" : "82"
+      }, {
+        "name" : "log_file",
+        "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+      }, {
+        "name" : "low_cov_thresh",
+        "value" : "5.0"
+      }, {
+        "name" : "min_length",
+        "value" : "0"
+      }, {
+        "name" : "outputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_06/LowCoveragePath"
+      }, {
+        "name" : "stageinfopath",
+        "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+      }, {
+        "name" : "writeconfig",
+        "value" : ""
+      } ],
+      "counters" : [ {
+        "value" : 92,
+        "name" : "Launched reduce tasks"
+      }, {
+        "value" : 306540,
+        "name" : "Aggregate execution time of mappers(ms)"
+      }, {
+        "value" : 0,
+        "name" : "Total time spent by all reduces waiting after reserving slots (ms)"
+      }, {
+        "value" : 0,
+        "name" : "Total time spent by all maps waiting after reserving slots (ms)"
+      }, {
+        "value" : 92,
+        "name" : "Launched map tasks"
+      }, {
+        "value" : 92,
+        "name" : "Data-local map tasks"
+      }, {
+        "value" : 486070,
+        "name" : "Aggregate execution time of reducers(ms)"
+      }, {
+        "value" : 101,
+        "name" : "isolated-nodes-kept"
+      }, {
+        "value" : 6165,
+        "name" : "links-removed"
+      }, {
+        "value" : 6046,
+        "name" : "remove-low-coverage-num-removed"
+      }, {
+        "value" : 204912870,
+        "name" : "MAPRFS_BYTES_READ"
+      }, {
+        "value" : 202678772,
+        "name" : "MAPRFS_BYTES_WRITTEN"
+      }, {
+        "value" : 10700316,
+        "name" : "FILE_BYTES_WRITTEN"
+      }, {
+        "value" : 11379,
+        "name" : "Map input records"
+      }, {
+        "value" : 63316504,
+        "name" : "Reduce shuffle bytes"
+      }, {
+        "value" : 38804,
+        "name" : "Spilled Records"
+      }, {
+        "value" : 67694624,
+        "name" : "Map output bytes"
+      }, {
+        "value" : 644400,
+        "name" : "CPU_MILLISECONDS"
+      }, {
+        "value" : 68308360,
+        "name" : "Map input bytes"
+      }, {
+        "value" : 0,
+        "name" : "Combine input records"
+      }, {
+        "value" : 14996,
+        "name" : "SPLIT_RAW_BYTES"
+      }, {
+        "value" : 19402,
+        "name" : "Reduce input records"
+      }, {
+        "value" : 9917,
+        "name" : "Reduce input groups"
+      }, {
+        "value" : 0,
+        "name" : "Combine output records"
+      }, {
+        "value" : 39361863680,
+        "name" : "PHYSICAL_MEMORY_BYTES"
+      }, {
+        "value" : 5333,
+        "name" : "Reduce output records"
+      }, {
+        "value" : 522341216256,
+        "name" : "VIRTUAL_MEMORY_BYTES"
+      }, {
+        "value" : 19402,
+        "name" : "Map output records"
+      }, {
+        "value" : 0,
+        "name" : "GC time elapsed (ms)"
+      } ],
+      "sub_stages" : [ ],
+      "modified_parameters" : [ ]
+    }, {
+      "stage_class" : "contrail.stages.CompressChains",
+      "state" : "STARTED",
+      "parameters" : [ {
+        "name" : "K",
+        "value" : "41"
+      }, {
+        "name" : "cleanup",
+        "value" : "true"
+      }, {
+        "name" : "foroozie",
+        "value" : "false"
+      }, {
+        "name" : "help",
+        "value" : "false"
+      }, {
+        "name" : "inputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_06/LowCoveragePath"
+      }, {
+        "name" : "localnodes",
+        "value" : "10000"
+      }, {
+        "name" : "log_file",
+        "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+      }, {
+        "name" : "outputpath",
+        "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_08/CompressChains"
+      }, {
+        "name" : "resume",
+        "value" : "false"
+      }, {
+        "name" : "seeds",
+        "value" : ""
+      }, {
+        "name" : "stage",
+        "value" : "0"
+      }, {
+        "name" : "stageinfopath",
+        "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+      }, {
+        "name" : "writeconfig",
+        "value" : ""
+      } ],
+      "counters" : [ ],
+      "sub_stages" : [ {
+        "stage_class" : "contrail.stages.CompressibleAvro",
+        "state" : "STARTED",
+        "parameters" : [ {
+          "name" : "K",
+          "value" : "41"
+        }, {
+          "name" : "foroozie",
+          "value" : "false"
+        }, {
+          "name" : "help",
+          "value" : "false"
+        }, {
+          "name" : "inputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_06/LowCoveragePath"
+        }, {
+          "name" : "log_file",
+          "value" : "/users/jlewi/staph/contig_assembly.1029_1542.log.txt"
+        }, {
+          "name" : "outputpath",
+          "value" : "/staph/contigs.1029_1542.K41/contrail.stages.CompressAndCorrect/temp/step_08/CompressChains/temp/step_00"
+        }, {
+          "name" : "stageinfopath",
+          "value" : "file:/users/jlewi/staph/contig_assembly.stage_info.1029_1542"
+        }, {
+          "name" : "writeconfig",
+          "value" : ""
+        } ],
+        "counters" : [ ],
+        "sub_stages" : [ ],
+        "modified_parameters" : [ ]
+      } ],
+      "modified_parameters" : [ ]
+    } ],
+    "modified_parameters" : [ ]
+  } ],
+  "modified_parameters" : [ ]
+}

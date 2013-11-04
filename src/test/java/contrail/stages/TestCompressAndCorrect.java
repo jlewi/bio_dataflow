@@ -17,21 +17,16 @@
 
 package contrail.stages;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.specific.SpecificDatumWriter;
-import org.apache.commons.io.FilenameUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.junit.Before;
 import org.junit.Test;
@@ -67,35 +62,6 @@ public class TestCompressAndCorrect extends CompressAndCorrect {
     } catch (IOException exception) {
       fail("There was a problem writing the graph to an avro file. Exception:" +
           exception.getMessage());
-    }
-  }
-
-  @Test
-  public void testDeletePastSteps() {
-    File temp = FileHelper.createLocalTempDir();
-    int step = 05;
-    HashMap<String, Boolean> dirs = new HashMap<String, Boolean>();
-    for (int i = 0; i < 10; ++i) {
-      String someDir = FilenameUtils.concat(
-          temp.getAbsolutePath(), String.format("step_%02d", i));
-      if (i <= step) {
-        dirs.put(someDir, true);
-      } else {
-        dirs.put(someDir, false);
-      }
-      new File(someDir).mkdirs();
-    }
-
-    CompressAndCorrect.deletePastSteps(
-        new Configuration(), temp.getAbsolutePath(), step);
-
-    for (Entry<String, Boolean> entry : dirs.entrySet()) {
-      File someDir = new File(entry.getKey());
-      if (entry.getValue()) {
-        assertFalse(someDir.exists());
-      } else {
-        assertTrue(someDir.exists());
-      }
     }
   }
 

@@ -40,18 +40,26 @@ import org.codehaus.jackson.util.DefaultPrettyPrinter;
 public class StageInfoWriter {
   private static final Logger sLogger = Logger.getLogger(StageInfoWriter.class);
 
-  private String outputPath;
-  private Configuration conf;
+  private final String outputPath;
+  private final Configuration conf;
 
   public StageInfoWriter(Configuration conf, String outputPath) {
     this.conf = conf;
     this.outputPath = outputPath;
   }
 
+
+  private Path formatPath(String outputPath, String timeStamp, int count) {
+    String counter = String.format(".%03d", count);
+    return new Path(FilenameUtils.concat(
+        outputPath, "stage_info." + timeStamp + counter + ".json"));
+  }
+
   /**
    * Write the stageInfo
+   *
    */
-  public void write(StageInfo info) {
+  public Path write(StageInfo info) {
     // TODO(jlewi): We should cleanup old stage files after writing
     // the new one. Or we could try appending json records to the same file.
     // When I tried appending, the method fs.append threw an exception.
@@ -60,12 +68,18 @@ public class StageInfoWriter {
     String timestamp = formatter.format(date);
 
     Path outputDir = new Path(outputPath);
-    Path outputFile = new Path(FilenameUtils.concat(
-        outputPath, "stage_info." + timestamp + ".json"));
+    int count = 0;
+    Path outputFile = formatPath(outputPath, timestamp, count);
     try {
       FileSystem fs = outputDir.getFileSystem(conf);
       if (!fs.exists(outputDir)) {
         fs.mkdirs(outputDir);
+      }
+
+      // If the file already exists add a counter.
+      while (fs.exists(outputFile)) {
+        outputFile = formatPath(outputPath, timestamp, count);
+        ++count;
       }
       FSDataOutputStream outStream = fs.create(outputFile);
 
@@ -84,5 +98,6 @@ public class StageInfoWriter {
       sLogger.fatal("Couldn't create the output stream.", e);
       System.exit(-1);
     }
+    return outputFile;
   }
 }

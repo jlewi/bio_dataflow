@@ -62,10 +62,11 @@
                  {"name": "modified_parameters",
                   "type": {"type": "array", "items": "StageParameter"},
                   "doc": ["Sometimes parameters are modified by the code. We ",
-                          "want to record the modified values separatly from ",
+                          "want to record the modified values separately from ",
                           "the original values. For example, if the output ",
-                          "of a stage is moved this would recorded in ",
-                          "modified_parameters"]
+                          "of a stage is moved this would be recorded in ",
+                          "modified_parameters. If the value of an outputpath ",
+                          "is empty that means it was deleted."]
                  }           
                 ]
      }     
