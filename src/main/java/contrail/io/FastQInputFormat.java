@@ -15,11 +15,10 @@ import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.JobConfigurable;
-
-//import org.apache.hadoop.mapred.LineRecordReader.LineReader;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.util.LineReader;
 import org.apache.log4j.Logger;
+//import org.apache.hadoop.mapred.LineRecordReader.LineReader;
 
 /**
  * InputFormat for FastQFiles.
@@ -43,18 +42,23 @@ public class FastQInputFormat extends
   // Desired size of the split The split is not guaranteed to be exactly this
   // size. It may be a few bytes more.
   private long splitSize;
-  private Text buffer;
+  private final Text buffer;
 
   public static long DEFAULT_SPLIT_SIZE = 100*1000*1000L;
+  /**
+   * The name of the variable used to configure the split size.
+   */
+  public final static String SPLIT_SIZE_NAME =  "FastQInputFormat.splitSize";
   public FastQInputFormat() {
     buffer = new Text();
   }
 
   @Override
   public void configure(JobConf job) {
-    splitSize = job.getLong("FastQInputFormat.splitSize", DEFAULT_SPLIT_SIZE);
+    splitSize = job.getLong(SPLIT_SIZE_NAME, DEFAULT_SPLIT_SIZE);
   }
 
+  @Override
   public FastQRecordReader getRecordReader(InputSplit genericSplit,
       JobConf job, Reporter reporter) throws IOException {
     reporter.setStatus(genericSplit.toString());

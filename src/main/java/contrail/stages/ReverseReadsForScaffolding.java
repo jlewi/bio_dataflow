@@ -22,11 +22,13 @@ import java.util.Map;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.util.ToolRunner;
 
+import contrail.io.FastQInputFormat;
 import contrail.util.ContrailLogger;
 import contrail.util.FileHelper;
 
@@ -87,9 +89,22 @@ public class ReverseReadsForScaffolding extends NonMRStage {
       // This is only a hint. We may need to modify the input splits
       // in order to generate a single input split.
       conf.setNumMapTasks(1);
-      stage.setConf(getConf());
+      stage.setConf(conf);
 
       Path readFile = readFiles.get(i);
+      long fileLength = 0;
+      try {
+        FileSystem fs = readFile.getFileSystem(getConf());
+        FileStatus[] status = fs.listStatus(readFile);
+        fileLength = status[0].getLen();
+      } catch(IOException e) {
+        sLogger.fatal("Could not determine the length of the file.", e);
+      }
+
+      sLogger.info("Set split size to:" + fileLength);
+      // Set the input size to twice the file length so that there will be
+      // a single file split.
+      conf.setLong(FastQInputFormat.SPLIT_SIZE_NAME, fileLength * 2);
       stage.setParameter("inputpath", readFile.toString());
       stage.setParameter("outputpath", tempDir);
 
