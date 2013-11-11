@@ -198,7 +198,7 @@ public class FileHelper {
                 globOrDirectory, defaultGlob);
             sLogger.info(String.format(
                 "Path:%s is an existing directory.\n Look for files " +
-                "matching glob:", globOrDirectoryPath, pattern));
+                "matching glob:%s", globOrDirectoryPath, pattern));
             globOrDirectoryPath = new Path(pattern);
           } else {
             sLogger.info(String.format(
@@ -224,5 +224,26 @@ public class FileHelper {
     } catch (IOException e) {
       throw new RuntimeException("Problem moving the files: " + e.getMessage());
     }
+  }
+
+  /**
+   * Find all the files matching a comma separated list of globs.
+   *
+   * The result can contain duplicates if a file matches more than one
+   * expression.
+   *
+   * @param conf
+   * @param listOfGlobs: a comma separated string of directories or globs.
+   * @param defaultGlob
+   * @return
+   */
+  public static ArrayList<Path> matchListOfGlobsWithDefault(
+      Configuration conf, String listOfGlobs,  String defaultGlob) {
+    ArrayList<Path> results = new ArrayList<Path>();
+    String[] globs = listOfGlobs.split(",");
+    for (String glob : globs) {
+      results.addAll(matchGlobWithDefault(conf, glob, defaultGlob));
+    }
+    return results;
   }
 }

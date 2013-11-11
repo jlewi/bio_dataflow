@@ -44,11 +44,11 @@ import contrail.sequences.Sequence;
 /**
  * Mapper only job to reverse the reads in a FastQ file.
  *
- * TODO(jeremy@lewi.us): This probably doesn't belong in package scaffolding.
  */
 public class ReverseReads extends MRStage {
   private static final Logger sLogger = Logger.getLogger(ReverseReads.class);
 
+  @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs = new HashMap<String,
         ParameterDefinition>();
@@ -67,10 +67,12 @@ public class ReverseReads extends MRStage {
     private Sequence sequence;
     private String qValue;
 
+    @Override
     public void configure(JobConf job) {
       sequence = new Sequence(DNAAlphabetWithNFactory.create());
     }
 
+    @Override
     public void map(LongWritable line, FastQWritable record,
         OutputCollector<FastQWritable, NullWritable> collector,
         Reporter reporter)
