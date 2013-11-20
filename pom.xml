@@ -22,6 +22,27 @@
          http://maven.apache.org/guides/introduction/introduction-to-profiles.html
       -->
     <profile>
+      <id>v1</id>
+      <properties>
+	<hadoop-version>1.2.1</hadoop-version>
+      </properties>
+      <dependencies>
+        <dependency>
+          <groupId>org.apache.hadoop</groupId>
+          <artifactId>hadoop-core</artifactId>
+          <version>1.2.1</version>
+          <scope>provided</scope>
+        </dependency>
+       <dependency>
+	  <!--hadoop 1.2.1 appears to pull in version 3.1 which has an invalid pom.xml.-->
+          <groupId>asm</groupId>
+          <artifactId>asm</artifactId>
+          <version>3.3</version>
+          <scope>provided</scope>
+        </dependency>
+      </dependencies>
+    </profile>
+    <profile>
       <id>cdh4</id>
       <properties>
 	<hadoop-version>2.0.0-mr1-cdh4.2.1</hadoop-version>

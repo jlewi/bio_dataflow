@@ -77,4 +77,9 @@ public class ReporterMock implements Reporter {
   public void progress() {
     //Do nothing
   }
+  @Override
+  public float getProgress() {
+    // TODO Auto-generated method stub
+    return 0;
+  }
 }
