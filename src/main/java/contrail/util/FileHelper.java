@@ -184,7 +184,7 @@ public class FileHelper {
       ArrayList<String> newMatches =  FileHelper.matchFiles(glob);
       sLogger.info(String.format("%s matched %d files", glob,
           newMatches.size()));
-      matches.addAll(matches);
+      matches.addAll(newMatches);
     }
     ArrayList<String> result = new ArrayList<String>();
     result.addAll(matches);
