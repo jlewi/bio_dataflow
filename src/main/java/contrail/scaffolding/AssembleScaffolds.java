@@ -111,6 +111,7 @@ public class AssembleScaffolds extends PipelineStage {
     }
 
     // Implement the compare and equals method so we can sort by size.
+    @Override
     public int compareTo(SequenceSize other) {
       if (this.gapped < other.gapped) {
         return -1;
@@ -482,6 +483,26 @@ public class AssembleScaffolds extends PipelineStage {
         sLogger.fatal("Couldn't delete the outputpath:" + outputPath, e);
         System.exit(-1);
       }
+    }
+
+    // Check paths exist to fail fast.
+    if (!(new File((String) stage_options.get("bowtie_path")).exists())) {
+      sLogger.fatal(String.format(
+          "The value of --bowtie_path is %s which doesn't exist.",
+          (String) stage_options.get("bowtie_path")));
+      System.exit(-1);
+    }
+    if (!(new File((String) stage_options.get("bowtiebuild_path")).exists())) {
+      sLogger.fatal(String.format(
+          "The value of --bowtiebuild_path is %s which doesn't exist.",
+          (String) stage_options.get("bowtiebuild_path")));
+      System.exit(-1);
+    }
+    if (!(new File((String) stage_options.get("amos_path")).exists())) {
+      sLogger.fatal(String.format(
+          "The value of --amos_path is %s which doesn't exist.",
+          (String) stage_options.get("amos_path")));
+      System.exit(-1);
     }
 
     BuildBambusInput bambusInputStage = new BuildBambusInput();

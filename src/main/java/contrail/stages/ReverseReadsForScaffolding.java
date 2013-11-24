@@ -84,12 +84,13 @@ public class ReverseReadsForScaffolding extends NonMRStage {
     String tempDir = FilenameUtils.concat(outputPath, "temp");
     for (int i = 0; i < readFiles.size(); ++i) {
       ReverseReads stage = new ReverseReads();
-      JobConf conf = new JobConf(getConf());
+      stage.initializeAsChild(this);
+      JobConf conf = new JobConf(stage.getConf());
+      stage.setConf(conf);
 
       // This is only a hint. We may need to modify the input splits
       // in order to generate a single input split.
       conf.setNumMapTasks(1);
-      stage.setConf(conf);
 
       Path readFile = readFiles.get(i);
       long fileLength = 0;

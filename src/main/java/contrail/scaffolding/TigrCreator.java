@@ -108,6 +108,7 @@ public class TigrCreator extends MRStage {
   /**
    * Get the options required by this stage.
    */
+  @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> defs =
         new HashMap<String, ParameterDefinition>();
@@ -131,6 +132,7 @@ public class TigrCreator extends MRStage {
     //public GraphNode node= null;
 
     private Pair<CharSequence, Object> outPair;
+    @Override
     public void configure(JobConf job) {
       outPair = new Pair<CharSequence, Object>("", new BowtieMapping());
     }
@@ -199,6 +201,7 @@ public class TigrCreator extends MRStage {
     Object value = null;
     Pattern pattern;
 
+    @Override
     public void configure(JobConf job) {
       node = new GraphNode();
       mappings = new ArrayList<BowtieMapping>();
@@ -402,8 +405,8 @@ public class TigrCreator extends MRStage {
     conf.setOutputValueClass(NullWritable.class);
     conf.setOutputFormat(TextOutputFormat.class);
 
-    //delete the output directory if it exists already
-    // FileSystem.get(conf).delete(new Path(outputPath), true);
+    // Use a single reducer so that we produce a single file.
+    conf.setNumReduceTasks(1);
   }
 
   public static void main(String[] args) throws Exception {
