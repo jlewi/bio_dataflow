@@ -15,6 +15,7 @@
 package contrail.util;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -60,6 +61,18 @@ public class TestFileHelper {
     expected.add(FilenameUtils.concat(tempDir, "file2.avro"));
     assertEquals(2, matches.size());
     assertEquals(expected, pathToStringSet(matches));
+  }
+
+  @Test
+  public void testMatchGlobWithDefaultNoExist() {
+    // Test that the match returns an empty list when we supply a directory
+    // which doesn't exist.
+    Configuration conf = new Configuration();
+
+    ArrayList<Path> matches = FileHelper.matchGlobWithDefault(
+        conf, "/some/nonexistent/directory/123adf234!@#", "*");
+
+    assertTrue(matches.isEmpty());
   }
 
   @Test

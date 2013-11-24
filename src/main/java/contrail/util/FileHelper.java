@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.filefilter.WildcardFileFilter;
@@ -170,6 +171,27 @@ public class FileHelper {
   }
 
   /**
+   * Find files matching a list of globular expressions.
+   *
+   * This only works for the local/non hadoop filesystem
+   * .
+   * @param glob
+   * @return
+   */
+  public static ArrayList<String> matchListOfGlobs(String globs) {
+    HashSet<String> matches = new HashSet<String>();
+    for (String glob : globs.split(",")) {
+      ArrayList<String> newMatches =  FileHelper.matchFiles(glob);
+      sLogger.info(String.format("%s matched %d files", glob,
+          newMatches.size()));
+      matches.addAll(matches);
+    }
+    ArrayList<String> result = new ArrayList<String>();
+    result.addAll(matches);
+    return result;
+  }
+
+  /**
    * Return a list of files matching a globular expression.
    *
    * If globOrDirectory points to a directory then we return all files matching
@@ -185,6 +207,12 @@ public class FileHelper {
       Configuration conf, String globOrDirectory,  String defaultGlob) {
     Path globOrDirectoryPath = new Path(globOrDirectory);
     FileSystem fs = null;
+    if (conf == null) {
+      sLogger.fatal("conf cannot be null.",
+          new IllegalArgumentException("conf is null."));
+      System.exit(-1);
+    }
+
     try{
       fs = globOrDirectoryPath.getFileSystem(conf);
     } catch (IOException e) {
@@ -217,7 +245,12 @@ public class FileHelper {
 
     try {
       ArrayList<Path> paths = new ArrayList<Path>();
-      for (FileStatus status : fs.globStatus(globOrDirectoryPath)) {
+      // globStatus returns null if path doesn't exist.
+      FileStatus[] statuses = fs.globStatus(globOrDirectoryPath);
+      if (statuses == null) {
+        return paths;
+      }
+      for (FileStatus status : statuses) {
         paths.add(status.getPath());
       }
       return paths;
