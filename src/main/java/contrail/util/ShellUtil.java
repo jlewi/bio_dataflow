@@ -137,10 +137,15 @@ public class ShellUtil {
 
     logger.info("Executing command: " + StringUtils.join(command, " "));
     ProcessBuilder builder = new ProcessBuilder(command);
-    if ((directory != null) && (directory.length()) > 0) {
+
+    if ((directory == null) || (directory.length()) == 0) {
+      directory = System.getProperty("user.dir");
+      logger.info("Executing command in working directory: " + directory);
+    } else {
       logger.info("Executing command in directory: " + directory);
-      builder.directory(new File(directory));
     }
+    builder.directory(new File(directory));
+
     return runProcess(
         builder, prefix, StringUtils.join(command, " "), logger, null);
   }
