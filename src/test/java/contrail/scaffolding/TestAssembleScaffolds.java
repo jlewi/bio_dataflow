@@ -46,9 +46,15 @@ import contrail.util.FileHelper;
  * This class needs to be run manually because you need to specify the
  * paths for the various binaries (e.g bowtie, bowtie-build, goBambus2, etc...)
  *
+ * TODO(jeremy@lewi.us): We could automate this test by using dependency
+ * injection to inject a fake executor for shell commands. We could then
+ * verify that the expected command is called. We could then copy some
+ * canned data to the appropriate directories so that subsequent stages
+ * can proceed as expected.
+ *
  * TODO(jeremy@lewi.us): We could try to make this an automatic unittest
  * by searching the path for bowtie and bowtie-build and bambus so that the user
- * doesn't have to specify the manually.
+ * doesn't have to specify them manually.
  */
 public class TestAssembleScaffolds {
   private static final Logger sLogger = Logger.getLogger(
@@ -352,8 +358,6 @@ public class TestAssembleScaffolds {
 
     AssembleScaffolds stage = new AssembleScaffolds();
     stage.setParameters(parameters);
-
-
 
     if (!stage.execute()) {
       throw new RuntimeException("test failed!");

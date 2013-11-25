@@ -17,6 +17,7 @@ package contrail.stages;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -51,6 +52,8 @@ import org.apache.log4j.PatternLayout;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+
+import contrail.util.FileHelper;
 
 /**
  * An abstract base class for each stage of processing.
@@ -321,6 +324,161 @@ abstract public class StageBase extends Configured implements Tool {
         stage_options.remove("writeconfig");
       }
     }
+  }
+
+  /**
+   * Helper function for validateParameters. Checks that all of the parameters
+   * with the supplied names have non empty string values.
+   *
+   * @param names
+   * @return: A list of invalid parameters.
+   */
+  protected List<InvalidParameter> checkParameterIsNonEmptyString(
+      Collection<String> names) {
+    ArrayList<InvalidParameter> invalid = new ArrayList<InvalidParameter>();
+    for (String name : names) {
+      if (!stage_options.containsKey(name)) {
+        InvalidParameter parameter = new InvalidParameter(
+            name, String.format("Missing parameter %s.", name));
+        invalid.add(parameter);
+        continue;
+      }
+      String value = (String) stage_options.get(name);
+      if (value.length() == 0) {
+        InvalidParameter parameter = new InvalidParameter(
+            name, String.format("Parameter %s is the empty string but it " +
+        "must be a non null value.", name));
+        invalid.add(parameter);
+        continue;
+      }
+    }
+    return invalid;
+  }
+
+  /**
+   * Helper function for validateParameters. Checks that all of the parameters
+   * with the supplied names are supplied and that the value points to
+   * an existing file on the local filesystem.
+   *
+   * @param names
+   * @return: A list of invalid parameters.
+   */
+  protected List<InvalidParameter> checkParameterIsExistingLocalFile(
+      Collection<String> names) {
+    ArrayList<InvalidParameter> invalid = new ArrayList<InvalidParameter>();
+    for (String name : names) {
+      if (!stage_options.containsKey(name)) {
+        InvalidParameter parameter = new InvalidParameter(
+            name, String.format("Missing parameter %s.", name));
+        invalid.add(parameter);
+        continue;
+      }
+      String value = (String) stage_options.get(name);
+      if (value.length() == 0) {
+        InvalidParameter parameter = new InvalidParameter(
+            name, String.format("Parameter %s is the empty string but it " +
+        "must be an existing file on the local filesystem.", name));
+        invalid.add(parameter);
+        continue;
+      }
+
+      File file = new File(value);
+      if (!(file.exists())) {
+        InvalidParameter parameter = new InvalidParameter(
+            name, String.format(
+            "The value of name is %s which is not an existing file on the " +
+            "local filesystem.", value));
+        invalid.add(parameter);
+        continue;
+      }
+    }
+    return invalid;
+  }
+
+  /**
+   * Helper function for validateParameters. Checks that all of the parameters
+   * with the supplied names are supplied and that the value is a glob which
+   * matches at least one file on the local filesystem.
+   *
+   * @param names
+   * @return: A list of invalid parameters.
+   */
+  protected List<InvalidParameter> checkParameterMatchesLocalFiles(
+      Collection<String> names) {
+    ArrayList<InvalidParameter> invalid = new ArrayList<InvalidParameter>();
+    for (String name : names) {
+      if (!stage_options.containsKey(name)) {
+        InvalidParameter parameter = new InvalidParameter(
+            name, String.format("Missing parameter %s.", name));
+        invalid.add(parameter);
+        continue;
+      }
+      String value = (String) stage_options.get(name);
+      if (value.length() == 0) {
+        InvalidParameter parameter = new InvalidParameter(
+            name, String.format("Parameter %s is the empty string but it " +
+        "must be a glob matching files on the local filesystem.", name));
+        invalid.add(parameter);
+        continue;
+      }
+
+      // Make sure reads glob matched some files.
+      ArrayList<String> matchedFles = FileHelper.matchListOfGlobs(value);
+
+      if (matchedFles.isEmpty()) {
+        InvalidParameter parameter = new InvalidParameter(
+            name, "No files matched: "  +
+                (String) this.stage_options.get(name));
+
+        invalid.add(parameter);
+        continue;
+      }
+    }
+    return invalid;
+  }
+
+  /**
+   * Helper function for validateParameters. Checks that all of the parameters
+   * with the supplied names are supplied and that the value is a glob or
+   * directory which matches at least one file. The globs can match distributed
+   * filesystems or the local filesystem.
+   *
+   * @param names
+   * @return: A list of invalid parameters.
+   */
+  protected List<InvalidParameter> checkParameterMatchesFiles(
+      Collection<String> names) {
+    ArrayList<InvalidParameter> invalid = new ArrayList<InvalidParameter>();
+    for (String name : names) {
+      if (!stage_options.containsKey(name)) {
+        InvalidParameter parameter = new InvalidParameter(
+            name, String.format("Missing parameter %s.", name));
+        invalid.add(parameter);
+        continue;
+      }
+      String value = (String) stage_options.get(name);
+      if (value.length() == 0) {
+        InvalidParameter parameter = new InvalidParameter(
+            name, String.format("Parameter %s is the empty string but it " +
+        "must be a glob matching files on the local filesystem.", name));
+        invalid.add(parameter);
+        continue;
+      }
+
+      // Make sure reads glob matched some files.
+      ArrayList<Path> matchedFles = FileHelper.matchListOfGlobsWithDefault(
+          getConf(), value, "*");
+
+      if (matchedFles.isEmpty()) {
+        InvalidParameter parameter = new InvalidParameter(
+            name, "No files matched: "  +
+                (String) this.stage_options.get(name));
+
+        invalid.add(parameter);
+        continue;
+      }
+    }
+    return invalid;
   }
 
   /**

@@ -20,16 +20,20 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.StringUtils;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 import contrail.sequences.FastQFileReader;
@@ -51,10 +55,6 @@ public class BuildBambusInput extends NonMRStage {
   private static final Logger sLogger =
       Logger.getLogger(BuildBambusInput.class);
   private static final int SUB_LEN = 25;
-
-  private File fastaOutputFile;
-  private File libraryOutputFile;
-  private File contigOutputFile;
 
   /**
    * This class stores a pair of files containing mate pairs.
@@ -78,7 +78,7 @@ public class BuildBambusInput extends NonMRStage {
   private static class LibrarySize {
     final public int minimum;
     final public int maximum;
-    private int libSize;
+    private final int libSize;
 
     public LibrarySize(int first, int second) {
       minimum = Math.min(first, second);
@@ -402,15 +402,12 @@ public class BuildBambusInput extends NonMRStage {
 
     // Read the bowtie output.
     BowtieConverter converter = new BowtieConverter();
-    HashMap<String, Object> convertOptions = new HashMap<String, Object>();
+    converter.initializeAsChild(this);
 
     String convertedPath = FilenameUtils.concat(
         hdfsPath, BowtieConverter.class.getSimpleName());
-    convertOptions.put("inputpath", hdfsAlignDir);
-    convertOptions.put("outputpath", convertedPath);
-
-    converter.setConf(getConf());
-    converter.setParameters(convertOptions);
+    converter.setParameter("inputpath", hdfsAlignDir);
+    converter.setParameter("outputpath", convertedPath);
 
     if (!converter.execute()) {
       sLogger.fatal(
@@ -430,20 +427,16 @@ public class BuildBambusInput extends NonMRStage {
     String graphPath = (String) stage_options.get("graph_glob");
     // Convert the data to a tigr file.
     TigrCreator tigrCreator = new TigrCreator();
-    HashMap<String, Object> tigrOptions = new HashMap<String, Object>();
+    tigrCreator.initializeAsChild(this);
 
     String hdfsPath = (String)stage_options.get("hdfs_path");
 
-    tigrOptions.put(
+    tigrCreator.setParameter(
         "inputpath", StringUtils.join(
             new String[]{bowtieAvroPath, graphPath}, ","));
 
     String outputPath = FilenameUtils.concat(hdfsPath, "tigr");
-
-    tigrOptions.put("outputpath", outputPath);
-
-    tigrCreator.setConf(getConf());
-    tigrCreator.setParameters(tigrOptions);
+    tigrCreator.setParameter("outputpath", outputPath);
 
     if (!tigrCreator.execute()) {
       sLogger.fatal(
@@ -476,6 +469,8 @@ public class BuildBambusInput extends NonMRStage {
       System.exit(-1);
     }
 
+    File contigOutputFile = getContigOutputFile();
+
     // TODO(jlewi): How can we verify that the copy completes successfully.
     try {
       fs.copyToLocalFile(
@@ -499,14 +494,10 @@ public class BuildBambusInput extends NonMRStage {
     String libFile = (String) this.stage_options.get("libsize");
     parseLibSizes(libFile);
 
-    ArrayList<String> readFiles = new ArrayList<String>();
+
 
     String globs = (String) this.stage_options.get("reads_glob");
-    for (String glob : globs.split(",")) {
-      ArrayList<String> matches =  FileHelper.matchFiles(glob);
-      sLogger.info(String.format("%s matched %d files", glob, matches.size()));
-      readFiles.addAll(matches);
-    }
+    ArrayList<String> readFiles = FileHelper.matchListOfGlobs(globs);
 
     if (readFiles.isEmpty()) {
       sLogger.fatal(
@@ -538,7 +529,6 @@ public class BuildBambusInput extends NonMRStage {
     }
 
     String resultDir = (String) stage_options.get("outputpath");
-    String outPrefix = (String) stage_options.get("outprefix");
 
     File resultDirFile = new File(resultDir);
     if (!resultDirFile.exists()) {
@@ -549,9 +539,10 @@ public class BuildBambusInput extends NonMRStage {
         System.exit(-1);
       }
     }
-    fastaOutputFile = new File(resultDir, outPrefix + ".fasta");
-    libraryOutputFile = new File(resultDir, outPrefix + ".library");
-    contigOutputFile = new File(resultDir, outPrefix + ".contig");
+
+    File fastaOutputFile = getFastaOutputFile();
+    File libraryOutputFile = getLibraryOutputFile();
+    File contigOutputFile = getContigOutputFile();
 
     sLogger.info("Outputs will be written to:");
     sLogger.info("Fasta file: " + fastaOutputFile.getName());
@@ -612,14 +603,16 @@ public class BuildBambusInput extends NonMRStage {
     ParameterDefinition readsGlob =
         new ParameterDefinition(
             "reads_glob", "A glob expression matching the path to the fastq " +
-            "files containg the reads to align to the reference genome.",
+            "files containg the reads to align to the reference genome. " +
+            "Should be a local file system.",
             String.class, null);
 
     // Currently these need to be on the local filesystem.
     ParameterDefinition contigsGlob =
         new ParameterDefinition(
             "reference_glob", "A glob expression matching the path to the " +
-            "fasta files containg the reference genome.",
+            "fasta files containg the reference genome. Should be on the " +
+            "local filesystem.",
             String.class, null);
 
     ParameterDefinition libsizePath =
@@ -661,12 +654,33 @@ public class BuildBambusInput extends NonMRStage {
     return Collections.unmodifiableMap(definitions);
   }
 
+  @Override
+  public List<InvalidParameter> validateParameters() {
+    List<InvalidParameter> invalid = super.validateParameters();
+
+    invalid.addAll(this.checkParameterIsNonEmptyString(Arrays.asList(
+        "outputpath", "outprefix", "hdfs_path")));
+
+    invalid.addAll(this.checkParameterIsExistingLocalFile(Arrays.asList(
+        "bowtie_path", "bowtiebuild_path", "libsize")));
+
+    invalid.addAll(this.checkParameterMatchesLocalFiles(Arrays.asList(
+        "reference_glob", "reads_glob")));
+
+    invalid.addAll(this.checkParameterMatchesFiles(Arrays.asList(
+        "graph_glob")));
+
+    return invalid;
+  }
+
   /**
    * Returns the name of the output file containing the shortened fasta reads.
    * @return
    */
   public File getFastaOutputFile() {
-    return fastaOutputFile;
+    String resultDir = (String) stage_options.get("outputpath");
+    String outPrefix = (String) stage_options.get("outprefix");
+    return new File(resultDir, outPrefix + ".fasta");
   }
 
   /**
@@ -674,7 +688,9 @@ public class BuildBambusInput extends NonMRStage {
    * @return
    */
   public File getContigOutputFile() {
-    return contigOutputFile;
+    String resultDir = (String) stage_options.get("outputpath");
+    String outPrefix = (String) stage_options.get("outprefix");
+    return new File(resultDir, outPrefix + ".contig");
   }
 
   /**
@@ -682,12 +698,14 @@ public class BuildBambusInput extends NonMRStage {
    * @return
    */
   public File getLibraryOutputFile() {
-    return libraryOutputFile;
+    String resultDir = (String) stage_options.get("outputpath");
+    String outPrefix = (String) stage_options.get("outprefix");
+    return new File(resultDir, outPrefix + ".library");
   }
 
   public static void main(String[] args) throws Exception {
-    BuildBambusInput stage = new BuildBambusInput();
-    int res = stage.run(args);
+    int res = ToolRunner.run(
+        new Configuration(), new BuildBambusInput(), args);
     System.exit(res);
   }
 }
