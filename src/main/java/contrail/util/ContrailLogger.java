@@ -44,6 +44,10 @@ public class ContrailLogger {
     logger.info(message);
   }
 
+  public void warn(Object message) {
+    logger.warn(message);
+  }
+
   public void fatal(Object message, Throwable t) {
     logger.fatal(message, t);
 

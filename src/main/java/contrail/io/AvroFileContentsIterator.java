@@ -53,7 +53,7 @@ public class AvroFileContentsIterator<T> implements Iterator<T>, Iterable<T> {
   private final List<String> files;
 
   // The iterator for the current file.
-  private Iterator<T> currentIterator;
+  private IteratorStreamTuple current;
 
   // Iterator over the files.
   private final Iterator<String> fileIterator;
@@ -74,10 +74,10 @@ public class AvroFileContentsIterator<T> implements Iterator<T>, Iterable<T> {
     fileIterator = this.files.iterator();
 
     if (!files.isEmpty()) {
-      currentIterator = openFile(fileIterator.next());
+      current = openFile(fileIterator.next());
       hasMoreRecords = null;
     } else {
-      currentIterator = new ArrayList<T>().iterator();
+      current = null;
       hasMoreRecords = false;
     }
   }
@@ -108,9 +108,9 @@ public class AvroFileContentsIterator<T> implements Iterator<T>, Iterable<T> {
        sLogger.info("Skipping directory:" + status.getPath());
          continue;
       }
-      sLogger.info("Input file:" + status.getPath()) ;
       inputFiles.add(status.getPath().toString());
     }
+    sLogger.info("Number of input files: " + inputFiles.size());
 
     return new AvroFileContentsIterator<T>(inputFiles, conf);
   }
@@ -118,16 +118,27 @@ public class AvroFileContentsIterator<T> implements Iterator<T>, Iterable<T> {
   @Override
   public boolean hasNext() {
     if (hasMoreRecords == null) {
+      if (current == null) {
+        hasMoreRecords = false;
+        return hasMoreRecords;
+      }
       // Need to recompute whether there are more records.
-      if (currentIterator.hasNext()) {
+      if (current.avroStream.hasNext()) {
         hasMoreRecords = true;
         return hasMoreRecords;
       }
+      try {
+        current.close();
+      } catch (IOException e) {
+        sLogger.warn("Exception occurred while closing the string: " +
+                     e.getMessage());
+      }
+
       // Loop over the remaining files until we either find a file with
       // records to process or we run out of records to process.
       while (fileIterator.hasNext()) {
-        currentIterator = openFile(fileIterator.next());
-        if (currentIterator.hasNext()) {
+        current = openFile(fileIterator.next());
+        if (current.avroStream != null && current.avroStream.hasNext()) {
           hasMoreRecords = true;
           return hasMoreRecords;
         }
@@ -144,7 +155,22 @@ public class AvroFileContentsIterator<T> implements Iterator<T>, Iterable<T> {
   public T next() {
     // Reset hasMoreRecords so that it will be recomputed.
     hasMoreRecords = null;
-    return currentIterator.next();
+    return current.avroStream.next();
+  }
+
+  private class IteratorStreamTuple {
+    public DataFileStream<T> avroStream;
+    public FSDataInputStream inStream;
+
+    public void close() throws IOException {
+      if (avroStream != null) {
+        avroStream.close();
+        avroStream = null;
+      }
+      if (inStream != null) {
+        inStream.close();
+      }
+    }
   }
 
   /**
@@ -152,8 +178,8 @@ public class AvroFileContentsIterator<T> implements Iterator<T>, Iterable<T> {
    * @param path
    * @return
    */
-  private Iterator<T> openFile(String path) {
-    DataFileStream<T> avroStream = null;
+  private IteratorStreamTuple openFile(String path) {
+    IteratorStreamTuple result = new IteratorStreamTuple();
 
     FileSystem fs = null;
     try{
@@ -163,15 +189,15 @@ public class AvroFileContentsIterator<T> implements Iterator<T>, Iterable<T> {
     }
 
     try {
-      FSDataInputStream inStream = fs.open(new Path(path));
+      result.inStream = fs.open(new Path(path));
       SpecificDatumReader<T> reader = new SpecificDatumReader<T>();
-      avroStream = new DataFileStream<T>(inStream, reader);
+      result.avroStream = new DataFileStream<T>(result.inStream, reader);
     } catch (IOException exception) {
       throw new RuntimeException(
           "There was a problem reading the avro file: " + path + " " +
               "Exception:" + exception.getMessage());
     }
-    return avroStream;
+    return result;
   }
 
   @Override
