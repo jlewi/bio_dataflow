@@ -93,7 +93,7 @@ public class BuildBambusInput extends NonMRStage {
 
   // libSizes stores the sizes for each read library. The key is the
   // prefix of the FastQ files for that library. The value is a pair
-  // which stores the lower and uppoer bound for the library size.
+  // which stores the lower and upper bound for the library size.
   private HashMap<String, LibrarySize> libSizes;
 
   /**
@@ -276,20 +276,30 @@ public class BuildBambusInput extends NonMRStage {
   }
 
   /**
-   * Create a library file.
-   * The library file lists each mate pair in each ibrary.
+   * Create a library file in the bambus format
    *
    * @param libraryOutputFile: The file to write to.
    * @param mates: A hash map specifying the mate pairs in each library.
    *
+   * The library file lists each mate pair in each library.
+   *
+   * For more info on the bambus format see:
+   * http://www.cs.jhu.edu/~genomics/Bambus/Manual.html#matesfile
+   *
    * For each library fetch the library size or throw an error if there
    * is no size for this library.
    * Write out the library file. The library is a text file.
-   * For each library there is a line starting wtih "library" which
+   * For each library there is a line starting with "library" which
    * contains the name of the library and the size for the library.
    * For each mate pair in the library we write a line with the id's
    * of the reads forming the pair and the name of the library they come
    * from.
+   *
+   * TODO(jeremy@lewi.us): We might want to rename this the mates file
+   * to be consistent with bambus naming.
+   * http://www.cs.jhu.edu/~genomics/Bambus/Manual.html#matesfile
+   *
+   * The mates file is one way of providing library information to bambus.
    */
   private void createLibraryFile(
       File libraryOutputFile,
@@ -493,8 +503,6 @@ public class BuildBambusInput extends NonMRStage {
   protected void stageMain() {
     String libFile = (String) this.stage_options.get("libsize");
     parseLibSizes(libFile);
-
-
 
     String globs = (String) this.stage_options.get("reads_glob");
     ArrayList<String> readFiles = FileHelper.matchListOfGlobs(globs);
