@@ -14,24 +14,41 @@
 // Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.scaffolding;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Random;
 
+import org.apache.avro.specific.SpecificData;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.StringUtils;
+import org.junit.Test;
 
 import contrail.graph.GraphNode;
 import contrail.graph.GraphUtil;
 import contrail.sequences.AlphabetUtil;
 import contrail.sequences.DNAAlphabetFactory;
+import contrail.sequences.FastQFileReader;
+import contrail.sequences.FastQRecord;
+import contrail.sequences.FastUtil;
+import contrail.sequences.FastaFileReader;
+import contrail.sequences.FastaRecord;
+import contrail.sequences.MatePair;
 import contrail.sequences.Sequence;
 import contrail.util.FileHelper;
+import contrail.util.ListUtil;
 
 /**
  * A binary useful for testing the code for building the bambus input.
@@ -43,9 +60,121 @@ import contrail.util.FileHelper;
  * by searching the path for bowtie and bowtie-build so that the user
  * doesn't have to specify the manually.
  */
-public class TestBuildBambusInput {
+public class TestBuildBambusInput extends BuildBambusInput {
   private final ArrayList<File> dirsToDelete;
 
+  @Test
+  public void testCreateFastaAndLibraryFile() throws 
+      FileNotFoundException, IOException {
+    File tempDir = FileHelper.createLocalTempDir();
+    
+    Random generator = new Random();
+    
+    String libFile = FilenameUtils.concat(
+        tempDir.toString(), "genome.libSize");
+    // Create some paired library files.
+    PrintStream libStream = new PrintStream(libFile);
+    
+    ArrayList<MateFilePair> matePairs = new ArrayList<MateFilePair>();
+    ArrayList<String> fastqFiles = new ArrayList<String>();
+    for (int lNum = 0; lNum < 2; ++lNum) {
+      MateFilePair pair = new MateFilePair("", "", "");
+      matePairs.add(pair);
+      pair.libraryName = String.format("somelib%d", lNum);
+      libStream.println(String.format(
+          "%s %d %d", pair.libraryName, 10*(lNum + 1), 10*(lNum + 2)));
+               
+      for (String suffix : new String[] {"_1", "_2"}) {
+        String fastqFile = FilenameUtils.concat(
+            tempDir.toString(), 
+            String.format("%s%s.fastq", pair.libraryName, suffix));
+        fastqFiles.add(fastqFile);
+        if (suffix.equals("_1")) {
+          pair.leftFile = fastqFile;
+        } else {
+          pair.rightFile = fastqFile;
+        }
+        
+        PrintStream fastqStream = new PrintStream(fastqFile);
+        
+        FastQRecord read = new FastQRecord();
+        for (int i = 0; i < 10; ++i) {
+          read.setId(String.format("%s_read_%d_%s", pair.libraryName, i, 
+              suffix));
+          read.setRead(AlphabetUtil.randomString(
+              generator, 100, DNAAlphabetFactory.create()));
+          FastUtil.writeFastQRecord(fastqStream, read);
+        }
+        fastqStream.close();
+      }
+    }
+    libStream.close();
+    
+    parseLibSizes(libFile);
+    // Verify that buildMatePairs correctly pairs the files.
+    ArrayList<MateFilePair> actualMateFilePairs =
+        this.buildMatePairs(fastqFiles);
+    
+    Collections.sort(actualMateFilePairs);
+    assertEquals(matePairs.size(), actualMateFilePairs.size());
+    for (int i = 0; i < matePairs.size(); ++i) {
+      assertEquals(matePairs.get(i), actualMateFilePairs.get(i));
+    }
+    
+    File fastaOutputFile = new File(FilenameUtils.concat(
+        tempDir.toString(), "fasta.fasta"));
+    
+    File libraryOutputFile = new File(FilenameUtils.concat(
+        tempDir.toString(), "library"));
+    
+    this.createFastaAndLibraryFiles(
+        matePairs, fastaOutputFile, libraryOutputFile);
+    
+    // Check the library file.
+    BufferedReader libReader = new BufferedReader(new FileReader(
+        libraryOutputFile));
+
+    
+    FastaFileReader fastaReader = new FastaFileReader(
+        fastaOutputFile.toString());
+    for (int i = 0; i < matePairs.size(); ++i) {
+      String line = libReader.readLine();
+      int minSize =  10*(i + 1);
+      int maxSize = 10*(i + 2);
+      String expectedLine = String.format(
+          "library %s %d %d", matePairs.get(i).libraryName, minSize, maxSize);
+      assertEquals(expectedLine, line);
+      
+      MateFilePair pair = matePairs.get(i);
+      FastQFileReader leftReader = new FastQFileReader(pair.leftFile);
+      FastQFileReader rightReader = new FastQFileReader(pair.rightFile);
+
+      while (leftReader.hasNext()) {
+        FastQRecord left = leftReader.next();
+        FastQRecord right = rightReader.next();
+        FastaRecord leftShort = fastaReader.next();
+        leftShort = SpecificData.get().deepCopy(
+            leftShort.getSchema(), leftShort);
+        FastaRecord rightShort = fastaReader.next();
+        
+        // Check that the next line of the library file is these two reads.
+        String libLine = String.format(
+            "%s %s %s", left.getId(), right.getId(), pair.libraryName);
+        assertEquals(libLine, libReader.readLine());
+        
+        // Check the reads are the shortened versions.
+        assertEquals(left.getId().toString(), leftShort.getId().toString());
+        assertEquals(right.getId().toString(), rightShort.getId().toString());
+        
+        // Check the sequence is the shortened version.
+        assertEquals(left.getRead().subSequence(0, SUB_LEN).toString(), 
+                     leftShort.getRead().toString());
+        assertEquals(right.getRead().subSequence(0, SUB_LEN).toString(),
+                     rightShort.getRead().toString());        
+      }
+    }
+  }
+  
   public TestBuildBambusInput() {
     dirsToDelete = new ArrayList<File>();
   }

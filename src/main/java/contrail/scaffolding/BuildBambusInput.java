@@ -38,7 +38,9 @@ import org.apache.log4j.Logger;
 
 import contrail.sequences.FastQFileReader;
 import contrail.sequences.FastQRecord;
+import contrail.sequences.FastUtil;
 import contrail.sequences.FastaRecord;
+import contrail.sequences.ReadIdUtil;
 import contrail.stages.NonMRStage;
 import contrail.stages.ParameterDefinition;
 import contrail.util.FileHelper;
@@ -54,12 +56,12 @@ import contrail.util.FileHelper;
 public class BuildBambusInput extends NonMRStage {
   private static final Logger sLogger =
       Logger.getLogger(BuildBambusInput.class);
-  private static final int SUB_LEN = 25;
+  protected static final int SUB_LEN = 25;
 
   /**
    * This class stores a pair of files containing mate pairs.
    */
-  private static class MateFilePair {
+  protected static class MateFilePair implements Comparable {
     public String leftFile;
     public String rightFile;
     public String libraryName;
@@ -69,6 +71,34 @@ public class BuildBambusInput extends NonMRStage {
       this.libraryName = libraryName;
       this.leftFile = leftFile;
       this.rightFile = rightFile;
+    }
+
+    @Override
+    public int compareTo(Object o) {
+      if (!(o instanceof MateFilePair)) {
+        throw new RuntimeException("Can only compare to other MateFilePair");
+      }
+      
+      MateFilePair other = (MateFilePair) o;
+      return this.libraryName.compareTo(other.libraryName);
+    }
+    
+    public boolean equals(Object o) {
+      if (!(o instanceof MateFilePair)) {
+        throw new RuntimeException("o must be an instance of MateFilePair");
+      }
+      
+      MateFilePair other = (MateFilePair) o;
+      if (!leftFile.equals(other.leftFile)) {
+        return false;
+      }
+      if (!rightFile.equals(other.rightFile)) {
+        return false;
+      }
+      if (!libraryName.equals(other.libraryName)) {
+        return false;
+      }
+      return true;
     }
   }
 
@@ -99,7 +129,7 @@ public class BuildBambusInput extends NonMRStage {
   /**
    * Parse the library file and extract the library sizes.
    */
-  private void parseLibSizes(String libFile) {
+  protected void parseLibSizes(String libFile) {
     try {
       libSizes = new HashMap<String, LibrarySize>();
       BufferedReader libSizeFile =
@@ -125,7 +155,8 @@ public class BuildBambusInput extends NonMRStage {
    *
    * @param readFiles
    */
-  private ArrayList<MateFilePair> buildMatePairs(Collection<String> readFiles) {
+  protected ArrayList<MateFilePair> buildMatePairs(
+      Collection<String> readFiles) {
     HashMap<String, ArrayList<String>> libraryFiles =
         new HashMap<String, ArrayList<String>>();
 
@@ -165,6 +196,7 @@ public class BuildBambusInput extends NonMRStage {
         }
         sLogger.fatal(message, new RuntimeException(message));
       }
+      Collections.sort(files);
       MateFilePair pair = new MateFilePair(
           libraryName, files.get(0), files.get(1));
       matePairs.add(pair);
@@ -175,19 +207,9 @@ public class BuildBambusInput extends NonMRStage {
   }
 
   /**
-   * Create an index of mate pairs for each library and write fasta output.
-   *
-   * @param: The file to write the truncated reads to.
-   * @return: A hash map of the mate pairs for each library.
-   *  The key for the hash map is the prefix for the library and identifies
-   *  a set of mate pairs.
-   *  The value is a hashmap with two keys "left" and "right". Each key
-   *  stores one set of reads in the mate pairs for this library. The value
-   *  of "left" and "right" is an array of strings storing the ids of all
-   *  the reads. Thus
-   *  mates[prefix]["left"][i] and mates[prefix]["right"][i] should be the
-   *  id's of the the i'th mate pair in the library given by prefix.
-   *
+   * For each pair of mates shorten the reads and write an entry to the library
+   * file.
+   * 
    * The code assumes that the reads in two mate pair files are already
    * aligned. i.e The i'th record in frag_1.fastq is the mate pair for
    * the i'th record in frag_2.fastq
@@ -196,171 +218,179 @@ public class BuildBambusInput extends NonMRStage {
    * length SUB_LEN. All of the truncated reads are then written to
    * fastaOutputFile. The reads are truncated because BOWTIE is a short
    * read aligner.
+   *
+   * @param matePairs: A collection of file pairs representing mate pair 
+   *    libraries.
+   * @param fastaOutputFile: The file to write the shortened reads to.
+   * @param libraryOutputFile: The file to write the library information to.
    */
-  private HashMap<String, HashMap<String, ArrayList<String>>> shortenReads(
-      Collection<MateFilePair> matePairs,
-      File fastaOutputFile) {
-    sLogger.info(
-        String.format(
-            "Shortening the reads to align to %d bases and writing them " +
-             "to: %s", SUB_LEN, fastaOutputFile.getPath()));
-    HashMap<String, HashMap<String, ArrayList<String>>> mates = null;
-    try {
-      PrintStream out = new PrintStream(fastaOutputFile);
-      mates = new HashMap<String, HashMap<String, ArrayList<String>>>();
-
-      FastaRecord fastaRecord = new FastaRecord();
-
-      final int NUM_READS = 200;
-      for (MateFilePair matePair : matePairs) {
-        // first trim to 25bp
-        sLogger.info(
-            "Processing reads for library:" + matePair.libraryName);
-        mates.put(
-            matePair.libraryName, new HashMap<String, ArrayList<String>>());
-        mates.get(matePair.libraryName).put(
-            "left", new ArrayList<String>(NUM_READS));
-        mates.get(matePair.libraryName).put(
-            "right", new ArrayList<String>(NUM_READS));
-
-        for (int i = 0; i < 2; ++i) {
-          String readFile = null;
-          ArrayList<String> readIds = null;
-          if (i == 0) {
-            readFile = matePair.leftFile;
-            readIds = mates.get(matePair.libraryName).get("left");
-          } else {
-            readFile = matePair.rightFile;
-            readIds = mates.get(matePair.libraryName).get("right");
-          }
-          FastQFileReader reader = new FastQFileReader(readFile);
-
-          int counter = 0;
-          while (reader.hasNext()) {
-            FastQRecord record = reader.next();
-
-            // Prefix the id by the libraryName.
-            // TODO(jeremy@lewi.us): The original code add the library name
-            // as a prefix to the read id and then replaced "/" with "_".
-            // I think manipulating the readId's is risky because we need to
-            // be consistent. So we don't prepend the library name.
-            // However, some programs e.g bowtie cut the "/" off and set a
-            // a special code. So to be consistent we use the function
-            // safeReadId to convert readId's to a version that can be safely
-            // used everywhere.
-            fastaRecord.setId(Utils.safeReadId(record.getId().toString()));
-
-            // Truncate the read because bowtie can only handle short reads.
-            fastaRecord.setRead(record.getRead().subSequence(0, SUB_LEN));
-
-            out.println(">" +  fastaRecord.getId());
-            out.println(fastaRecord.getRead());
-
-            readIds.add(fastaRecord.getId().toString());
-
-            ++counter;
-            if (counter % 1000000 == 0) {
-              sLogger.info("Processed " + counter + " reads");
-              out.flush();
-            }
-            counter++;
-          }
-        }
-      }
-      out.close();
-    } catch (Exception e) {
-      sLogger.fatal("Exception occured while shortening the reads.", e);
-      System.exit(-1);
+  protected void createFastaAndLibraryFiles(
+      Collection<MateFilePair> matePairs, File fastaOutputFile, 
+      File libraryOutputFile) {
+    LibraryFileWriter libWriter = null;
+    try{
+      libWriter = new LibraryFileWriter(libraryOutputFile);
+    } catch (IOException e) {
+      sLogger.fatal("Could not create library file: " + libraryOutputFile, e);
     }
-    return mates;
-  }
+    
+    PrintStream fastaStream = null;
+    
+   try {
+     fastaStream = new PrintStream(fastaOutputFile);
+   } catch(IOException e) {
+     sLogger.fatal(String.format(
+         "Could not open %s for writing.", fastaOutputFile), e);
+     System.exit(-1);
+   }
+    
+    for (MateFilePair matePair : matePairs) {
+      libWriter.writeLibrary(
+          matePair.libraryName, getLibSize(matePair.libraryName));
+      
+      FastQFileReader leftReader = new FastQFileReader(matePair.leftFile);
+      FastQFileReader rightReader = new FastQFileReader(matePair.rightFile);
 
+      int counter = 0;
+      
+      FastaRecord fasta = new FastaRecord();
+      
+      while (leftReader.hasNext() && rightReader.hasNext()) {
+        FastQRecord left = leftReader.next();
+        FastQRecord right = rightReader.next();
+
+        String leftId = left.getId().toString();
+        String rightId = right.getId().toString();
+        if (!ReadIdUtil.isMatePair(leftId, rightId)) {
+          sLogger.fatal(String.format(
+              "Expecting a mate pair but the read ids: %s, %s do not form " +
+              "a valid mate pair.", leftId, rightId));
+          System.exit(-1);
+        }
+        
+        // TODO(jeremy@lewi.us): The original code added the library name
+        // as a prefix to the read id and then replaced "/" with "_".
+        // I think manipulating the readId's is risky because we need to
+        // be consistent. So we don't prepend the library name.
+        // However, some programs e.g bowtie cut the "/" off and set a
+        // a special code. So to be consistent we use the function
+        // safeReadId to convert readId's to a version that can be safely
+        // used everywhere.
+        left.setId(Utils.safeReadId(left.getId().toString()));
+        right.setId(Utils.safeReadId(right.getId().toString()));
+        
+        libWriter.writeMateIds(
+            left.getId().toString(), right.getId().toString(), 
+            matePair.libraryName);
+        
+        
+        for (FastQRecord fastq : new FastQRecord[] {left, right}) {
+          fasta.setId(fastq.getId());
+          
+          // Truncate the read because bowtie can only handle short reads.
+          fasta.setRead(fastq.getRead().subSequence(0, SUB_LEN));
+         
+          FastUtil.writeFastARecord(fastaStream, fasta);
+        }
+
+        ++counter;
+        if (counter % 1000000 == 0) {
+          sLogger.info("Processed " + counter + " reads");
+          fastaStream.flush();
+        }
+        counter++;
+      }
+      
+      if (leftReader.hasNext() != rightReader.hasNext()) {
+        sLogger.fatal(String.format(
+            "The mait pair files %s and %s don't have the same number of " +
+            "reads this indicates the reads aren't properly paired as mate " +
+            "pairs.", matePair.leftFile, matePair.rightFile));
+      }
+      leftReader.close();
+      rightReader.close();
+    }
+    
+    libWriter.close();
+  }
+  
   /**
-   * Create a library file in the bambus format
-   *
-   * @param libraryOutputFile: The file to write to.
-   * @param mates: A hash map specifying the mate pairs in each library.
-   *
+   * Writer for the library file.
+   * 
    * The library file lists each mate pair in each library.
    *
    * For more info on the bambus format see:
    * http://www.cs.jhu.edu/~genomics/Bambus/Manual.html#matesfile
-   *
-   * For each library fetch the library size or throw an error if there
-   * is no size for this library.
-   * Write out the library file. The library is a text file.
-   * For each library there is a line starting with "library" which
-   * contains the name of the library and the size for the library.
-   * For each mate pair in the library we write a line with the id's
-   * of the reads forming the pair and the name of the library they come
-   * from.
-   *
-   * TODO(jeremy@lewi.us): We might want to rename this the mates file
-   * to be consistent with bambus naming.
-   * http://www.cs.jhu.edu/~genomics/Bambus/Manual.html#matesfile
-   *
-   * The mates file is one way of providing library information to bambus.
    */
-  private void createLibraryFile(
-      File libraryOutputFile,
-      HashMap<String, HashMap<String, ArrayList<String>>> mates) {
-    try {
-      PrintStream libOut = new PrintStream(libraryOutputFile);
-      for (String lib : mates.keySet()) {
-        HashMap<String, ArrayList<String>> libMates = mates.get(lib);
-        String libName = lib.replaceAll("_", "");
-        if (libSizes.get(libName) == null) {
-          String knownLibraries = "";
-          for (String library : libSizes.keySet()) {
-            knownLibraries += library + ",";
-          }
-          // Strip the last column.
-          knownLibraries = knownLibraries.substring(
-              0, knownLibraries.length() - 1);
-          sLogger.fatal(
-              "No library sizes are defined for libray:" + libName + " . Known " +
-              "libraries are: " + knownLibraries,
-              new RuntimeException("No library sizes for libray:" + libName));
-        }
-        libOut.println(
-            "library " + libName + " " + libSizes.get(libName).minimum + " " +
-            libSizes.get(libName).maximum);
-        ArrayList<String> left = libMates.get("left");
-        ArrayList<String> right = libMates.get("right");
+  private static class LibraryFileWriter {
+    private PrintStream outStream;
+    private File libraryFile;
+    
+    // TODO(jeremy@lewi.us): Do we really want to throw an exception in the
+    // constructor?
+    public LibraryFileWriter(File file) throws IOException {
+      libraryFile = file;
+      outStream = new PrintStream(libraryFile);
+    }
+    
+    /**
+     * Write the name of a library and its min and max insert size.
+     */
+    public void writeLibrary(String name, LibrarySize libSize) {
+      String libName = name.replaceAll("_", "");
 
-        if (left.size() != right.size()) {
-          sLogger.fatal(
-              "Not all reads in library " + libName + " have a mat.",
-              new RuntimeException("Not all reads are paired."));
-        }
-
-        for (int whichMate = 0; whichMate < left.size(); whichMate++) {
-          // If the left read name starts with "l", "p" or "#" because
-          // the binary toAmos_new in the amos package reserves uses these
-          // characters to identify special types of rows in the file.
-          String leftRead = left.get(whichMate);
-          if (leftRead.startsWith("l") || leftRead.startsWith("p") ||
-              leftRead.startsWith("#")) {
-            sLogger.fatal(
-                "The read named:" + leftRead + " will cause problems with the " +
-                "amos binary toAmos_new. The amos binary attributes special " +
-                "meaning to rows in the library file starting with 'p', 'l' or " +
-                "'#' so if the id for a read starts with any of those " +
-                "characters it will mess up amos.",
-                new RuntimeException("Invalid read name"));
-            System.exit(-1);
-          }
-          libOut.println(
-              left.get(whichMate) + " " + right.get(whichMate) + " " + libName);
-        }
+      outStream.println(
+          "library " + libName + " " + libSize.minimum + " " + libSize.maximum);
+    }
+    
+    /**
+     * Write the ids of a mate pair.
+     */
+    public void writeMateIds(String leftId, String rightId, String libName) {
+      // If the left read name starts with "l", "p" or "#" we have a problem
+      // because  the binary toAmos_new in the amos package reserves uses these
+      // characters to identify special types of rows in the file.
+      if (leftId.startsWith("l") || leftId.startsWith("p") ||
+          leftId.startsWith("#")) {
+        sLogger.fatal(
+            "The read named:" + leftId + " will cause problems with the " +
+            "amos binary toAmos_new. The amos binary attributes special " +
+            "meaning to rows in the library file starting with 'p', 'l' or " +
+            "'#' so if the id for a read starts with any of those " +
+            "characters it will mess up amos.",
+            new RuntimeException("Invalid read name"));
+        System.exit(-1);
       }
-      libOut.close();
-    } catch (Exception e){
-      sLogger.fatal("Exception occured while creating library file.", e);
-      System.exit(-1);
+      outStream.println(leftId + " " + rightId + " " + libName);
+    }
+    
+    public void close() {
+      outStream.close();
     }
   }
-
+  
+  /**
+   * Return the size of the library.
+   */
+  private LibrarySize getLibSize(String lib) {
+    String libName = lib.replaceAll("_", "");
+    LibrarySize result = libSizes.get(libName);
+    if (result == null) {
+      String knownLibraries = "";
+      for (String library : libSizes.keySet()) {
+        knownLibraries += library + ",";
+      }
+      // Strip the last column.
+      knownLibraries = knownLibraries.substring(
+          0, knownLibraries.length() - 1);
+      sLogger.fatal(
+          "No library sizes are defined for libray:" + libName + " . Known " +
+          "libraries are: " + knownLibraries,
+          new RuntimeException("No library sizes for libray:" + libName));
+    }
+    return result;
+  }
+  
   /**
    * Convert the output of bowtie to an avro file.
    *
@@ -557,12 +587,8 @@ public class BuildBambusInput extends NonMRStage {
     sLogger.info("Library file: " + libraryOutputFile.getName());
     sLogger.info("Contig Aligned file: " + contigOutputFile.getName());
 
-    HashMap<String, HashMap<String, ArrayList<String>>> mates =
-        shortenReads(matePairs, fastaOutputFile);
-
-    createLibraryFile(libraryOutputFile, mates);
-    sLogger.info("Library file written:" + libraryOutputFile.getPath());
-
+    createFastaAndLibraryFiles(matePairs, fastaOutputFile, libraryOutputFile);
+    
     // Run the bowtie aligner
     BowtieRunner runner = new BowtieRunner(
         (String)stage_options.get("bowtie_path"),
