@@ -133,7 +133,6 @@ public class TestBuildBambusInput extends BuildBambusInput {
     // Check the library file.
     BufferedReader libReader = new BufferedReader(new FileReader(
         libraryOutputFile));
-
     
     FastaFileReader fastaReader = new FastaFileReader(
         fastaOutputFile.toString());

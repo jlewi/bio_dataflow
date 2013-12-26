@@ -14,6 +14,8 @@
 // Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.sequences;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintStream;
 
 import org.apache.commons.lang.StringUtils;
@@ -36,6 +38,24 @@ public class FastUtil {
     stream.append("\n+\n");
     stream.append(record.getQvalue());
     stream.append("\n");
+  }
+
+  /**
+   * Write a fastq record to the stream.
+   *
+   * @param record
+   */
+  public static void writeFastQRecord(OutputStream stream, FastQRecord record)
+      throws IOException {
+    StringBuffer buffer = new StringBuffer();
+    buffer.append("@");
+    buffer.append(record.getId());
+    buffer.append("\n");
+    buffer.append(record.getRead());
+    buffer.append("\n+\n");
+    buffer.append(record.getQvalue());
+    buffer.append("\n");
+    stream.write(buffer.toString().getBytes());
   }
 
   /**

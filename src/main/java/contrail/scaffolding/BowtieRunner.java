@@ -15,6 +15,7 @@
 package contrail.scaffolding;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -118,7 +119,7 @@ public class BowtieRunner {
    */
   private void shortenFastQFile(String inFile, File outFile, int readLength) {
     try {
-      PrintStream out = new PrintStream(outFile);
+      FileOutputStream out = new FileOutputStream(outFile);
       FastQFileReader reader = new FastQFileReader(inFile);
 
       while (reader.hasNext()) {
@@ -133,12 +134,6 @@ public class BowtieRunner {
               record.getQvalue().toString().subSequence(0, readLength));
         }
         FastUtil.writeFastQRecord(out, record);
-      }
-      if (out.checkError()) {
-        sLogger.fatal(
-            "There was a problem writing the shortened reads.",
-            new RuntimeException("Could not write shortened reads."));
-        System.exit(-1);
       }
     } catch (Exception e) {
       sLogger.fatal("Could not write shortened reads." , e);

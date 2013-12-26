@@ -14,9 +14,10 @@
 // Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.sequences;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.PrintStream;
 
 import org.junit.Test;
@@ -33,6 +34,24 @@ public class TestFastUtil {
     PrintStream stream = new PrintStream(outStream);
     FastUtil.writeFastQRecord(stream, record);
     stream.close();
+    String actualValue = outStream.toString();
+    String expectedValue =
+        String.format(
+            "@%s\n%s\n+\n%s\n", record.getId(), record.getRead(),
+            record.getQvalue());
+
+    assertEquals(expectedValue, actualValue);
+  }
+
+  @Test
+  public void testWriteFastQRecordToStream() throws IOException {
+    FastQRecord record = new FastQRecord();
+    record.setId("Some read");
+    record.setRead("ACTTTA");
+    record.setQvalue("!@!!!!");
+    ByteArrayOutputStream outStream = new ByteArrayOutputStream();
+    FastUtil.writeFastQRecord(outStream, record);
+    outStream.close();
     String actualValue = outStream.toString();
     String expectedValue =
         String.format(
