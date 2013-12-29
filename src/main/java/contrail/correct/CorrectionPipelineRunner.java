@@ -16,18 +16,11 @@ import contrail.stages.PipelineStage;
 import contrail.stages.StageBase;
 import contrail.util.ContrailLogger;
 
-
 // TODO(jeremy@lewi.us): Why is bitvectorpath listed as an argument
 // when you do "--help=true", shouldn't it get set automatically? It is
 // used by BuildBitVector stage. We should exclude that option from
 // the options for the CorrectionPipelineRunner stage because it should be
 // derived automatically from the other parameters.
-//
-// TODO(jeremy@lewi.us): How should the user indicate that they don't
-// want to run flash? One option would be to allow the empty string for
-// flash_input. However, that makes it difficult to distinguish the user
-// forgot to set the path or if they don't want to use flash. I think a
-// better option is to add a boolean option to disable flash.
 //
 // TODO(jeremy@lewi.us): The code currently assumes that the quake paths
 // and the flash paths are disjoint. Otherwise we would input some reads
@@ -86,6 +79,13 @@ public class CorrectionPipelineRunner extends PipelineStage {
         "can be a glob expression.",
         String.class, null);
 
+    ParameterDefinition useFlash = new ParameterDefinition(
+        "use_flash", "Whether or not to use flash. If set to false " +
+        "flash_input should be the empty string.",
+        Boolean.class, true);
+
+    definitions.put(useFlash.getName(), useFlash);
+
     ParameterDefinition quakeNonMateInputPath = new ParameterDefinition(
         "no_flash_input",
         "The path to the fastq files which should be included in " +
@@ -123,7 +123,8 @@ public class CorrectionPipelineRunner extends PipelineStage {
 
   /**
    *
-   * @param flashResults: The results of running flash.
+   * @param flashResults: The results of running flash or null if we skipped
+   *   flash.
    */
   private void runQuake(FlashResults flashResults) {
     String outputPath = FilenameUtils.concat(
@@ -148,7 +149,9 @@ public class CorrectionPipelineRunner extends PipelineStage {
     }
 
     ArrayList<String> inputGlobs = new ArrayList<String>();
-    inputGlobs.add(flashResults.flashOutputPath);
+    if (flashResults != null) {
+      inputGlobs.add(flashResults.flashOutputPath);
+    }
     inputGlobs.add(inputAvroPath);
 
     // Kmer counting stage
@@ -326,12 +329,30 @@ public class CorrectionPipelineRunner extends PipelineStage {
    * @throws Exception
    */
   private void runCorrectionPipeline() {
-    FlashResults flashResults = runFlash();
+    Boolean useFlash = (Boolean) stage_options.get("use_flash");
+    FlashResults flashResults = null;
+    if (useFlash) {
+      flashResults = runFlash();
+    } else {
+      sLogger.info("Not running flash.");
+    }
     runQuake(flashResults);
   }
 
   @Override
   public void stageMain() {
+    Boolean useFlash = (Boolean) stage_options.get("use_flash");
+    if (!useFlash) {
+      String flashInput = (String) stage_options.get("flash_input");
+      if (!flashInput.isEmpty()) {
+        sLogger.fatal(
+            "flash_input should be the empty string if use_flash=false",
+            new IllegalArgumentException(
+                "flash_input should be the empty string."));
+        System.exit(-1);
+      }
+    }
+
     try {
       runCorrectionPipeline();
     } catch (Exception e) {
