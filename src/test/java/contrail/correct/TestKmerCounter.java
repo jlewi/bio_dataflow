@@ -14,7 +14,10 @@
 // Author: Avijit Gupta (mailforavijit@gmail.com)
 package contrail.correct;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.IOException;
@@ -32,6 +35,7 @@ import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 import org.junit.Test;
+
 import contrail.ReporterMock;
 import contrail.correct.KmerCounter.KmerCounterMapper;
 import contrail.correct.KmerCounter.KmerCounterReducer;
@@ -195,7 +199,7 @@ public class TestKmerCounter {
 
     FastQRecord fastQRecord = new FastQRecord();
     fastQRecord.setId("input");
-    fastQRecord.setRead("ATCGNNNNCTGNNNNANNA");
+    fastQRecord.setRead("ATCGNNNNCTGNNNNARRA");
     fastQRecord.setQvalue("!!!!!!!!!!!!!!!");
     AvroCollectorMock<Pair<CharSequence, Long>> collector =
         new AvroCollectorMock<Pair<CharSequence, Long>>();

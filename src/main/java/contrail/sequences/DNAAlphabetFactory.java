@@ -60,7 +60,6 @@ public class DNAAlphabetFactory {
 			if (ALPHABET.length > MAXUINT) {
 				throw new RuntimeException("Alphabet length exceeds maximum length");
 			}
-
 			letters_to_num = new java.util.HashMap<Character, java.lang.Integer>();
 			for (int pos = 0; pos < ALPHABET.length; pos++) {
 				// pos is guaranteed to be less than MAXUINT so the unisgned representation
@@ -97,7 +96,8 @@ public class DNAAlphabetFactory {
 			eos_int = letterToInt(EOS_CHAR);
 		}
 
-		public int bitsPerLetter () {
+		@Override
+    public int bitsPerLetter () {
 			return bits_per_letter;
 		}
 
@@ -106,7 +106,8 @@ public class DNAAlphabetFactory {
 		 * significant bits_per_letter bits.
 		 * @return
 		 */
-		public int letterMask(){
+		@Override
+    public int letterMask(){
 			return letter_mask;
 		}
 
@@ -115,7 +116,8 @@ public class DNAAlphabetFactory {
 		 * We do no error checking. You will get an out of bounds exception if the value
 		 * corresponds to a value greater than the number of characters in the alphabet.
 		 */
-		public char intToLetter(int val){
+		@Override
+    public char intToLetter(int val){
 			// val is assumed to be an integer < MAXUINT so its unsigned value is the same
 			// as the signed representation so we don't need to do any conversion.
 			return ALPHABET[val];
@@ -126,34 +128,46 @@ public class DNAAlphabetFactory {
 		 * We do no error checking. You will get an exception if the letter isn't in the alphabet.
 		 * Case matters.
 		 */
-		public int letterToInt(char letter){
-			return letters_to_num.get(letter);
+		@Override
+    public int letterToInt(char letter){
+		  Integer output = null;
+		  output = letters_to_num.get(letter);
+		  if (output == null) {
+		    throw new RuntimeException(
+		        "The letter '" + letter + "' is not a valid DNA base.");
+		  }
+
+		  return output;
 		}
 
 		/**
 		 * Size of the alphabet. Includes the end of sequence character.
 		 */
-		public int size() {
+		@Override
+    public int size() {
 			return ALPHABET.length;
 		}
 
 		/**
 		 * The set of valid characters in the alphabet (i.e non end of sequence characters);
 		 */
-		public final char[] validChars() {
+		@Override
+    public final char[] validChars() {
 			return VALID_ALPHABET;
 		}
 
 		/**
 		 * Return the end of sequence character
 		 */
-		public final char EOS () {
+		@Override
+    public final char EOS () {
 			return EOS_CHAR;
 		}
 		/**
 		 * Return the int value of the end of sequence character
 		 */
-		public int intEOS() {
+		@Override
+    public int intEOS() {
 			return eos_int;
 		}
 
@@ -161,7 +175,8 @@ public class DNAAlphabetFactory {
 		 * Convert a byte encoding a UTF-8 character, into the appropriate value.
 		 *
 		 */
-		public int utf8ToInt(byte bval) {
+		@Override
+    public int utf8ToInt(byte bval) {
 			return utf8_map[ByteUtil.byteToUint(bval)];
 		}
 
@@ -169,6 +184,7 @@ public class DNAAlphabetFactory {
 		 * Convert an array of bytes encoding a UTF-8 character, into an array
 		 *  of ints of the appropriate value.
 		 */
+    @Override
     public int[] utf8ToInt(byte[] bval) {
       return utf8ToInt(bval, bval.length);
     }
@@ -177,6 +193,7 @@ public class DNAAlphabetFactory {
      * @param bval: The byte buffer.
      * @param length: How many bytes in in bval to convert.
      */
+    @Override
     public int[] utf8ToInt(byte[] bval, int length) {
       int[] nums = new int[length];
       ByteUtil.byteToUint(bval, nums, length);
@@ -186,13 +203,17 @@ public class DNAAlphabetFactory {
       return nums;
     }
 
-	  public boolean hasEOS() {
+	  @Override
+    public boolean hasEOS() {
 	    return false;
 	  }
 	}
 
 	/**
-	 * Create the alphabet if it doesn't exist or return the existing copy if it does.
+	 * Return the global singleton of the Alphabet.
+	 *
+	 * Create the alphabet if it doesn't exist or returns the existing copy if it
+	 * does.
 	 */
 	public static Alphabet create() {
 		if (alphabet == null){

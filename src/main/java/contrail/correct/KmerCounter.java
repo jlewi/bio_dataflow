@@ -107,9 +107,10 @@ public class KmerCounter extends MRStage {
     private void collectKmers(
         CharSequence fullSequence,
         AvroCollector<Pair<CharSequence, Long>> collector) throws IOException {
-      // Chop Kmer string into list of strings whenever N character occurs
+      // Chop Kmer string into list of strings whenever a non DNA base
+      // characer occurs.
       // e.g. AATNAANNNGA is chopped into AAT, AA, GA
-      String[] pieces = fullSequence.toString().split("N+");
+      String[] pieces = fullSequence.toString().split("[^ACTG]+");
       for (String sequence : pieces) {
         for (int i=0; i<= sequence.length() - K; i++) {
           // We want to treat the Kmer and its reverse complement in the same way
