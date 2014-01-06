@@ -64,7 +64,7 @@ public class TestFilterByKMerTag {
       filter.map(node.clone().getData(), collectorMock, reporter);
       assertEquals(1, collectorMock.data.size());
 
-      // Now repeat the test with a node that should be accepted.
+      // Now repeat the test with a node that should not be accepted.
       node.setMertag(new KMerReadTag("different_read", 100));
       collectorMock.data.clear();
       filter.map(node.clone().getData(), collectorMock, reporter);
