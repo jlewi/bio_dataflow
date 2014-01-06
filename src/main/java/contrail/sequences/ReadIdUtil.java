@@ -16,8 +16,6 @@ package contrail.sequences;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.commons.lang.StringUtils;
-
 /**
  * Utilities for parsing and manipulating the ids of reads.
  */
@@ -28,10 +26,10 @@ public class ReadIdUtil {
    */
   public final static Pattern MATE_PAIR_SUFFIX_PATTERN =
       Pattern.compile("[_/][12]$");
-  
+
   /**
    * Checks if the id forms a valid mate pair id.
-   * 
+   *
    * @param id
    */
   public static boolean isValidMateId(String id) {
@@ -48,13 +46,13 @@ public class ReadIdUtil {
     }
     return true;
   }
-  
+
   /**
    * Checks if two reads form a mate pair.
-   * 
-   * The expectation is the two reads should be the same except for the 
+   *
+   * The expectation is the two reads should be the same except for the
    * suffixes "/1" and "/2".
-   * 
+   *
    * @param leftId
    * @param rightId
    * @return
@@ -66,25 +64,20 @@ public class ReadIdUtil {
     if (!isValidMateId(rightId)) {
       return false;
     }
-    
+
     // Make sure the prefixes of both reads matches.
     String leftPrefix = leftId.substring(0, leftId.length() - 2);
     String rightPrefix = rightId.substring(0, rightId.length() - 2);
-    
+
     if (!leftPrefix.equals(rightPrefix)) {
       return false;
     }
-    
+
     // Check that the mate ids are different.
-    if (leftId.charAt(leftId.length() - 1) == 
+    if (leftId.charAt(leftId.length() - 1) ==
         rightId.charAt(rightId.length() - 1)) {
       return false;
     }
     return true;
-//    String leftSuffix = leftId.subSequence(
-//        leftId.length() - 2, leftId.length()).toString();
-//    String rightSuffix = rightId.subSequence(
-//        rightId.length() - 2, rightId.length()).toString();
-        
   }
 }
