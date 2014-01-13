@@ -33,9 +33,7 @@ public class ReadIdUtil {
    * @param id
    */
   public static boolean isValidMateId(String id) {
-    //Matcher prefix = MATE_PAIR_PREFIX_PATTERN.matcher(id);
     Matcher suffix = MATE_PAIR_SUFFIX_PATTERN.matcher(id);
-    //prefix.find();
     if(!suffix.find()) {
       // There is no mate id suffix.
       return false;
@@ -45,6 +43,40 @@ public class ReadIdUtil {
       return false;
     }
     return true;
+  }
+
+  /**
+   * Returns the mate pair id.
+   *
+   * The mate id is the part of the read id that is common to both mates
+   * in the pair. If the id isn't a valid mate id then we just return the
+   * id.
+   *
+   * @param id
+   */
+  public static String getMateId(String id) {
+    Matcher suffix = MATE_PAIR_SUFFIX_PATTERN.matcher(id);
+    if(!suffix.find()) {
+      // There is no mate id suffix.
+      return id;
+    }
+    if (suffix.start() == 0) {
+      // The string only consists of the suffix.
+      throw new IllegalArgumentException("Not a valid id:" + id);
+    }
+    return id.substring(0, suffix.start());
+  }
+
+  /**
+   * Returns the mate pair suffix or "" if not matched.
+   */
+  public static String getMatePairSuffix(String id) {
+    Matcher suffix = MATE_PAIR_SUFFIX_PATTERN.matcher(id);
+    if(!suffix.find()) {
+      // There is no mate id suffix.
+      return "";
+    }
+    return id.substring(suffix.start() + 1);
   }
 
   /**

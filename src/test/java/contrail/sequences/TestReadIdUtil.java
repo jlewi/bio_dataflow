@@ -13,6 +13,7 @@
 //Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.sequences;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -25,7 +26,7 @@ public class TestReadIdUtil {
     assertTrue(ReadIdUtil.isValidMateId("2/1"));
     assertTrue(ReadIdUtil.isValidMateId(
         "gi|30260195|ref|NC_003997.3|_500_735_3:1:0_0:0:0_4/1"));
-    
+
     assertFalse(ReadIdUtil.isValidMateId("someid/11"));
     assertFalse(ReadIdUtil.isValidMateId("2_"));
     assertFalse(ReadIdUtil.isValidMateId("2/"));
@@ -34,15 +35,51 @@ public class TestReadIdUtil {
     assertFalse(ReadIdUtil.isValidMateId(
         "gi|30260195|ref|NC_003997.3|_500_735_3:1:0_0:0:0_4"));
   }
-  
+
+  @Test
+  public void testgetMateId() {
+    assertEquals("3", ReadIdUtil.getMateId("3/1"));
+    assertEquals("2", ReadIdUtil.getMateId("2/1"));
+    assertEquals(
+        "gi|30260195|ref|NC_003997.3|_500_735_3:1:0_0:0:0_4",
+        ReadIdUtil.getMateId(
+            "gi|30260195|ref|NC_003997.3|_500_735_3:1:0_0:0:0_4/1"));
+
+    assertEquals("someid/11", ReadIdUtil.getMateId("someid/11"));
+    assertEquals("2_", ReadIdUtil.getMateId("2_"));
+    assertEquals("2/", ReadIdUtil.getMateId("2/"));
+    assertEquals(
+        "gi|30260195|ref|NC_003997.3|_500_735_3:1:0_0:0:0_4",
+        ReadIdUtil.getMateId(
+            "gi|30260195|ref|NC_003997.3|_500_735_3:1:0_0:0:0_4"));
+  }
+
   @Test
   public void testisMatePair() {
     assertTrue(ReadIdUtil.isMatePair("2/1", "2/2"));
     assertTrue(ReadIdUtil.isMatePair("2_1", "2_2"));
     assertTrue(ReadIdUtil.isMatePair("someid/1", "someid/2"));
-    
+
     assertFalse(ReadIdUtil.isMatePair("2/3", "2/2"));
     assertFalse(ReadIdUtil.isMatePair("somei/1", "someid/2"));
     assertFalse(ReadIdUtil.isMatePair("someid/1", "someid/1"));
+  }
+
+  @Test
+  public void testMatePairSuffix() {
+    assertEquals("1", ReadIdUtil.getMatePairSuffix("3/1"));
+    assertEquals("2", ReadIdUtil.getMatePairSuffix("2/2"));
+    assertEquals(
+        "1",
+        ReadIdUtil.getMatePairSuffix(
+            "gi|30260195|ref|NC_003997.3|_500_735_3:1:0_0:0:0_4/1"));
+
+    assertEquals("", ReadIdUtil.getMatePairSuffix("someid/11"));
+    assertEquals("", ReadIdUtil.getMatePairSuffix("2_"));
+    assertEquals("", ReadIdUtil.getMatePairSuffix("2/"));
+    assertEquals(
+        "",
+        ReadIdUtil.getMatePairSuffix(
+            "gi|30260195|ref|NC_003997.3|_500_735_3:1:0_0:0:0_4"));
   }
 }
