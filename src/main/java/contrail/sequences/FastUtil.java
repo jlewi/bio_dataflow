@@ -28,6 +28,9 @@ public class FastUtil {
   /**
    * Write a fastq record to the stream.
    *
+   * (Deprecated): Using an OutputStream is preferable to using a PrintStream
+   * because PrintStream hides the errors.
+   *
    * @param record
    */
   public static void writeFastQRecord(PrintStream stream, FastQRecord record) {
@@ -75,6 +78,25 @@ public class FastUtil {
    * Write a fastA record to the stream.
    *
    * @param record
+   */
+  public static void writeFastARecord(OutputStream stream, FastaRecord record)
+      throws IOException {
+    StringBuffer buffer = new StringBuffer();
+    buffer.append(">");
+    buffer.append(record.getId());
+    buffer.append("\n");
+    buffer.append(record.getRead());
+    buffer.append("\n");
+    stream.write(buffer.toString().getBytes());
+  }
+
+  /**
+   * Write a fastA record to the stream.
+   *
+   * @param record
+   *
+   * (Deprecated): Using an OutputStream is preferable to using a PrintStream
+   * because PrintStream hides the errors.
    */
   public static void writeFastARecord(PrintStream stream, FastaRecord record) {
     stream.append(">");
