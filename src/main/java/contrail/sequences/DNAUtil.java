@@ -7,6 +7,29 @@ package contrail.sequences;
  *
  */
 public class DNAUtil {
+  /**
+   * Compute the complement of a base.
+   *
+   * @param letter
+   * @return
+   */
+  public static char complementBase(char letter) {
+    if (letter == 'A') {
+      return 'T';
+    }
+    else if (letter == 'T') {
+      return 'A';
+    }
+    else if (letter == 'C') {
+      return 'G';
+    }
+    else if (letter == 'G') {
+      return 'C';
+    } else {
+      // The other characters should represent unknown bases in the sequence.
+      return letter;
+    }
+  }
 
   /**
    * Compute the reverse complement of the DNA sequence.
@@ -23,21 +46,7 @@ public class DNAUtil {
     for (int i = seq.size() - 1; i >= 0; i--) {
       int write = seq.size() - 1 - i;
       char letter = seq.at(i);
-      if      (letter == 'A') {
-        complement.setAt(write, 'T');
-      }
-      else if (letter == 'T') {
-        complement.setAt(write, 'A');
-      }
-      else if (letter == 'C') {
-        complement.setAt(write, 'G');
-      }
-      else if (letter == 'G') {
-        complement.setAt(write, 'C');
-      } else {
-        // The other characters should represent unknown bases in the sequence.
-        complement.setAt(write,letter);
-      }
+      complement.setAt(write, complementBase(letter));
     }
 
     complement.setSize(seq.size());

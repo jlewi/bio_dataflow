@@ -15,40 +15,36 @@
 package contrail.scaffolding;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Random;
 
-import org.apache.avro.specific.SpecificData;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.StringUtils;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 
 import contrail.graph.GraphNode;
 import contrail.graph.GraphUtil;
 import contrail.sequences.AlphabetUtil;
 import contrail.sequences.DNAAlphabetFactory;
-import contrail.sequences.FastQFileReader;
-import contrail.sequences.FastQRecord;
-import contrail.sequences.FastUtil;
 import contrail.sequences.FastaFileReader;
 import contrail.sequences.FastaRecord;
-import contrail.sequences.MatePair;
 import contrail.sequences.Sequence;
+import contrail.util.AvroFileUtil;
 import contrail.util.FileHelper;
-import contrail.util.ListUtil;
 
 /**
  * A binary useful for testing the code for building the bambus input.
@@ -60,139 +56,35 @@ import contrail.util.ListUtil;
  * by searching the path for bowtie and bowtie-build so that the user
  * doesn't have to specify the manually.
  */
-public class TestBuildBambusInput extends BuildBambusInput {
-  private final ArrayList<File> dirsToDelete;
-
-  @Test
-  public void testCreateFastaAndLibraryFile() throws 
-      FileNotFoundException, IOException {
-    File tempDir = FileHelper.createLocalTempDir();
-    
-    Random generator = new Random();
-    
-    String libFile = FilenameUtils.concat(
-        tempDir.toString(), "genome.libSize");
-    // Create some paired library files.
-    PrintStream libStream = new PrintStream(libFile);
-    
-    ArrayList<MateFilePair> matePairs = new ArrayList<MateFilePair>();
-    ArrayList<String> fastqFiles = new ArrayList<String>();
-    for (int lNum = 0; lNum < 2; ++lNum) {
-      MateFilePair pair = new MateFilePair("", "", "");
-      matePairs.add(pair);
-      pair.libraryName = String.format("somelib%d", lNum);
-      libStream.println(String.format(
-          "%s %d %d", pair.libraryName, 10*(lNum + 1), 10*(lNum + 2)));
-               
-      for (String suffix : new String[] {"_1", "_2"}) {
-        String fastqFile = FilenameUtils.concat(
-            tempDir.toString(), 
-            String.format("%s%s.fastq", pair.libraryName, suffix));
-        fastqFiles.add(fastqFile);
-        if (suffix.equals("_1")) {
-          pair.leftFile = fastqFile;
-        } else {
-          pair.rightFile = fastqFile;
-        }
-        
-        PrintStream fastqStream = new PrintStream(fastqFile);
-        
-        FastQRecord read = new FastQRecord();
-        for (int i = 0; i < 10; ++i) {
-          read.setId(String.format("%s_read_%d_%s", pair.libraryName, i, 
-              suffix));
-          read.setRead(AlphabetUtil.randomString(
-              generator, 100, DNAAlphabetFactory.create()));
-          FastUtil.writeFastQRecord(fastqStream, read);
-        }
-        fastqStream.close();
-      }
-    }
-    libStream.close();
-    
-    parseLibSizes(libFile);
-    // Verify that buildMatePairs correctly pairs the files.
-    ArrayList<MateFilePair> actualMateFilePairs =
-        this.buildMatePairs(fastqFiles);
-    
-    Collections.sort(actualMateFilePairs);
-    assertEquals(matePairs.size(), actualMateFilePairs.size());
-    for (int i = 0; i < matePairs.size(); ++i) {
-      assertEquals(matePairs.get(i), actualMateFilePairs.get(i));
-    }
-    
-    File fastaOutputFile = new File(FilenameUtils.concat(
-        tempDir.toString(), "fasta.fasta"));
-    
-    File libraryOutputFile = new File(FilenameUtils.concat(
-        tempDir.toString(), "library"));
-    
-    this.createFastaAndLibraryFiles(
-        matePairs, fastaOutputFile, libraryOutputFile);
-    
-    // Check the library file.
-    BufferedReader libReader = new BufferedReader(new FileReader(
-        libraryOutputFile));
-    
-    FastaFileReader fastaReader = new FastaFileReader(
-        fastaOutputFile.toString());
-    for (int i = 0; i < matePairs.size(); ++i) {
-      String line = libReader.readLine();
-      int minSize =  10*(i + 1);
-      int maxSize = 10*(i + 2);
-      String expectedLine = String.format(
-          "library %s %d %d", matePairs.get(i).libraryName, minSize, maxSize);
-      assertEquals(expectedLine, line);
-      
-      MateFilePair pair = matePairs.get(i);
-      FastQFileReader leftReader = new FastQFileReader(pair.leftFile);
-      FastQFileReader rightReader = new FastQFileReader(pair.rightFile);
-
-      while (leftReader.hasNext()) {
-        FastQRecord left = leftReader.next();
-        FastQRecord right = rightReader.next();
-        FastaRecord leftShort = fastaReader.next();
-        leftShort = SpecificData.get().deepCopy(
-            leftShort.getSchema(), leftShort);
-        FastaRecord rightShort = fastaReader.next();
-        
-        // Check that the next line of the library file is these two reads.
-        String libLine = String.format(
-            "%s %s %s", left.getId(), right.getId(), pair.libraryName);
-        assertEquals(libLine, libReader.readLine());
-        
-        // Check the reads are the shortened versions.
-        assertEquals(left.getId().toString(), leftShort.getId().toString());
-        assertEquals(right.getId().toString(), rightShort.getId().toString());
-        
-        // Check the sequence is the shortened version.
-        assertEquals(left.getRead().subSequence(0, SUB_LEN).toString(), 
-                     leftShort.getRead().toString());
-        assertEquals(right.getRead().subSequence(0, SUB_LEN).toString(),
-                     rightShort.getRead().toString());        
-      }
-    }
-  }
-  
-  public TestBuildBambusInput() {
-    dirsToDelete = new ArrayList<File>();
-  }
-
+public class TestBuildBambusInput  {
   private static class TestData {
     public TestData() {
       referenceFiles = new ArrayList<String>();
-      readFiles = new ArrayList<String>();
+      libraries = new ArrayList<Library>();
+      mappingFiles = new ArrayList<String>();
+      reads = new HashMap<String, String>();
+      matePairs = new HashMap<String, HashSet<String>>();
     }
     // Files containing the sequences we want to align to.
     public ArrayList<String> referenceFiles;
 
-    // The short reads to align to the reference.
-    public ArrayList<String> readFiles;
+    // The read libraries.
+    public ArrayList<Library> libraries;
 
-    public String readsGlob;
+    // The files containing the mappings resulting from bowtie.
+    public ArrayList<String> mappingFiles;
+
+    // The reads: ReadId -> Sequence.
+    public HashMap<String, String> reads;
+
     public String referenceGlob;
-    public String libSizeFile;
+    public String libFile;
     public String graphGlob;
+    public String mappingsGlob;
+
+    // Sort the reads in each pair and then join them by a comma.
+    // The key is the library name. The values are a set of the mate pairs.
+    public HashMap<String, HashSet<String>> matePairs;
 
     // Temporary directory to be used by the mapreduces launched by
     // BuildBambusInput.
@@ -210,8 +102,10 @@ public class TestBuildBambusInput extends BuildBambusInput {
 
 
   /**
-   * Create the fastq files containing the reads and the fasta files containing
-   * the reference genome.
+   * Create the following inputs for the test:
+   *   1. The fastq files containing the reads.
+   *   2. The fasta files containing the reference genome.
+   *   3. The Avro file containing the alignments of the reads to the reference.
    *
    * @param num_mate_pairs: Number of mate pair files
    * @param num_contigs: Number of contigs per file.
@@ -223,100 +117,243 @@ public class TestBuildBambusInput extends BuildBambusInput {
     Random generator = new Random();
 
     for (int i = 0; i < num_mate_pairs; ++i) {
-        try {
-          ArrayList<GraphNode> graphNodes = new ArrayList<GraphNode>();
-          File referencePath =
-              new File(directory, String.format("contigs_%d.fa", i));
-          output.referenceFiles.add(referencePath.toString());
+      Library library = new Library();
+      library.setName(String.format("somelib%d", i));
+      library.setFiles(new ArrayList<CharSequence>());
+      library.setMinSize(1);
+      library.setMaxSize(100);
+      output.libraries.add(library);
 
-          File leftPath =
-              new File(directory, String.format("reads_0.fastq", i));
-          output.readFiles.add(leftPath.toString());
+      output.matePairs.put(library.getName().toString(), new HashSet<String>());
 
-          File rightPath =
-              new File(directory, String.format("reads_1.fastq", i));
-          output.readFiles.add(rightPath.toString());
+      try {
+        ArrayList<GraphNode> graphNodes = new ArrayList<GraphNode>();
+        File referencePath =
+            new File(directory, String.format("contigs_%d.fa", i));
+        output.referenceFiles.add(referencePath.toString());
 
-          FileWriter referenceStream = new FileWriter(referencePath, true);
-          BufferedWriter referenceOut = new BufferedWriter(referenceStream);
+        File leftPath =
+            new File(directory, String.format("reads-%d_0.fastq", i));
+        library.getFiles().add(leftPath.toString());
 
-          FileWriter leftStream = new FileWriter(leftPath, true);
-          BufferedWriter leftOut = new BufferedWriter(leftStream);
+        File rightPath =
+            new File(directory, String.format("reads-%d_1.fastq", i));
+        library.getFiles().add(rightPath.toString());
 
-          FileWriter rightStream = new FileWriter(rightPath, true);
-          BufferedWriter rightOut = new BufferedWriter(rightStream);
+        FileWriter referenceStream = new FileWriter(referencePath, true);
+        BufferedWriter referenceOut = new BufferedWriter(referenceStream);
 
-          // TODO(jlewi): To create a better test we should make the reads
-          // come from different contigs.
-          for (int r = 0; r < num_contigs; r++) {
-            String contigId = String.format("contig_%d_%d", i, r);
-            String sequence =
-                AlphabetUtil.randomString(
-                    generator, 100, DNAAlphabetFactory.create());
+        FileWriter leftStream = new FileWriter(leftPath, true);
+        BufferedWriter leftOut = new BufferedWriter(leftStream);
 
-            String leftId = String.format("read_left_%d_%d", i, r);
-            writeFastQRecord(
-                leftOut, leftId, sequence.substring(0, 30));
+        FileWriter rightStream = new FileWriter(rightPath, true);
+        BufferedWriter rightOut = new BufferedWriter(rightStream);
 
-            String rightId = String.format("read_right_%d_%d", i, r);
-            writeFastQRecord(
-                rightOut, rightId, sequence.substring(70, 100));
+        ArrayList<BowtieMapping> mappings = new ArrayList<BowtieMapping>();
 
-            referenceOut.write(">" + contigId + "\n");
-            referenceOut.write(sequence);
-            referenceOut.write("\n");
+        // TODO(jlewi): To create a better test we should make the reads
+        // come from different contigs.
+        String readFormat = "read_lib_%d_contig_%d_mate_%d";
 
-            // Create a graph node to represent the contig.
-            GraphNode node = new GraphNode();
-            node.setNodeId(contigId);
-            node.setSequence(new Sequence(
-                sequence, DNAAlphabetFactory.create()));
-            graphNodes.add(node);
-          }
+        for (int r = 0; r < num_contigs; r++) {
+          String contigId = String.format("contig_%d_%d", i, r);
+          String sequence =
+              AlphabetUtil.randomString(
+                  generator, 100, DNAAlphabetFactory.create());
 
-          referenceOut.close();
-          referenceStream.close();
-          leftOut.close();
-          leftStream.close();
-          rightOut.close();
-          rightStream.close();
+          int leftMateSuffix = 1;
+          String leftId = String.format(readFormat, i, r, leftMateSuffix);
+          int leftStart = 0;
+          int leftEnd = 30;
+          writeFastQRecord(
+              leftOut, leftId, sequence.substring(leftStart, leftEnd));
 
-          String graphPath = FilenameUtils.concat(
-              directory.getPath(), String.format("graph_%d.avro", i));
+          output.reads.put(leftId, sequence.substring(leftStart, leftEnd));
 
-          GraphUtil.writeGraphToFile(new File(graphPath), graphNodes);
-        } catch (Exception e) {
-          e.printStackTrace();
+          BowtieMapping leftMapping = new BowtieMapping();
+          leftMapping.setContigId(contigId);
+          leftMapping.setReadId(leftId);
+          leftMapping.setContigStart(leftStart);
+          leftMapping.setContigEnd(leftEnd);
+          leftMapping.setNumMismatches(0);
+          leftMapping.setReadClearStart(leftStart);
+          leftMapping.setReadClearEnd(leftEnd);
+
+          mappings.add(leftMapping);
+
+          int rightMateSuffix = 2;
+          String rightId = String.format(readFormat, i, r, rightMateSuffix);
+          int rightStart = 70;
+          int rightEnd = 100;
+          writeFastQRecord(
+              rightOut, rightId, sequence.substring(rightStart, rightEnd));
+
+          output.reads.put(rightId, sequence.substring(rightStart, rightEnd));
+
+          referenceOut.write(">" + contigId + "\n");
+          referenceOut.write(sequence);
+          referenceOut.write("\n");
+
+          BowtieMapping rightMapping = new BowtieMapping();
+          rightMapping.setContigId(contigId);
+          rightMapping.setReadId(rightId);
+          rightMapping.setContigStart(rightStart);
+          rightMapping.setContigEnd(rightEnd);
+          rightMapping.setNumMismatches(0);
+          rightMapping.setReadClearStart(rightStart);
+          rightMapping.setReadClearEnd(rightEnd);
+
+          mappings.add(rightMapping);
+
+          output.matePairs.get(library.getName().toString()).add (
+              leftId + "," + rightId);
+
+          // Create a graph node to represent the contig.
+          GraphNode node = new GraphNode();
+          node.setNodeId(contigId);
+          node.setSequence(new Sequence(
+              sequence, DNAAlphabetFactory.create()));
+          graphNodes.add(node);
         }
+
+        referenceOut.close();
+        referenceStream.close();
+        leftOut.close();
+        leftStream.close();
+        rightOut.close();
+        rightStream.close();
+
+        String graphPath = FilenameUtils.concat(
+            directory.getPath(), String.format("graph_%d.avro", i));
+
+        GraphUtil.writeGraphToFile(new File(graphPath), graphNodes);
+
+        String mappingPath = FilenameUtils.concat(
+            directory.getPath(), String.format("mappings_%d.avro", i));
+        AvroFileUtil.writeRecords(
+            new Configuration(), new Path(mappingPath), mappings);
+        output.mappingFiles.add(mappingPath);
+
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
     }
-    output.readsGlob = FilenameUtils.concat(
-        directory.getPath(), "*fastq");
     output.referenceGlob = FilenameUtils.concat(
         directory.getPath(), "*fa");
     output.graphGlob = FilenameUtils.concat(
         directory.getPath(), "graph*avro");
-
+    output.mappingsGlob = FilenameUtils.concat(
+        directory.getPath(), "mappings*avro");
     output.hdfsPath = FilenameUtils.concat(
         directory.getPath(), "hdfs_path");
+    output.libFile =FilenameUtils.concat(
+        directory.getPath(), "libraries.json");
     // Create the library size file.
-    try {
-      output.libSizeFile = FilenameUtils.concat(
-          directory.getPath(), "libsize");
-      FileWriter stream = new FileWriter(output.libSizeFile, true);
-      BufferedWriter out = new BufferedWriter(stream);
+    AvroFileUtil.prettyPrintJsonArray(
+        new Configuration(), new Path(output.libFile), output.libraries);
 
-      out.write("reads 25 125\n");
-      out.close();
-      stream.close();
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
     return output;
   }
 
-  public void runTests(HashMap<String, String> args) {
+  private void assertExpectedFastaFile(
+      TestData testData, String fastaFile, int readLength) {
+    // Read all the fasta records.
+    FastaFileReader fastaReader = new FastaFileReader(fastaFile);
+
+    HashMap<String, String> actual = new HashMap<String, String>();
+
+    while(fastaReader.hasNext()) {
+      FastaRecord read = fastaReader.next();
+      actual.put(
+          read.getId().toString(),
+          read.getRead().subSequence(0, readLength).toString());
+    }
+
+    HashMap<String, String> expected = new HashMap<String, String>();
+    for (String id: testData.reads.keySet()) {
+      expected.put(id, testData.reads.get(id).substring(0,  readLength));
+    }
+    fastaReader.close();
+
+    assertEquals(actual, expected);
+  }
+
+  private static class LibraryFileContents {
+    public LibraryFileContents() {
+      libraries = new ArrayList<Library>();
+      matePairs = new HashMap<String, HashSet<String>>();
+    }
+
+    // The files in the library will be empty.
+    public ArrayList<Library> libraries;
+
+    // Sort the reads in each pair and then join them by a comma.
+    // The key is the library name. The values are a set of the mate pairs.
+    public HashMap<String, HashSet<String>> matePairs;
+  }
+
+  private static class NameComparator implements Comparator<Library> {
+    @Override
+    public int compare(Library o1, Library o2) {
+      return o1.getName().toString().compareTo(o2.getName().toString());
+    }
+  }
+
+  private LibraryFileContents readLibraryFile(String libraryFile) throws IOException {
+      LibraryFileContents contents = new LibraryFileContents();
+      BufferedReader libReader = new BufferedReader(new FileReader(
+          libraryFile));
+
+      while (true) {
+        String line = libReader.readLine();
+        if (line == null) {
+          break;
+        }
+        if (line.startsWith("library")) {
+          String[] pieces = line.split(" ");
+          Library lib = new Library();
+          lib.setName(pieces[1]);
+          lib.setMinSize(Integer.parseInt(pieces[2]));
+          lib.setMaxSize(Integer.parseInt(pieces[3]));
+          contents.libraries.add(lib);
+          contents.matePairs.put(
+              lib.getName().toString(), new HashSet<String>());
+        } else {
+          String[] pieces = line.split(" ");
+          String libName = pieces[2];
+          Arrays.sort(pieces, 0, 2);
+          contents.matePairs.get(libName).add(pieces[0] + "," + pieces[1]);
+        }
+      }
+
+      libReader.close();
+      return contents;
+  }
+
+  private void assertExpectedLibraryFile(
+      TestData testData, String libraryFile) throws IOException {
+    LibraryFileContents libraryContents = readLibraryFile(libraryFile);
+
+    assertEquals(testData.matePairs, libraryContents.matePairs);
+
+    Collections.sort(testData.libraries, new NameComparator());
+    Collections.sort(libraryContents.libraries, new NameComparator());
+
+    assertEquals(testData.libraries.size(), libraryContents.libraries.size());
+
+    for (int i = 0; i < testData.libraries.size(); ++i) {
+      Library expected = testData.libraries.get(i);
+      Library actual = libraryContents.libraries.get(i);
+      assertEquals(expected.getName().toString(), actual.getName().toString());
+      assertEquals(expected.getMinSize(), actual.getMinSize());
+      assertEquals(expected.getMaxSize(), actual.getMaxSize());
+    }
+  }
+
+  @Test
+  public void testRun() throws IOException {
+    Integer readLength = 10;
     File tempDir = FileHelper.createLocalTempDir();
-    dirsToDelete.add(tempDir);
 
     final int NUM_REFERENCE_FILES = 3;
     final int NUM_CONTIGS_PER_FILE = 3;
@@ -325,21 +362,20 @@ public class TestBuildBambusInput extends BuildBambusInput {
 
 
     BuildBambusInput stage = new BuildBambusInput();
-
+    stage.setConf(new Configuration());
     HashMap<String, Object> parameters = new HashMap<String, Object>();
-    parameters.putAll(args);
-    parameters.put("reads_glob",testData.readsGlob);
     parameters.put("reference_glob",testData.referenceGlob);
-    parameters.put("graph_glob",testData.graphGlob);
-    parameters.put("libsize", testData.libSizeFile);
+    parameters.put("bowtie_alignments", testData.mappingsGlob);
+    parameters.put("library_file", testData.libFile);
+    parameters.put("graph_glob", testData.graphGlob);
     parameters.put("hdfs_path", testData.hdfsPath);
+    parameters.put("read_length", readLength);
     parameters.put(
         "outputpath", FilenameUtils.concat(
             tempDir.getPath(), "output"));
-    stage.setParameters(parameters);
     parameters.put("outprefix", "output");
-
     stage.setParameters(parameters);
+
     if (!stage.execute()) {
       throw new RuntimeException("test failed!");
     }
@@ -354,57 +390,11 @@ public class TestBuildBambusInput extends BuildBambusInput {
     if (!stage.getContigOutputFile().exists()) {
       throw new RuntimeException("test failed");
     }
-  }
 
-  @Override
-  protected void finalize() {
-    // Cleanup the test.
-    ArrayList<String> errors = new ArrayList<String> ();
-    for (File dir : dirsToDelete) {
-      try {
-        FileUtils.deleteDirectory(dir);
-      } catch (IOException e) {
-        errors.add(
-            "Couldn't delete the temporary directory: " +
-                dir.getAbsolutePath() + " \n. Exception was:" + e.getMessage());
-      }
-    }
+    assertExpectedFastaFile(
+        testData, stage.getFastaOutputFile().getAbsolutePath(), readLength);
 
-    if (errors.size() >0 ) {
-      throw new RuntimeException(
-          "There was a problem cleaning up the test errors:" +
-              StringUtils.join(errors, "\n"));
-    }
-  }
-
-  public static void main(String[] args) {
-    if(args.length !=2 ){
-      throw new RuntimeException(
-          "Expected two arguments bowtie_path and bowtiebuild_path");
-    }
-    HashMap<String, String> parameters = new HashMap<String, String>();
-
-    for (String arg : args) {
-      String[] pieces = arg.split("=", 2);
-      pieces[0] = pieces[0].replaceFirst("-*", "");
-      parameters.put(pieces[0], pieces[1]);
-    }
-
-    String[] required = {"bowtie_path", "bowtiebuild_path"};
-    ArrayList<String> missing = new ArrayList<String> ();
-
-    for (String arg : required) {
-      if (parameters.containsKey(arg)) {
-        continue;
-      }
-      missing.add(arg);
-    }
-
-    if (missing.size() > 0) {
-      throw new RuntimeException(
-          "Missing arguments:" + StringUtils.join(missing, ","));
-    }
-    TestBuildBambusInput test = new TestBuildBambusInput();
-    test.runTests(parameters);
+    assertExpectedLibraryFile(
+        testData, stage.getLibraryOutputFile().getAbsolutePath());
   }
 }

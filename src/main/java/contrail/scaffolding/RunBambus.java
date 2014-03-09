@@ -32,25 +32,22 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 import contrail.sequences.FastaFileReader;
 import contrail.sequences.FastaRecord;
+import contrail.stages.NonMRStage;
 import contrail.stages.ParameterDefinition;
-import contrail.stages.PipelineStage;
+import contrail.stages.StageBase.InvalidParameter;
 import contrail.util.ShellUtil;
 
 /**
- * Assembly the scaffolds.
+ * Assembly the scaffolds by running bambus.
  *
- * Assembly uses bowtie to align the original reads to the contigs.
- * We convert the bowtie output, contigs, and reads into a format that
- * Bambus can use for scaffolding.
+ * Bambus takes as input 3 files which can be built using BuildBambusInput.
  *
- * Bambus takes as input 3 files. The first file is the contig file in
+ * The first file is the contig file in
  * TIGR/GDE format:
  * see http://sourceforge.net/apps/mediawiki/amos/index.php?title=Bank2contig
  *
@@ -67,18 +64,15 @@ import contrail.util.ShellUtil;
  * used with bowtie to align the reads to the contigs.
  *
  */
-public class AssembleScaffolds extends PipelineStage {
+public class RunBambus extends NonMRStage {
   private static final Logger sLogger = Logger.getLogger(
-      AssembleScaffolds.class);
+      RunBambus.class);
   @Override
   protected Map<String, ParameterDefinition> createParameterDefinitions() {
     HashMap<String, ParameterDefinition> definitions =
         new HashMap<String, ParameterDefinition>();
 
     definitions.putAll(super.createParameterDefinitions());
-
-    BuildBambusInput bambusInputStage = new BuildBambusInput();
-    definitions.putAll(bambusInputStage.getParameterDefinitions());
 
     ParameterDefinition amosPath =
         new ParameterDefinition(
@@ -102,10 +96,45 @@ public class AssembleScaffolds extends PipelineStage {
             "start_step",
             "Which step in the scaffolding pipeline to start at. By default " +
             "all steps are run. This option is mostly for debugging.",
-            String.class, "build_input");
+            String.class, "load_into_amos");
+
+    ParameterDefinition stopStep =
+        new ParameterDefinition(
+            "stop_step",
+            "The last step in the scaffolding pipeline to run. By default " +
+            "all steps are run. This option is mostly for debugging.",
+            String.class, "write_report");
+
+    // The data to load into Amos which is produced by BuildBambusInput.
+    // TODO(jlewi): We should an option to allow BuildBambusInput to be run.
+    ParameterDefinition fastaFile =
+        new ParameterDefinition(
+            "fasta_file",
+            "A single fasta file on the local filesystem containing all the " +
+            "reads .",
+            String.class, null);
+
+    ParameterDefinition tigrFile =
+        new ParameterDefinition(
+            "tigr_file",
+            "The tigr file containing the contigs and information about the " +
+            " aligned reads. This should be on the local filesystem.",
+            String.class, null);
+
+    ParameterDefinition matesFile =
+        new ParameterDefinition(
+            "mates_file",
+            "The mates file containing information about the mate pairs. " +
+            "This should be on the local filesystem.",
+            String.class, null);
+
+    ParameterDefinition output = new ParameterDefinition(
+        "outputpath", "The local directory where the output should be " +
+        "written to.", String.class, null);
 
     for (ParameterDefinition def: new ParameterDefinition[] {
-            amosPath, maxOverlap, noReduce, startStep}) {
+            amosPath, maxOverlap, noReduce, startStep, stopStep, fastaFile,
+            tigrFile, matesFile, output}) {
       definitions.put(def.getName(), def);
     }
     return Collections.unmodifiableMap(definitions);
@@ -119,7 +148,7 @@ public class AssembleScaffolds extends PipelineStage {
         "outputpath")));
 
     invalid.addAll(this.checkParameterIsExistingLocalFile(Arrays.asList(
-        "amos_path")));
+        "amos_path", "fasta_file", "mates_file", "tigr_file")));
 
     String startStep = (String) stage_options.get("start_step");
     startStep = startStep.toUpperCase();
@@ -136,10 +165,6 @@ public class AssembleScaffolds extends PipelineStage {
           StringUtils.join(ScaffoldingSteps.values(), ",")));
       invalid.add(parameter);
     }
-
-    BuildBambusInput bambusInput = new BuildBambusInput();
-    bambusInput.initializeAsChild(this);
-    invalid.addAll(bambusInput.validateParameters());
 
     return invalid;
   }
@@ -219,19 +244,27 @@ public class AssembleScaffolds extends PipelineStage {
     Collections.reverse(sizes);
     int gapped = 0;
     int ungapped = 0;
+    int numContigs = 0;
     try {
       writer.append("<h1>" + header + "</h1>");
       writer.append("<table border=1>");
       writer.append("<tr><td>Scaffold Id</td>");
       writer.append("<td>Size with gaps.</td>");
-      writer.append("<td>UngappedSize</td></tr>");
+      writer.append("<td>UngappedSize</td>");
+      writer.append("<td>Cumulative Num of contigs</td>");
+      writer.append("<td>Cumulative Gapped Size</td>");
+      writer.append("<td>Cumulative Ungapped Size</td></tr>");
       for (SequenceSize sequence : sizes) {
+        numContigs += 1;
         gapped += sequence.gapped;
         ungapped += sequence.ungapped;
         writer.append("<tr>");
         writer.append(String.format("<td>%s</td>", sequence.id));
         writer.append(String.format("<td>%d</td>", sequence.gapped));
         writer.append(String.format("<td>%d</td>", sequence.ungapped));
+        writer.append(String.format("<td>%d</td>", numContigs));
+        writer.append(String.format("<td>%d</td>", gapped));
+        writer.append(String.format("<td>%d</td>", ungapped));
         writer.append("</tr>");
       }
       // Totals.
@@ -261,7 +294,6 @@ public class AssembleScaffolds extends PipelineStage {
       FileWriter fileWriter = new FileWriter(reportFile);
       BufferedWriter writer = new BufferedWriter(fileWriter);
 
-      //writer.create(schema, outputStream);
       writer.append("<html><body>");
 
       writeSequenceSizes(writer, "Size of scaffolds", contigSizes);
@@ -342,6 +374,7 @@ public class AssembleScaffolds extends PipelineStage {
     sLogger.info("Executing bambus.");
     String amosPath = (String) stage_options.get("amos_path");
     String outputPath = (String) stage_options.get("outputpath");
+
     // It looks like goBambus2 can't take the path to the bank. The script
     // needs to be executed from the directory containing the bank.
     ArrayList<String> bambusCommand = new ArrayList<String>();
@@ -427,6 +460,14 @@ public class AssembleScaffolds extends PipelineStage {
 
     String amosPath = (String) stage_options.get("amos_path");
     String outputPath = (String) stage_options.get("outputpath");
+
+    File outDir = new File(outputPath);
+    if (!outDir.exists()) {
+      if (!outDir.mkdirs()) {
+        sLogger.fatal("Could not create directory:" + outputPath);
+        System.exit(-1);
+      }
+    }
 
     sLogger.info("Load the data into amos.");
     ArrayList<String> loadCommand = new ArrayList<String>();
@@ -541,7 +582,6 @@ public class AssembleScaffolds extends PipelineStage {
 
   // Different steps in scaffolding.
   private static enum ScaffoldingSteps {
-    BUILD_INPUT,
     LOAD_INTO_AMOS,
     RUN_AMOS,
     RUN_BAMBUS,
@@ -557,28 +597,8 @@ public class AssembleScaffolds extends PipelineStage {
 
   private void deleteExistingDirs() {
     // Delete any output directories that already exist.
-
-    // Delete the hdfs path.
-    String hdfsPath = (String) stage_options.get("hdfs_path");
-    try {
-      Path outPath = new Path(hdfsPath);
-      FileSystem outFs = outPath.getFileSystem(getConf());
-      if (outFs.exists(outPath)) {
-        // TODO(jlewi): We should only delete an existing directory
-        // if explicitly told to do so.
-        sLogger.info("Deleting output path: " + outPath.toString() + " "
-            + "because it already exists.");
-        outFs.delete(outPath, true);
-      }
-    } catch (IOException e) {
-      sLogger.fatal(
-          "There was a problem checking if the directory:" +
-          hdfsPath + " exists and deleting it if it does.", e);
-      System.exit(-1);
-    }
-
     // Delete the posix, local outputpath.
-    String outputPath = (String) stage_options.get("hdfs_path");
+    String outputPath = (String) stage_options.get("outputpath");
     File outDir = new File(outputPath);
     if (outDir.exists()) {
       try {
@@ -594,8 +614,11 @@ public class AssembleScaffolds extends PipelineStage {
   @Override
   protected void stageMain() {
     String startPhase = (String) stage_options.get("start_step");
+    String stopPhase = (String) stage_options.get("stop_step");
     ScaffoldingSteps startStep = ScaffoldingSteps.valueOf(
         startPhase.toUpperCase());
+    ScaffoldingSteps stopStep = ScaffoldingSteps.valueOf(
+        stopPhase.toUpperCase());
 
     String outputPath = (String) stage_options.get("outputpath");
 
@@ -605,40 +628,57 @@ public class AssembleScaffolds extends PipelineStage {
     String linearScaffoldFile = FilenameUtils.concat(
         outputPath, getOutputPrefix() + "scaffolds.linear.fasta");
 
-    BuildBambusInput bambusInputStage = new BuildBambusInput();
-    bambusInputStage.initializeAsChild(this);
-    // Set the directory for the bambus inputs to be a subdirectory
-    // of the output directory.
-    String bambusOutputDir = FilenameUtils.concat(
-        (String)stage_options.get("outputpath"), "bambus-input");
-    bambusInputStage.setParameter("outputpath", bambusOutputDir);
-
     // Run all steps starting at start step.
     switch (startStep) {
-      case BUILD_INPUT:
-        deleteExistingDirs();
-        bambusInputStage.execute();
       case LOAD_INTO_AMOS:
+        deleteExistingDirs();
         runLoadIntoAmos(
-            bambusInputStage.getFastaOutputFile().getPath(),
-            bambusInputStage.getLibraryOutputFile().getPath(),
-            bambusInputStage.getContigOutputFile().getPath());
+            (String) stage_options.get("fasta_file"),
+            (String) stage_options.get("mates_file"),
+            (String) stage_options.get("tigr_file"));
+        if (stopStep == ScaffoldingSteps.LOAD_INTO_AMOS) {
+          break;
+        }
       case RUN_BAMBUS:
         runGoBambus();
+        if (stopStep == ScaffoldingSteps.RUN_BAMBUS) {
+          break;
+        }
       case RUN_ORIENT_CONTIGS:
         runOrientContigs();
+        if (stopStep == ScaffoldingSteps.RUN_ORIENT_CONTIGS) {
+          break;
+        }
       case NONLINEAR_OUTPUT:
         runNonlinearOutputResults();
+        if (stopStep == ScaffoldingSteps.NONLINEAR_OUTPUT) {
+          break;
+        }
       case BANK_TO_FASTA:
         runBank2Fasta();
+        if (stopStep == ScaffoldingSteps.BANK_TO_FASTA) {
+          break;
+        }
       case OUTPUT_NONLINEAR_SCAFFOLDS:
         runOutputScaffolds(nonLinearScaffoldFile);
+        if (stopStep == ScaffoldingSteps.OUTPUT_NONLINEAR_SCAFFOLDS) {
+          break;
+        }
       case LINEARIZE:
         runLinearize();
+        if (stopStep == ScaffoldingSteps.LINEARIZE) {
+          break;
+        }
       case LINEAR_OUTPUT:
         runLinearOutputResults();
+        if (stopStep == ScaffoldingSteps.LINEAR_OUTPUT) {
+          break;
+        }
       case OUTPUT_LINEAR_SCAFFOLDS:
         runOutputScaffolds(linearScaffoldFile);
+        if (stopStep == ScaffoldingSteps.OUTPUT_LINEAR_SCAFFOLDS) {
+          break;
+        }
       case WRITE_REPORT:
         ArrayList<SequenceSize> contigSizes = getSequenceSizes(
             nonLinearScaffoldFile);
@@ -647,7 +687,9 @@ public class AssembleScaffolds extends PipelineStage {
         String reportFile = FilenameUtils.concat(
             outputPath, getOutputPrefix() + "scaffolds.report.html");
         writeReport(reportFile, contigSizes, linearSizes);
-        break;
+        if (stopStep == ScaffoldingSteps.WRITE_REPORT) {
+          break;
+        }
       default:
         sLogger.fatal(String.format(
             "%s is not a valid start phase.", startPhase));
@@ -657,7 +699,7 @@ public class AssembleScaffolds extends PipelineStage {
 
   public static void main(String[] args) throws Exception {
     int res = ToolRunner.run(
-        new Configuration(), new AssembleScaffolds(), args);
+        new Configuration(), new RunBambus(), args);
     System.exit(res);
   }
 }

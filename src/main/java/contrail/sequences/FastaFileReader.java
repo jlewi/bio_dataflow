@@ -16,9 +16,13 @@ package contrail.sequences;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.Iterator;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.Path;
 
 /**
  * Reader for FASTA files.
@@ -38,15 +42,24 @@ public class FastaFileReader implements Iterator<FastaRecord> {
   // The id for the next record or null if there isn't one.
   private String nextId;
 
+  @Deprecated
   public FastaFileReader(String fastaFile) {
+    this(fastaFile, new Configuration());
+  }
+
+  public FastaFileReader(String fastaFile, Configuration conf) {
     this.fastaFile = fastaFile;
     record = new FastaRecord();
     try {
-      reader = new BufferedReader(
-          new FileReader(fastaFile));
+      Path path = new Path(fastaFile);
+      FSDataInputStream inStream = path.getFileSystem(conf).open(path);
+      reader = new BufferedReader(new InputStreamReader(inStream));
     } catch (FileNotFoundException e) {
       throw new RuntimeException(
-          "Could not find the fasta fasta file:" + fastaFile);
+          "Could not find the fasta file:" + fastaFile);
+    } catch (IOException e) {
+      throw new RuntimeException(
+          "Could not open the fasta file:" + fastaFile, e);
     }
 
     // Advance until the first record.
@@ -54,7 +67,7 @@ public class FastaFileReader implements Iterator<FastaRecord> {
       line = reader.readLine();
     } catch (IOException e) {
       throw new RuntimeException(
-          "Error reading fasta file:" + fastaFile + " Exception was:" +
+          "Error reading fasta file: " + fastaFile + " Exception was:" +
           e.getMessage());
     }
     while (line != null) {
@@ -83,6 +96,7 @@ public class FastaFileReader implements Iterator<FastaRecord> {
    * Each call to next uses the same instance of the FastaRecord so data
    * is overwritten on each call.
    */
+  @Override
   public FastaRecord next() {
     if (!hasNext()) {
       return null;
@@ -126,6 +140,7 @@ public class FastaFileReader implements Iterator<FastaRecord> {
     return record;
   }
 
+  @Override
   public boolean hasNext() {
     if (nextId == null) {
       // No more records
@@ -149,10 +164,12 @@ public class FastaFileReader implements Iterator<FastaRecord> {
     }
   }
 
+  @Override
   public void finalize() {
     close();
   }
 
+  @Override
   public void remove() {
     throw new UnsupportedOperationException();
   }

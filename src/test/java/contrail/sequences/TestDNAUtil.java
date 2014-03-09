@@ -72,6 +72,10 @@ public class TestDNAUtil {
           assertEquals(reverse, 'G');
         } else if (forward == 'N') {
           assertEquals(reverse, 'N');
+        } else if (forward == 'Y') {
+          assertEquals(reverse, 'Y');
+        } else if (forward == 'R') {
+          assertEquals(reverse, 'R');
         } else {
           fail("Unknown character.");
         }

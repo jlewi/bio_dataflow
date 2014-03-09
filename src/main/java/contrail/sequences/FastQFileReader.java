@@ -15,9 +15,13 @@ package contrail.sequences;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.Iterator;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.Path;
 
 public class FastQFileReader implements Iterator<FastQRecord> {
   private String fastqFile;
@@ -29,16 +33,25 @@ public class FastQFileReader implements Iterator<FastQRecord> {
 
   private String line;
 
+  @Deprecated
   public FastQFileReader(String fastqFile) {
+    this(fastqFile, new Configuration());
+  }
+
+  public FastQFileReader(String fastqFile, Configuration conf) {
     this.fastqFile = fastqFile;
     record = new FastQRecord();
     nextRecord = new FastQRecord();
     try {
-      reader = new BufferedReader(
-          new FileReader(fastqFile));
+      Path path = new Path(fastqFile);
+      FSDataInputStream inStream = path.getFileSystem(conf).open(path);
+      reader = new BufferedReader(new InputStreamReader(inStream));
     } catch (FileNotFoundException e) {
       throw new RuntimeException(
           "Could not find the fasta fasta file:" + fastqFile);
+    }catch (IOException e) {
+      throw new RuntimeException(
+          "Could not open the fasta file:" + fastqFile, e);
     }
     has_next = null;
   }
@@ -49,6 +62,7 @@ public class FastQFileReader implements Iterator<FastQRecord> {
    * Each call to next uses the same instance of the FastaRecord so data
    * is overwritten on each call.
    */
+  @Override
   public FastQRecord next() {
     if (!hasNext()) {
       return null;
@@ -64,6 +78,7 @@ public class FastQFileReader implements Iterator<FastQRecord> {
     return record;
   }
 
+  @Override
   public boolean hasNext() {
     if (has_next == null) {
       // Try to read the next record.
@@ -109,10 +124,12 @@ public class FastQFileReader implements Iterator<FastQRecord> {
     }
   }
 
+  @Override
   public void finalize() {
     close();
   }
 
+  @Override
   public void remove() {
     throw new UnsupportedOperationException();
   }

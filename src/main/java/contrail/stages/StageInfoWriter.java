@@ -36,6 +36,9 @@ import org.codehaus.jackson.util.DefaultPrettyPrinter;
 /**
  * Writer for information about which stages executed.
  *
+ * Important: The output isn't a json array but rather a series of white space
+ * separated json records. Keep this in mind when reading in the output file.
+ *
  */
 public class StageInfoWriter {
   private static final Logger sLogger = Logger.getLogger(StageInfoWriter.class);

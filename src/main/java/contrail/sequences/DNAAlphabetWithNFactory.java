@@ -8,8 +8,8 @@ import contrail.util.ByteUtil;
  * called.
  *
  * The resulting Alphabet represents the 4 DNA bases {"A", "C", "G", "T"} and
- * the letter "N"  for unknown bases using 3 bits per base; i.e. each base is
- * assigned a number [0, 4].
+ * the letters "N", "R", "Y"  for unknown bases using 3 bits per base; i.e.
+ * each base is assigned a number [0, 6].
  */
 public class DNAAlphabetWithNFactory {
   // TODO(jeremy@lewi.us): Should we allow characters other than N to represent
@@ -39,10 +39,10 @@ public class DNAAlphabetWithNFactory {
 		 * define the EOS_CHAR.
 		 */
 		private final char EOS_CHAR  = 'A';
-		private final char[] ALPHABET = {'A', 'C', 'G', 'T', 'N'};
+		private final char[] ALPHABET = {'A', 'C', 'G', 'T', 'N', 'R', 'Y'};
 
 		// The non end of sequence characters.
-		private final char[] VALID_ALPHABET = {'A', 'C', 'G', 'T', 'N'};
+		private final char[] VALID_ALPHABET = {'A', 'C', 'G', 'T', 'N', 'R', 'Y'};
 
 		private int bits_per_letter;
 
@@ -102,7 +102,8 @@ public class DNAAlphabetWithNFactory {
 			eos_int = letterToInt(EOS_CHAR);
 		}
 
-		public int bitsPerLetter () {
+		@Override
+    public int bitsPerLetter () {
 			return bits_per_letter;
 		}
 
@@ -111,7 +112,8 @@ public class DNAAlphabetWithNFactory {
 		 * significant bits_per_letter bits.
 		 * @return
 		 */
-		public int letterMask(){
+		@Override
+    public int letterMask(){
 			return letter_mask;
 		}
 
@@ -121,7 +123,8 @@ public class DNAAlphabetWithNFactory {
 		 * value corresponds to a value greater than the number of characters in
 		 * the alphabet.
 		 */
-		public char intToLetter(int val){
+		@Override
+    public char intToLetter(int val){
 			// val is assumed to be an integer < MAXUINT so its unsigned value is the same
 			// as the signed representation so we don't need to do any conversion.
 			return ALPHABET[val];
@@ -132,14 +135,22 @@ public class DNAAlphabetWithNFactory {
 		 * We do no error checking. You will get an exception if the letter isn't
 		 * in the alphabet. Case matters.
 		 */
-		public int letterToInt(char letter){
-			return letters_to_num.get(letter);
+		@Override
+    public int letterToInt(char letter){
+      Integer output = null;
+      output = letters_to_num.get(letter);
+      if (output == null) {
+        throw new RuntimeException(
+            "The letter '" + letter + "' is not in the alphabet.");
+      }
+			return output;
 		}
 
 		/**
 		 * Size of the alphabet. Includes the end of sequence character.
 		 */
-		public int size() {
+		@Override
+    public int size() {
 			return ALPHABET.length;
 		}
 
@@ -147,20 +158,23 @@ public class DNAAlphabetWithNFactory {
 		 * The set of valid characters in the alphabet (i.e non end of sequence
 		 * characters);
 		 */
-		public final char[] validChars() {
+		@Override
+    public final char[] validChars() {
 			return VALID_ALPHABET;
 		}
 
 		/**
 		 * Return the end of sequence character
 		 */
-		public final char EOS () {
+		@Override
+    public final char EOS () {
 			return EOS_CHAR;
 		}
 		/**
 		 * Return the int value of the end of sequence character
 		 */
-		public int intEOS() {
+		@Override
+    public int intEOS() {
 			return eos_int;
 		}
 
@@ -168,7 +182,8 @@ public class DNAAlphabetWithNFactory {
 		 * Convert a byte encoding a UTF-8 character, into the appropriate value.
 		 *
 		 */
-		public int utf8ToInt(byte bval) {
+		@Override
+    public int utf8ToInt(byte bval) {
 			return utf8_map[ByteUtil.byteToUint(bval)];
 		}
 
@@ -176,6 +191,7 @@ public class DNAAlphabetWithNFactory {
 		 * Convert an array of bytes encoding a UTF-8 character, into an array
 		 *  of ints of the appropriate value.
 		 */
+    @Override
     public int[] utf8ToInt(byte[] bval) {
       return utf8ToInt(bval, bval.length);
     }
@@ -184,6 +200,7 @@ public class DNAAlphabetWithNFactory {
      * @param bval: The byte buffer.
      * @param length: How many bytes in in bval to convert.
      */
+    @Override
     public int[] utf8ToInt(byte[] bval, int length) {
       int[] nums = new int[length];
       ByteUtil.byteToUint(bval, nums, length);
@@ -193,7 +210,8 @@ public class DNAAlphabetWithNFactory {
       return nums;
     }
 
-	  public boolean hasEOS() {
+	  @Override
+    public boolean hasEOS() {
 	    return false;
 	  }
 	}

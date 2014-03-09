@@ -38,13 +38,16 @@ import contrail.sequences.FastQRecord;
 import contrail.sequences.FastUtil;
 import contrail.sequences.FastaRecord;
 import contrail.sequences.Sequence;
-import contrail.util.FileHelper;
 
 /**
  * A binary useful for testing the code for building the bambus input.
  *
  * This class needs to be run manually because you need to specify the
- * paths for the various binaries (e.g bowtie, bowtie-build, goBambus2, etc...)
+ * paths for the bambus binary.
+ *
+ * TODO(jeremy@lewi.us): As of 2014/02/13 this test is outdated. This test
+ * used to be testing AssembleScaffolds but we've since renamed that stage
+ * to RunBambus and changed what it does to just running Bambus.
  *
  * TODO(jeremy@lewi.us): We could automate this test by using dependency
  * injection to inject a fake executor for shell commands. We could then
@@ -56,13 +59,13 @@ import contrail.util.FileHelper;
  * by searching the path for bowtie and bowtie-build and bambus so that the user
  * doesn't have to specify them manually.
  */
-public class TestAssembleScaffolds {
+public class TestRunBambus {
   private static final Logger sLogger = Logger.getLogger(
-      TestAssembleScaffolds.class);
+      TestRunBambus.class);
   private final ArrayList<File> dirsToDelete;
 
   private String testDir;
-  public TestAssembleScaffolds() {
+  public TestRunBambus() {
     dirsToDelete = new ArrayList<File>();
   }
 
@@ -320,48 +323,53 @@ public class TestAssembleScaffolds {
   }
 
   public void runTests(HashMap<String, String> args) {
-    final int NUM_REFERENCE_FILES = 3;
-    final int NUM_CONTIGS_PER_FILE = 3;
-
-    HashMap<String, Object> parameters = new HashMap<String, Object>();
-    // Allow the outputpath to be overwritten on the command line.
-    if (args.containsKey("testdir")) {
-      testDir = args.get("testdir");
-      args.remove("testdir");
-    } else {
-      testDir = FileHelper.createLocalTempDir().getPath();
-    }
-
-    File testDirFile = new File(testDir);
-    if (testDirFile.exists()) {
-      try {
-        FileUtils.deleteDirectory(testDirFile);
-      } catch (Exception e) {
-        throw new RuntimeException(e.getMessage());
-      }
-    }
-
-    parameters.put(
-        "outputpath", FilenameUtils.concat(testDir, "output"));
-    dirsToDelete.add(new File(testDir));
-
-    TestData testData = createTest(
-        new File(testDir, "input"), NUM_REFERENCE_FILES, NUM_CONTIGS_PER_FILE);
-
-    parameters.putAll(args);
-    parameters.put("reads_glob",testData.readsGlob);
-    parameters.put("reference_glob",testData.referenceGlob);
-    parameters.put("libsize", testData.libSizeFile);
-    parameters.put("graph_glob", testData.graphGlob);
-    parameters.put("hdfs_path", testData.hdfsPath);
-    parameters.put("outprefix", "output");
-
-    AssembleScaffolds stage = new AssembleScaffolds();
-    stage.setParameters(parameters);
-
-    if (!stage.execute()) {
-      throw new RuntimeException("test failed!");
-    }
+    // TODO(jeremy@lewi.us): How should we generate the input for the test?
+    // One easy way might be just run BuildBambusInput on the data created
+    // by createTest.
+    throw new RuntimeException(
+        "This code is outdated and needs to be updated.!");
+//    final int NUM_REFERENCE_FILES = 3;
+//    final int NUM_CONTIGS_PER_FILE = 3;
+//
+//    HashMap<String, Object> parameters = new HashMap<String, Object>();
+//    // Allow the outputpath to be overwritten on the command line.
+//    if (args.containsKey("testdir")) {
+//      testDir = args.get("testdir");
+//      args.remove("testdir");
+//    } else {
+//      testDir = FileHelper.createLocalTempDir().getPath();
+//    }
+//
+//    File testDirFile = new File(testDir);
+//    if (testDirFile.exists()) {
+//      try {
+//        FileUtils.deleteDirectory(testDirFile);
+//      } catch (Exception e) {
+//        throw new RuntimeException(e.getMessage());
+//      }
+//    }
+//
+//    parameters.put(
+//        "outputpath", FilenameUtils.concat(testDir, "output"));
+//    dirsToDelete.add(new File(testDir));
+//
+//    TestData testData = createTest(
+//        new File(testDir, "input"), NUM_REFERENCE_FILES, NUM_CONTIGS_PER_FILE);
+//
+//    parameters.putAll(args);
+//    parameters.put("reads_glob",testData.readsGlob);
+//    parameters.put("reference_glob",testData.referenceGlob);
+//    parameters.put("libsize", testData.libSizeFile);
+//    parameters.put("graph_glob", testData.graphGlob);
+//    parameters.put("hdfs_path", testData.hdfsPath);
+//    parameters.put("outprefix", "output");
+//
+//    RunBambus stage = new RunBambus();
+//    stage.setParameters(parameters);
+//
+//    if (!stage.execute()) {
+//      throw new RuntimeException("test failed!");
+//    }
   }
 
   @Override
@@ -386,9 +394,9 @@ public class TestAssembleScaffolds {
   }
 
   public static void main(String[] args) {
-    if(args.length < 3 ){
+    if (args.length < 1 ) {
       throw new RuntimeException(
-          "Expected 3 arguments bowtie_path, bowtiebuild_path, and amos_path");
+          "Expected 1 arguments amos_path");
     }
     HashMap<String, String> parameters = new HashMap<String, String>();
 
@@ -398,7 +406,7 @@ public class TestAssembleScaffolds {
       parameters.put(pieces[0], pieces[1]);
     }
 
-    String[] required = {"bowtie_path", "bowtiebuild_path", "amos_path"};
+    String[] required = {"amos_path"};
     ArrayList<String> missing = new ArrayList<String> ();
 
     for (String arg : required) {
@@ -412,7 +420,7 @@ public class TestAssembleScaffolds {
       throw new RuntimeException(
           "Missing arguments:" + StringUtils.join(missing, ","));
     }
-    TestAssembleScaffolds test = new TestAssembleScaffolds();
+    TestRunBambus test = new TestRunBambus();
     test.runTests(parameters);
   }
 }

@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;
@@ -27,11 +28,14 @@ import org.apache.avro.file.DataFileStream;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericContainer;
 import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.DecoderFactory;
+import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.io.JsonDecoder;
+import org.apache.avro.io.JsonEncoder;
 import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.hadoop.conf.Configuration;
@@ -39,10 +43,74 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.codehaus.jackson.JsonFactory;
+import org.codehaus.jackson.JsonGenerator;
+import org.codehaus.jackson.util.DefaultPrettyPrinter;
 
 public class AvroFileUtil {
   private static final ContrailLogger sLogger =
       ContrailLogger.getLogger(AvroFileUtil.class);
+
+  /**
+   * Write the records as pretty printed json.
+   *
+   * Important: The json output is an array of records. Thus, this function is
+   * not compatible with readJsonRecords. Use readJsonArray
+   */
+  public static <T extends GenericContainer> void prettyPrintJsonArray(
+        Configuration conf, Path path, Collection<T> records) {
+    Schema schema = records.iterator().next().getSchema();
+
+    try {
+      FileSystem fs = path.getFileSystem(conf);
+      FSDataOutputStream outStream = fs.create(path);
+      Schema arraySchema = Schema.createArray(schema);
+      DatumWriter<Object> writer = new GenericDatumWriter<Object>(arraySchema);
+
+      JsonFactory factory = new JsonFactory();
+      JsonGenerator generator = factory.createJsonGenerator(outStream);
+      generator.setPrettyPrinter(new DefaultPrettyPrinter());
+
+      JsonEncoder encoder = EncoderFactory.get().jsonEncoder(
+          arraySchema, generator);
+
+      writer.write(records, encoder);
+      encoder.flush();
+
+      outStream.flush();
+      outStream.close();
+    } catch(IOException e){
+      sLogger.fatal(
+          "There was a problem writing the records to an avro file. " +
+          "Exception: " + e.getMessage(), e);
+    }
+  }
+
+  /**
+   * Read a file containing an array of records.
+   *
+   * @param conf The configuration.
+   * @param path The path to the file.
+   * @param itemSchema The schema of the items in the array
+   */
+  public static <T> List<T> readJsonArray(
+        Configuration conf, Path path, Schema itemSchema) {
+    ArrayList<T> records = new ArrayList<T>();
+    Schema arraySchema = Schema.createArray(itemSchema);
+    try {
+      FSDataInputStream inStream = path.getFileSystem(conf).open(path);
+      SpecificDatumReader<List<T>> reader =
+          new SpecificDatumReader<List<T>>(arraySchema);
+      JsonDecoder decoder = DecoderFactory.get().jsonDecoder(
+          arraySchema, inStream);
+
+      List<T> datum = reader.read(null, decoder);
+      return datum;
+    } catch(IOException e) {
+      sLogger.fatal("IOException.", e);
+    }
+    return null;
+  }
 
   /**
    * Read all the records in a file.
@@ -66,6 +134,8 @@ public class AvroFileUtil {
 
   /**
    * Read records from a json file produced with PrettyPrint.
+   *
+   * The file should contain a sequence of white space separated records.
    */
   public static <T> ArrayList<T> readJsonRecords(
       InputStream inStream, Schema schema) {
@@ -135,7 +205,7 @@ public class AvroFileUtil {
       writer.close();
     } catch (IOException exception) {
       sLogger.fatal(
-          "There was a problem writing the N50 stats to an avro file. " +
+          "There was a problem writing the the records to an avro file. " +
           "Exception: " + exception.getMessage(), exception);
     }
   }
@@ -172,7 +242,7 @@ public class AvroFileUtil {
       writer.close();
     } catch (IOException exception) {
       sLogger.fatal(
-          "There was a problem writing the N50 stats to an avro file. " +
+          "There was a problem writing the records to an avro file. " +
           "Exception: " + exception.getMessage(), exception);
     }
   }

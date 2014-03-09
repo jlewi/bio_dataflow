@@ -50,6 +50,9 @@ import contrail.util.FileHelper;
 /**
  * Pretty print avro files to json.
  *
+ * Important: The output isn't a json array but rather a series of white space
+ * separated json records. Keep this in mind when reading in the output.
+ *
  * TODO(jeremy@lewi.us):
  * 1. Allow the inputpath to specify a directory or glob path.
  */

@@ -320,7 +320,7 @@ public class TigrCreator extends MRStage {
         if (readForward.start > readForward.end) {
           sLogger.fatal(
               "Looks like a bug. readForward.start should be <= " +
-              "readForward.endThe start",
+              "readForward.end.",
               new RuntimeException("Alignment bug."));
           System.exit(-1);
         }
@@ -340,7 +340,7 @@ public class TigrCreator extends MRStage {
         // If the sequence for the read was included us to verify the alignment.
         // TODO(jeremy@lewi.us): We should make this an option so we don't
         // validate always.
-        if (mapping.getRead().length() > 0) {
+        if (mapping.getRead() != null && mapping.getRead().length() > 0) {
           // Clear range of the read. We add 1 to end because range is
           // specified inclusively.
           CharSequence clearRead = mapping.getRead().subSequence(
