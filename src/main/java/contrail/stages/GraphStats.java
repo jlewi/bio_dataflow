@@ -18,14 +18,15 @@ package contrail.stages;
 import static org.junit.Assert.fail;
 
 import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -128,64 +129,50 @@ public class GraphStats extends PipelineStage {
   }
 
   /**
-   * Create an HTML report to describe the result.
+   * Create a CSV report to describe the result.
    */
-  protected void writeReport(String statsFile, String reportFile) {
+  protected void writeReport(String statsFile, String csvFile) {
     GraphN50Stats.GraphN50StatsFileReader reader =
         new GraphN50Stats.GraphN50StatsFileReader(statsFile, getConf());
 
-    // We create a temporary local file to write the data to.
-    // We then copy that file to the output path which could be on HDFS.
-    // TODO(jlewi): Why can't we just write to HDFS directly?
-    File temp = null;
+    Path csvPath = new Path(csvFile);
     try {
-      temp = File.createTempFile("temp",null);
-    } catch (IOException exception) {
-      fail("Could not create temporary file. Exception:" +
-          exception.getMessage());
-    }
+      FileSystem fs = csvPath.getFileSystem(getConf());
+      BufferedWriter csvStream =
+          new BufferedWriter(new OutputStreamWriter(fs.create(csvPath, true)));
 
-    String outputDir = (String) stage_options.get("outputpath");
-    Path outputPath = new Path(reportFile);
+      String[] columns = new String[] {
+          "Min Length", "Max Length", "Length Sum", "N50 Length",
+          "N50 Index", "Num Contigs", "Percent Total Length",
+          "Percent Total Num Contigs", "Mean Coverage", "Mean Degree"
+      };
+      csvStream.write(StringUtils.join(columns, ",") + "\n");
 
-    FileSystem fs = null;
-    try{
-      fs = FileSystem.get(getConf());
-    } catch (IOException e) {
-      throw new RuntimeException("Can't get filesystem: " + e.getMessage());
-    }
-
-    try {
-      FileWriter fileWriter = new FileWriter(temp);
-      BufferedWriter writer = new BufferedWriter(fileWriter);
-
-      //writer.create(schema, outputStream);
-      writer.append("<html><body>");
-      writer.append("Path:" + statsFile);
-      writer.append("<br><br>");
-      writer.append("N50 Statistics");
-      writer.append("<table border=1>");
-      writer.append(
-          "<tr><td>Min Length</td><td>Max Length</td><td>Length Sum</td>" +
-          "<td>N50 Length</td><td>N50 Index</td><td>Num Contigs</td>" +
-          "<td>Mean Coverage</td><td>MeanDegree</td></tr>");
       for (GraphN50StatsData record: reader) {
-        writer.append(String.format("<td>%d</td>", record.getMinLength()));
-        writer.append(String.format("<td>%d</td>", record.getMaxLength()));
-        writer.append(String.format("<td>%d</td>", record.getLengthSum()));
-        writer.append(String.format("<td>%d</td>", record.getN50Length()));
-        writer.append(String.format("<td>%d</td>", record.getN50Index()));
-        writer.append(String.format("<td>%d</td>", record.getNumContigs()));
-        writer.append(String.format("<td>%f</td>", record.getMeanCoverage()));
-        writer.append(String.format("<td>%f</td>", record.getMeanDegree()));
-        writer.append("<tr>");
-      }
-      writer.append("</table>");
-      writer.append("</body></html>");
-      writer.close();
-      fs.moveFromLocalFile(new Path(temp.toString()), outputPath);
+        HashMap<String, String> row = new HashMap<String, String>();
+        row.put("Min Length", String.format("%d", record.getMinLength()));
+        row.put("Max Length", String.format("%d", record.getMaxLength()));
+        row.put("Length Sum", String.format("%d", record.getLengthSum()));
+        row.put("N50 Length", String.format("%d", record.getN50Length()));
+        row.put("N50 Index", String.format("%d", record.getN50Index()));
+        row.put("Num Contigs", String.format("%d", record.getNumContigs()));
+        row.put(
+            "Percent Total Length",
+            String.format("%f", record.getPercentLength()));
+        row.put(
+            "Percent Total Num Contigs",
+            String.format("%f", record.getPercentNumContigs()));
+        row.put("Mean Coverage", String.format("%f", record.getMeanCoverage()));
+        row.put("Mean Degree", String.format("%f", record.getMeanDegree()));
 
-      sLogger.info("Wrote HTML report to: " + outputPath.toString());
+        ArrayList<String> values = new ArrayList<String>();
+        for (String col : columns) {
+          values.add(row.get(col));
+        }
+        csvStream.write(StringUtils.join(values, ",") + "\n");
+      }
+      csvStream.close();
+      sLogger.info("Wrote CVS report to: " + csvFile);
     } catch (IOException exception) {
       fail("There was a problem writing the html report. " +
           "Exception: " + exception.getMessage());
@@ -206,8 +193,8 @@ public class GraphStats extends PipelineStage {
         outputPath, GraphN50Stats.class.getSimpleName() + ".json");
     computeN50Stats(FilenameUtils.concat(lengthsDir, "part-?????.avro"), statsFile);
 
-    String reportFile = FilenameUtils.concat(outputPath, "report.html");
-    writeReport(statsFile, reportFile);
+    String csvFile = FilenameUtils.concat(outputPath, "report.csv");
+    writeReport(statsFile, csvFile);
   }
 
   public static void main(String[] args) throws Exception {

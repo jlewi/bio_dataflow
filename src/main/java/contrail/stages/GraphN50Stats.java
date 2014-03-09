@@ -146,6 +146,14 @@ public class GraphN50Stats extends NonMRStage {
   protected void computeStats(
       Iterable<LengthStatsData> lengthsIterable,
       SpecificDatumWriter<GraphN50StatsData> writer, Encoder encoder) {
+    // Compute the total number of contigs and total length.
+    long totalNumContigs = 0L;
+    long totalLength = 0L;
+    for (LengthStatsData stats : lengthsIterable) {
+      totalNumContigs +=  stats.getCount();
+      totalLength += (stats.getCount() * stats.getLength());
+    }
+
     // We iterate over the data accumulating various running sums.
     // The front iterator is never behind the back iterator.
     Iterator<LengthStatsData> back = lengthsIterable.iterator();
@@ -187,6 +195,10 @@ public class GraphN50Stats extends NonMRStage {
 
       stats.setN50Index(n50Index.intValue());
 
+      stats.setPercentLength(
+          (double)(stats.getLengthSum()) * 100.0 / (totalLength));
+      stats.setPercentNumContigs(
+          (double)(stats.getNumContigs()) * 100.0 / (totalNumContigs));
       try {
         writer.write(stats, encoder);
       } catch (IOException e) {

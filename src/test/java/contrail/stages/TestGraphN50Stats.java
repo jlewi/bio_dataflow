@@ -39,7 +39,8 @@ import contrail.util.FileHelper;
 public class TestGraphN50Stats extends GraphN50Stats {
   // Verify the N50Stats data is correct.
   private void assertN50Stats(
-      ArrayList<LengthStatsData> lengthsData, GraphN50StatsData n50Stats) {
+      ArrayList<LengthStatsData> lengthsData, GraphN50StatsData n50Stats,
+      long totalLength, long totalNumContigs) {
     // Since the lengths are sorted in descending order the max length
     // should be the first one.
     assertEquals(
@@ -89,6 +90,14 @@ public class TestGraphN50Stats extends GraphN50Stats {
     assertEquals(expectedCoverage, n50Stats.getMeanCoverage(), .001);
     assertEquals(expectedDegree, n50Stats.getMeanDegree(), .001);
     assertEquals(expectedLengthTotal, n50Stats.getLengthSum().longValue());
+
+    double expectedPercentLength = expectedLengthTotal * 100.0 / totalLength;
+    double expectedPercentNumContigs = numContigs * 100.0 / totalNumContigs;
+
+    assertEquals(expectedPercentLength, n50Stats.getPercentLength(), .001);
+    assertEquals(
+        expectedPercentNumContigs, n50Stats.getPercentNumContigs(), .001);
+
   }
 
   protected ArrayList<GraphN50StatsData> readOutput(String outputPath) {
@@ -127,10 +136,15 @@ public class TestGraphN50Stats extends GraphN50Stats {
     // Generate the lengths data in descending order.
     ArrayList<LengthStatsData> lengthsData = new ArrayList<LengthStatsData>();
 
+    long totalLength = 0;
+    long totalNumContigs = 0;
     for (Integer length : sortedLengths) {
       LengthStatsData stats = new LengthStatsData();
       stats.setLength(length.longValue());
       stats.setCount(generator.nextInt(1000) + 1L);
+
+      totalNumContigs += stats.getCount();
+      totalLength += (stats.getCount() * length);
 
       List<Double> coverage =
           Arrays.asList(Math.random() * 10, Math.random() * 10);
@@ -170,7 +184,7 @@ public class TestGraphN50Stats extends GraphN50Stats {
     System.out.println("Output file:" + outputPath);
 
     for (GraphN50StatsData statsData : n50Stats) {
-      assertN50Stats(lengthsData, statsData);
+      assertN50Stats(lengthsData, statsData, totalLength, totalNumContigs);
     }
   }
 }

@@ -427,6 +427,16 @@
                   "type": "double",
                   "doc": ["The weighted average of the degree. The average ",
                           "is weighted by the lengths of the contigs"]
+                 },
+                 {"name": "percent_length",
+                  "type": "double",
+                  "doc": ["The percentage of the length of all contigs ",
+                          "accounted for by the contigs within this range."]
+                 },
+                 {"name": "percent_num_contigs",
+                  "type": "double",
+                  "doc": ["The percentage of the total number of contigs ",
+                          "accounted for by the contigs within this range."]
                  }
                 ]
      },
