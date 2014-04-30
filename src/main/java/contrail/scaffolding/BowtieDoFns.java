@@ -63,7 +63,7 @@ public class BowtieDoFns {
       mateData.setLeftMappings(new ArrayList<BowtieMapping>());
       mateData.setRightMappings(new ArrayList<BowtieMapping>());
 
-      this.increment("Contrail", "mates");
+      this.increment("Contrail", "BuildMatePairMappings-mates");
 
       // Keep track of the mappings associated with each suffix.
       HashMap<String, ArrayList<BowtieMapping>> suffixContigs =
@@ -84,12 +84,13 @@ public class BowtieDoFns {
       // Get the links.
       if (suffixContigs.size() > 2) {
         // Error.
-        this.increment("Contrail-errors", "too-many-mate-pair-suffixes");
+        this.increment(
+            "Contrail-Errors", "BuildMatePairMappings-too-many-mate-pair-suffixes");
         return;
       }
       if (suffixContigs.size() == 1) {
         // Error.
-        this.increment("Contrail-errors", "single-reads");
+        this.increment("Contrail-Errors", "BuildMatePairMappings-single-reads");
       }
 
       Iterator<ArrayList<BowtieMapping>> iter =
@@ -104,6 +105,7 @@ public class BowtieDoFns {
       } else {
         mateData.setRightMappings(new ArrayList<BowtieMapping>());
       }
+      this.increment("Contrail", "BuildMatePairMappings-mate-pair-mappings");
       emitter.emit(mateData);
     }
   }
@@ -122,4 +124,13 @@ public class BowtieDoFns {
     }
   }
 
+  /**
+   * Return just the id of the read.
+   */
+  public static class ReadIdDo extends DoFn<BowtieMapping, String> {
+    @Override
+    public void process(BowtieMapping mapping, Emitter<String> emitter) {
+      emitter.emit(mapping.getReadId().toString());
+    }
+  }
 }

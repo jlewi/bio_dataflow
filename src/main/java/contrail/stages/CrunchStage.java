@@ -56,6 +56,8 @@ public abstract class CrunchStage extends NonMRStage {
    * @param result
    */
   protected void printCounters(PipelineResult result) {
+    // TODO(jlewi): How can we sort the stage results by their approximate
+    // execution order?
     for (StageResult stageResult : result.getStageResults()) {
       sLogger.info("Stage: " + stageResult.getStageName());
       sLogger.info("Counters:");

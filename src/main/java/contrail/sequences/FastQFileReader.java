@@ -48,10 +48,10 @@ public class FastQFileReader implements Iterator<FastQRecord> {
       reader = new BufferedReader(new InputStreamReader(inStream));
     } catch (FileNotFoundException e) {
       throw new RuntimeException(
-          "Could not find the fasta fasta file:" + fastqFile);
+          "Could not find the fastq file:" + fastqFile);
     }catch (IOException e) {
       throw new RuntimeException(
-          "Could not open the fasta file:" + fastqFile, e);
+          "Could not open the fastq file:" + fastqFile, e);
     }
     has_next = null;
   }

@@ -35,8 +35,8 @@ import org.apache.hadoop.mapred.TextOutputFormat;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
-import contrail.io.FastQInputFormat;
 import contrail.io.FastQWritable;
+import contrail.io.mapred.FastQInputFormat;
 import contrail.sequences.DNAAlphabetWithNFactory;
 import contrail.sequences.DNAUtil;
 import contrail.sequences.Sequence;

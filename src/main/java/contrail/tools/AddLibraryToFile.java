@@ -125,7 +125,7 @@ public class AddLibraryToFile extends NonMRStage {
       sLogger.fatal("No files matched: " + readsGlob);
     }
     for (Path p : matches) {
-      lib.getFiles().add(p.toString());
+      lib.getFiles().add(p.toUri().toString());
     }
 
     if (libraries.containsKey(lib.getName())) {

@@ -112,4 +112,49 @@ public class ReadIdUtil {
     }
     return true;
   }
+
+  private final static Pattern READ_ID_WITH_UNDERSCORE_PATTERN =
+      Pattern.compile("(.*)_(.*)[_/]([12])");
+
+  /**
+   * Interface for parsing read ids.
+   */
+  public static interface ReadIdParser {
+    /**
+     * Parse the read. Return null if it couldn't be parsed.
+     * @param id
+     * @return
+     */
+    public ReadId parse(String id);
+  }
+
+
+  /**
+   * Split a read id into component parts.
+   *
+   * This function uses the regular expression "(.*)_(.*)[_/]([12])"
+   * Where the groupings contain the library read id and mate suffix
+   * respectively.
+   *
+   * Returns null if it doesn't match.
+   */
+  public static class ReadParserUsingUnderscore implements ReadIdParser {
+    @Override
+    public ReadId parse(String readId) {
+      Matcher m = READ_ID_WITH_UNDERSCORE_PATTERN.matcher(readId);
+      if (m.matches()) {
+        ReadId id = new ReadId();
+        id.setLibrary(m.group(1));
+        id.setId(m.group(2));
+        if (m.group(3).equals("1")) {
+          id.setMateId(MatePairId.LEFT);
+        } else {
+          id.setMateId(MatePairId.RIGHT);
+        }
+        return id;
+      } else {
+        return null;
+      }
+    }
+  }
 }

@@ -28,7 +28,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.util.ToolRunner;
 
-import contrail.io.FastQInputFormat;
+import contrail.io.mapred.FastQInputFormat;
 import contrail.util.ContrailLogger;
 import contrail.util.FileHelper;
 

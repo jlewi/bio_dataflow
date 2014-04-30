@@ -92,7 +92,8 @@
   <dependency>
     <groupId>org.apache.crunch</groupId>
     <artifactId>crunch-core</artifactId>
-    <version>0.9.0-SNAPSHOT</version>
+    <!-- 0.9.0 is missing some fixes that are in 0.8.3 and 0.10.0 -->
+    <version>0.9.0</version>
   </dependency>
     <dependency>
       <groupId>commons-cli</groupId>
@@ -283,6 +284,7 @@
       <testResource>
         <directory>${project.basedir}/src/test/java</directory>
         <includes>
+          <include>**/*.fastq</include>
           <include>**/*.json</include>
         </includes>
       </testResource>

@@ -1,8 +1,25 @@
+/**
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package contrail.io;
 
+import static org.junit.Assert.assertEquals;
+
+import java.io.BufferedWriter;
 import java.io.File;
-import org.junit.*;
-import static org.junit.Assert.*;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -11,14 +28,12 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.util.LineReader;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.BufferedWriter;
-import java.io.FileWriter;
 
-public class TestFastQInputFormat
-{
+public class TestFastQSplitter {
 
   public static final String FastQ_1 =
       "@1/1\n" +
@@ -85,12 +100,12 @@ public class TestFastQInputFormat
     // Test that takeToNextStart works when we start at the start of a file.
     long offset;
     writeToFile(FastQ_1);
-    FastQInputFormat inFormat = new FastQInputFormat();
+    FastQSplitter splitter = new FastQSplitter();
 
     FSDataInputStream fstream = FileSystem.get(conf).open(
         new Path(tempFile.getPath()));
 
-    offset = inFormat.takeToNextStart(fstream, 0);
+    offset = splitter.takeToNextStart(fstream, 0);
     assertEquals(0, offset);
     assertEquals(0, fstream.getPos());
   }
@@ -99,7 +114,7 @@ public class TestFastQInputFormat
   public void testTakeToNextStartFromMiddle() throws IOException {
     // Test that takeToNextStart works when we start in the middle
     // of a split.
-    FastQInputFormat inFormat = new FastQInputFormat();
+    FastQSplitter splitter = new FastQSplitter();
 
     writeToFile(FastQ_1);
 
@@ -107,7 +122,7 @@ public class TestFastQInputFormat
     FSDataInputStream fstream = FileSystem.get(conf).open(
         new Path(tempFile.getPath()));
 
-    long offset = inFormat.takeToNextStart(fstream, 10);
+    long offset = splitter.takeToNextStart(fstream, 10);
     assertEquals(210, offset);
     assertEquals(210, fstream.getPos());
 
@@ -123,14 +138,14 @@ public class TestFastQInputFormat
   public void testTakeToNextStartWithInvalidRecord() throws IOException {
     // In this test, we start at a position in the file that contains
     // the "@" symbol and is not a valid line of a FastQ file.
-    FastQInputFormat inFormat = new FastQInputFormat();
+    FastQSplitter splitter = new FastQSplitter();
 
     writeToFile(FastQ_2);
     Configuration conf = new Configuration();
     FSDataInputStream fstream = FileSystem.get(conf).open(
         new Path(tempFile.getPath()));
 
-    long offset = inFormat.takeToNextStart(fstream, 1);
+    long offset = splitter.takeToNextStart(fstream, 1);
     assertEquals(21, offset);
 
     // Double check it by reading the next line.
@@ -148,17 +163,19 @@ public class TestFastQInputFormat
     FSDataInputStream fstream =  FileSystem.get(conf).open(
         new Path(tempFile.getPath()));
 
-    JobConf conf = new JobConf();
-    conf.setInt("splitSize",60);
-    FastQInputFormat fastQInputFormat = new FastQInputFormat();
-    fastQInputFormat.configure(conf);
+    int splitSize = 60;
+    FastQSplitter splitter = new FastQSplitter();
 
     long bytes = 0;
-    for (NumberedFileSplit split: fastQInputFormat.retrieveSplits(new Path("dummy"), fstream, streamLength))
+    for (NumberedFileSplit split:
+      splitter.retrieveSplits(
+             new Path("dummy"), fstream, streamLength, splitSize)) {
       bytes += split.getLength();
+    }
 
     // Check that the total bytes in all splits put together is equal to the
-    // number of bytes in file - that is, no bytes are getting 'missed' in the splitting.
+    // number of bytes in file - that is, no bytes are getting 'missed' in the
+    // splitting.
     assertEquals(bytes, streamLength);
   }
 }

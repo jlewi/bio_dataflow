@@ -1,4 +1,4 @@
-package contrail.io;
+package contrail.io.mapred;
 import java.io.EOFException;
 import java.io.IOException;
 import org.apache.hadoop.conf.Configuration;
@@ -7,6 +7,9 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.mapred.RecordReader;
+
+import contrail.io.FastQWritable;
+import contrail.io.NumberedFileSplit;
 
 /**
  * Record reader for FastQ files.

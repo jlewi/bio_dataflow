@@ -143,7 +143,7 @@ public class FilterBowtieAlignments extends CrunchStage {
   }
 
   /**
-   * Remove all links supported by a link mate pair.
+   * Remove all links supported by a single mate pair.
    */
   public static class FilterContigLinks
       extends DoFn<Pair<String, Iterable<MatePairMappings>>, MatePairMappings> {
@@ -159,9 +159,9 @@ public class FilterBowtieAlignments extends CrunchStage {
         return;
       }
 
-      this.increment("contrail-FilterContigLinks", "good-links");
+      this.increment("Contrail", "FilterContigLinks-good-links");
       for (MatePairMappings m : mappings) {
-        this.increment("contrail-FilterContigLinks", "good-mate-pairs");
+        this.increment("Contrail", "FilterContigLinks-good-mate-pairs");
         emitter.emit(m);
       }
     }

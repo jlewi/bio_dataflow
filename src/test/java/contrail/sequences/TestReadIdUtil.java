@@ -19,6 +19,8 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
+import contrail.sequences.ReadIdUtil.ReadIdParser;
+
 public class TestReadIdUtil {
   @Test
   public void testIsValidMateId() {
@@ -81,5 +83,33 @@ public class TestReadIdUtil {
         "",
         ReadIdUtil.getMatePairSuffix(
             "gi|30260195|ref|NC_003997.3|_500_735_3:1:0_0:0:0_4"));
+  }
+
+  @Test
+  public void testParseReadIdWithUnderscore() {
+    ReadIdParser parser = new ReadIdUtil.ReadParserUsingUnderscore();
+    ReadId id = parser.parse("assemblathon_20x3000i_d/1");
+
+    assertEquals("assemblathon_20x3000i", id.getLibrary().toString());
+    assertEquals("d", id.getId().toString());
+    assertEquals(MatePairId.LEFT, id.getMateId());
+
+    id = parser.parse("assemblathon_20x3000i_d/2");
+    assertEquals("assemblathon_20x3000i", id.getLibrary().toString());
+    assertEquals("d", id.getId().toString());
+    assertEquals(MatePairId.RIGHT, id.getMateId());
+
+    id = parser.parse("assemblathon_20x3000i_d_2");
+    assertEquals("assemblathon_20x3000i", id.getLibrary().toString());
+    assertEquals("d", id.getId().toString());
+    assertEquals(MatePairId.RIGHT, id.getMateId());
+
+    id = parser.parse("assemblathon_20x3000i_1_2");
+    assertEquals("assemblathon_20x3000i", id.getLibrary().toString());
+    assertEquals("1", id.getId().toString());
+    assertEquals(MatePairId.RIGHT, id.getMateId());
+
+    id = parser.parse("assemblathon_abc");
+    assertEquals(null, id);
   }
 }

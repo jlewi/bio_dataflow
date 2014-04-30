@@ -14,8 +14,6 @@
 // Author: Jeremy Lewi (jeremy@lewi.us)
 package contrail.scaffolding;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,13 +28,10 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.util.ToolRunner;
-import org.apache.log4j.Logger;
 
-import contrail.sequences.FastQFileReader;
-import contrail.sequences.FastQRecord;
-import contrail.sequences.FastUtil;
 import contrail.stages.NonMRStage;
 import contrail.stages.ParameterDefinition;
+import contrail.util.ContrailLogger;
 import contrail.util.FileHelper;
 
 /**
@@ -47,8 +42,8 @@ import contrail.util.FileHelper;
  *
  */
 public class AlignReadsWithBowtie extends NonMRStage {
-  private static final Logger sLogger =
-      Logger.getLogger(AlignReadsWithBowtie.class);
+  private static final ContrailLogger sLogger =
+      ContrailLogger.getLogger(AlignReadsWithBowtie.class);
 
   /**
    * Get the parameters used by this stage.
@@ -163,7 +158,6 @@ public class AlignReadsWithBowtie extends NonMRStage {
     // Read the bowtie output.
     BowtieConverter converter = new BowtieConverter();
     converter.initializeAsChild(this);
-    ;
     converter.setParameter("inputpath", hdfsAlignDir);
     converter.setParameter("outputpath", this.getBowtieOutputPath());
 
@@ -191,77 +185,6 @@ public class AlignReadsWithBowtie extends NonMRStage {
         "reference_glob", "reads_glob")));
 
     return invalid;
-  }
-
-  /**
-   * Shorten the fastq entries in the file to the specified length output them.
-   * @param inFile
-   * @param outFile
-   * @param readLength
-   */
-  private void shortenFastQFile(String inFile, File outFile, int readLength) {
-    try {
-      FileOutputStream out = new FileOutputStream(outFile);
-      FastQFileReader reader = new FastQFileReader(inFile);
-
-      while (reader.hasNext()) {
-        FastQRecord record = reader.next();
-
-        // We need to make the read ids safe.
-        record.setId(Utils.safeReadId(record.getId().toString()));
-        if (readLength < record.getRead().length()) {
-          record.setRead(
-              record.getRead().toString().subSequence(0, readLength));
-          record.setQvalue(
-              record.getQvalue().toString().subSequence(0, readLength));
-        }
-        FastUtil.writeFastQRecord(out, record);
-      }
-    } catch (Exception e) {
-      sLogger.fatal("Could not write shortened reads." , e);
-      System.exit(-1);
-    }
-  }
-
-  /**
-   * Shorten the reads.
-   *
-   * We need to shorten the reads because bowtie is a short read aligner.
-   */
-  protected ArrayList<String> shortenReads() {
-    String globs = (String) this.stage_options.get("reads_glob");
-    ArrayList<String> readFiles = FileHelper.matchListOfGlobs(globs);
-    if (readFiles.isEmpty()) {
-      sLogger.fatal(
-          "No read files matched:"  +
-          (String) this.stage_options.get("reads_glob"),
-          new RuntimeException("Missing inputs."));
-      System.exit(-1);
-    }
-
-    Integer readLength = (Integer) stage_options.get("read_length");
-    ArrayList<String> shortened = new ArrayList<String>();
-
-    String localPath = (String) stage_options.get("local_path");
-    String shortenedDir = FilenameUtils.concat(localPath, "shortened-reads");
-
-    File shortenedDirFile = new File(shortenedDir);
-    if (!shortenedDirFile.exists()) {
-      sLogger.info("Creating directory: " + shortenedDir);
-      if (!shortenedDirFile.mkdirs()) {
-        sLogger.fatal("Failed to create directory: " + shortenedDir);
-        System.exit(-1);
-      }
-    }
-
-    for (String fastaFile : readFiles) {
-      String name = FilenameUtils.getName(fastaFile);
-      String shortenedFile = FilenameUtils.concat(shortenedDir, name);
-      shortenFastQFile(fastaFile, new File(shortenedFile), readLength);
-      shortened.add(shortenedFile);
-    }
-
-    return shortened;
   }
 
   public String getBowtieOutputPath() {
@@ -293,8 +216,6 @@ public class AlignReadsWithBowtie extends NonMRStage {
       System.exit(-1);
     }
 
-    ArrayList<String> shortenedReads = shortenReads();
-
     if (!runner.bowtieBuildIndex(
         contigFiles, bowtieIndexDir, bowtieIndexBase)) {
       sLogger.fatal(
@@ -303,10 +224,20 @@ public class AlignReadsWithBowtie extends NonMRStage {
       System.exit(-1);
     }
 
+    ArrayList<String> readFiles = FileHelper.matchListOfGlobs(
+          (String)stage_options.get("reads_glob"));
+    if (readFiles.isEmpty()) {
+      sLogger.fatal(
+          "No read files matched:"  +
+          (String) this.stage_options.get("reads_glob"),
+          new RuntimeException("Missing inputs."));
+      System.exit(-1);
+    }
+
     Integer readLength = (Integer) stage_options.get("read_length");
     String alignDir = FilenameUtils.concat(localPath, "bowtie-alignments");
     BowtieRunner.AlignResult alignResult = runner.alignReads(
-        bowtieIndexDir, bowtieIndexBase, shortenedReads, alignDir,
+        bowtieIndexDir, bowtieIndexBase, readFiles, alignDir,
         readLength);
 
     convertBowtieToAvro(alignResult.outputs.values());

@@ -36,8 +36,8 @@ import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
-import contrail.io.FastQInputFormat;
 import contrail.io.FastQWritable;
+import contrail.io.mapred.FastQInputFormat;
 import contrail.sequences.FastQRecord;
 import contrail.stages.ContrailParameters;
 import contrail.stages.MRStage;

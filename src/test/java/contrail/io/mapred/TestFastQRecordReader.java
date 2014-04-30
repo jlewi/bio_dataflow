@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 // Author: Jeremy Lewi (jeremy@lewi.us)
-package contrail.io;
+package contrail.io.mapred;
 
 import java.io.File;
 import java.io.IOException;
@@ -26,6 +26,9 @@ import org.apache.hadoop.io.LongWritable;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
+import contrail.io.FastQWritable;
+import contrail.io.NumberedFileSplit;
+import contrail.io.mapred.FastQRecordReader;
 import contrail.sequences.Alphabet;
 import contrail.sequences.AlphabetUtil;
 import contrail.sequences.DNAAlphabetFactory;

@@ -178,23 +178,18 @@ public class AvroFileContentsIterator<T> implements Iterator<T>, Iterable<T> {
    * @param path
    * @return
    */
-  private IteratorStreamTuple openFile(String path) {
+  private IteratorStreamTuple openFile(String fileName) {
     IteratorStreamTuple result = new IteratorStreamTuple();
 
-    FileSystem fs = null;
-    try{
-      fs = FileSystem.get(conf);
-    } catch (IOException e) {
-      throw new RuntimeException("Can't get filesystem: " + e.getMessage());
-    }
-
     try {
-      result.inStream = fs.open(new Path(path));
+      Path path = new Path(fileName);
+      FileSystem fs = path.getFileSystem(conf);
+      result.inStream = fs.open(path);
       SpecificDatumReader<T> reader = new SpecificDatumReader<T>();
       result.avroStream = new DataFileStream<T>(result.inStream, reader);
     } catch (IOException exception) {
       throw new RuntimeException(
-          "There was a problem reading the avro file: " + path + " " +
+          "There was a problem reading the avro file: " + fileName + " " +
               "Exception:" + exception.getMessage());
     }
     return result;

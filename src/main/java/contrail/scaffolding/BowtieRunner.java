@@ -17,7 +17,7 @@ package contrail.scaffolding;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.PrintStream;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -26,6 +26,8 @@ import java.util.HashSet;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.StringUtils;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.log4j.Logger;
 
 import contrail.sequences.FastQFileReader;
@@ -119,14 +121,25 @@ public class BowtieRunner {
    */
   private void shortenFastQFile(String inFile, File outFile, int readLength) {
     try {
+      // The code assumes that fastaFile is a local file. So we create a
+      // configuration which has "file:///" as the default filesystem URI.
+      Configuration conf = new Configuration();
+      URI localDefaultURI = new URI("file:///");
+      FileSystem.setDefaultUri(conf, localDefaultURI);
+
       FileOutputStream out = new FileOutputStream(outFile);
-      FastQFileReader reader = new FastQFileReader(inFile);
+      FastQFileReader reader = new FastQFileReader(inFile, conf);
 
       while (reader.hasNext()) {
         FastQRecord record = reader.next();
 
+        // TODO(jeremy@lewi.us): We used to use Utils.safeReadId to change
+        // the read ids. This is supposedly needed because bowtie cuts off
+        // the "/" and sets  a special code. So to be consistent we use the
+        // function safeReadId to convert readId's to a version that can be
+        // safely processed by bowtie.
         // We need to make the read ids safe.
-        record.setId(Utils.safeReadId(record.getId().toString()));
+        // record.setId(Utils.safeReadId(record.getId().toString()));
         if (readLength < record.getRead().length()) {
           record.setRead(
               record.getRead().toString().subSequence(0, readLength));
