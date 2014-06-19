@@ -1,0 +1,5 @@
+{"type": "enum",
+ "name": "StrandsForEdge",
+ "namespace": "contrail.sequences",
+ "symbols": ["FF", "FR", "RF", "RR"]
+}

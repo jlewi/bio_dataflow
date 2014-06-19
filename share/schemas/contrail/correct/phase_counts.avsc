@@ -1,0 +1,8 @@
+{"name": "contrail.correct.PhaseCounts",
+ "type": "record",
+ "doc": "Structure representing the counts.",
+ "fields":[
+ 	{"name": "phase", "type": "Phase", "doc":"The phase."},
+ 	{"name": "count", "type": "long", "doc": "count."}
+ ]
+}

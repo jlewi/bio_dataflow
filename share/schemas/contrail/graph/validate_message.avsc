@@ -1,0 +1,12 @@
+ {"name": "contrail.graph.ValidateMessage",
+  "type": "record",
+  "doc": ["A message used to validate the graph."],
+  "fields": [{"name": "node",
+              "type": ["null", "contrail.graph.GraphNodeData"],
+              "doc": "A node in the graph."},
+             {"name": "edge_info",
+              "type": ["null", "contrail.graph.ValidateEdge"],
+              "doc": ["Information about an edge to validate."]
+             }
+            ]
+ }

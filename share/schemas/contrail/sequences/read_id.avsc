@@ -1,0 +1,21 @@
+{"type": "record",
+ "name":"contrail.sequences.ReadId",
+ "doc": ["The id for a read."],
+ "fields": [ { "name":"library",
+               "type": "string",
+               "doc": "The library this read came from.."
+            },
+            {
+              "name":"id",
+              "type":"string",
+              "doc": ["The unique identifier for this read. Should ",
+                       "not include the library name or mate pair."]
+            },
+            {
+              "name": "mate_id",
+              "type": ["null", "MatePairId"],
+               "doc": ["Which part of a mate pair this read is or ",
+                       "null if not part of a read."]
+            }
+          ]
+}

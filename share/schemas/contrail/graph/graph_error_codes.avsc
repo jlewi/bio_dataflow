@@ -1,0 +1,5 @@
+{"name": "contrail.graph.GraphErrorCodes",
+  "type":  "enum",
+  "doc": "The different type of graph errors.",
+  "symbols": ["MISSING_NODE", "DUPLICATE_NODE", "OVERLAP", "MISSING_EDGE"]
+ }

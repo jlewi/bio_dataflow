@@ -1,0 +1,13 @@
+{"name": "contrail.stages.CounterInfo",
+  "type": "record",
+  "doc": "This record records the value of a mapreduce counter.",
+  "fields": [{"name": "value",
+              "type": "long",
+              "doc": "Value of the counter."
+             },
+             {"name": "name",
+              "type": "string",
+              "doc": "Name of the counter."
+             }                 
+            ]
+ }

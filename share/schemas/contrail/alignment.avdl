@@ -1,5 +1,0 @@
-import scaffolding.avpr;
-
-protocol Contrail {
-	
-}

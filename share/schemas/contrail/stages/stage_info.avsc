@@ -1,0 +1,35 @@
+{"name": "contrail.stages.StageInfo",
+  "type": "record",
+  "doc": "The info for a given stage.",
+  "fields": [{"name": "stage_class",
+              "type": "string",
+              "doc": "The class name for the stage."
+             },
+             {"name": "state",
+              "type": "StageState",
+              "doc": "The state of the job."
+             },
+             {"name": "parameters",
+              "type": {"type": "array", "items": "StageParameter"},
+              "doc": ["The list of parameters for the stage."]
+             },
+             {"name": "counters",
+              "type": {"type": "array", "items": "CounterInfo"},
+              "doc": "The counters for the stage."
+             },
+             {"name": "sub_stages",
+              "type": {"type": "array", "items": "StageInfo"},
+              "doc": ["If this stage runs any stages, this will be ",
+                      "filled with info about them."]
+             },
+             {"name": "modified_parameters",
+              "type": {"type": "array", "items": "StageParameter"},
+              "doc": ["Sometimes parameters are modified by the code. We ",
+                      "want to record the modified values separately from ",
+                      "the original values. For example, if the output ",
+                      "of a stage is moved this would be recorded in ",
+                      "modified_parameters. If the value of an outputpath ",
+                      "is empty that means it was deleted."]
+             }           
+            ]
+ } 

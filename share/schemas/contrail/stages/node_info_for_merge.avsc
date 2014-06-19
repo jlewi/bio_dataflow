@@ -1,0 +1,15 @@
+  {"name": "contrail.stages.NodeInfoForMerge",
+   "type": "record",
+   "doc": ["Contains the information about nodes outputted by the pair mark ",
+           "stage."],
+   "fields": [{"name": "compressible_node",
+               "type": "contrail.stages.CompressibleNodeData",
+               "doc": "A node in the graph."},
+              {"name": "strand_to_merge",
+               "type": "contrail.stages.CompressibleStrands",
+               "doc": ["Which strand if any to merge. The value should not ",
+                       "be both. The node is compressed along the outgoing ",
+                       "edge for this strand."]
+              }
+             ]
+  }

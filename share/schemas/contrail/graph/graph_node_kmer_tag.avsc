@@ -1,0 +1,13 @@
+{"name": "GraphNodeKMerTag",
+ "namespace": "contrail.graph",
+ "type": "record",
+ "doc": "Represent a tag assigned to nodes in the graph.",
+ "fields": [
+        {"name": "read_tag", "type":"string",
+         "doc": "Tag for the read we came from."
+        },
+        {"name": "chunk", "type":"int",
+         "doc": "Identifies the position within the read where it came from."
+        }
+    ]
+}

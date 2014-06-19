@@ -1,0 +1,5 @@
+{"name": "contrail.sequences.MatePairId",
+ "type":  "enum",
+ "doc": "Enumeration for representing two reads forming a mate pair.",
+ "symbols": ["LEFT", "RIGHT"]
+}

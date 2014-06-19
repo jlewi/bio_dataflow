@@ -1,0 +1,12 @@
+{"name": "contrail.stages.PairMarkOutput",
+ "type": "record",
+ "doc": ["Contains the result of merging several nodes together. ",
+         "The result includes messages which need to be sent to other ",
+         "nodes to let them know the graph has changed."],
+ "fields": [{"name": "payload",
+             "type": ["contrail.stages.EdgeUpdateForMerge",
+                      "contrail.stages.NodeInfoForMerge"],
+             "doc": "The data for this message."
+             }
+           ]
+ }

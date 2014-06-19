@@ -266,11 +266,11 @@
             <id>schemas</id>
             <phase>generate-sources</phase>
             <goals>
-              <goal>protocol</goal>
+              <goal>idl-protocol</goal>
             </goals>
             <configuration>
               <includes>
-                <include>*.avpr</include>
+                <include>*.avdl</include>
               </includes>
               <sourceDirectory>${project.basedir}/share/schemas/contrail/</sourceDirectory>
               <outputDirectory>${project.build.directory}/generated-sources/java</outputDirectory>

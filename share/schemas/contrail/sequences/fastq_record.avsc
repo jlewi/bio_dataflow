@@ -1,0 +1,9 @@
+{ "type":"record",
+	"name":"contrail.sequences.FastQRecord",
+	"doc":"A FastQ Read",
+	"fields": [
+	          { "name":"id","type":"string"},
+	          { "name":"read", "type":"string"},
+	          { "name":"qvalue", "type":"string"}
+	          ]
+	}

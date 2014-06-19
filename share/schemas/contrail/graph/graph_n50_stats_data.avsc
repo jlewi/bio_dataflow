@@ -1,0 +1,53 @@
+{"name": "contrail.graph.GraphN50StatsData",
+  "type": "record",
+  "doc": ["This record contains the N50 statistics. The statistics are ",
+          "computed with respect to all contigs with lengths in the ",
+          "range [minLength, maxLength]."],
+  "fields": [{"name": "num_contigs",
+              "type": "long",
+              "doc": "Number of sequences in this range."
+             },
+             {"name": "min_length",
+              "type": "int",
+              "doc": "Smallest length considered."
+             },
+             {"name": "max_length",
+              "type": "int",
+              "doc": "Maximum length considered."
+             },
+             {"name": "n50_length",
+              "type": "int",
+              "doc": ["The length of the N50 value. This is the length ",
+                      "such that the sum of all contigs with length >= ",
+                      "to this value is >= 50% of the length_sum"]
+             },
+             {"name": "length_sum",
+              "type": "long",
+              "doc": "The sum of the lengths of all contigs in this range."
+             },
+             {"name": "n50_index",
+              "type": "int",
+              "doc": "The number of contigs with length >= n50_length"
+             },
+             {"name": "mean_coverage",
+              "type": "double",
+              "doc": ["The weighted average of the coverage. The average ",
+                      "is weighted by the lengths of the contigs"]
+             },
+             {"name": "mean_degree",
+              "type": "double",
+              "doc": ["The weighted average of the degree. The average ",
+                      "is weighted by the lengths of the contigs"]
+             },
+             {"name": "percent_length",
+              "type": "double",
+              "doc": ["The percentage of the length of all contigs ",
+                      "accounted for by the contigs within this range."]
+             },
+             {"name": "percent_num_contigs",
+              "type": "double",
+              "doc": ["The percentage of the total number of contigs ",
+                      "accounted for by the contigs within this range."]
+             }
+            ]
+ }

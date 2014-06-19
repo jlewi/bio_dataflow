@@ -1,0 +1,5 @@
+{"name": "contrail.stages.StageState",
+  "type":  "enum",
+  "doc": "Stage of a job.",
+  "symbols": ["STARTED", "SUCCESS", "ERROR"]
+ }

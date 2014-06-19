@@ -1,0 +1,76 @@
+protocol ContrailProtocol {	
+  // The import statements must be ordered topologically with respect to 
+  // dependencies. i.e. a schema should only appear after all its depedencies.
+	import schema "compressed_read.avsc";
+	import schema "read_state.avsc";
+	
+	// Sequences.
+	import schema "sequences/strands_for_edge.avsc";
+	import schema "sequences/compressed_sequence.avsc";
+	import schema "sequences/dna_strand.avsc";
+	import schema "sequence_read_byte.avsc";
+	
+	import schema "sequences/fasta_record.avsc";
+	import schema "sequences/fastq_record.avsc";
+	import schema "sequences/mate_pair_id.avsc";
+	import schema "sequences/mate_pair.avsc";
+	import schema "sequences/quake_read_correction.avsc";
+	import schema "sequences/read_id.avsc";
+	import schema "sequences/read.avsc";
+	
+	// Graph structures.
+	import schema "graph/r5tag.avsc";
+	import schema "graph/edge_data.avsc";
+	import schema "graph/edge_direction.avsc";
+	import schema "graph/graph_node_kmer_tag.avsc";
+	import schema "graph/neighbor_data.avsc";
+	import schema "graph/graph_node_data.avsc";
+	
+	import schema "graph/kmer_edge.avsc";
+	
+	import schema "graph/validate_edge.avsc";
+	import schema "graph/validate_message.avsc";
+	import schema "graph/graph_error_codes.avsc";
+	import schema "graph/graph_error.avsc";
+	
+	import schema "graph/graph_stats_data.avsc";
+	import schema "graph/graph_n50_stats_data.avsc";
+	import schema "graph/length_stats_data.avsc";
+	
+	import schema "graph/connected_component_data.avsc";
+	
+	// Structures for error correction.
+	import schema "correct/phase.avsc";
+	import schema "correct/phase_counts.avsc";
+		
+	// Structures for contig assembly.
+	import schema "stages/compressible_strands.avsc";
+	import schema "stages/compressible_message.avsc";
+	import schema "stages/compressible_map_output.avsc";  
+  import schema "stages/compressible_node_data.avsc";
+  
+  import schema "stages/edge_update_for_merge.avsc";
+  import schema "stages/find_bubbles_output.avsc";
+  
+  import schema "stages/node_info_for_merge.avsc";
+  import schema "stages/pair_mark_output.avsc";
+  import schema "stages/quick_mark_message.avsc";
+  import schema "stages/remove_neighbor_message.avsc";
+  import schema "stages/remove_tip_message.avsc";
+	
+	import schema "stages/counter_info.avsc";
+	import schema "stages/stage_state.avsc";
+	import schema "stages/stage_parameter.avsc";
+	import schema "stages/stage_info.avsc";
+	
+	// Structures for scaffolding.
+	import schema "scaffolding/bowtie_mapping.avsc";
+	import schema "scaffolding/contig_edge.avsc";
+	import schema "scaffolding/contig_link.avsc";
+	import schema "scaffolding/library.avsc";
+	import schema "scaffolding/mate_pair_mappings.avsc";
+		
+	record ContigReadAlignment {
+		string name;		
+	}
+}
