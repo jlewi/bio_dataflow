@@ -75,6 +75,19 @@
             {"name": "files", "type": {"type": "array", "items": "string"},
              "doc": "A list of the files in the library."}
          ]
+    },
+    {"name": "ContigReadAlignment",
+        "type": "record",
+        "doc": ["The result of joining a read aligned to a contig with the ",
+                "contig."],
+        "fields":[
+            {"name": "graph_node", "type":"contrail.graph.GraphNodeData", 
+             "doc": "A contig the graph."},            
+            {"name": "bowtie_mapping", "type": "BowtieMapping",
+             "doc": "How bowtie aligned this read to this contig."},
+            {"name": "read", "type": "contrail.sequences.Read",
+             "doc": "A list of the files in the library."}
+         ]
     }
   ]
 }
