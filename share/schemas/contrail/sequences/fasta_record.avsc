@@ -1,0 +1,8 @@
+{ "name":"contrail.sequences.FastaRecord",
+	"type":"record",
+	"doc":"A Fasta Read",
+	"fields": [
+	          { "name":"id","type":"string"},
+	          { "name":"read", "type":"string"}
+	          ]
+ }

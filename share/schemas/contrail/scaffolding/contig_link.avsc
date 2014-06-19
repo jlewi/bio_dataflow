@@ -1,0 +1,10 @@
+{"name": "contrail.scaffolding.ContigLink",
+	"type": "record",
+	"doc": ["Represent a link between contigs."],
+	"fields":[
+	    {"name": "contig_id", "type":"string",
+	     "doc":"ID for the other contig."},
+	    {"name": "num_mate_pairs", "type":"int",
+	     "doc":"The number of mate pairs connecting these nodes."}
+	 ]
+}

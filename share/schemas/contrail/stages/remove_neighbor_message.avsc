@@ -1,0 +1,12 @@
+{"name": "RemoveNeighborMessage",
+ "type": "record",
+ "doc": "The message can either represent a node in the graph, or a message telling another node to delete edges to some node. Used in mapper output of RemoveLowCoverage",
+ "fields": [
+             {"name": "node", "type": ["null", "contrail.graph.GraphNodeData"],
+              "doc": "The node data"
+             },
+             {"name": "NodeIDtoRemove", "type": "string",
+              "doc": "The id of a neighbor to remove from the target of this message. This will be the empty string in the case where the message represents a node in the graph."
+             }
+           ]
+}

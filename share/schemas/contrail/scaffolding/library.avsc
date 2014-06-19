@@ -1,0 +1,13 @@
+{"name": "contrail.scaffolding.Library",
+	"type": "record",
+	"doc": ["Describes a read library."],
+	"fields":[
+	    {"name": "name", "type":"string", "doc":"Name of the library."},
+	    {"name": "min_size", "type":"int",
+	     "doc": "The minimum size for reads."},
+	    {"name": "max_size", "type":"int",
+	     "doc": "The maximum size for reads."},
+	    {"name": "files", "type": {"type": "array", "items": "string"},
+	     "doc": "A list of the files in the library."}
+	 ]
+}

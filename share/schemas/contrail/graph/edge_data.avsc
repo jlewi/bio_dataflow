@@ -1,0 +1,14 @@
+{"name": "EdgeData",
+ "namespace": "contrail.graph",
+ "type": "record",
+ "doc": "Represent the data for a particular instance of an edge.",
+ "fields": [ {"name": "strands",
+            "type": "contrail.sequences.StrandsForEdge",
+            "doc": "An enumeration indicating which strands are used in this edge."
+           },
+           {"name": "read_tags",
+            "type": {"type": "array", "items": "string"},
+            "doc": "Array of strings representing the reads this edge came from"
+           }
+         ]
+}

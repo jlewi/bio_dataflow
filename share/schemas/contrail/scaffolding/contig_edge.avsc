@@ -1,0 +1,16 @@
+{"name": "contrail.scaffolding.ContigEdge",
+	"type": "record",
+	"doc": ["Structure describing an edge between two contigs."],              
+	"fields":[
+	    {"name": "major_contig_id", "type":"string", 
+	     "doc":  "ID for the major contig."},
+	    {"name": "minor_contig_id", "type":"string", 
+	     "doc":  "ID for the minor contig."},
+			{"name": "num_links", "type": "int",
+			 "doc": "Number of links between the contigs."},
+		  {"name": "major_contig_length", "type":"int", 
+	     "doc":  "Length of the major contig."},
+	    {"name": "minor_contig_length", "type":"int", 
+	     "doc":  "Length of the minor contig."}
+	]
+} 

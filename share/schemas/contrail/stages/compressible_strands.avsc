@@ -1,0 +1,4 @@
+{"name": "contrail.stages.CompressibleStrands",
+ "type": "enum",
+ "symbols": ["NONE", "FORWARD", "REVERSE", "BOTH"]
+}

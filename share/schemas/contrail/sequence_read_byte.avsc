@@ -1,0 +1,9 @@
+	{"name": "contrail.SequenceReadByte",
+	 "type": "record",
+	 "doc": "Structure representing a DNA sequence read encoded as byte array.",
+	 "fields":[
+	 	{"name": "id", "type":"string", "doc":"ID for the read."},
+	 	{"name": "dna", "type":"bytes","doc":"The dna sequence for this read."},
+	 	{"name": "mate_pair_id", "type": "int", "doc": "ID indicating which mate pair this sequence belongs to"}
+	 ]
+	}

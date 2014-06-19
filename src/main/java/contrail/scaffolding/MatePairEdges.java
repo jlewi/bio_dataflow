@@ -41,7 +41,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.util.ToolRunner;
 
-import contrail.crunch.ContigEdge;
 import contrail.graph.GraphNodeData;
 import contrail.graph.GraphUtil;
 import contrail.scaffolding.BowtieDoFns.BuildMatePairMappings;

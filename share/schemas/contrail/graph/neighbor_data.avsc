@@ -1,0 +1,15 @@
+{"name": "NeighborData",
+ "type": "record",
+ "namespace": "contrail.graph",
+ "doc": "Represent the neighbor of some node.",
+ "fields": [
+             {"name": "node_id",
+              "type": "string",
+              "doc": "The id for the destination node."
+             },
+             {"name": "edges",
+              "type": {"type": "array", "items": "contrail.graph.EdgeData"},
+              "doc": "Describes the edges between these two nodes."
+             }
+           ]
+}
