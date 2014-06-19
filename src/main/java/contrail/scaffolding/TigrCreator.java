@@ -159,7 +159,7 @@ public class TigrCreator extends MRStage {
         outPair.key(mapping.getContigId());
         outPair.value(mapping);
         collector.collect(outPair);
-        reporter.incrCounter("Contrail", "nodes", 1);
+        reporter.incrCounter("Contrail", "mapping", 1);
       } else {
         sLogger.fatal(
             "Input wasn't a BowtieMapping or GraphNode. Its class was:" +
