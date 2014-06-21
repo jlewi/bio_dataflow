@@ -111,7 +111,7 @@ public class BowtieDoFns {
   }
 
   /**
-   * Key the bowtie mappings by the read id.
+   * Key the bowtie mappings by the id of the mate pair.
    */
   public static class KeyByMateIdDo extends
       DoFn<BowtieMapping, Pair<String, BowtieMapping>> {
@@ -121,6 +121,20 @@ public class BowtieDoFns {
         Emitter<Pair<String, BowtieMapping>> emitter) {
       String mateId = ReadIdUtil.getMateId(mapping.getReadId().toString());
       emitter.emit(new Pair<String, BowtieMapping>(mateId, mapping));
+    }
+  }
+
+  /**
+   * Key the bowtie mappings by the id of the read.
+   */
+  public static class KeyByReadIdDo extends
+      DoFn<BowtieMapping, Pair<String, BowtieMapping>> {
+    @Override
+    public void process(
+        BowtieMapping mapping,
+        Emitter<Pair<String, BowtieMapping>> emitter) {
+      String readId =  mapping.getReadId().toString();
+      emitter.emit(new Pair<String, BowtieMapping>(readId, mapping));
     }
   }
 
