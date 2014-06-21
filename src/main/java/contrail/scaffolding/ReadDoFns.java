@@ -45,4 +45,5 @@ public class ReadDoFns {
       }
       emitter.emit(new Pair(readId, read));
     }
+  }
 }

@@ -1,0 +1,10 @@
+{"name": "contrail.dataflow.GCSAvroFileSplit",
+ "type": "record",
+ "doc": ["Record used for describing the split of an avro file on gcs. ",
+         "phase."],
+ "fields": [ {"name": "path",
+              "type": "string",
+              "doc": "Full url of the gcs file"
+             }
+           ]
+}

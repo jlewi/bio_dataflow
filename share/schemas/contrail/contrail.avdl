@@ -47,16 +47,16 @@ protocol ContrailProtocol {
 	import schema "stages/compressible_strands.avsc";
 	import schema "stages/compressible_message.avsc";
 	import schema "stages/compressible_map_output.avsc";  
-  import schema "stages/compressible_node_data.avsc";
+  	import schema "stages/compressible_node_data.avsc";
   
-  import schema "stages/edge_update_for_merge.avsc";
-  import schema "stages/find_bubbles_output.avsc";
+  	import schema "stages/edge_update_for_merge.avsc";
+  	import schema "stages/find_bubbles_output.avsc";
   
-  import schema "stages/node_info_for_merge.avsc";
-  import schema "stages/pair_mark_output.avsc";
-  import schema "stages/quick_mark_message.avsc";
-  import schema "stages/remove_neighbor_message.avsc";
-  import schema "stages/remove_tip_message.avsc";
+  	import schema "stages/node_info_for_merge.avsc";
+  	import schema "stages/pair_mark_output.avsc";
+  	import schema "stages/quick_mark_message.avsc";
+  	import schema "stages/remove_neighbor_message.avsc";
+  	import schema "stages/remove_tip_message.avsc";
 	
 	import schema "stages/counter_info.avsc";
 	import schema "stages/stage_state.avsc";
@@ -69,6 +69,9 @@ protocol ContrailProtocol {
 	import schema "scaffolding/contig_link.avsc";
 	import schema "scaffolding/library.avsc";
 	import schema "scaffolding/mate_pair_mappings.avsc";
+	
+	// Dataflow.
+	import schema "dataflow/gcs_avro_file_split.avsc";
 		
 	record ContigReadAlignment {
 		string name;		

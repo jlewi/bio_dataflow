@@ -90,18 +90,18 @@ public class JoinContigsAndReads extends CrunchStage {
    * @param reads
    * @return
    */
-  protected PCollection<ContigReadAlignment> joinMappingsAndReads(PCollection<BowtieMapping> mappings,
-      PCollection<Read> reads) {
-    PTable<String, BowtieMapping> keyedMappings = mappings.parallelDo(
-        new BowtieDoFns.KeyByReadIdDo(),
-        Avros.tableOf(Avros.strings(), Avros.specifics(BowtieMapping.class)));
-
-    PTable<String, Read> keyedReads = reads.parallelDo(
-        new ReadDoFns.KeyByIdDo(),
-        Avros.tableOf(Avros.strings(),  Avros.specifics(Read.class)));
-
-
-  }
+//  protected PCollection<ContigReadAlignment> joinMappingsAndReads(PCollection<BowtieMapping> mappings,
+//      PCollection<Read> reads) {
+//    PTable<String, BowtieMapping> keyedMappings = mappings.parallelDo(
+//        new BowtieDoFns.KeyByReadIdDo(),
+//        Avros.tableOf(Avros.strings(), Avros.specifics(BowtieMapping.class)));
+//
+//    PTable<String, Read> keyedReads = reads.parallelDo(
+//        new ReadDoFns.KeyByIdDo(),
+//        Avros.tableOf(Avros.strings(),  Avros.specifics(Read.class)));
+//
+//
+//  }
 
   @Override
   protected void stageMain() {
@@ -127,12 +127,12 @@ public class JoinContigsAndReads extends CrunchStage {
     PCollection<BowtieMapping> alignments = pipeline.read(bowtieMappingSource);
 
     // Group the bowtie alignments with the read.
-    PCollection<ContigReadAlignment> readMappingsPair = joinMappingsAndReads(
-        alignments,reads);
+//    PCollection<ContigReadAlignment> readMappingsPair = joinMappingsAndReads(
+//        alignments,reads);
 
     // Group the (BowtieMapping, Read) pairs with the Contigs.
     PTable<String, GraphNodeData> contigsTable;
-    PTable<String, ContigReadAlignments> contigMapToAlignments;
+    //PTable<String, ContigReadAlignments> contigMapToAlignments;
 
     // Do the join.
   }
