@@ -15,55 +15,74 @@
  */
 package contrail.dataflow;
 
-import com.google.api.services.dataflow.model.CloudNamedParameter;
-import com.google.cloud.dataflow.sdk.coders.Coder;
-import com.google.cloud.dataflow.sdk.coders.StandardCoder;
-
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-import org.apache.avro.Schema;
-import org.apache.avro.io.BinaryDecoder;
-import org.apache.avro.io.BinaryEncoder;
-import org.apache.avro.io.DatumReader;
-import org.apache.avro.io.DatumWriter;
-import org.apache.avro.io.DecoderFactory;
-import org.apache.avro.io.EncoderFactory;
-import org.apache.avro.reflect.ReflectData;
-import org.apache.avro.reflect.ReflectDatumReader;
-import org.apache.avro.reflect.ReflectDatumWriter;
-import org.apache.avro.specific.SpecificDatumReader;
-import org.apache.avro.specific.SpecificDatumWriter;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.avro.Schema;
+import org.apache.avro.io.BinaryDecoder;
+import org.apache.avro.io.BinaryEncoder;
+import org.apache.avro.io.DecoderFactory;
+import org.apache.avro.io.EncoderFactory;
+import org.apache.avro.specific.SpecificDatumReader;
+import org.apache.avro.specific.SpecificDatumWriter;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.api.services.dataflow.model.CloudNamedParameter;
+import com.google.cloud.dataflow.sdk.coders.Coder;
+import com.google.cloud.dataflow.sdk.coders.StandardCoder;
+
+import contrail.util.AvroSchemaUtil;
+
 /**
  * An encoder for avro specific types.
- * 
+ *
+ * TODO(jlewi): We'd like to restrict T to be a subclass of
+ * org.apache.avro.specific.SpecificRecordBase e.g.
+ * AvroSpecificCoder<T> org.apache.avro.specific.SpecificRecordBase.
+ *
+ * However that creates a compile problem for of(String classType) because
+ * Class.forName(classType)
  */
-public class AvroSpecificCoder<T extends org.apache.avro.specific.SpecificRecordBase> extends StandardCoder<T> {
+public class AvroSpecificCoder<T> extends StandardCoder<T> {
 
   /**
-   * Returns an {@code AvroCoder} instance for the provided element type.
+   * Returns an {@code AvroSpecificCoder} instance for the provided element type.
    * @param <T> the element type
    */
-  public static <T extends org.apache.avro.specific.SpecificRecordBase> AvroSpecificCoder<T> of(Schema schema) {
-    return new AvroSpecificCoder<T>(schema);
+  public static <T> AvroSpecificCoder<T> of(Class<T> type) {
+    return new AvroSpecificCoder<T>(type);
   }
-  
-  private Schema schema;
-  private SpecificDatumWriter<T> writer;
-  private SpecificDatumReader<T> reader;
+
+  @JsonCreator
+  public static <T> AvroSpecificCoder<T> of(@JsonProperty("type") String classType)
+      throws ClassNotFoundException {
+    return (AvroSpecificCoder<T>) of(Class.forName(classType));
+  }
+
+  private final Class<T> type;
+  private final Schema schema;
+  private final SpecificDatumWriter<T> writer;
+  private final SpecificDatumReader<T> reader;
   private final EncoderFactory encoderFactory = new EncoderFactory();
   private final DecoderFactory decoderFactory = new DecoderFactory();
 
-  public AvroSpecificCoder(Schema schema) {
+  protected AvroSpecificCoder(Class<T> type) {
+    this.type = type;
+    this.schema = AvroSchemaUtil.getSchemaForSpecificType(type);
+    if (this.schema == null) {
+      throw new RuntimeException("Could not get schema for class: " +
+                                 type.getName());
+    }
     this.writer = new SpecificDatumWriter<T>(schema);
     this.reader = new SpecificDatumReader<T>(schema);
+  }
+
+  public Class<T> getRecordType() {
+    return type;
   }
 
   @Override
@@ -78,6 +97,23 @@ public class AvroSpecificCoder<T extends org.apache.avro.specific.SpecificRecord
   public T decode(InputStream inStream, Context context) throws IOException {
     BinaryDecoder decoder = decoderFactory.binaryDecoder(inStream, null);
     return reader.read(null, decoder);
+  }
+
+//  @Override
+//  public CloudEncoding asCloudEncoding() {
+//    // We convert this coder into CloudEncoding so that it can be serialized.
+//    StandardCoder<Integer> t;
+//    CloudEncoding encoding = new CloudEncoding();
+//    encoding.setType(this.getClass().getName());
+//
+//    return encoding;
+//  }
+
+  @Override
+  protected void addCloudEncodingDetails(
+      Map<String, CloudNamedParameter> encodingParameters) {
+    encodingParameters.put("type",
+        new CloudNamedParameter().setStringValue(type.getName()));
   }
 
   @Override
