@@ -80,15 +80,6 @@ public class CountContigs extends NonMRStage {
     }
   }
 
-  public static class GCSAvroFileSplitCoder extends AvroSpecificCoder<GCSAvroFileSplit> {
-    public GCSAvroFileSplitCoder() {
-      super(GCSAvroFileSplit.class);
-    }
-    public static GCSAvroFileSplitCoder of(){
-      return new GCSAvroFileSplitCoder();
-    }
-  }
-
   public static class GraphNodeDataCoder  extends AvroSpecificCoder<GraphNodeData> {
     public GraphNodeDataCoder() {
       super(GraphNodeData.class);
@@ -106,10 +97,7 @@ public class CountContigs extends NonMRStage {
 
     Pipeline p = Pipeline.create();
 
-    // Register default coders.
-//    p.getCoderRegistry().registerCoder(
-//        GCSAvroFileSplit.class,
-//        AvroSpecificCoder.class);
+    // Register a default coder for GraphNodeData.
     p.getCoderRegistry().registerCoder(
         GraphNodeData.class,
         GraphNodeDataCoder.class);
@@ -122,13 +110,10 @@ public class CountContigs extends NonMRStage {
 
     splits.add(split);
 
-    // TODO(jeremy@lewi.us): Is AvroCoder using the fact that GCSAvroFileSplit
-    // is a specific Avro type? Do we need to write our own custom coder?
     PCollection<GCSAvroFileSplit> inputs = p.begin().apply(Create.of(splits));
     inputs.setCoder(AvroSpecificCoder.of(GCSAvroFileSplit.class));
     inputs
       .apply(ParDo.of(new ReadAvro(GraphNodeData.class)))
-          .setCoder(AvroSpecificCoder.of(GraphNodeData.class))
       .apply(ParDo.of(new GraphNodeDoFns.KeyByNodeId()));
 
     p.run(PipelineRunner.fromOptions(options));
