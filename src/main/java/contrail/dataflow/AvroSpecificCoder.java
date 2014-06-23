@@ -33,6 +33,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.api.services.dataflow.model.CloudNamedParameter;
 import com.google.cloud.dataflow.sdk.coders.Coder;
+import com.google.cloud.dataflow.sdk.coders.CoderRegistry;
 import com.google.cloud.dataflow.sdk.coders.StandardCoder;
 
 import contrail.util.AvroSchemaUtil;
@@ -125,6 +126,19 @@ public class AvroSpecificCoder<T> extends StandardCoder<T> {
   public boolean isDeterministic() {
     // Avro serialization should be deterministic for a given schema.
     return true;
+  }
+
+  // Coder Factory allows us to register coders as defaults.
+  public static class CoderFactory extends CoderRegistry.CoderFactory {
+    private final Class type;
+
+    public CoderFactory(Class type) {
+      this.type = type;
+    }
+    @Override
+    public Coder create(List<? extends Coder> typeArgumentCoders) {
+      return AvroSpecificCoder.of(type);
+    }
   }
 }
 

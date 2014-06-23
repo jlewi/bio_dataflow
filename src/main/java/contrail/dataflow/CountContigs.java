@@ -80,16 +80,6 @@ public class CountContigs extends NonMRStage {
     }
   }
 
-  public static class GraphNodeDataCoder  extends AvroSpecificCoder<GraphNodeData> {
-    public GraphNodeDataCoder() {
-      super(GraphNodeData.class);
-    }
-
-    public static GraphNodeDataCoder of(){
-      return new GraphNodeDataCoder();
-    }
-  }
-
   @Override
   protected void stageMain() {
     PipelineOptions options = new PipelineOptions();
@@ -97,10 +87,13 @@ public class CountContigs extends NonMRStage {
 
     Pipeline p = Pipeline.create();
 
-    // Register a default coder for GraphNodeData.
+    // Register default coders.
+    p.getCoderRegistry().registerCoder(
+        GCSAvroFileSplit.class,
+        new AvroSpecificCoder.CoderFactory(GCSAvroFileSplit.class));
     p.getCoderRegistry().registerCoder(
         GraphNodeData.class,
-        GraphNodeDataCoder.class);
+        new AvroSpecificCoder.CoderFactory(GraphNodeData.class));
 
     GCSAvroFileSplit split = new GCSAvroFileSplit();
     split.setPath("gs://contrail/speciesA/contigs.2013_1215/" +
@@ -109,9 +102,10 @@ public class CountContigs extends NonMRStage {
     ArrayList<GCSAvroFileSplit> splits = new ArrayList<GCSAvroFileSplit>();
 
     splits.add(split);
-
     PCollection<GCSAvroFileSplit> inputs = p.begin().apply(Create.of(splits));
-    inputs.setCoder(AvroSpecificCoder.of(GCSAvroFileSplit.class));
+
+    // inputs.setCoder(AvroSpecificCoder.of(GCSAvroFileSplit.class));
+
     inputs
       .apply(ParDo.of(new ReadAvro(GraphNodeData.class)))
       .apply(ParDo.of(new GraphNodeDoFns.KeyByNodeId()));
