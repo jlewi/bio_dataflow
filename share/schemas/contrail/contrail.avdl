@@ -68,12 +68,9 @@ protocol ContrailProtocol {
 	import schema "scaffolding/contig_edge.avsc";
 	import schema "scaffolding/contig_link.avsc";
 	import schema "scaffolding/library.avsc";
-	import schema "scaffolding/mate_pair_mappings.avsc";
+	import schema "scaffolding/mate_pair_mappings.avsc";	
+	import schema "scaffolding/contig_read_alignment.avsc";
 	
 	// Dataflow.
 	import schema "dataflow/gcs_avro_file_split.avsc";
-		
-	record ContigReadAlignment {
-		string name;		
-	}
 }

@@ -1,14 +1,23 @@
+/*
+ * Copyright (C) 2014 Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package contrail.dataflow;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.channels.ByteChannel;
-import java.nio.channels.Channels;
 import java.util.ArrayList;
 
-import org.apache.avro.Schema;
-import org.apache.avro.file.DataFileStream;
-import org.apache.avro.specific.SpecificDatumReader;
+import org.apache.avro.specific.SpecificData;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
@@ -19,65 +28,111 @@ import com.google.cloud.dataflow.sdk.runners.PipelineRunner;
 import com.google.cloud.dataflow.sdk.transforms.Create;
 import com.google.cloud.dataflow.sdk.transforms.DoFn;
 import com.google.cloud.dataflow.sdk.transforms.ParDo;
-import com.google.cloud.dataflow.sdk.util.GcsUtil;
-import com.google.cloud.dataflow.sdk.util.GcsUtil.GcsFilename;
+import com.google.cloud.dataflow.sdk.transforms.join.CoGbkResult;
+import com.google.cloud.dataflow.sdk.transforms.join.CoGroupByKey;
+import com.google.cloud.dataflow.sdk.transforms.join.KeyedPCollections;
+import com.google.cloud.dataflow.sdk.values.KV;
 import com.google.cloud.dataflow.sdk.values.PCollection;
+import com.google.cloud.dataflow.sdk.values.TupleTag;
 
 import contrail.graph.GraphNodeData;
+import contrail.scaffolding.BowtieMapping;
+import contrail.scaffolding.ContigReadAlignment;
+import contrail.sequences.Read;
 import contrail.stages.NonMRStage;
-import contrail.util.AvroSchemaUtil;
 
 public class CountContigs extends NonMRStage {
   private static final Logger sLogger = Logger.getLogger(CountContigs.class);
-  /** A DoFn that turns a GCSAvroFileSplit into elements. */
-  public static class ReadAvro extends DoFn<GCSAvroFileSplit,GraphNodeData> {
-    private final Class specificTypeClass;
 
-    public ReadAvro(Class specificTypeClass) {
-      this.specificTypeClass = specificTypeClass;
-    }
+  protected PCollection<GraphNodeData> readGraphNodes(Pipeline p) {
+    GCSAvroFileSplit split = new GCSAvroFileSplit();
+    split.setPath("gs://contrail/speciesA/contigs.2013_1215/" +
+                  "ContigsAfterResolveThreads/part-00089.avro");
+
+    ArrayList<GCSAvroFileSplit> splits = new ArrayList<GCSAvroFileSplit>();
+
+    splits.add(split);
+    PCollection<GCSAvroFileSplit> inputs = p.begin().apply(Create.of(splits));
+
+    return inputs
+      .apply(ParDo.of(new ReadAvroSpecificDoFn<GraphNodeData>(
+          GraphNodeData.class)));
+  }
+
+  protected PCollection<Read> readReads(
+      Pipeline p) {
+    GCSAvroFileSplit split = new GCSAvroFileSplit();
+
+    split.setPath("gs://contrail/speciesA/contigs.2013_1215/" +
+        "ContigsAfterResolveThreads/som-reads.avro");
+
+    ArrayList<GCSAvroFileSplit> splits = new ArrayList<GCSAvroFileSplit>();
+
+    splits.add(split);
+    PCollection<GCSAvroFileSplit> inputs = p.begin().apply(Create.of(splits));
+
+    return inputs
+      .apply(ParDo.of(new ReadAvroSpecificDoFn<Read>(Read.class)));
+  }
+
+  protected PCollection<BowtieMapping> readMappings(Pipeline p) {
+    GCSAvroFileSplit split = new GCSAvroFileSplit();
+
+    split.setPath("gs://contrail/speciesA/contigs.2013_1215/" +
+        "ContigsAfterResolveThreads/mappings.avro");
+
+    ArrayList<GCSAvroFileSplit> splits = new ArrayList<GCSAvroFileSplit>();
+
+    splits.add(split);
+    PCollection<GCSAvroFileSplit> inputs = p.begin().apply(Create.of(splits));
+
+    return inputs
+      .apply(ParDo.of(new ReadAvroSpecificDoFn<BowtieMapping>(
+          BowtieMapping.class)));
+  }
+
+  protected static class JoinMappingReadDoFn
+      extends DoFn<KV<String, CoGbkResult>, ContigReadAlignment> {
+    public static final TupleTag<BowtieMapping> mappingTag = new TupleTag<>();
+    public static final TupleTag<Read> readTag = new TupleTag<>();
 
     @Override
     public void processElement(ProcessContext c) {
-      GCSAvroFileSplit split = c.element();
-      System.out.println(split.getPath());
-
-      GcsFilename gcsFilename = GcsUtil.asGcsFilename(split.getPath().toString());
-
-      ByteChannel inChannel;
-      try {
-        GcsUtil gcsUtil = GcsUtil.create(c.getPipelineOptions());
-        inChannel = gcsUtil.open(gcsFilename);
-      } catch (IOException e1) {
-        // TODO Auto-generated catch block
-        e1.printStackTrace();
-        return;
-      }
-      InputStream inStream = Channels.newInputStream(inChannel);
-      Schema schema = AvroSchemaUtil.getSchemaForSpecificType(
-          specificTypeClass);
-      SpecificDatumReader<GraphNodeData> datumReader = new SpecificDatumReader<GraphNodeData>(schema);
-
-      DataFileStream<GraphNodeData> fileReader;
-      try {
-        fileReader = new DataFileStream<GraphNodeData>(inStream, datumReader);
-      } catch(IOException e) {
-        sLogger.error("Could not read file:" + split.getPath().toString());
-        return;
-      }
-
-      while(fileReader.hasNext()) {
-        GraphNodeData datum = fileReader.next();
-        sLogger.info("read node");
-        c.output(datum);
-      }
-      try {
-        fileReader.close();
-      } catch (IOException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
+      KV<String, CoGbkResult> e = c.element();
+      Iterable<BowtieMapping> mappingsIter = e.getValue().getAll(mappingTag);
+      Iterable<Read> readIter = e.getValue().getAll(readTag);
+      for (BowtieMapping mapping : mappingsIter) {
+        for (Read read : readIter) {
+          ContigReadAlignment alignment = new ContigReadAlignment();
+          alignment.setBowtieMapping(SpecificData.get().deepCopy(
+              mapping.getSchema(), mapping));
+          alignment.setRead(SpecificData.get().deepCopy(
+              read.getSchema(), read));
+          c.output(alignment);
+        }
       }
     }
+  }
+
+  protected PCollection<ContigReadAlignment> joinMappingsAndReads(
+      PCollection<BowtieMapping> mappings, PCollection<Read> reads) {
+    PCollection<KV<String, BowtieMapping>> keyedMappings =
+        mappings.apply(ParDo.of(new BowtieMappingTransforms.KeyByReadId()));
+
+    PCollection<KV<String, Read>> keyedReads =
+        reads.apply(ParDo.of(new ReadTransforms.KeyByReadIdDo()));
+
+
+    PCollection<KV<String, CoGbkResult>> coGbkResultCollection =
+      KeyedPCollections.of(JoinMappingReadDoFn.mappingTag, keyedMappings)
+                       .and(JoinMappingReadDoFn.readTag, keyedReads)
+                       .apply(CoGroupByKey.<String>create());
+
+
+    PCollection<ContigReadAlignment> joined =
+        coGbkResultCollection.apply(ParDo.of(new JoinMappingReadDoFn()));
+
+    return joined;
   }
 
   @Override
@@ -94,21 +149,16 @@ public class CountContigs extends NonMRStage {
     p.getCoderRegistry().registerCoder(
         GraphNodeData.class,
         new AvroSpecificCoder.CoderFactory(GraphNodeData.class));
+    p.getCoderRegistry().registerCoder(
+        GraphNodeData.class,
+        new AvroSpecificCoder.CoderFactory(BowtieMapping.class));
 
-    GCSAvroFileSplit split = new GCSAvroFileSplit();
-    split.setPath("gs://contrail/speciesA/contigs.2013_1215/" +
-                  "ContigsAfterResolveThreads/part-00089.avro");
+    PCollection<GraphNodeData> nodes = readGraphNodes(p);
+    PCollection<Read> reads = readReads(p);
+    PCollection<BowtieMapping> mappings = readMappings(p);
 
-    ArrayList<GCSAvroFileSplit> splits = new ArrayList<GCSAvroFileSplit>();
-
-    splits.add(split);
-    PCollection<GCSAvroFileSplit> inputs = p.begin().apply(Create.of(splits));
-
-    // inputs.setCoder(AvroSpecificCoder.of(GCSAvroFileSplit.class));
-
-    inputs
-      .apply(ParDo.of(new ReadAvro(GraphNodeData.class)))
-      .apply(ParDo.of(new GraphNodeDoFns.KeyByNodeId()));
+    PCollection<ContigReadAlignment> readMappingsPair = joinMappingsAndReads(
+        mappings, reads);
 
     p.run(PipelineRunner.fromOptions(options));
   }

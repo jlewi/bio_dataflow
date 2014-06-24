@@ -1,12 +1,12 @@
- {"name": "contrail.scaffolding.ContReadAlignment",
+ {"name": "contrail.scaffolding.ContigReadAlignment",
   "type": "record",
   "doc": ["Structure representing the alignment of a read to a contig."],
   "fields":[
-      {"name": "graph_node", "type":"contrail.graph.GraphNodeData", 
+      {"name": "graph_node", "type": ["null", "contrail.graph.GraphNodeData"], 
        "doc": "ID for the contig."},
-      {"name": "read", "type":"contrail.sequences.Read", 
+      {"name": "read", "type": ["null", "contrail.sequences.Read"], 
        "doc": "The read."},
-      {"name": "bowtie_mapping", "type":"BowtieMapping",
+      {"name": "bowtie_mapping", "type": ["null", "BowtieMapping"],
        "doc": ["The alignment produced by bowtie."]}
    ]
 }
