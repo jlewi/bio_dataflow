@@ -23,6 +23,8 @@ import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 import com.google.cloud.dataflow.sdk.Pipeline;
+import com.google.cloud.dataflow.sdk.coders.KvCoder;
+import com.google.cloud.dataflow.sdk.coders.StringUtf8Coder;
 import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
 import com.google.cloud.dataflow.sdk.runners.PipelineRunner;
 import com.google.cloud.dataflow.sdk.transforms.Create;
@@ -41,8 +43,9 @@ import contrail.scaffolding.ContigReadAlignment;
 import contrail.sequences.Read;
 import contrail.stages.NonMRStage;
 
-public class CountContigs extends NonMRStage {
-  private static final Logger sLogger = Logger.getLogger(CountContigs.class);
+public class JoinMappingsAndReads extends NonMRStage {
+  private static final Logger sLogger = Logger.getLogger(
+      TestJoinMappingsAndReads.class);
 
   protected PCollection<GraphNodeData> readGraphNodes(Pipeline p) {
     GCSAvroFileSplit split = new GCSAvroFileSplit();
@@ -117,10 +120,16 @@ public class CountContigs extends NonMRStage {
   protected PCollection<ContigReadAlignment> joinMappingsAndReads(
       PCollection<BowtieMapping> mappings, PCollection<Read> reads) {
     PCollection<KV<String, BowtieMapping>> keyedMappings =
-        mappings.apply(ParDo.of(new BowtieMappingTransforms.KeyByReadId()));
+        mappings.apply(ParDo.of(new BowtieMappingTransforms.KeyByReadId()))
+          .setCoder(KvCoder.of(
+              StringUtf8Coder.of(),
+              AvroSpecificCoder.of(BowtieMapping.class)));
 
     PCollection<KV<String, Read>> keyedReads =
-        reads.apply(ParDo.of(new ReadTransforms.KeyByReadIdDo()));
+        reads.apply(ParDo.of(new ReadTransforms.KeyByReadIdDo())).setCoder(
+            KvCoder.of(
+                StringUtf8Coder.of(),
+                AvroSpecificCoder.of(Read.class)));
 
 
     PCollection<KV<String, CoGbkResult>> coGbkResultCollection =
@@ -142,16 +151,7 @@ public class CountContigs extends NonMRStage {
 
     Pipeline p = Pipeline.create();
 
-    // Register default coders.
-    p.getCoderRegistry().registerCoder(
-        GCSAvroFileSplit.class,
-        new AvroSpecificCoder.CoderFactory(GCSAvroFileSplit.class));
-    p.getCoderRegistry().registerCoder(
-        GraphNodeData.class,
-        new AvroSpecificCoder.CoderFactory(GraphNodeData.class));
-    p.getCoderRegistry().registerCoder(
-        GraphNodeData.class,
-        new AvroSpecificCoder.CoderFactory(BowtieMapping.class));
+    DataflowUtil.registerAvroCoders(p);
 
     PCollection<GraphNodeData> nodes = readGraphNodes(p);
     PCollection<Read> reads = readReads(p);
@@ -165,7 +165,7 @@ public class CountContigs extends NonMRStage {
 
   public static void main(String[] args) throws Exception {
     int res = ToolRunner.run(
-        new Configuration(), new CountContigs(), args);
+        new Configuration(), new JoinMappingsAndReads(), args);
     System.exit(res);
   }
 }

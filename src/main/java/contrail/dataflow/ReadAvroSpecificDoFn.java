@@ -33,7 +33,8 @@ import contrail.util.AvroSchemaUtil;
 
 public class ReadAvroSpecificDoFn<AvroType>
     extends DoFn<GCSAvroFileSplit, AvroType> {
-  private static final Logger sLogger = Logger.getLogger(CountContigs.class);
+  private static final Logger sLogger = Logger.getLogger(
+      ReadAvroSpecificDoFn.class);
   private final Class specificTypeClass;
 
   public ReadAvroSpecificDoFn(Class specificTypeClass) {
