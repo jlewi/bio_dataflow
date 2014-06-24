@@ -1,14 +1,24 @@
 package contrail.dataflow;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 import org.junit.Test;
 
 import com.google.cloud.dataflow.sdk.Pipeline;
+import com.google.cloud.dataflow.sdk.coders.Coder;
+import com.google.cloud.dataflow.sdk.coders.Coder.Context;
+import com.google.cloud.dataflow.sdk.coders.CoderException;
+import com.google.cloud.dataflow.sdk.coders.IterableCoder;
 import com.google.cloud.dataflow.sdk.runners.DirectPipelineRunner;
 import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
 import com.google.cloud.dataflow.sdk.transforms.Create;
+import com.google.cloud.dataflow.sdk.transforms.join.RawUnionValue;
+import com.google.cloud.dataflow.sdk.transforms.join.UnionCoder;
 import com.google.cloud.dataflow.sdk.values.PCollection;
 
 import contrail.scaffolding.BowtieMapping;
@@ -77,4 +87,40 @@ public class TestJoinMappingsAndReads {
     System.out.println("Number of elements:" + finalResults.size());
   }
 
+  @Test
+  public void testUnionCoder() throws CoderException, IOException {
+    // The purpose of this test is to try to reproduce the serialization errors
+    // we are getting.
+    List<Coder> coders = new ArrayList<Coder>();
+    coders.add(AvroSpecificCoder.of(BowtieMapping.class));
+    coders.add(AvroSpecificCoder.of(Read.class));
+    UnionCoder unionCoder = UnionCoder.of(coders);
+
+    IterableCoder<RawUnionValue> icoder = IterableCoder.of(unionCoder);
+
+    BowtieMapping mapping = emptyMapping();
+    mapping.setReadId("readA");
+
+    Read readA = new Read();
+    readA.setFastq(new FastQRecord());
+    readA.getFastq().setId("readA");
+    readA.getFastq().setQvalue("");
+    readA.getFastq().setRead("ACTCG");
+
+    ArrayList<RawUnionValue> values = new ArrayList<RawUnionValue>();
+    RawUnionValue value1 = new RawUnionValue(0, mapping);
+    RawUnionValue value2 = new RawUnionValue(1, readA);
+    values.add(value1);
+    values.add(value2);
+
+    ByteArrayOutputStream outStream = new ByteArrayOutputStream();
+
+    // TODO(jlewi): Try with true/false for whole stream.
+    Context context = new Context(false);
+    icoder.encode(values, outStream, context);
+
+    ByteArrayInputStream inStream = new ByteArrayInputStream(outStream.toByteArray());
+    icoder.decode(inStream, context);
+
+  }
 }
