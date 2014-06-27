@@ -15,6 +15,7 @@
  */
 package contrail.dataflow;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -92,6 +93,13 @@ public class AvroSpecificCoder<T> extends StandardCoder<T> {
     BinaryEncoder encoder = encoderFactory.binaryEncoder(outStream, null);
     writer.write(value, encoder);
     encoder.flush();
+
+    // NO COMMIT
+    ByteArrayOutputStream bStream = new ByteArrayOutputStream();
+    BinaryEncoder debugEncoder = encoderFactory.binaryEncoder(bStream, null);
+    writer.write(value, debugEncoder);
+    debugEncoder.flush();
+    System.out.println("Num bytes written:" + bStream.toByteArray().length);
   }
 
   @Override

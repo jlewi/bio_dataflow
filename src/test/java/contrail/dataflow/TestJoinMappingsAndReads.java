@@ -121,6 +121,42 @@ public class TestJoinMappingsAndReads {
 
     ByteArrayInputStream inStream = new ByteArrayInputStream(outStream.toByteArray());
     icoder.decode(inStream, context);
+  }
 
+  @Test
+  public void testUnionCoderNoUnion() throws CoderException, IOException {
+    // The purpose of this test is to try to reproduce the serialization errors
+    // we are getting but without using a schema which includes a union of a
+    // a null and non null schema.
+    List<Coder> coders = new ArrayList<Coder>();
+    coders.add(AvroSpecificCoder.of(BowtieMapping.class));
+    coders.add(AvroSpecificCoder.of(FastQRecord.class));
+    UnionCoder unionCoder = UnionCoder.of(coders);
+
+    IterableCoder<RawUnionValue> icoder = IterableCoder.of(unionCoder);
+
+    BowtieMapping mapping = emptyMapping();
+    mapping.setReadId("readA");
+
+    FastQRecord fast = new FastQRecord();
+    fast.setId("readA");
+    fast.setQvalue("");
+    fast.setRead("ACTCG");
+
+    ArrayList<RawUnionValue> values = new ArrayList<RawUnionValue>();
+    RawUnionValue value1 = new RawUnionValue(0, mapping);
+    RawUnionValue value2 = new RawUnionValue(1, fast);
+    values.add(value1);
+    values.add(value2);
+
+    ByteArrayOutputStream outStream = new ByteArrayOutputStream();
+
+    // TODO(jlewi): Try with true/false for whole stream.
+    Context context = new Context(false);
+    icoder.encode(values, outStream, context);
+
+    System.out.println("Encoded bytes:\n" + outStream.toByteArray());
+    ByteArrayInputStream inStream = new ByteArrayInputStream(outStream.toByteArray());
+    icoder.decode(inStream, context);
   }
 }
