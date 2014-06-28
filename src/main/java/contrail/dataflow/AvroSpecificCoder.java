@@ -92,14 +92,6 @@ public class AvroSpecificCoder<T> extends StandardCoder<T> {
     BinaryEncoder encoder = encoderFactory.directBinaryEncoder(outStream, null);
     writer.write(value, encoder);
     encoder.flush();
-
-    // NO COMMIT
-//    ByteArrayOutputStream bStream = new ByteArrayOutputStream();
-//    BinaryEncoder debugEncoder = encoderFactory.directBinaryEncoder(
-//        bStream, null);
-//    writer.write(value, debugEncoder);
-//    debugEncoder.flush();
-//    System.out.println("Num bytes written:" + bStream.toByteArray().length);
   }
 
   @Override
@@ -107,16 +99,6 @@ public class AvroSpecificCoder<T> extends StandardCoder<T> {
     BinaryDecoder decoder = decoderFactory.directBinaryDecoder(inStream, null);
     return reader.read(null, decoder);
   }
-
-//  @Override
-//  public CloudEncoding asCloudEncoding() {
-//    // We convert this coder into CloudEncoding so that it can be serialized.
-//    StandardCoder<Integer> t;
-//    CloudEncoding encoding = new CloudEncoding();
-//    encoding.setType(this.getClass().getName());
-//
-//    return encoding;
-//  }
 
   @Override
   protected void addCloudEncodingDetails(
