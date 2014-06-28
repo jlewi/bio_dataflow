@@ -14,6 +14,8 @@ import com.google.cloud.dataflow.sdk.coders.Coder;
 import com.google.cloud.dataflow.sdk.coders.Coder.Context;
 import com.google.cloud.dataflow.sdk.coders.CoderException;
 import com.google.cloud.dataflow.sdk.coders.IterableCoder;
+import com.google.cloud.dataflow.sdk.coders.StringUtf8Coder;
+import com.google.cloud.dataflow.sdk.coders.VarIntCoder;
 import com.google.cloud.dataflow.sdk.runners.DirectPipelineRunner;
 import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
 import com.google.cloud.dataflow.sdk.transforms.Create;
@@ -100,6 +102,7 @@ public class TestJoinMappingsAndReads {
 
     BowtieMapping mapping = emptyMapping();
     mapping.setReadId("readA");
+    Context c;
 
     Read readA = new Read();
     readA.setFastq(new FastQRecord());
@@ -122,6 +125,34 @@ public class TestJoinMappingsAndReads {
     ByteArrayInputStream inStream = new ByteArrayInputStream(outStream.toByteArray());
     icoder.decode(inStream, context);
   }
+
+  @Test
+  public void testUnionCoderStrings() throws CoderException, IOException {
+    // The purpose of this test is to try to reproduce the serialization errors
+    // we are getting but using simple coders rather than an avro schema.
+    List<Coder> coders = new ArrayList<Coder>();
+    coders.add(StringUtf8Coder.of());
+    coders.add(VarIntCoder.of());
+    UnionCoder unionCoder = UnionCoder.of(coders);
+
+    IterableCoder<RawUnionValue> icoder = IterableCoder.of(unionCoder);
+
+    ArrayList<RawUnionValue> values = new ArrayList<RawUnionValue>();
+    RawUnionValue value1 = new RawUnionValue(0, "hello");
+    RawUnionValue value2 = new RawUnionValue(1, new Integer(4));
+    values.add(value1);
+    values.add(value2);
+
+    ByteArrayOutputStream outStream = new ByteArrayOutputStream();
+
+    // TODO(jlewi): Try with true/false for whole stream.
+    Context context = new Context(false);
+    icoder.encode(values, outStream, context);
+
+    ByteArrayInputStream inStream = new ByteArrayInputStream(outStream.toByteArray());
+    icoder.decode(inStream, context);
+  }
+
 
   @Test
   public void testUnionCoderNoUnion() throws CoderException, IOException {
