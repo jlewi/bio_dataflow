@@ -50,7 +50,7 @@ public class JoinMappingsAndReads extends NonMRStage {
   protected PCollection<GraphNodeData> readGraphNodes(Pipeline p) {
     GCSAvroFileSplit split = new GCSAvroFileSplit();
     split.setPath("gs://contrail/speciesA/contigs.2013_1215/" +
-                  "ContigsAfterResolveThreads/part-00089.avro");
+        "ContigsAfterResolveThreads/part-00089.avro");
 
     ArrayList<GCSAvroFileSplit> splits = new ArrayList<GCSAvroFileSplit>();
 
@@ -58,8 +58,8 @@ public class JoinMappingsAndReads extends NonMRStage {
     PCollection<GCSAvroFileSplit> inputs = p.begin().apply(Create.of(splits));
 
     return inputs
-      .apply(ParDo.of(new ReadAvroSpecificDoFn<GraphNodeData>(
-          GraphNodeData.class)));
+        .apply(ParDo.of(new ReadAvroSpecificDoFn<GraphNodeData>(
+            GraphNodeData.class)));
   }
 
   protected PCollection<Read> readReads(
@@ -75,7 +75,7 @@ public class JoinMappingsAndReads extends NonMRStage {
     PCollection<GCSAvroFileSplit> inputs = p.begin().apply(Create.of(splits));
 
     return inputs
-      .apply(ParDo.of(new ReadAvroSpecificDoFn<Read>(Read.class)));
+        .apply(ParDo.of(new ReadAvroSpecificDoFn<Read>(Read.class)));
   }
 
   protected PCollection<BowtieMapping> readMappings(Pipeline p) {
@@ -90,12 +90,12 @@ public class JoinMappingsAndReads extends NonMRStage {
     PCollection<GCSAvroFileSplit> inputs = p.begin().apply(Create.of(splits));
 
     return inputs
-      .apply(ParDo.of(new ReadAvroSpecificDoFn<BowtieMapping>(
-          BowtieMapping.class)));
+        .apply(ParDo.of(new ReadAvroSpecificDoFn<BowtieMapping>(
+            BowtieMapping.class)));
   }
 
   protected static class JoinMappingReadDoFn
-      extends DoFn<KV<String, CoGbkResult>, ContigReadAlignment> {
+  extends DoFn<KV<String, CoGbkResult>, ContigReadAlignment> {
     public static final TupleTag<BowtieMapping> mappingTag = new TupleTag<>();
     public static final TupleTag<Read> readTag = new TupleTag<>();
 
@@ -121,9 +121,9 @@ public class JoinMappingsAndReads extends NonMRStage {
       PCollection<BowtieMapping> mappings, PCollection<Read> reads) {
     PCollection<KV<String, BowtieMapping>> keyedMappings =
         mappings.apply(ParDo.of(new BowtieMappingTransforms.KeyByReadId()))
-          .setCoder(KvCoder.of(
-              StringUtf8Coder.of(),
-              AvroSpecificCoder.of(BowtieMapping.class)));
+        .setCoder(KvCoder.of(
+            StringUtf8Coder.of(),
+            AvroSpecificCoder.of(BowtieMapping.class)));
 
     PCollection<KV<String, Read>> keyedReads =
         reads.apply(ParDo.of(new ReadTransforms.KeyByReadIdDo())).setCoder(
@@ -133,13 +133,79 @@ public class JoinMappingsAndReads extends NonMRStage {
 
 
     PCollection<KV<String, CoGbkResult>> coGbkResultCollection =
-      KeyedPCollections.of(JoinMappingReadDoFn.mappingTag, keyedMappings)
-                       .and(JoinMappingReadDoFn.readTag, keyedReads)
-                       .apply(CoGroupByKey.<String>create());
+        KeyedPCollections.of(JoinMappingReadDoFn.mappingTag, keyedMappings)
+        .and(JoinMappingReadDoFn.readTag, keyedReads)
+        .apply(CoGroupByKey.<String>create());
 
 
     PCollection<ContigReadAlignment> joined =
         coGbkResultCollection.apply(ParDo.of(new JoinMappingReadDoFn()));
+
+    return joined;
+  }
+
+  protected static class KeyByContigId
+  extends DoFn<ContigReadAlignment, KV<String, ContigReadAlignment>> {
+    @Override
+    public void processElement(ProcessContext c) {
+      BowtieMapping mapping = c.element().getBowtieMapping();
+      c.output(KV.of(mapping.getContigId().toString(), c.element()));
+    }
+  }
+
+  protected static class JoinNodesDoFn
+      extends DoFn<KV<String, CoGbkResult>, ContigReadAlignment> {
+    public static final TupleTag<ContigReadAlignment> alignmentTag =
+        new TupleTag<>();
+    public static final TupleTag<GraphNodeData> nodeTag = new TupleTag<>();
+
+    @Override
+    public void processElement(ProcessContext c) {
+      KV<String, CoGbkResult> e = c.element();
+      Iterable<ContigReadAlignment> alignmentIter = e.getValue().getAll(
+          alignmentTag);
+      Iterable<GraphNodeData> nodeIter = e.getValue().getAll(nodeTag);
+      for (ContigReadAlignment alignment : alignmentIter) {
+        for (GraphNodeData nodeData : nodeIter) {
+          ContigReadAlignment newAlignment = SpecificData.get().deepCopy(
+              alignment.getSchema(), alignment);
+          newAlignment.setGraphNode(SpecificData.get().deepCopy(
+              nodeData.getSchema(), nodeData));
+          c.output(newAlignment);
+        }
+      }
+    }
+  }
+
+  /**
+   * Join the graph nodes with the ContigReadAlignments.
+   * @param mappings
+   * @param reads
+   * @return
+   */
+  protected PCollection<ContigReadAlignment> joinNodes(
+      PCollection<ContigReadAlignment> alignments,
+      PCollection<GraphNodeData> nodes) {
+    PCollection<KV<String, ContigReadAlignment>> keyedAlignments =
+        alignments.apply(ParDo.of(new KeyByContigId()))
+        .setCoder(KvCoder.of(
+            StringUtf8Coder.of(),
+            AvroSpecificCoder.of(ContigReadAlignment.class)));
+
+    PCollection<KV<String, GraphNodeData>> keyedNodes =
+        nodes.apply(ParDo.of(new GraphNodeTransforms.KeyByNodeId())).setCoder(
+            KvCoder.of(
+                StringUtf8Coder.of(),
+                AvroSpecificCoder.of(GraphNodeData.class)));
+
+    PCollection<KV<String, CoGbkResult>> coGbkResultCollection =
+        KeyedPCollections.of(JoinNodesDoFn.alignmentTag, keyedAlignments)
+        .and(JoinNodesDoFn.nodeTag, keyedNodes)
+        .apply(CoGroupByKey.<String>create());
+
+
+    PCollection<ContigReadAlignment> joined =
+        coGbkResultCollection.apply(ParDo.of(new JoinNodesDoFn()));
 
     return joined;
   }
@@ -159,6 +225,9 @@ public class JoinMappingsAndReads extends NonMRStage {
 
     PCollection<ContigReadAlignment> readMappingsPair = joinMappingsAndReads(
         mappings, reads);
+
+    PCollection<ContigReadAlignment> nodeReadsMappings = joinNodes(
+        readMappingsPair, nodes);
 
     p.run(PipelineRunner.fromOptions(options));
   }
