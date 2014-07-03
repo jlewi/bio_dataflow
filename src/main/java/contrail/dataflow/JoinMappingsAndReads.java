@@ -97,6 +97,16 @@ public class JoinMappingsAndReads extends NonMRStage {
             "stagingLocation", "Location on GCS where files should be staged.",
             String.class, null);
 
+    ParameterDefinition dataflowEndpoint =
+        new ParameterDefinition(
+            "dataflowEndpoint", "Dataflow endpoint",
+            String.class, null);
+
+    ParameterDefinition apiRootUrl =
+        new ParameterDefinition(
+            "apiRootUrl", "Root url.",
+            String.class, null);
+
     for (ParameterDefinition def : ContrailParameters.getInputOutputPathOptions() ){
       if (def.getName().equals("outputpath")) {
         defs.put(def.getName(), def);
@@ -114,6 +124,9 @@ public class JoinMappingsAndReads extends NonMRStage {
     defs.put(pipelineRunner.getName(), pipelineRunner);
     defs.put(project.getName(), project);
     defs.put(stagingLocation.getName(), stagingLocation);
+    defs.put(dataflowEndpoint.getName(), dataflowEndpoint);
+    defs.put(apiRootUrl.getName(), apiRootUrl);
+
     return Collections.unmodifiableMap(defs);
   }
 
@@ -422,6 +435,16 @@ public class JoinMappingsAndReads extends NonMRStage {
     options.runner = (String) stage_options.get("runner");
     options.project = (String) stage_options.get("project");
     options.stagingLocation = (String) stage_options.get("stagingLocation");
+
+    if (stage_options.get("dataflowEndpoint") != null) {
+      options.dataflowEndpoint =
+          (String) (stage_options.get("dataflowEndpoint"));
+    }
+
+    if (stage_options.get("apiRootUrl") != null) {
+      options.apiRootUrl =
+          (String) (stage_options.get("apiRootUrl"));
+    }
 
     Pipeline p = Pipeline.create();
 
