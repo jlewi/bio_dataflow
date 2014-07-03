@@ -7,6 +7,7 @@ import org.apache.crunch.Pair;
 import contrail.sequences.FastQRecord;
 import contrail.sequences.Read;
 
+
 /**
  * Do functions for processing reads.
  */

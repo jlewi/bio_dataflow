@@ -29,7 +29,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.util.ToolRunner;
 
-import contrail.ContigReadAlignment;
 import contrail.graph.GraphNodeData;
 import contrail.sequences.Read;
 import contrail.stages.ContrailParameters;
