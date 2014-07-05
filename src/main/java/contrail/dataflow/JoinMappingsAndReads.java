@@ -60,6 +60,13 @@ public class JoinMappingsAndReads extends NonMRStage {
   private static final Logger sLogger = Logger.getLogger(
       JoinMappingsAndReads.class);
 
+  public static final TupleTag<ContigReadAlignment> alignmentTag =
+      new TupleTag<>();
+  public static final TupleTag<GraphNodeData> nodeTag = new TupleTag<>();
+
+  public static final TupleTag<BowtieMapping> mappingTag = new TupleTag<>();
+  public static final TupleTag<Read> readTag = new TupleTag<>();
+
   /**
    *  creates the custom definitions that we need for this phase
    */
@@ -179,9 +186,6 @@ public class JoinMappingsAndReads extends NonMRStage {
 
   protected static class JoinMappingReadDoFn
   extends DoFn<KV<String, CoGbkResult>, ContigReadAlignment> {
-    public static final TupleTag<BowtieMapping> mappingTag = new TupleTag<>();
-    public static final TupleTag<Read> readTag = new TupleTag<>();
-
     @Override
     public void processElement(ProcessContext c) {
       KV<String, CoGbkResult> e = c.element();
@@ -216,8 +220,8 @@ public class JoinMappingsAndReads extends NonMRStage {
 
 
     PCollection<KV<String, CoGbkResult>> coGbkResultCollection =
-        KeyedPCollections.of(JoinMappingReadDoFn.mappingTag, keyedMappings)
-        .and(JoinMappingReadDoFn.readTag, keyedReads)
+        KeyedPCollections.of(mappingTag, keyedMappings)
+        .and(readTag, keyedReads)
         .apply(CoGroupByKey.<String>create());
 
 
@@ -238,10 +242,6 @@ public class JoinMappingsAndReads extends NonMRStage {
 
   protected static class JoinNodesDoFn
       extends DoFn<KV<String, CoGbkResult>, ContigReadAlignment> {
-    public static final TupleTag<ContigReadAlignment> alignmentTag =
-        new TupleTag<>();
-    public static final TupleTag<GraphNodeData> nodeTag = new TupleTag<>();
-
     @Override
     public void processElement(ProcessContext c) {
       KV<String, CoGbkResult> e = c.element();
@@ -282,8 +282,8 @@ public class JoinMappingsAndReads extends NonMRStage {
                 AvroSpecificCoder.of(GraphNodeData.class)));
 
     PCollection<KV<String, CoGbkResult>> coGbkResultCollection =
-        KeyedPCollections.of(JoinNodesDoFn.alignmentTag, keyedAlignments)
-        .and(JoinNodesDoFn.nodeTag, keyedNodes)
+        KeyedPCollections.of(alignmentTag, keyedAlignments)
+        .and(nodeTag, keyedNodes)
         .apply(CoGroupByKey.<String>create());
 
 
@@ -472,10 +472,10 @@ public class JoinMappingsAndReads extends NonMRStage {
     String fastqOutputs = outputPath + "reads.fastq";
     outReads.apply(TextIO.Write.named("WriteContigs").to(fastqOutputs));
 
-    sLogger.info("JoinMappingReadDoFn.mappingTag: " + JoinMappingReadDoFn.mappingTag.toString());
-    sLogger.info("JoinMappingReadDoFn.readTag: " + JoinMappingReadDoFn.readTag.toString());
-    sLogger.info("JoineNodesDoFn.alignmentTag: " + JoinNodesDoFn.alignmentTag.toString());
-    sLogger.info("JoineNodesDoFn.nodeTag: " + JoinNodesDoFn.nodeTag.toString());
+    sLogger.info("JoinMappingReadDoFn.mappingTag: " + mappingTag.toString());
+    sLogger.info("JoinMappingReadDoFn.readTag: " + readTag.toString());
+    sLogger.info("JoineNodesDoFn.alignmentTag: " + alignmentTag.toString());
+    sLogger.info("JoineNodesDoFn.nodeTag: " + nodeTag.toString());
     p.run(PipelineRunner.fromOptions(options));
 
     sLogger.info("Output written to: " + outputPath);
