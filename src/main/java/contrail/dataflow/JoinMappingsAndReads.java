@@ -471,6 +471,11 @@ public class JoinMappingsAndReads extends NonMRStage {
 
     String fastqOutputs = outputPath + "reads.fastq";
     outReads.apply(TextIO.Write.named("WriteContigs").to(fastqOutputs));
+
+    sLogger.info("JoinMappingReadDoFn.mappingTag: " + JoinMappingReadDoFn.mappingTag.toString());
+    sLogger.info("JoinMappingReadDoFn.readTag: " + JoinMappingReadDoFn.readTag.toString());
+    sLogger.info("JoineNodesDoFn.alignmentTag: " + JoinNodesDoFn.alignmentTag.toString());
+    sLogger.info("JoineNodesDoFn.nodeTag: " + JoinNodesDoFn.nodeTag.toString());
     p.run(PipelineRunner.fromOptions(options));
 
     sLogger.info("Output written to: " + outputPath);
