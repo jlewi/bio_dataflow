@@ -17,6 +17,7 @@ package contrail.dataflow;
 
 import com.google.cloud.dataflow.sdk.transforms.DoFn;
 import com.google.cloud.dataflow.sdk.values.KV;
+
 import contrail.graph.GraphNodeData;
 
 public class GraphNodeDoFns {
@@ -24,8 +25,15 @@ public class GraphNodeDoFns {
     @Override
     public void processElement(ProcessContext c) {
       GraphNodeData node = c.element();
-      System.out.println("Node id:" + node.getNodeId());
       c.output(KV.of(node.getNodeId().toString(), node));
+    }
+  }
+
+  public static class GetNodeId extends DoFn<GraphNodeData, String> {
+    @Override
+    public void processElement(ProcessContext c) {
+      GraphNodeData node = c.element();
+      c.output(node.getNodeId().toString());
     }
   }
 }

@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 import org.apache.avro.specific.SpecificData;
@@ -35,6 +36,7 @@ import com.google.cloud.dataflow.sdk.coders.StringUtf8Coder;
 import com.google.cloud.dataflow.sdk.io.TextIO;
 import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
 import com.google.cloud.dataflow.sdk.runners.PipelineRunner;
+import com.google.cloud.dataflow.sdk.transforms.AsIterable;
 import com.google.cloud.dataflow.sdk.transforms.Create;
 import com.google.cloud.dataflow.sdk.transforms.DoFn;
 import com.google.cloud.dataflow.sdk.transforms.ParDo;
@@ -43,6 +45,8 @@ import com.google.cloud.dataflow.sdk.transforms.join.CoGroupByKey;
 import com.google.cloud.dataflow.sdk.transforms.join.KeyedPCollections;
 import com.google.cloud.dataflow.sdk.values.KV;
 import com.google.cloud.dataflow.sdk.values.PCollection;
+import com.google.cloud.dataflow.sdk.values.PObject;
+import com.google.cloud.dataflow.sdk.values.PObjectTuple;
 import com.google.cloud.dataflow.sdk.values.TupleTag;
 
 import contrail.graph.GraphNode;
@@ -60,12 +64,11 @@ public class JoinMappingsAndReads extends NonMRStage {
   private static final Logger sLogger = Logger.getLogger(
       JoinMappingsAndReads.class);
 
-  public static final TupleTag<ContigReadAlignment> alignmentTag =
-      new TupleTag<>();
-  public static final TupleTag<GraphNodeData> nodeTag = new TupleTag<>();
+  private final TupleTag<ContigReadAlignment> alignmentTag = new TupleTag<>();
+  private final TupleTag<GraphNodeData> nodeTag = new TupleTag<>();
 
-  public static final TupleTag<BowtieMapping> mappingTag = new TupleTag<>();
-  public static final TupleTag<Read> readTag = new TupleTag<>();
+  private final TupleTag<BowtieMapping> mappingTag = new TupleTag<>();
+  private final TupleTag<Read> readTag = new TupleTag<>();
 
   /**
    *  creates the custom definitions that we need for this phase
@@ -88,6 +91,11 @@ public class JoinMappingsAndReads extends NonMRStage {
             "contigs", "The glob on the hadoop filesystem to the avro " +
             "files containing the GraphNodeData records representing the " +
             "graph.", String.class, null);
+
+    ParameterDefinition minLength =
+        new ParameterDefinition(
+            "min_contig_length", "The minimum length of contigs to include.",
+             Integer.class, 0);
 
     ParameterDefinition readsPath =
         new ParameterDefinition(
@@ -128,6 +136,7 @@ public class JoinMappingsAndReads extends NonMRStage {
     defs.put(bowtieAlignments.getName(), bowtieAlignments);
     defs.put(graphPath.getName(), graphPath);
     defs.put(readsPath.getName(), readsPath);
+    defs.put(minLength.getName(), minLength);
     defs.put(pipelineRunner.getName(), pipelineRunner);
     defs.put(project.getName(), project);
     defs.put(stagingLocation.getName(), stagingLocation);
@@ -185,7 +194,16 @@ public class JoinMappingsAndReads extends NonMRStage {
   }
 
   protected static class JoinMappingReadDoFn
-  extends DoFn<KV<String, CoGbkResult>, ContigReadAlignment> {
+      extends DoFn<KV<String, CoGbkResult>, ContigReadAlignment> {
+    private final TupleTag<BowtieMapping> mappingTag;
+    private final TupleTag<Read> readTag;
+
+    public JoinMappingReadDoFn(
+        TupleTag<BowtieMapping> mappingTag, TupleTag<Read> readTag) {
+      this.mappingTag = mappingTag;
+      this.readTag = readTag;
+    }
+
     @Override
     public void processElement(ProcessContext c) {
       KV<String, CoGbkResult> e = c.element();
@@ -226,7 +244,8 @@ public class JoinMappingsAndReads extends NonMRStage {
 
 
     PCollection<ContigReadAlignment> joined =
-        coGbkResultCollection.apply(ParDo.of(new JoinMappingReadDoFn()));
+        coGbkResultCollection.apply(ParDo.of(new JoinMappingReadDoFn(
+            mappingTag, readTag)));
 
     return joined;
   }
@@ -242,6 +261,16 @@ public class JoinMappingsAndReads extends NonMRStage {
 
   protected static class JoinNodesDoFn
       extends DoFn<KV<String, CoGbkResult>, ContigReadAlignment> {
+    private final TupleTag<ContigReadAlignment> alignmentTag;
+    private final TupleTag<GraphNodeData> nodeTag;
+
+    public JoinNodesDoFn(
+        TupleTag<ContigReadAlignment> alignmentTag,
+        TupleTag<GraphNodeData> nodeTag) {
+      this.alignmentTag = alignmentTag;
+      this.nodeTag = nodeTag;
+    }
+
     @Override
     public void processElement(ProcessContext c) {
       KV<String, CoGbkResult> e = c.element();
@@ -288,7 +317,8 @@ public class JoinMappingsAndReads extends NonMRStage {
 
 
     PCollection<ContigReadAlignment> joined =
-        coGbkResultCollection.apply(ParDo.of(new JoinNodesDoFn()));
+        coGbkResultCollection.apply(ParDo.of(new JoinNodesDoFn(
+            alignmentTag, nodeTag)));
 
     return joined;
   }
@@ -337,6 +367,91 @@ public class JoinMappingsAndReads extends NonMRStage {
     }
   }
 
+  /**
+   * Filter the nodes.
+   */
+  protected static class FilterNodesByLengthDoFn
+      extends DoFn<GraphNodeData, GraphNodeData> {
+    private final int minLength;
+    /**
+     * @param minLength: The minimum length of nodes to accept.
+     */
+    public FilterNodesByLengthDoFn(int minLength) {
+      this.minLength = minLength;
+    }
+
+    @Override
+    public void processElement(ProcessContext c) {
+      GraphNodeData nodeData = c.element();
+      GraphNode node = new GraphNode(nodeData);
+
+      if (node.getData().getSequence().getLength() < minLength) {
+        return;
+      }
+      c.output(nodeData);
+    }
+  }
+
+  /**
+   * Remove all BowtieMappings which don't correspond to one of the contig
+   * ids supplied as a secondary input.
+   */
+  private static class FilterBowtieMappingsByContigId extends
+    DoFn<BowtieMapping, BowtieMapping> {
+
+    private final TupleTag<Iterable<String>> contigIdsTag;
+
+    // This will be initialized in StartBatch so it shouldn't be serialized.
+    private transient HashSet<String> contigIds;
+
+    public FilterBowtieMappingsByContigId(
+        TupleTag<Iterable<String>> contigIdsTag) {
+      this.contigIdsTag= contigIdsTag;
+    }
+
+    @Override
+    public void startBatch(DoFn.Context c) {
+      Iterable<String> iterableIds =
+          (Iterable<String>) c.sideInput(contigIdsTag);
+      contigIds = new HashSet<String>();
+      for (String id : iterableIds) {
+        contigIds.add(id);
+      }
+    }
+
+    @Override
+    public void processElement(ProcessContext c) {
+      BowtieMapping mapping = c.element();
+      if (!contigIds.contains(mapping.getContigId().toString())) {
+        return;
+      }
+      c.output(mapping);
+    }
+  }
+
+  /**
+   * Join the mappings with the provided contig ids and remove any mappings
+   * for which the contig the mapping belongs to is not in the list of
+   * mappings.
+   * @param mappings
+   * @param contigIds
+   * @return
+   */
+  private PCollection<BowtieMapping> filterMappingsByContigs(
+      PCollection<BowtieMapping> mappings, PCollection<String> contigIds) {
+    // Pass the contigIds as a side input to the mapping filter function.
+    PObject<Iterable<String>> iterableIds =
+        contigIds.apply(AsIterable.<String>create());
+
+    final TupleTag<Iterable<String>> contigIdsTag = new TupleTag<>();
+    PObjectTuple sideTuple = PObjectTuple.of(contigIdsTag, iterableIds);
+    PCollection<BowtieMapping> filteredMappings =
+        mappings.apply(ParDo.named("FilterMappings")
+            .withSideInputs(sideTuple)
+            .of(new FilterBowtieMappingsByContigId(contigIdsTag)));
+
+    return filteredMappings;
+  }
 //  /**
 //   * Compute statistics about the alignment
 //   */
@@ -414,6 +529,31 @@ public class JoinMappingsAndReads extends NonMRStage {
 //    }
 //  }
 
+  protected PCollection<ContigReadAlignment> buildPipeline(
+      Pipeline p,
+      PCollection<GraphNodeData> nodes,
+      PCollection<BowtieMapping> mappings,
+      PCollection<Read> reads) {
+    int minLength = (Integer) stage_options.get("min_length");
+    nodes = nodes.apply(ParDo.of(new FilterNodesByLengthDoFn(minLength)));
+
+    // Get the ids of the contigs we are keeping.
+    PCollection<String> contigIds = nodes.apply(ParDo.of(
+        new GraphNodeDoFns.GetNodeId()));
+
+    // Filter the mappings so we only include the mappings for the contigs
+    // we want.
+    mappings = filterMappingsByContigs(mappings, contigIds);
+
+    PCollection<ContigReadAlignment> readMappingsPair = joinMappingsAndReads(
+        mappings, reads);
+
+    PCollection<ContigReadAlignment> nodeReadsMappings = joinNodes(
+        readMappingsPair, nodes);
+
+    return nodeReadsMappings;
+  }
+
   @Override
   protected void stageMain() {
     String readsPath = (String) stage_options.get("reads");
@@ -451,14 +591,12 @@ public class JoinMappingsAndReads extends NonMRStage {
     DataflowUtil.registerAvroCoders(p);
 
     PCollection<GraphNodeData> nodes = readGraphNodes(p, contigsPath);
+
     PCollection<Read> reads = readReads(p, readsPath);
     PCollection<BowtieMapping> mappings = readMappings(p, bowtieAlignmentsPath);
 
-    PCollection<ContigReadAlignment> readMappingsPair = joinMappingsAndReads(
-        mappings, reads);
-
-    PCollection<ContigReadAlignment> nodeReadsMappings = joinNodes(
-        readMappingsPair, nodes);
+    PCollection<ContigReadAlignment> nodeReadsMappings =
+        buildPipeline(p, nodes, mappings, reads);
 
     String fastaOutputs = outputPath + "contigs.fasta";
     PCollection<String> fastaContigs = nodeReadsMappings.apply(ParDo.of(

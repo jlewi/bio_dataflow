@@ -159,4 +159,84 @@ public class TestJoinMappingsAndReads {
 
     assertEquals(expected, results);
   }
+
+  @Test
+  public void testFullFilterPipeline() {
+    // Test that mappings are correctly filtered by length.
+    ArrayList<GraphNodeData> nodes = new ArrayList<GraphNodeData>();
+    ArrayList<Read> reads = new ArrayList<Read>();
+    ArrayList<BowtieMapping> mappings = new ArrayList<BowtieMapping>();
+
+    int minLength = 10;
+
+    HashMap<String, ContigReadAlignment> expected =
+        new HashMap<String, ContigReadAlignment>();
+    for (int i = 0; i < 10; ++i) {
+      String contigId = String.format("contig%02d",  i);
+
+      int length = minLength + 5;
+      if (i < 5) {
+        length = minLength - 2;
+      }
+
+      String contigSequence =
+          AlphabetUtil.randomString(
+              generator, length,
+              DNAAlphabetFactory.create());
+      GraphNode node = GraphTestUtil.createNode(contigId, contigSequence);
+      nodes.add(node.getData());
+
+      String readId = String.format("read%02d",  i);
+      Read read = randomRead(readId);
+      reads.add(read);
+      BowtieMapping mapping = emptyMapping();
+      mapping.setReadId(readId);
+      mapping.setContigId(contigId);
+      mappings.add(mapping);
+
+      if (length >= minLength) {
+        ContigReadAlignment alignment = new ContigReadAlignment();
+        alignment.setBowtieMapping(SpecificData.get().deepCopy(
+            mapping.getSchema(), mapping));
+        alignment.setRead(SpecificData.get().deepCopy(
+            read.getSchema(), read));
+        alignment.setGraphNode(node.clone().getData());
+
+        expected.put(contigId, alignment);
+      }
+    }
+
+    PipelineOptions options = new PipelineOptions();
+    Pipeline p = Pipeline.create();
+    DataflowUtil.registerAvroCoders(p);
+
+    PCollection<Read> readsCollection = p.begin().apply(Create.of(reads));
+
+    PCollection<GraphNodeData> nodesCollection = p.begin().apply(Create.of(
+        nodes));
+
+    PCollection<BowtieMapping> mappingsCollection = p.begin().apply(Create.of(
+        mappings));
+
+    JoinMappingsAndReads stage = new JoinMappingsAndReads();
+    stage.setParameter("min_length", minLength);
+
+    PCollection<ContigReadAlignment> joined = stage.buildPipeline(
+        p, nodesCollection, mappingsCollection, readsCollection);
+
+    DirectPipelineRunner runner = DirectPipelineRunner.fromOptions(options);
+    DirectPipelineRunner.EvaluationResults result = p.run(runner);
+    List<ContigReadAlignment> finalResults = result.getPCollection(joined);
+
+    assertEquals(expected.size(), finalResults.size());
+
+    HashMap<String, ContigReadAlignment> results =
+        new HashMap<String, ContigReadAlignment>();
+
+    for (ContigReadAlignment tuple : finalResults) {
+      results.put(tuple.getBowtieMapping().getContigId().toString(), tuple);
+    }
+
+    assertEquals(expected, results);
+  }
 }
