@@ -63,7 +63,7 @@
                     },
                     {
                       "name":"quake_read_correction", 
-                       "type":"contrail.sequences.QuakeReadCorrection"
+                       "type": ["null", "contrail.sequences.QuakeReadCorrection"]
                     }
                   ]
         },

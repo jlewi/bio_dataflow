@@ -34,7 +34,6 @@ import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
-import contrail.correct.FastQToAvro;
 import contrail.io.mapred.FastQInputFormat;
 import contrail.sequences.FastQRecord;
 import contrail.sequences.Read;
@@ -71,6 +70,11 @@ public class FastQToRead extends MRStage {
     private final AvroWrapper<Read> outWrapper = new AvroWrapper<Read>(read);
 
     @Override
+    public void configure(JobConf job) {
+      read.setQuakeReadCorrection(null);
+    }
+
+    @Override
     public void map(LongWritable line, FastQWritable record,
         OutputCollector<AvroWrapper<Read>, NullWritable> output, Reporter reporter)
             throws IOException {
@@ -93,7 +97,7 @@ public class FastQToRead extends MRStage {
 
     FileInputFormat.addInputPaths(conf, inputPath);
     FileOutputFormat.setOutputPath(conf, new Path(outputPath));
-    AvroJob.setOutputSchema(conf,new FastQRecord().getSchema());
+    AvroJob.setOutputSchema(conf,new Read().getSchema());
 
     conf.setMapperClass(FastQToReadMapper.class);
     conf.setInputFormat(FastQInputFormat.class);
@@ -103,7 +107,7 @@ public class FastQToRead extends MRStage {
   }
 
   public static void main(String[] args) throws Exception {
-    int res = ToolRunner.run(new Configuration(), new FastQToAvro(), args);
+    int res = ToolRunner.run(new Configuration(), new FastQToRead(), args);
     System.exit(res);
   }
 }
