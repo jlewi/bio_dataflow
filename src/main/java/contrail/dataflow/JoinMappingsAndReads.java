@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.avro.specific.SpecificData;
@@ -43,6 +44,8 @@ import com.google.cloud.dataflow.sdk.transforms.ParDo;
 import com.google.cloud.dataflow.sdk.transforms.join.CoGbkResult;
 import com.google.cloud.dataflow.sdk.transforms.join.CoGroupByKey;
 import com.google.cloud.dataflow.sdk.transforms.join.KeyedPCollections;
+import com.google.cloud.dataflow.sdk.util.GcsUtil;
+import com.google.cloud.dataflow.sdk.util.GcsUtil.GcsFilename;
 import com.google.cloud.dataflow.sdk.values.KV;
 import com.google.cloud.dataflow.sdk.values.PCollection;
 import com.google.cloud.dataflow.sdk.values.PObject;
@@ -82,13 +85,13 @@ public class JoinMappingsAndReads extends NonMRStage {
     ParameterDefinition bowtieAlignments =
         new ParameterDefinition(
             "bowtie_alignments",
-            "The hdfs path to the avro files containing the alignments " +
+            "The GCS path to the avro files containing the alignments " +
             "produced by bowtie of the reads to the contigs.",
             String.class, null);
 
     ParameterDefinition graphPath =
         new ParameterDefinition(
-            "contigs", "The glob on the hadoop filesystem to the avro " +
+            "contigs", "The glob on GCS tp the avro " +
             "files containing the GraphNodeData records representing the " +
             "graph.", String.class, null);
 
@@ -99,7 +102,7 @@ public class JoinMappingsAndReads extends NonMRStage {
 
     ParameterDefinition readsPath =
         new ParameterDefinition(
-            "reads", "The glob on the hadoop filesystem to the avro " +
+            "reads", "The GCS path to the avro " +
             "files containing the reads.", String.class, null);
 
     ParameterDefinition project =
@@ -116,6 +119,11 @@ public class JoinMappingsAndReads extends NonMRStage {
         new ParameterDefinition(
             "dataflowEndpoint", "Dataflow endpoint",
             String.class, null);
+
+    ParameterDefinition numWorkers =
+        new ParameterDefinition(
+            "num_workers", "Numer of workers.",
+            Integer.class, 3);
 
     ParameterDefinition apiRootUrl =
         new ParameterDefinition(
@@ -142,55 +150,37 @@ public class JoinMappingsAndReads extends NonMRStage {
     defs.put(stagingLocation.getName(), stagingLocation);
     defs.put(dataflowEndpoint.getName(), dataflowEndpoint);
     defs.put(apiRootUrl.getName(), apiRootUrl);
+    defs.put(numWorkers.getName(), numWorkers);
 
     return Collections.unmodifiableMap(defs);
   }
 
-  protected PCollection<GraphNodeData> readGraphNodes(Pipeline p, String path) {
-    GCSAvroFileSplit split = new GCSAvroFileSplit();
-    split.setPath(path);
 
+  protected <AvroType> PCollection<AvroType> readAvro(
+      Class avroClass, Pipeline p, PipelineOptions options, String path) {
+    GcsUtil gcsUtil = GcsUtil.create(options);
     ArrayList<GCSAvroFileSplit> splits = new ArrayList<GCSAvroFileSplit>();
+    List<GcsFilename> gcsNames = null;
+    try {
+      gcsNames = gcsUtil.expand(gcsUtil.asGcsFilename(path));
+    } catch(IOException e) {
+      sLogger.fatal("There was a problem matching path: " + path, e);
+      System.exit(-1);
+    }
 
-    splits.add(split);
+    for (GcsFilename name : gcsNames) {
+      GCSAvroFileSplit split = new GCSAvroFileSplit();
+      split.setPath(name.toString());
+      splits.add(split);
+    }
+
+    sLogger.info(String.format("Path %s expanded into %d splits.",
+        path, splits.size()));
     PCollection<GCSAvroFileSplit> inputs = p.begin().apply(Create.of(splits));
 
     return inputs
-        .apply(ParDo.of(new ReadAvroSpecificDoFn<GraphNodeData>(
-            GraphNodeData.class)))
-        .setCoder(AvroSpecificCoder.of(GraphNodeData.class));
-  }
-
-  protected PCollection<Read> readReads(
-      Pipeline p, String path) {
-    GCSAvroFileSplit split = new GCSAvroFileSplit();
-
-    split.setPath(path);
-
-    ArrayList<GCSAvroFileSplit> splits = new ArrayList<GCSAvroFileSplit>();
-
-    splits.add(split);
-    PCollection<GCSAvroFileSplit> inputs = p.begin().apply(Create.of(splits));
-
-    return inputs
-        .apply(ParDo.of(new ReadAvroSpecificDoFn<Read>(Read.class)))
-        .setCoder(AvroSpecificCoder.of(Read.class));
-  }
-
-  protected PCollection<BowtieMapping> readMappings(Pipeline p, String path) {
-    GCSAvroFileSplit split = new GCSAvroFileSplit();
-
-    split.setPath(path);
-
-    ArrayList<GCSAvroFileSplit> splits = new ArrayList<GCSAvroFileSplit>();
-
-    splits.add(split);
-    PCollection<GCSAvroFileSplit> inputs = p.begin().apply(Create.of(splits));
-
-    return inputs
-        .apply(ParDo.of(new ReadAvroSpecificDoFn<BowtieMapping>(
-            BowtieMapping.class)))
-        .setCoder(AvroSpecificCoder.of(BowtieMapping.class));
+        .apply(ParDo.of(new ReadAvroSpecificDoFn<AvroType>(avroClass)))
+        .setCoder(AvroSpecificCoder.of(avroClass));
   }
 
   protected static class JoinMappingReadDoFn
@@ -327,14 +317,13 @@ public class JoinMappingsAndReads extends NonMRStage {
    * Output the contig as a string representing the fasta record.
    */
   protected static class OutputContigAsFastaDo
-      extends DoFn<ContigReadAlignment, String> {
+      extends DoFn<GraphNodeData, String> {
     @Override
     public void processElement(ProcessContext c) {
-      ContigReadAlignment alignment = c.element();
       ByteArrayOutputStream stream = new ByteArrayOutputStream();
       FastaRecord record = new FastaRecord();
-      GraphNode node = new GraphNode(alignment.getGraphNode());
-      record.setId(alignment.getGraphNode().getNodeId().toString());
+      GraphNode node = new GraphNode(c.element());
+      record.setId(node.getNodeId().toString());
       record.setRead(node.getSequence().toString());
       try {
         FastUtil.writeFastARecord(stream, record);
@@ -529,12 +518,17 @@ public class JoinMappingsAndReads extends NonMRStage {
 //    }
 //  }
 
-  protected PCollection<ContigReadAlignment> buildPipeline(
+  protected static class BuildResult {
+    PCollection<ContigReadAlignment> joined;
+    PCollection<GraphNodeData> filteredContigs;
+  }
+
+  protected BuildResult buildPipeline(
       Pipeline p,
       PCollection<GraphNodeData> nodes,
       PCollection<BowtieMapping> mappings,
       PCollection<Read> reads) {
-    int minLength = (Integer) stage_options.get("min_length");
+    int minLength = (Integer) stage_options.get("min_contig_length");
     nodes = nodes.apply(ParDo.of(new FilterNodesByLengthDoFn(minLength)));
 
     // Get the ids of the contigs we are keeping.
@@ -551,7 +545,10 @@ public class JoinMappingsAndReads extends NonMRStage {
     PCollection<ContigReadAlignment> nodeReadsMappings = joinNodes(
         readMappingsPair, nodes);
 
-    return nodeReadsMappings;
+    BuildResult result = new BuildResult();
+    result.joined = nodeReadsMappings;
+    result.filteredContigs = nodes;
+    return result;
   }
 
   @Override
@@ -561,7 +558,7 @@ public class JoinMappingsAndReads extends NonMRStage {
     String bowtieAlignmentsPath = (String) stage_options.get(
         "bowtie_alignments");
     Date now = new Date();
-    SimpleDateFormat formatter = new SimpleDateFormat("yyyymmdd-hhmmss");
+    SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd-hhmmss");
     // N.B. We don't use FilenameUtils.concat because it messes up the URI
     // prefix.
     String outputPath = (String) stage_options.get("outputpath");
@@ -575,6 +572,7 @@ public class JoinMappingsAndReads extends NonMRStage {
     options.runner = (String) stage_options.get("runner");
     options.project = (String) stage_options.get("project");
     options.stagingLocation = (String) stage_options.get("stagingLocation");
+    options.numWorkers = (Integer) stage_options.get("num_workers");
 
     if (stage_options.get("dataflowEndpoint") != null) {
       options.dataflowEndpoint =
@@ -590,24 +588,27 @@ public class JoinMappingsAndReads extends NonMRStage {
 
     DataflowUtil.registerAvroCoders(p);
 
-    PCollection<GraphNodeData> nodes = readGraphNodes(p, contigsPath);
+    PCollection<GraphNodeData> nodes = readAvro(
+        GraphNodeData.class, p, options, contigsPath);
 
-    PCollection<Read> reads = readReads(p, readsPath);
-    PCollection<BowtieMapping> mappings = readMappings(p, bowtieAlignmentsPath);
+    PCollection<Read> reads = readAvro(
+        Read.class, p, options, readsPath);
+    PCollection<BowtieMapping> mappings = readAvro(
+        BowtieMapping.class, p, options, bowtieAlignmentsPath);
 
-    PCollection<ContigReadAlignment> nodeReadsMappings =
-        buildPipeline(p, nodes, mappings, reads);
+    BuildResult buildResult = buildPipeline(p, nodes, mappings, reads);
+    PCollection<ContigReadAlignment> nodeReadsMappings = buildResult.joined;
 
-    String fastaOutputs = outputPath + "contigs.fasta";
-    PCollection<String> fastaContigs = nodeReadsMappings.apply(ParDo.of(
-        new OutputContigAsFastaDo()));
+    String fastaOutputs = outputPath + "contigs.fasta@*";
+    PCollection<String> fastaContigs = buildResult.filteredContigs.apply(
+        ParDo.of(new OutputContigAsFastaDo()));
 
     fastaContigs.apply(TextIO.Write.named("WriteContigs").to(fastaOutputs));
 
     PCollection<String> outReads = nodeReadsMappings.apply(ParDo.of(
         new OutputReadAsFastqDo()));
 
-    String fastqOutputs = outputPath + "reads.fastq";
+    String fastqOutputs = outputPath + "reads.fastq@*";
     outReads.apply(TextIO.Write.named("WriteContigs").to(fastqOutputs));
 
     sLogger.info("JoinMappingReadDoFn.mappingTag: " + mappingTag.toString());

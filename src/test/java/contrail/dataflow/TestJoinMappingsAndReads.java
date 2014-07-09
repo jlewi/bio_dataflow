@@ -1,6 +1,7 @@
 package contrail.dataflow;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -17,6 +18,7 @@ import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
 import com.google.cloud.dataflow.sdk.transforms.Create;
 import com.google.cloud.dataflow.sdk.values.PCollection;
 
+import contrail.dataflow.JoinMappingsAndReads.BuildResult;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.graph.GraphTestUtil;
@@ -26,6 +28,7 @@ import contrail.sequences.AlphabetUtil;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.FastQRecord;
 import contrail.sequences.Read;
+import contrail.util.ListUtil;
 
 public class TestJoinMappingsAndReads {
   Random generator = new Random();
@@ -166,7 +169,7 @@ public class TestJoinMappingsAndReads {
     ArrayList<GraphNodeData> nodes = new ArrayList<GraphNodeData>();
     ArrayList<Read> reads = new ArrayList<Read>();
     ArrayList<BowtieMapping> mappings = new ArrayList<BowtieMapping>();
-
+    ArrayList<String> expectedContigIds = new ArrayList<String>();
     int minLength = 10;
 
     HashMap<String, ContigReadAlignment> expected =
@@ -186,23 +189,31 @@ public class TestJoinMappingsAndReads {
       GraphNode node = GraphTestUtil.createNode(contigId, contigSequence);
       nodes.add(node.getData());
 
-      String readId = String.format("read%02d",  i);
-      Read read = randomRead(readId);
-      reads.add(read);
-      BowtieMapping mapping = emptyMapping();
-      mapping.setReadId(readId);
-      mapping.setContigId(contigId);
-      mappings.add(mapping);
+      // Have two reads align to each contig so we can ensure we only
+      // output each contig once.
+      for (String readPrefix : new String[]{"a", "b"}) {
+        String readId = String.format("read%s%02d", readPrefix,  i);
+        Read read = randomRead(readId);
+        reads.add(read);
+        BowtieMapping mapping = emptyMapping();
+        mapping.setReadId(readId);
+        mapping.setContigId(contigId);
+        mappings.add(mapping);
+
+        if (length >= minLength) {
+          ContigReadAlignment alignment = new ContigReadAlignment();
+          alignment.setBowtieMapping(SpecificData.get().deepCopy(
+              mapping.getSchema(), mapping));
+          alignment.setRead(SpecificData.get().deepCopy(
+              read.getSchema(), read));
+          alignment.setGraphNode(node.clone().getData());
+
+          expected.put(readId, alignment);
+        }
+      }
 
       if (length >= minLength) {
-        ContigReadAlignment alignment = new ContigReadAlignment();
-        alignment.setBowtieMapping(SpecificData.get().deepCopy(
-            mapping.getSchema(), mapping));
-        alignment.setRead(SpecificData.get().deepCopy(
-            read.getSchema(), read));
-        alignment.setGraphNode(node.clone().getData());
-
-        expected.put(contigId, alignment);
+        expectedContigIds.add(contigId);
       }
     }
 
@@ -219,14 +230,17 @@ public class TestJoinMappingsAndReads {
         mappings));
 
     JoinMappingsAndReads stage = new JoinMappingsAndReads();
-    stage.setParameter("min_length", minLength);
+    stage.setParameter("min_contig_length", minLength);
 
-    PCollection<ContigReadAlignment> joined = stage.buildPipeline(
+    BuildResult buildResult = stage.buildPipeline(
         p, nodesCollection, mappingsCollection, readsCollection);
+    PCollection<ContigReadAlignment> joined = buildResult.joined;
+    PCollection<GraphNodeData> contigs = buildResult.filteredContigs;
 
     DirectPipelineRunner runner = DirectPipelineRunner.fromOptions(options);
     DirectPipelineRunner.EvaluationResults result = p.run(runner);
     List<ContigReadAlignment> finalResults = result.getPCollection(joined);
+    List<GraphNodeData> finalContigs = result.getPCollection(contigs);
 
     assertEquals(expected.size(), finalResults.size());
 
@@ -234,9 +248,15 @@ public class TestJoinMappingsAndReads {
         new HashMap<String, ContigReadAlignment>();
 
     for (ContigReadAlignment tuple : finalResults) {
-      results.put(tuple.getBowtieMapping().getContigId().toString(), tuple);
+      results.put(tuple.getBowtieMapping().getReadId().toString(), tuple);
     }
 
     assertEquals(expected, results);
+
+    List<String> actualContigIds = new ArrayList<String>();
+    for (GraphNodeData data : finalContigs) {
+      actualContigIds.add(data.getNodeId().toString());
+    }
+    assertTrue(ListUtil.listsAreEqual(expectedContigIds, actualContigIds));
   }
 }
