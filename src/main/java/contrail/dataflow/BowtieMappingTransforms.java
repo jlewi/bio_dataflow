@@ -19,6 +19,7 @@ import com.google.cloud.dataflow.sdk.transforms.DoFn;
 import com.google.cloud.dataflow.sdk.values.KV;
 
 import contrail.scaffolding.BowtieMapping;
+import contrail.scaffolding.BowtieParser;
 
 /**
  * Transforms for processing BowtieMappings.
@@ -31,6 +32,25 @@ public class BowtieMappingTransforms {
     public void processElement(ProcessContext c) {
       BowtieMapping mapping = c.element();
       c.output(KV.of(mapping.getReadId().toString(), mapping));
+    }
+  }
+
+  /**
+   * Convert a line of text produced by bowtie into a BowtieMapping record.
+   */
+  public static class ParseMappingLineDo extends DoFn<String, BowtieMapping> {
+    private transient BowtieParser parser;
+
+    @Override
+    public void startBatch(Context c) {
+      parser = new BowtieParser();
+    }
+
+    @Override
+    public void processElement(ProcessContext c) {
+      BowtieMapping mapping = new BowtieMapping();
+      parser.parse(c.element(), mapping);
+      c.output(mapping);
     }
   }
 }

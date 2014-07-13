@@ -135,6 +135,16 @@ public class ContrailParameters {
   }
 
   /**
+   * Add a definition of parameters to a map of parameters.
+   * @param map
+   * @param parameters
+   */
+  public static void add(
+      Map<String, ParameterDefinition> map, ParameterDefinition definition) {
+    map.put(definition.getName(),definition);
+  }
+
+  /**
    * Add a list of parameters to a map of parameters.
    * @param map
    * @param parameters
@@ -166,4 +176,5 @@ public class ContrailParameters {
     }
     return substage_options;
   }
+
 }

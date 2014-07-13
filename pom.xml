@@ -169,13 +169,7 @@
       <version>${jackson-version}</version>
     </dependency>
     
-     <dependency>
-      <groupId>com.google.cloud.dataflow</groupId>
-      <artifactId>dataflow-sdk</artifactId>
-      <version>1.0-140422-SNAPSHOT</version>
-    </dependency>
-
-	<!--For dataflow -->
+    <!--For dataflow -->
     <dependency>
       <groupId>com.google.cloud.dataflow</groupId>
       <artifactId>dataflow-sdk</artifactId>

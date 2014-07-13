@@ -18,12 +18,10 @@ package contrail.dataflow;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 
 import org.apache.avro.specific.SpecificData;
@@ -38,14 +36,11 @@ import com.google.cloud.dataflow.sdk.io.TextIO;
 import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
 import com.google.cloud.dataflow.sdk.runners.PipelineRunner;
 import com.google.cloud.dataflow.sdk.transforms.AsIterable;
-import com.google.cloud.dataflow.sdk.transforms.Create;
 import com.google.cloud.dataflow.sdk.transforms.DoFn;
 import com.google.cloud.dataflow.sdk.transforms.ParDo;
 import com.google.cloud.dataflow.sdk.transforms.join.CoGbkResult;
 import com.google.cloud.dataflow.sdk.transforms.join.CoGroupByKey;
 import com.google.cloud.dataflow.sdk.transforms.join.KeyedPCollections;
-import com.google.cloud.dataflow.sdk.util.GcsUtil;
-import com.google.cloud.dataflow.sdk.util.GcsUtil.GcsFilename;
 import com.google.cloud.dataflow.sdk.values.KV;
 import com.google.cloud.dataflow.sdk.values.PCollection;
 import com.google.cloud.dataflow.sdk.values.PObject;
@@ -82,53 +77,24 @@ public class JoinMappingsAndReads extends NonMRStage {
         new HashMap<String, ParameterDefinition>();
     defs.putAll(super.createParameterDefinitions());
 
-    ParameterDefinition bowtieAlignments =
-        new ParameterDefinition(
-            "bowtie_alignments",
-            "The GCS path to the avro files containing the alignments " +
-            "produced by bowtie of the reads to the contigs.",
-            String.class, null);
+    ContrailParameters.add(defs, new ParameterDefinition(
+        "bowtie_alignments",
+        "The GCS path to the avro files containing the alignments " +
+        "produced by bowtie of the reads to the contigs.",
+        String.class, null));
 
-    ParameterDefinition graphPath =
-        new ParameterDefinition(
-            "contigs", "The glob on GCS tp the avro " +
-            "files containing the GraphNodeData records representing the " +
-            "graph.", String.class, null);
+    ContrailParameters.add(defs, new ParameterDefinition(
+        "contigs", "The glob on GCS tp the avro " +
+        "files containing the GraphNodeData records representing the " +
+        "graph.", String.class, null));
 
-    ParameterDefinition minLength =
-        new ParameterDefinition(
-            "min_contig_length", "The minimum length of contigs to include.",
-             Integer.class, 0);
+    ContrailParameters.add(defs, new ParameterDefinition(
+        "min_contig_length", "The minimum length of contigs to include.",
+         Integer.class, 0));
 
-    ParameterDefinition readsPath =
-        new ParameterDefinition(
-            "reads", "The GCS path to the avro " +
-            "files containing the reads.", String.class, null);
-
-    ParameterDefinition project =
-        new ParameterDefinition(
-            "project", "The google cloud project to use when running on  " +
-            "Dataflow.", String.class, null);
-
-    ParameterDefinition stagingLocation =
-        new ParameterDefinition(
-            "stagingLocation", "Location on GCS where files should be staged.",
-            String.class, null);
-
-    ParameterDefinition dataflowEndpoint =
-        new ParameterDefinition(
-            "dataflowEndpoint", "Dataflow endpoint",
-            String.class, null);
-
-    ParameterDefinition numWorkers =
-        new ParameterDefinition(
-            "num_workers", "Numer of workers.",
-            Integer.class, 3);
-
-    ParameterDefinition apiRootUrl =
-        new ParameterDefinition(
-            "apiRootUrl", "Root url.",
-            String.class, null);
+    ContrailParameters.add(defs, new ParameterDefinition(
+        "reads", "The GCS path to the avro " +
+        "files containing the reads.", String.class, null));
 
     for (ParameterDefinition def : ContrailParameters.getInputOutputPathOptions() ){
       if (def.getName().equals("outputpath")) {
@@ -136,51 +102,12 @@ public class JoinMappingsAndReads extends NonMRStage {
       }
     }
 
-    ParameterDefinition pipelineRunner =
-        new ParameterDefinition(
+    ContrailParameters.add(defs, new ParameterDefinition(
             "runner", "The pipeline runner to use.",
-            String.class, "DirectPipelineRunner");
+            String.class, "DirectPipelineRunner"));
 
-    defs.put(bowtieAlignments.getName(), bowtieAlignments);
-    defs.put(graphPath.getName(), graphPath);
-    defs.put(readsPath.getName(), readsPath);
-    defs.put(minLength.getName(), minLength);
-    defs.put(pipelineRunner.getName(), pipelineRunner);
-    defs.put(project.getName(), project);
-    defs.put(stagingLocation.getName(), stagingLocation);
-    defs.put(dataflowEndpoint.getName(), dataflowEndpoint);
-    defs.put(apiRootUrl.getName(), apiRootUrl);
-    defs.put(numWorkers.getName(), numWorkers);
-
+    ContrailParameters.addList(defs,  DataflowParameters.getDefinitions());
     return Collections.unmodifiableMap(defs);
-  }
-
-
-  protected <AvroType> PCollection<AvroType> readAvro(
-      Class avroClass, Pipeline p, PipelineOptions options, String path) {
-    GcsUtil gcsUtil = GcsUtil.create(options);
-    ArrayList<GCSAvroFileSplit> splits = new ArrayList<GCSAvroFileSplit>();
-    List<GcsFilename> gcsNames = null;
-    try {
-      gcsNames = gcsUtil.expand(gcsUtil.asGcsFilename(path));
-    } catch(IOException e) {
-      sLogger.fatal("There was a problem matching path: " + path, e);
-      System.exit(-1);
-    }
-
-    for (GcsFilename name : gcsNames) {
-      GCSAvroFileSplit split = new GCSAvroFileSplit();
-      split.setPath(name.toString());
-      splits.add(split);
-    }
-
-    sLogger.info(String.format("Path %s expanded into %d splits.",
-        path, splits.size()));
-    PCollection<GCSAvroFileSplit> inputs = p.begin().apply(Create.of(splits));
-
-    return inputs
-        .apply(ParDo.of(new ReadAvroSpecificDoFn<AvroType>(avroClass)))
-        .setCoder(AvroSpecificCoder.of(avroClass));
   }
 
   protected static class JoinMappingReadDoFn
@@ -569,31 +496,18 @@ public class JoinMappingsAndReads extends NonMRStage {
     outputPath += "/";
 
     PipelineOptions options = new PipelineOptions();
-    options.runner = (String) stage_options.get("runner");
-    options.project = (String) stage_options.get("project");
-    options.stagingLocation = (String) stage_options.get("stagingLocation");
-    options.numWorkers = (Integer) stage_options.get("num_workers");
-
-    if (stage_options.get("dataflowEndpoint") != null) {
-      options.dataflowEndpoint =
-          (String) (stage_options.get("dataflowEndpoint"));
-    }
-
-    if (stage_options.get("apiRootUrl") != null) {
-      options.apiRootUrl =
-          (String) (stage_options.get("apiRootUrl"));
-    }
+    DataflowParameters.setPipelineOptions(stage_options, options);
 
     Pipeline p = Pipeline.create();
 
     DataflowUtil.registerAvroCoders(p);
 
-    PCollection<GraphNodeData> nodes = readAvro(
+    PCollection<GraphNodeData> nodes = ReadAvroSpecificDoFn.readAvro(
         GraphNodeData.class, p, options, contigsPath);
 
-    PCollection<Read> reads = readAvro(
+    PCollection<Read> reads = ReadAvroSpecificDoFn.readAvro(
         Read.class, p, options, readsPath);
-    PCollection<BowtieMapping> mappings = readAvro(
+    PCollection<BowtieMapping> mappings = ReadAvroSpecificDoFn.readAvro(
         BowtieMapping.class, p, options, bowtieAlignmentsPath);
 
     BuildResult buildResult = buildPipeline(p, nodes, mappings, reads);
