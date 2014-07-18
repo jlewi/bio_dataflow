@@ -60,6 +60,12 @@ public class DataflowParameters {
             String.class, null);
     defs.add(apiRootUrl);
 
+    ParameterDefinition jobName =
+        new ParameterDefinition(
+            "jobName", "Name of the job.",
+            String.class, null);
+    defs.add(jobName);
+
     ParameterDefinition runner = new ParameterDefinition(
         "runner", "The pipeline runner to use.", String.class,
         "DirectPipelineRunner");

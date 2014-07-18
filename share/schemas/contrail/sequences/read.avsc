@@ -7,6 +7,10 @@
                 "type": ["null", "contrail.sequences.FastQRecord"],
                 "doc": "FastQ representation if supplied."
               },
+              { "name":"fasta",
+                "type": ["null", "contrail.sequences.FastaRecord"],
+                "doc": "FastA representation if supplied."
+              },
               {
                 "name":"quake_read_correction", 
                  "type": ["null", "contrail.sequences.QuakeReadCorrection"],

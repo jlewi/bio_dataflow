@@ -1,0 +1,13 @@
+{"name": "contrail.dataflow.BowtieInput",
+ "type": "record",
+ "doc": ["Record used for describing the input to bowtie. "],
+ "fields": [ {"name": "reference",
+              "type": {"type": "array", "items": "contrail.sequences.Read"},
+              "doc": "The reads to use as the reference."
+             },
+             {"name": "query",
+              "type": {"type": "array", "items": "contrail.sequences.Read"},
+              "doc": "The reads to use as the query."
+             }
+           ]
+}

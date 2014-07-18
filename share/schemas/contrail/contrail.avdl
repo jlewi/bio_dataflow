@@ -73,4 +73,5 @@ protocol ContrailProtocol {
 	
 	// Dataflow.
 	import schema "dataflow/gcs_avro_file_split.avsc";
+	import schema "dataflow/bowtie_input.avsc";
 }
