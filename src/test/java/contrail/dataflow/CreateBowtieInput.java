@@ -50,9 +50,7 @@ public class CreateBowtieInput {
       fastq.setQvalue(AlphabetUtil.randomString(generator, length, alphabet));
 
       Read read = new Read();
-      read.setFasta(new FastaRecord());
-      read.getFasta().setId("Read-" + i);
-      read.getFasta().setRead(AlphabetUtil.randomString(generator, 100, alphabet));
+      read.setFastq(fastq);
       bowtieInput.getQuery().add(read);
     }
 

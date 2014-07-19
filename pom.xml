@@ -23,6 +23,11 @@
       -->
     <profile>
       <id>v1</id>
+      <activation>
+	<!-- make this profile the default because I don't know how to manually
+             set the profile in eclipse luna. -->
+	<activeByDefault>true </activeByDefault>
+      </activation>
       <properties>
 	<hadoop-version>1.2.1</hadoop-version>
       </properties>

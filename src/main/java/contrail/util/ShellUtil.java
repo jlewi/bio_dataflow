@@ -41,7 +41,7 @@ public class ShellUtil {
    * @param outStream
    * @return
    */
-  private static int runProcess(
+  public static int runProcess(
       ProcessBuilder builder, String prefix, String command, Logger logger,
       PrintStream outStream) {
     try{

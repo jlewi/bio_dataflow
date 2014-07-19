@@ -19,6 +19,7 @@ import java.io.BufferedReader;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.Date;
@@ -32,6 +33,7 @@ import org.apache.log4j.Logger;
 
 import com.google.cloud.dataflow.sdk.Pipeline;
 import com.google.cloud.dataflow.sdk.io.TextIO;
+import com.google.cloud.dataflow.sdk.runners.DataflowPipelineRunner;
 import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
 import com.google.cloud.dataflow.sdk.runners.PipelineRunner;
 import com.google.cloud.dataflow.sdk.transforms.DoFn;
@@ -40,15 +42,13 @@ import com.google.cloud.dataflow.sdk.util.UserCodeException;
 import com.google.cloud.dataflow.sdk.values.PCollection;
 import com.google.cloud.dataflow.sdk.values.TupleTag;
 
-import contrail.graph.GraphNodeData;
-import contrail.scaffolding.BowtieMapping;
-import contrail.scaffolding.ContigReadAlignment;
 import contrail.sequences.FastUtil;
 import contrail.sequences.Read;
 import contrail.stages.ContrailParameters;
 import contrail.stages.NonMRStage;
 import contrail.stages.ParameterDefinition;
 import contrail.util.FileHelper;
+import contrail.util.ShellUtil;
 
 
 /**
@@ -57,13 +57,6 @@ import contrail.util.FileHelper;
 public class RunBowtie extends NonMRStage {
   private static final Logger sLogger = Logger.getLogger(
       RunBowtie.class);
-
-  private final TupleTag<ContigReadAlignment> alignmentTag = new TupleTag<>();
-  private final TupleTag<GraphNodeData> nodeTag = new TupleTag<>();
-
-  private final TupleTag<BowtieMapping> mappingTag = new TupleTag<>();
-  private final TupleTag<Read> readTag = new TupleTag<>();
-
   /**
    *  creates the custom definitions that we need for this phase
    */
@@ -100,14 +93,17 @@ public class RunBowtie extends NonMRStage {
     private String fetchImage() {
       // Copy the docker image
      ProcessBuilder builder = new ProcessBuilder("gsutil", "cp", imagePath, localImage);
-     Process p;
-     try {
-       p = builder.start();
-       p.waitFor();
-     } catch (IOException | InterruptedException e) {
-       // TODO Auto-generated catch block
-       e.printStackTrace();
-     }
+     ShellUtil.runProcess(
+    		 builder, "build-index", "", sLogger, null);
+//     Process p;
+//     try {
+//       p = builder.start();
+//       p.waitFor();
+//     } catch (IOException | InterruptedException e) {
+//       // TODO Auto-generated catch block
+//       e.printStackTrace();
+//       throw new UserCodeException(e);
+//     }
 
      return localImage;
    }
@@ -115,14 +111,16 @@ public class RunBowtie extends NonMRStage {
    private void loadImage(String localImage) {
      // Load the docker image
      ProcessBuilder builder = new ProcessBuilder("docker", "load", "--input", localImage);
-     Process p;
-     try {
-       p = builder.start();
-       p.waitFor();
-     } catch (IOException | InterruptedException e) {
-       // TODO Auto-generated catch block
-       e.printStackTrace();
-     }
+     ShellUtil.runProcess(
+    		 builder, "load image: ", "", sLogger, null);
+//     Process p;
+//     try {
+//       p = builder.start();
+//       p.waitFor();
+//     } catch (IOException | InterruptedException e) {
+//       // TODO Auto-generated catch block
+//       e.printStackTrace();
+//     }
    }
 
     @Override
@@ -155,48 +153,47 @@ public class RunBowtie extends NonMRStage {
         throw new UserCodeException(e);
       }
 
-      String indexFile = FilenameUtils.concat(tempDir, "bowtie.index");
+      String containerDir = "/container_data";
+      String containerIndexFile = FilenameUtils.concat(containerDir, "bowtie.index");
       String imageName = "contrail/bowtie";
+      String containerRefFile = FilenameUtils.concat(containerDir, "ref.fasta");
+      String containerQueryFile = FilenameUtils.concat(containerDir, "query.fastq");
       String command = String.format("/git_bowtie/bowtie-build %s %s",
-          refFile, indexFile);
-
-      ProcessBuilder builder = new ProcessBuilder("docker", "run", "-t", imageName, command);
-      Process p;
-      try {
-        p = builder.start();
-        p.waitFor();
-      } catch (IOException | InterruptedException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
-      }
+          containerRefFile, containerIndexFile);
+      
+      ProcessBuilder builder = new ProcessBuilder(
+    		  "docker", "run", "-t",
+    		  "-v", tempDir + ":" + containerDir,
+    		  imageName,
+    		  "/git_bowtie/bowtie-build",
+    		  containerRefFile,
+    		  containerIndexFile);
+      ShellUtil.runProcess(
+    		  builder, "bowtie-index", "", sLogger, null);
 
       String outputFile = FilenameUtils.concat(tempDir, "bowtie.output");
-      String bowtieCommand = String.format(
-          "/git_bowtie/bowtie -q -v 1 -M 2 %s %s %s",
-          indexFile,
-          queryFile,
-          outputFile);
+      String containerOutputFile = FilenameUtils.concat(containerDir, "bowtie.output");
 
       ProcessBuilder bowtieBuilder = new ProcessBuilder(
-          "docker", "run", "-t", imageName, command);
+          "docker", "run", "-t",
+          "-v", tempDir + ":" + containerDir,
+          imageName, "/git_bowtie/bowtie",
+    	  "-q", "-v", "1", "-M", "2",
+          containerIndexFile,
+          containerQueryFile,
+          containerOutputFile);
       Process bowtieProcess;
-      try {
-        bowtieProcess = bowtieBuilder.start();
-        bowtieProcess.waitFor();
-      } catch (IOException | InterruptedException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
-        throw new UserCodeException(e);
-      }
+      ShellUtil.runProcess(
+			bowtieBuilder, "run-bowtie", "", sLogger, null);
 
 
       try {
         FileReader inputStream = new FileReader(outputFile);
         BufferedReader reader = new BufferedReader(inputStream);
         String line = reader.readLine();;
-        while(line != null) {
-          line = reader.readLine();
+        while(line != null) {          
           c.output(line);
+          line = reader.readLine();
         }
         reader.close();
         inputStream.close();
@@ -236,15 +233,22 @@ public class RunBowtie extends NonMRStage {
     PCollection<BowtieInput> bowtieInputs = ReadAvroSpecificDoFn.readAvro(
         BowtieInput.class, p, options, inputPath);
 
-    String imagePath = "gs://clouddfe-jlewi/docker_images/contrail.bowtie.tar";
+    String imagePath = "gs://contrail/docker_images/contrail.bowtie.tar";
     String localImage = "/tmp/contrail.bowtie.tar";
     PCollection<String> mappings = bowtieInputs.apply(ParDo.of(
         new RunBowtieDoFn(imagePath, localImage)).named("RunBowtie"));
 
-    String mappingOutputs = outputPath + "bowtie.mappings@*";
+    String mappingOutputs = outputPath + "bowtie.mappings";
+    
+    PipelineRunner runner = PipelineRunner.fromOptions(options);
+    // If running on the service use a sharded output.
+    if (DataflowPipelineRunner.class.isAssignableFrom(runner.getClass())) {
+    	mappingOutputs += "@*";
+    }
+    
     mappings.apply(TextIO.Write.named("WriteMappings").to(mappingOutputs));
 
-    p.run(PipelineRunner.fromOptions(options));
+    p.run(runner);
 
     sLogger.info("Output written to: " + outputPath);
   }
