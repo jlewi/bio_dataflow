@@ -221,6 +221,7 @@ public class RunBowtie extends NonMRStage {
 
     PipelineOptions options = new PipelineOptions();
     options.diskSourceImage = "https://www.googleapis.com/compute/v1/projects/google-containers/global/images/container-vm-v20140710";
+    
     if (stage_options.get("jobName") != null) {
       options.jobName = (String) stage_options.get("jobName");
     }
