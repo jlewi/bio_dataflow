@@ -20,6 +20,7 @@ import com.google.cloud.dataflow.sdk.values.KV;
 
 import contrail.scaffolding.BowtieMapping;
 import contrail.scaffolding.BowtieParser;
+import contrail.sequences.ReadIdUtil;
 
 /**
  * Transforms for processing BowtieMappings.
@@ -32,6 +33,16 @@ public class BowtieMappingTransforms {
     public void processElement(ProcessContext c) {
       BowtieMapping mapping = c.element();
       c.output(KV.of(mapping.getReadId().toString(), mapping));
+    }
+  }
+
+  public static class KeyByMatedId
+      extends DoFn<BowtieMapping, KV<String, BowtieMapping>> {
+    @Override
+    public void processElement(ProcessContext c) {
+      BowtieMapping mapping = c.element();
+      String mateId = ReadIdUtil.getMateId(mapping.getReadId().toString());
+      c.output(KV.of(mateId, mapping));
     }
   }
 
