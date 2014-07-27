@@ -20,6 +20,7 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -67,89 +68,38 @@ public class SubmitDataflowJob extends NonMRStage {
         new HashMap<String, ParameterDefinition>();
     defs.putAll(super.createParameterDefinitions());
 
-    ContrailParameters.add(defs, new ParameterDefinition(
-        "jar", "The GCS path of the jar to run.",
-            String.class, null));
-    ContrailParameters.add(defs, new ParameterDefinition(
-        "main_class", "The full class path of the main program.",
-            String.class, null));
-    ContrailParameters.add(defs, new ParameterDefinition(
-        "arguments", "The arguments to pass to the invocation.",
-            String.class, null));
-
-    ContrailParameters.addList(defs,  DataflowParameters.getDefinitions());
+//    ContrailParameters.add(defs, new ParameterDefinition(
+//        "jar", "The GCS path of the jar to run.",
+//            String.class, null));
+//    ContrailParameters.add(defs, new ParameterDefinition(
+//        "main_class", "The full class path of the main program.",
+//            String.class, null));
+//    ContrailParameters.add(defs, new ParameterDefinition(
+//        "arguments", "The arguments to pass to the invocation.",
+//            String.class, null));
+//
+//    ContrailParameters.addList(defs,  DataflowParameters.getDefinitions());
     return Collections.unmodifiableMap(defs);
   }
 
-
-  /**
-   * Output the contig as a string representing the fasta record.
-   */
-  protected static class RunBowtieDoFn extends DoFn<BowtieInput, String> {
-    private final String imagePath;
-    private final String localImage;
-
-    public RunBowtieDoFn(String imagePath, String localImage) {
-      this.imagePath = imagePath;
-      this.localImage = localImage;
-    }
-
-    private String fetchImage() {
-      // Copy the docker image
-     ProcessBuilder builder = new ProcessBuilder("gsutil", "cp", imagePath, localImage);
-     ShellUtil.runProcess(
-    		 builder, "build-index", "", sLogger, null);
-
-     return localImage;
-   }
-
   @Override
   protected void stageMain() {
-    String inputPath = (String) stage_options.get("inputpath");
-    Date now = new Date();
-    SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd-hhmmss");
-    // N.B. We don't use FilenameUtils.concat because it messes up the URI
-    // prefix.
-    String outputPath = (String) stage_options.get("outputpath");
-    if (!outputPath.endsWith("/")) {
-      outputPath += "/";
-    }
-    outputPath += formatter.format(now);
-    outputPath += "/";
-
-    PipelineOptions options = new PipelineOptions();
-    options.diskSourceImage = "https://www.googleapis.com/compute/v1/projects/google-containers/global/images/container-vm-v20140710";
-
-    if (stage_options.get("jobName") != null) {
-      options.jobName = (String) stage_options.get("jobName");
-    }
-    DataflowParameters.setPipelineOptions(stage_options, options);
-
-    Pipeline p = Pipeline.create();
-
-    DataflowUtil.registerAvroCoders(p);
-
-    PCollection<BowtieInput> bowtieInputs = ReadAvroSpecificDoFn.readAvro(
-        BowtieInput.class, p, options, inputPath);
-
-    String imagePath = "gs://contrail/docker_images/contrail.bowtie.tar";
-    String localImage = "/tmp/contrail.bowtie.tar";
-    PCollection<String> mappings = bowtieInputs.apply(ParDo.of(
-        new RunBowtieDoFn(imagePath, localImage)).named("RunBowtie"));
-
-    String mappingOutputs = outputPath + "bowtie.mappings";
-
-    PipelineRunner runner = PipelineRunner.fromOptions(options);
-    // If running on the service use a sharded output.
-    if (DataflowPipelineRunner.class.isAssignableFrom(runner.getClass())) {
-    	mappingOutputs += "@*";
-    }
-
-    mappings.apply(TextIO.Write.named("WriteMappings").to(mappingOutputs));
-
-    p.run(runner);
-
-    sLogger.info("Output written to: " + outputPath);
+    DockerProcessBuilder builder =  new DockerProcessBuilder(Arrays.asList(
+        "java", "-cp",  "/cloud-dataflow/target/examples-1.jar",
+        "com.google.cloud.dataflow.examples.WordCount",
+        "--runner", "DirectPipelineRunner", "--input", "/tmp/words",
+        "--output", "/tmp/word-count.txt"));
+    builder.setImage("contrail/dataflow");
+    
+    
+    try {
+      DockerProcess process = builder.start();
+      process.waitForAndLogProcess(sLogger, null);
+    } catch (IOException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+      throw new RuntimeException(e);
+    }    
   }
 
   public static void main(String[] args) throws Exception {

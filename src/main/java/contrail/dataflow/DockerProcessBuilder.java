@@ -92,7 +92,7 @@ public class DockerProcessBuilder {
     // Give the container a random name which we can use to refer to it
     // later on.
     Random generator = new Random();
-    String name = String.format("container-%016llx", generator.nextLong());
+    String name = String.format("container-%016x", generator.nextLong());
     dockerCommand.add("--name");
     dockerCommand.add(name);
 
@@ -106,8 +106,8 @@ public class DockerProcessBuilder {
 
     dockerCommand.addAll(command);
 
-    builder = new ProcessBuilder(command);
+    builder = new ProcessBuilder(dockerCommand);
 
-    return new DockerProcess(name, builder.start(), command);
+    return new DockerProcess(name, builder.start(), dockerCommand);
   }
 }
