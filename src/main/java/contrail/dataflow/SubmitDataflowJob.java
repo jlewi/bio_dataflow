@@ -19,7 +19,6 @@ import java.io.BufferedReader;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.Date;
@@ -40,7 +39,6 @@ import com.google.cloud.dataflow.sdk.transforms.DoFn;
 import com.google.cloud.dataflow.sdk.transforms.ParDo;
 import com.google.cloud.dataflow.sdk.util.UserCodeException;
 import com.google.cloud.dataflow.sdk.values.PCollection;
-import com.google.cloud.dataflow.sdk.values.TupleTag;
 
 import contrail.sequences.FastUtil;
 import contrail.sequences.Read;
@@ -53,7 +51,7 @@ import contrail.util.ShellUtil;
 
 /**
  * Submit a Dataflow job.
- * 
+ *
  * This is a simple Dataflow job which submits another Dataflow job
  * by running that job's main program.
  */
@@ -69,6 +67,15 @@ public class SubmitDataflowJob extends NonMRStage {
         new HashMap<String, ParameterDefinition>();
     defs.putAll(super.createParameterDefinitions());
 
+    ContrailParameters.add(defs, new ParameterDefinition(
+        "jar", "The GCS path of the jar to run.",
+            String.class, null));
+    ContrailParameters.add(defs, new ParameterDefinition(
+        "main_class", "The full class path of the main program.",
+            String.class, null));
+    ContrailParameters.add(defs, new ParameterDefinition(
+        "arguments", "The arguments to pass to the invocation.",
+            String.class, null));
 
     ContrailParameters.addList(defs,  DataflowParameters.getDefinitions());
     return Collections.unmodifiableMap(defs);
@@ -92,115 +99,9 @@ public class SubmitDataflowJob extends NonMRStage {
      ProcessBuilder builder = new ProcessBuilder("gsutil", "cp", imagePath, localImage);
      ShellUtil.runProcess(
     		 builder, "build-index", "", sLogger, null);
-//     Process p;
-//     try {
-//       p = builder.start();
-//       p.waitFor();
-//     } catch (IOException | InterruptedException e) {
-//       // TODO Auto-generated catch block
-//       e.printStackTrace();
-//       throw new UserCodeException(e);
-//     }
 
      return localImage;
    }
-
-   private void loadImage(String localImage) {
-     // Load the docker image
-     ProcessBuilder builder = new ProcessBuilder("docker", "load", "--input", localImage);
-     ShellUtil.runProcess(
-    		 builder, "load image: ", "", sLogger, null);
-//     Process p;
-//     try {
-//       p = builder.start();
-//       p.waitFor();
-//     } catch (IOException | InterruptedException e) {
-//       // TODO Auto-generated catch block
-//       e.printStackTrace();
-//     }
-   }
-
-    @Override
-    public void startBatch(DoFn.Context c) {
-      fetchImage();
-      loadImage(localImage);
-    }
-
-    @Override
-    public void processElement(ProcessContext c) {
-      String tempDir = FileHelper.createLocalTempDir().getAbsolutePath();
-      BowtieInput input = c.element();
-      String refFile = FilenameUtils.concat(tempDir, "ref.fasta");
-      String queryFile = FilenameUtils.concat(tempDir, "query.fastq");
-      try {
-        FileOutputStream refStream = new FileOutputStream(refFile);
-        for (Read read : input.getReference()) {
-          FastUtil.writeFastARecord(refStream, read.getFasta());
-        }
-        refStream.close();
-
-        FileOutputStream queryStream = new FileOutputStream(
-            FilenameUtils.concat(tempDir, "query.fastq"));
-        for (Read read : input.getQuery()) {
-          FastUtil.writeFastQRecord(queryStream, read.getFastq());
-        }
-        queryStream.close();
-      } catch (IOException e) {
-        e.printStackTrace();
-        throw new UserCodeException(e);
-      }
-
-      String containerDir = "/container_data";
-      String containerIndexFile = FilenameUtils.concat(containerDir, "bowtie.index");
-      String imageName = "contrail/bowtie";
-      String containerRefFile = FilenameUtils.concat(containerDir, "ref.fasta");
-      String containerQueryFile = FilenameUtils.concat(containerDir, "query.fastq");
-      String command = String.format("/git_bowtie/bowtie-build %s %s",
-          containerRefFile, containerIndexFile);
-      
-      ProcessBuilder builder = new ProcessBuilder(
-    		  "docker", "run", "-t",
-    		  "-v", tempDir + ":" + containerDir,
-    		  imageName,
-    		  "/git_bowtie/bowtie-build",
-    		  containerRefFile,
-    		  containerIndexFile);
-      ShellUtil.runProcess(
-    		  builder, "bowtie-index", "", sLogger, null);
-
-      String outputFile = FilenameUtils.concat(tempDir, "bowtie.output");
-      String containerOutputFile = FilenameUtils.concat(containerDir, "bowtie.output");
-
-      ProcessBuilder bowtieBuilder = new ProcessBuilder(
-          "docker", "run", "-t",
-          "-v", tempDir + ":" + containerDir,
-          imageName, "/git_bowtie/bowtie",
-    	  "-q", "-v", "1", "-M", "2",
-          containerIndexFile,
-          containerQueryFile,
-          containerOutputFile);
-      Process bowtieProcess;
-      ShellUtil.runProcess(
-			bowtieBuilder, "run-bowtie", "", sLogger, null);
-
-
-      try {
-        FileReader inputStream = new FileReader(outputFile);
-        BufferedReader reader = new BufferedReader(inputStream);
-        String line = reader.readLine();;
-        while(line != null) {          
-          c.output(line);
-          line = reader.readLine();
-        }
-        reader.close();
-        inputStream.close();
-      } catch (IOException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
-        throw new UserCodeException(e);
-      }
-    }
-  }
 
   @Override
   protected void stageMain() {
@@ -218,7 +119,7 @@ public class SubmitDataflowJob extends NonMRStage {
 
     PipelineOptions options = new PipelineOptions();
     options.diskSourceImage = "https://www.googleapis.com/compute/v1/projects/google-containers/global/images/container-vm-v20140710";
-    
+
     if (stage_options.get("jobName") != null) {
       options.jobName = (String) stage_options.get("jobName");
     }
@@ -237,13 +138,13 @@ public class SubmitDataflowJob extends NonMRStage {
         new RunBowtieDoFn(imagePath, localImage)).named("RunBowtie"));
 
     String mappingOutputs = outputPath + "bowtie.mappings";
-    
+
     PipelineRunner runner = PipelineRunner.fromOptions(options);
     // If running on the service use a sharded output.
     if (DataflowPipelineRunner.class.isAssignableFrom(runner.getClass())) {
     	mappingOutputs += "@*";
     }
-    
+
     mappings.apply(TextIO.Write.named("WriteMappings").to(mappingOutputs));
 
     p.run(runner);
