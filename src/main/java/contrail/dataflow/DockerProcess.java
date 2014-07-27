@@ -115,4 +115,12 @@ public class DockerProcess {
               commandText + "\n. The Exception was:\n" + e.getMessage());
     }
   }
+  
+  /**
+   * Remove the container and do other cleanup actions.
+   */
+  public void close() {
+    // TODO(jlewi): Should we communicate with docker over the socket using
+    // the docker API?    
+  }
 }

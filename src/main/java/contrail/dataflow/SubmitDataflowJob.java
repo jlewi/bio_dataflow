@@ -87,8 +87,12 @@ public class SubmitDataflowJob extends NonMRStage {
     DockerProcessBuilder builder =  new DockerProcessBuilder(Arrays.asList(
         "java", "-cp",  "/cloud-dataflow/target/examples-1.jar",
         "com.google.cloud.dataflow.examples.WordCount",
-        "--runner", "DirectPipelineRunner", "--input", "/tmp/words",
-        "--output", "/tmp/word-count.txt"));
+        "--runner", "BlockingDataflowPipelineRunner",
+        "--gcloudPath", "/google-cloud-sdk/bin/gcloud",
+        "--project", "biocloudops",
+        "--stagingLocation", "gs://dataflow-dogfood2-jlewi/staging",
+        "--input", "gs://dataflow-dogfood2-jlewi/nytimes.html",
+        "--output", "gs://dataflow-dogfood2-jlewi/tmp/nytimes-counts.txt"));
     builder.setImage("contrail/dataflow");
     
     
