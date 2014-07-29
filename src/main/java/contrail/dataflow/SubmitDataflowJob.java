@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.io.FilenameUtils;
@@ -40,6 +41,9 @@ import com.google.cloud.dataflow.sdk.transforms.DoFn;
 import com.google.cloud.dataflow.sdk.transforms.ParDo;
 import com.google.cloud.dataflow.sdk.util.UserCodeException;
 import com.google.cloud.dataflow.sdk.values.PCollection;
+import com.spotify.docker.client.DefaultDockerClient;
+import com.spotify.docker.client.DockerClient;
+import com.spotify.docker.client.DockerException;
 
 import contrail.sequences.FastUtil;
 import contrail.sequences.Read;
@@ -84,7 +88,7 @@ public class SubmitDataflowJob extends NonMRStage {
 
   @Override
   protected void stageMain() {
-    DockerProcessBuilder builder =  new DockerProcessBuilder(Arrays.asList(
+    List<String> serviceCommand = Arrays.asList(
         "java", "-cp",  "/cloud-dataflow/target/examples-1.jar",
         "com.google.cloud.dataflow.examples.WordCount",
         "--runner", "BlockingDataflowPipelineRunner",
@@ -92,17 +96,35 @@ public class SubmitDataflowJob extends NonMRStage {
         "--project", "biocloudops",
         "--stagingLocation", "gs://dataflow-dogfood2-jlewi/staging",
         "--input", "gs://dataflow-dogfood2-jlewi/nytimes-index.html",
-        "--output", "gs://dataflow-dogfood2-jlewi/tmp/nytimes-counts.txt"));
+        "--output", "gs://dataflow-dogfood2-jlewi/tmp/nytimes-counts.txt");
+    
+    List<String> localCommand = Arrays.asList(
+        "java", "-cp",  "/cloud-dataflow/target/examples-1.jar",
+        "com.google.cloud.dataflow.examples.WordCount",
+        "--runner", "DirectPipelineRunner", "--input", "/tmp/words",
+        "--output", "/tmp/word-count.txt");
+    
+    // Docker must be using a tcp port.
+    String dockerAddress = "http://127.0.0.1:4243";
+    DockerClient docker = new DefaultDockerClient(dockerAddress);
+    DockerProcessBuilder builder =  new DockerProcessBuilder(localCommand, docker);
     builder.setImage("contrail/dataflow");
     
     
     try {
       DockerProcess process = builder.start();
-      process.waitForAndLogProcess(sLogger, null);
+      
+      // process.waitForAndLogProcess(sLogger, null);
     } catch (IOException e) {
       // TODO Auto-generated catch block
       e.printStackTrace();
       throw new RuntimeException(e);
+    } catch (DockerException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    } catch (InterruptedException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
     }    
   }
 

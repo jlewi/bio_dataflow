@@ -20,6 +20,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+import com.spotify.docker.client.DockerClient;
+import com.spotify.docker.client.DockerClient.LogsParameter;
+import com.spotify.docker.client.DockerException;
+import com.spotify.docker.client.LogStream;
+import com.spotify.docker.client.messages.ContainerConfig;
+import com.spotify.docker.client.messages.ContainerCreation;
+import com.spotify.docker.client.messages.ContainerInfo;
+
 /**
  * Build a proccess to run in a shell process.
  */
@@ -29,7 +37,8 @@ public class DockerProcessBuilder {
   private String imageName;
 
   private final List<VolumeMapping> volumeMappings;
-
+  private final DockerClient docker;
+  
   // Information about how to map a local file system path to a path in
   // the docker filesystem.
   private class VolumeMapping {
@@ -50,12 +59,12 @@ public class DockerProcessBuilder {
     }
   }
 
-  public DockerProcessBuilder(List<String> command) {
+  public DockerProcessBuilder(List<String> command, DockerClient docker) {	
     this.command = command;
-
-    volumeMappings = new ArrayList<VolumeMapping>();
+	volumeMappings = new ArrayList<VolumeMapping>();
+	this.docker = docker;
   }
-
+  
   /**
    * Add a mapping from localDir on the local filesystem to the directory
    * containerDir in the filesystem.
@@ -71,43 +80,71 @@ public class DockerProcessBuilder {
     this.imageName = imageName;
   }
 
-  public DockerProcess start() throws IOException {
-    ArrayList<String> dockerCommand = new ArrayList<String>();
+  public DockerProcess start() throws IOException, DockerException, InterruptedException {
+    // Fetch the image if its in a repository.
+    //docker.pull(imageName);
+    
+    ContainerConfig config = ContainerConfig.builder()
+        .image(imageName)
+        .cmd(command)
+        .attachStderr(true)
+        .attachStderr(true)
+        .build();
+    
+    
+    ContainerCreation creation = docker.createContainer(config);    
+    String id = creation.id();
+    ContainerInfo info = docker.inspectContainer(id);
+    docker.startContainer(id);
+    docker.waitContainer(id);
+        
+    LogStream stdOut = docker.logs(id, LogsParameter.STDOUT);
+    System.out.println(stdOut.readFully());
+    LogStream stdErr = docker.logs(id, LogsParameter.STDERR);
+    System.out.println(stdErr.readFully());
+    
+    // Remove the container.
+    docker.removeContainer(id);
+//    
+//    
+//    // Create the container.   
+//    ArrayList<String> dockerCommand = new ArrayList<String>();
+//
+//    // See docker run command: https://docs.docker.com/reference/run
+//    // We run the command in the foreground.
+//    // By default this causes stdin, stdout, stderr of the command to be
+//    // attached to the process's stdin, stdout, stderr.
+//    dockerCommand.add("docker");
+//    dockerCommand.add("run");
+//
+//    // -t causes the terminal to pretend to be a tty which is what most
+//    // executables expect.
+//    dockerCommand.add("-t");
 
-    // See docker run command: https://docs.docker.com/reference/run
-    // We run the command in the foreground.
-    // By default this causes stdin, stdout, stderr of the command to be
-    // attached to the process's stdin, stdout, stderr.
-    dockerCommand.add("docker");
-    dockerCommand.add("run");
-
-    // -t causes the terminal to pretend to be a tty which is what most
-    // executables expect.
-    dockerCommand.add("-t");
-
-    if (imageName == null || imageName.isEmpty()) {
-      throw new IllegalArgumentException("No docker image specified.");
-    }
-
-    // Give the container a random name which we can use to refer to it
-    // later on.
-    Random generator = new Random();
-    String name = String.format("container-%016x", generator.nextLong());
-    dockerCommand.add("--name");
-    dockerCommand.add(name);
-
-    // Mount volumes.
-    for (VolumeMapping m  : volumeMappings) {
-      dockerCommand.add("-v");
-      dockerCommand.add(m.toArgument());
-    }
-
-    dockerCommand.add(imageName);
-
-    dockerCommand.addAll(command);
-
-    builder = new ProcessBuilder(dockerCommand);
-
-    return new DockerProcess(name, builder.start(), dockerCommand);
+//    if (imageName == null || imageName.isEmpty()) {
+//      throw new IllegalArgumentException("No docker image specified.");
+//    }
+//
+//    // Give the container a random name which we can use to refer to it
+//    // later on.
+//    Random generator = new Random();
+//    String name = String.format("container-%016x", generator.nextLong());
+//    dockerCommand.add("--name");
+//    dockerCommand.add(name);
+//
+//    // Mount volumes.
+//    for (VolumeMapping m  : volumeMappings) {
+//      dockerCommand.add("-v");
+//      dockerCommand.add(m.toArgument());
+//    }
+//
+//    dockerCommand.add(imageName);
+//
+//    dockerCommand.addAll(command);
+//
+//    builder = new ProcessBuilder(dockerCommand);
+//
+//    return new DockerProcess(name, builder.start(), dockerCommand);
+     return null;
   }
 }
