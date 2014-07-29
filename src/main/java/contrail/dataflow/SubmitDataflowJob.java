@@ -91,7 +91,7 @@ public class SubmitDataflowJob extends NonMRStage {
         "--gcloudPath", "/google-cloud-sdk/bin/gcloud",
         "--project", "biocloudops",
         "--stagingLocation", "gs://dataflow-dogfood2-jlewi/staging",
-        "--input", "gs://dataflow-dogfood2-jlewi/nytimes.html",
+        "--input", "gs://dataflow-dogfood2-jlewi/nytimes-index.html",
         "--output", "gs://dataflow-dogfood2-jlewi/tmp/nytimes-counts.txt"));
     builder.setImage("contrail/dataflow");
     
