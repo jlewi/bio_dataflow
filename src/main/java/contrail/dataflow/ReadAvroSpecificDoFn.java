@@ -33,7 +33,7 @@ import com.google.cloud.dataflow.sdk.transforms.Create;
 import com.google.cloud.dataflow.sdk.transforms.DoFn;
 import com.google.cloud.dataflow.sdk.transforms.ParDo;
 import com.google.cloud.dataflow.sdk.util.GcsUtil;
-import com.google.cloud.dataflow.sdk.util.GcsUtil.GcsFilename;
+import com.google.cloud.dataflow.sdk.util.gcsfs.GcsPath;
 import com.google.cloud.dataflow.sdk.values.PCollection;
 
 import contrail.util.AvroSchemaUtil;
@@ -53,7 +53,7 @@ public class ReadAvroSpecificDoFn<AvroType>
     GCSAvroFileSplit split = c.element();
     System.out.println(split.getPath());
 
-    GcsFilename gcsFilename = GcsUtil.asGcsFilename(split.getPath().toString());
+    GcsPath gcsFilename = GcsPath.fromUri(split.getPath().toString());
 
     ByteChannel inChannel;
     try {
@@ -103,15 +103,15 @@ public class ReadAvroSpecificDoFn<AvroType>
       Class avroClass, Pipeline p, PipelineOptions options, String path) {
     GcsUtil gcsUtil = GcsUtil.create(options);
     ArrayList<GCSAvroFileSplit> splits = new ArrayList<GCSAvroFileSplit>();
-    List<GcsFilename> gcsNames = null;
+    List<GcsPath> gcsNames = null;
     try {
-      gcsNames = gcsUtil.expand(gcsUtil.asGcsFilename(path));
+      gcsNames = gcsUtil.expand(GcsPath.fromUri(path));
     } catch(IOException e) {
       sLogger.fatal("There was a problem matching path: " + path, e);
       System.exit(-1);
     }
 
-    for (GcsFilename name : gcsNames) {
+    for (GcsPath name : gcsNames) {
       GCSAvroFileSplit split = new GCSAvroFileSplit();
       split.setPath(name.toString());
       splits.add(split);
