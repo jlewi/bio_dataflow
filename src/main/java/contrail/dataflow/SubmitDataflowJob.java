@@ -16,9 +16,11 @@
 package contrail.dataflow;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collections;
@@ -39,8 +41,17 @@ import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
 import com.google.cloud.dataflow.sdk.runners.PipelineRunner;
 import com.google.cloud.dataflow.sdk.transforms.DoFn;
 import com.google.cloud.dataflow.sdk.transforms.ParDo;
+import com.google.cloud.dataflow.sdk.util.Credentials;
+import com.google.cloud.dataflow.sdk.util.GcsUtil;
 import com.google.cloud.dataflow.sdk.util.UserCodeException;
 import com.google.cloud.dataflow.sdk.values.PCollection;
+import com.google.api.client.auth.oauth2.Credential;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.services.storage.Storage;
+import com.google.api.services.storage.model.StorageObject;
 import com.spotify.docker.client.DefaultDockerClient;
 import com.spotify.docker.client.DockerClient;
 import com.spotify.docker.client.DockerException;
@@ -134,8 +145,46 @@ public class SubmitDataflowJob extends NonMRStage {
     }              
   }
   
+  /**
+   * Download the jar containing the user's code.
+   * 
+   * @param options
+   */
+  private void downloadJar(PipelineOptions options) {
+    JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
+
+    // Download the jar containing the code.
+    // Initialize the transport.    
+    NetHttpTransport httpTransport;
+    try {
+      httpTransport = GoogleNetHttpTransport.newTrustedTransport();
+      // Authorization.
+      Credential credential = Credentials.getWorkerCredential(options);
+
+
+      // Set up global Storage instance.
+      Storage storage = new Storage.Builder(httpTransport, JSON_FACTORY, credential)
+      .setApplicationName(this.getClass().getSimpleName()).build();
+
+      Storage.Objects.Get getObject = storage.objects().get("biocloudops-temp", "examples-1-20140730.jar");
+
+      // Downloading data.
+      FileOutputStream out = new FileOutputStream("/tmp/examples.jar");
+      // If you're not in AppEngine, download the whole thing in one request, if possible.
+      getObject.getMediaHttpDownloader();
+      getObject.executeMediaAndDownloadTo(out);
+
+      out.close();
+    } catch (GeneralSecurityException | IOException e1) {
+      // TODO Auto-generated catch block
+      e1.printStackTrace();
+    }
+  }
+  
   @Override
   protected void stageMain() {
+    PipelineOptions options = new PipelineOptions();
+       
     List<String> serviceCommand = Arrays.asList(
         "java", "-cp",  "/cloud-dataflow/target/examples-1.jar",
         "com.google.cloud.dataflow.examples.WordCount",
@@ -151,9 +200,10 @@ public class SubmitDataflowJob extends NonMRStage {
         "com.google.cloud.dataflow.examples.WordCount",
         "--runner", "DirectPipelineRunner", "--input", "/tmp/words",
         "--output", "/tmp/word-count.txt");
-    
-    startDocker();
  
+    downloadJar(options);
+ 
+    startDocker();
     
     // Stop the registry.
     // TODO(jlewi): We need to figure out how to make sure this always runs
