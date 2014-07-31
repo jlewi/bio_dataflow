@@ -17,17 +17,20 @@ package contrail.dataflow;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -55,11 +58,14 @@ import com.google.api.services.storage.model.StorageObject;
 import com.spotify.docker.client.DefaultDockerClient;
 import com.spotify.docker.client.DockerClient;
 import com.spotify.docker.client.DockerException;
+import com.spotify.docker.client.DockerRequestException;
 import com.spotify.docker.client.LogStream;
 import com.spotify.docker.client.DockerClient.LogsParameter;
 import com.spotify.docker.client.messages.ContainerConfig;
 import com.spotify.docker.client.messages.ContainerCreation;
 import com.spotify.docker.client.messages.ContainerInfo;
+import com.spotify.docker.client.messages.HostConfig;
+import com.spotify.docker.client.messages.PortBinding;
 
 import contrail.sequences.FastUtil;
 import contrail.sequences.Read;
@@ -82,6 +88,10 @@ public class SubmitDataflowJob extends NonMRStage {
   
   private DockerClient docker;
   private String googleRegistryId;
+  private String localTempFileName;
+  
+  /* The local name of the registry. */
+  private String registryLocalName;
   
   /**
    *  creates the custom definitions that we need for this phase
@@ -98,7 +108,7 @@ public class SubmitDataflowJob extends NonMRStage {
   private void startDocker() {
     // Docker must be using a tcp port to work with the spotify client.
     String dockerAddress = "http://127.0.0.1:4243";
-    docker = new DefaultDockerClient(dockerAddress);       
+    docker = new DefaultDockerClient(dockerAddress);    
   }
   
   private void startGoogleRegistry() {
@@ -106,12 +116,15 @@ public class SubmitDataflowJob extends NonMRStage {
     String googleRegistryImage = "google/docker-registry";
     try {
       docker.pull(googleRegistryImage);
-    } catch (DockerException e1) {
+    } catch (DockerRequestException e1) {
       // TODO Auto-generated catch block
       e1.printStackTrace();
     } catch (InterruptedException e1) {
       // TODO Auto-generated catch block
       e1.printStackTrace();
+    } catch (DockerException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
     }
     
     // TODO(jlewi): How to determine an unused port.
@@ -121,27 +134,40 @@ public class SubmitDataflowJob extends NonMRStage {
     String registryPort = "5000";
     // The host can pick any available port.
     // TODO(jlewi): Figure out how to pick an available port.
-    String hostPort = "5000";
+    String hostPort = "5010";
+    
+    String exposedPort = registryPort + "/tcp";
     ContainerConfig config = ContainerConfig.builder()
         .image("google/docker-registry")
-        //.cmd("google/docker-registry")
         .env("GCS_BUCKET=biocloudops-docker")
         .attachStderr(false)
         .attachStdout(false)
         .attachStdin(false)
-        .portSpecs(hostPort + ":" + registryPort)
+        .portSpecs(exposedPort)
+        //.exposedPorts(exposedPort)
         .build();
         
+    registryLocalName = "localhost:" + hostPort;
     ContainerCreation creation;
     // The id of the container running the google docker registry.
     googleRegistryId = "";
     try {
       creation = docker.createContainer(config);
       googleRegistryId = creation.id();
-      docker.startContainer(googleRegistryId);
-    } catch (DockerException | InterruptedException e1) {
-      // TODO Auto-generated catch block
-      e1.printStackTrace();
+      
+      Map<String, List<PortBinding>> portBindings = new TreeMap<String, List<PortBinding>>();
+      portBindings.put(exposedPort, new ArrayList<PortBinding>());
+      portBindings.get(exposedPort).add(PortBinding.of("0.0.0.0.", Integer.parseInt(hostPort)));
+      
+      HostConfig hostConfig = HostConfig.builder().portBindings(portBindings).build();
+      docker.startContainer(googleRegistryId, hostConfig);
+      
+    }  catch (DockerRequestException e1) {
+      sLogger.error(e1.message(), e1);
+    } catch (DockerException e1) {      
+      sLogger.error(e1);        
+    } catch (InterruptedException e1) {
+      sLogger.error(e1);
     }              
   }
   
@@ -153,6 +179,21 @@ public class SubmitDataflowJob extends NonMRStage {
   private void downloadJar(PipelineOptions options) {
     JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
 
+    String bucket = "biocloudops-temp";
+    String objectPath = "examples-1-20140730.jar";
+    
+    String[] pieces = objectPath.split("/");
+    String baseName = pieces[pieces.length - 1];
+    try {
+      File localTempFile;
+      localTempFile = File.createTempFile("tmp", baseName);
+      localTempFileName = localTempFile.getAbsolutePath();
+      localTempFile.delete();
+    } catch (IOException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
+        
     // Download the jar containing the code.
     // Initialize the transport.    
     NetHttpTransport httpTransport;
@@ -161,15 +202,14 @@ public class SubmitDataflowJob extends NonMRStage {
       // Authorization.
       Credential credential = Credentials.getWorkerCredential(options);
 
-
       // Set up global Storage instance.
       Storage storage = new Storage.Builder(httpTransport, JSON_FACTORY, credential)
       .setApplicationName(this.getClass().getSimpleName()).build();
 
-      Storage.Objects.Get getObject = storage.objects().get("biocloudops-temp", "examples-1-20140730.jar");
+      Storage.Objects.Get getObject = storage.objects().get(bucket, objectPath);
 
       // Downloading data.
-      FileOutputStream out = new FileOutputStream("/tmp/examples.jar");
+      FileOutputStream out = new FileOutputStream(localTempFileName);
       // If you're not in AppEngine, download the whole thing in one request, if possible.
       getObject.getMediaHttpDownloader();
       getObject.executeMediaAndDownloadTo(out);
@@ -181,10 +221,8 @@ public class SubmitDataflowJob extends NonMRStage {
     }
   }
   
-  @Override
-  protected void stageMain() {
-    PipelineOptions options = new PipelineOptions();
-       
+  protected void runJob() {
+    String imageName = registryLocalName + "/contrail/dataflow";    
     List<String> serviceCommand = Arrays.asList(
         "java", "-cp",  "/cloud-dataflow/target/examples-1.jar",
         "com.google.cloud.dataflow.examples.WordCount",
@@ -200,10 +238,47 @@ public class SubmitDataflowJob extends NonMRStage {
         "com.google.cloud.dataflow.examples.WordCount",
         "--runner", "DirectPipelineRunner", "--input", "/tmp/words",
         "--output", "/tmp/word-count.txt");
- 
+    
+    ContainerConfig config = ContainerConfig.builder()
+        .image(imageName)
+        .cmd(localCommand)
+        .attachStderr(true)
+        .attachStderr(true)
+        .build();
+        
+    ContainerCreation creation;
+    try {
+      // Fetch the image.
+      docker.pull(imageName);
+      creation = docker.createContainer(config);
+      String id = creation.id();
+      ContainerInfo info = docker.inspectContainer(id);
+      docker.startContainer(id);
+      docker.waitContainer(id);
+          
+      LogStream stdOut = docker.logs(id, LogsParameter.STDOUT);
+      System.out.println(stdOut.readFully());
+      LogStream stdErr = docker.logs(id, LogsParameter.STDERR);
+      System.out.println(stdErr.readFully());
+      
+      // Remove the container.
+      docker.removeContainer(id);
+    } catch (DockerException | InterruptedException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }    
+  }
+  
+  @Override
+  protected void stageMain() {
+    PipelineOptions options = new PipelineOptions();
+       
     downloadJar(options);
  
     startDocker();
+    startGoogleRegistry();
+    
+    //runJob();
     
     // Stop the registry.
     // TODO(jlewi): We need to figure out how to make sure this always runs
