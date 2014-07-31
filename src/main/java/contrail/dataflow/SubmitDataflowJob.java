@@ -44,6 +44,11 @@ import com.google.cloud.dataflow.sdk.values.PCollection;
 import com.spotify.docker.client.DefaultDockerClient;
 import com.spotify.docker.client.DockerClient;
 import com.spotify.docker.client.DockerException;
+import com.spotify.docker.client.LogStream;
+import com.spotify.docker.client.DockerClient.LogsParameter;
+import com.spotify.docker.client.messages.ContainerConfig;
+import com.spotify.docker.client.messages.ContainerCreation;
+import com.spotify.docker.client.messages.ContainerInfo;
 
 import contrail.sequences.FastUtil;
 import contrail.sequences.Read;
@@ -63,6 +68,10 @@ import contrail.util.ShellUtil;
 public class SubmitDataflowJob extends NonMRStage {
   private static final Logger sLogger = Logger.getLogger(
       SubmitDataflowJob.class);
+  
+  private DockerClient docker;
+  private String googleRegistryId;
+  
   /**
    *  creates the custom definitions that we need for this phase
    */
@@ -72,20 +81,59 @@ public class SubmitDataflowJob extends NonMRStage {
         new HashMap<String, ParameterDefinition>();
     defs.putAll(super.createParameterDefinitions());
 
-//    ContrailParameters.add(defs, new ParameterDefinition(
-//        "jar", "The GCS path of the jar to run.",
-//            String.class, null));
-//    ContrailParameters.add(defs, new ParameterDefinition(
-//        "main_class", "The full class path of the main program.",
-//            String.class, null));
-//    ContrailParameters.add(defs, new ParameterDefinition(
-//        "arguments", "The arguments to pass to the invocation.",
-//            String.class, null));
-//
-//    ContrailParameters.addList(defs,  DataflowParameters.getDefinitions());
     return Collections.unmodifiableMap(defs);
   }
 
+  private void startDocker() {
+    // Docker must be using a tcp port to work with the spotify client.
+    String dockerAddress = "http://127.0.0.1:4243";
+    docker = new DefaultDockerClient(dockerAddress);       
+  }
+  
+  private void startGoogleRegistry() {
+    // Get the Google docker image.
+    String googleRegistryImage = "google/docker-registry";
+    try {
+      docker.pull(googleRegistryImage);
+    } catch (DockerException e1) {
+      // TODO Auto-generated catch block
+      e1.printStackTrace();
+    } catch (InterruptedException e1) {
+      // TODO Auto-generated catch block
+      e1.printStackTrace();
+    }
+    
+    // TODO(jlewi): How to determine an unused port.
+    // TODO(jlewi): This assumes authorization is granted via a service account.
+    
+    // The google/docker-registry container is configured to use the port 5000.
+    String registryPort = "5000";
+    // The host can pick any available port.
+    // TODO(jlewi): Figure out how to pick an available port.
+    String hostPort = "5000";
+    ContainerConfig config = ContainerConfig.builder()
+        .image("google/docker-registry")
+        //.cmd("google/docker-registry")
+        .env("GCS_BUCKET=biocloudops-docker")
+        .attachStderr(false)
+        .attachStdout(false)
+        .attachStdin(false)
+        .portSpecs(hostPort + ":" + registryPort)
+        .build();
+        
+    ContainerCreation creation;
+    // The id of the container running the google docker registry.
+    googleRegistryId = "";
+    try {
+      creation = docker.createContainer(config);
+      googleRegistryId = creation.id();
+      docker.startContainer(googleRegistryId);
+    } catch (DockerException | InterruptedException e1) {
+      // TODO Auto-generated catch block
+      e1.printStackTrace();
+    }              
+  }
+  
   @Override
   protected void stageMain() {
     List<String> serviceCommand = Arrays.asList(
@@ -104,28 +152,19 @@ public class SubmitDataflowJob extends NonMRStage {
         "--runner", "DirectPipelineRunner", "--input", "/tmp/words",
         "--output", "/tmp/word-count.txt");
     
-    // Docker must be using a tcp port.
-    String dockerAddress = "http://127.0.0.1:4243";
-    DockerClient docker = new DefaultDockerClient(dockerAddress);
-    DockerProcessBuilder builder =  new DockerProcessBuilder(localCommand, docker);
-    builder.setImage("contrail/dataflow");
+    startDocker();
+ 
     
-    
+    // Stop the registry.
+    // TODO(jlewi): We need to figure out how to make sure this always runs
+    // to avoid leaving the google registry running.
     try {
-      DockerProcess process = builder.start();
-      
-      // process.waitForAndLogProcess(sLogger, null);
-    } catch (IOException e) {
+      docker.killContainer(googleRegistryId);
+      docker.removeContainer(googleRegistryId);
+    } catch (DockerException | InterruptedException e) {
       // TODO Auto-generated catch block
       e.printStackTrace();
-      throw new RuntimeException(e);
-    } catch (DockerException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-    } catch (InterruptedException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-    }    
+    } 
   }
 
   public static void main(String[] args) throws Exception {
