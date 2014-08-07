@@ -42,6 +42,7 @@ import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 import com.google.cloud.dataflow.sdk.Pipeline;
+import com.google.cloud.dataflow.sdk.coders.AvroCoder;
 import com.google.cloud.dataflow.sdk.coders.StringUtf8Coder;
 import com.google.cloud.dataflow.sdk.io.BigQueryIO;
 import com.google.cloud.dataflow.sdk.io.TextIO;
@@ -123,10 +124,31 @@ public class SubmitDataflowJob extends NonMRStage {
     DataflowParameters.setPipelineOptions(stage_options, options);
 
     Pipeline p = Pipeline.create();
-
+       
+    List<String> serviceCommand = Arrays.asList(
+        "com.google.cloud.dataflow.examples.WordCount",
+        "--runner", "BlockingDataflowPipelineRunner",
+        "--gcloudPath", "/google-cloud-sdk/bin/gcloud",
+        "--project", "biocloudops",
+        "--stagingLocation", "gs://dataflow-dogfood2-jlewi/staging",
+        "--input", "gs://dataflow-dogfood2-jlewi/nytimes-index.html",
+        "--output", "gs://dataflow-dogfood2-jlewi/tmp/nytimes-counts.txt");
     
-    PObject<String> jobSpec = p.begin().apply(CreatePObject.of("hel)o"))
-        .setCoder(StringUtf8Coder.of());
+    List<String> localCommand = Arrays.asList(
+        "com.google.cloud.dataflow.examples.WordCount",
+        "--runner", "DirectPipelineRunner", "--input", "/tmp/words",
+        "--output", "/tmp/word-count.txt");
+    
+    String bucket = "biocloudops-temp";
+    String objectPath = "examples-1-20140730.jar";
+    List<String> jars = Arrays.asList("someJar");
+    String imageName = "localimagename"; 
+    
+    DataflowJobSpec jobToRun = new DataflowJobSpec(
+        localCommand, jars, imageName);
+    
+    PObject<DataflowJobSpec> jobSpec = p.begin().apply(CreatePObject.of(
+        jobToRun)).setCoder(AvroCoder.of(DataflowJobSpec.class));
     
     jobSpec.apply(new RunDataflowJob());
     p.run(PipelineRunner.fromOptions(options));    

@@ -61,11 +61,11 @@ import com.spotify.docker.client.messages.PortBinding;
 /**
  * A transform for submitting a Dataflow job.
  */
-public class RunDataflowJob extends PTransform <PObject<String>, POutput>{
+public class RunDataflowJob extends PTransform <PObject<DataflowJobSpec>, POutput>{
   final static TupleTag<Integer> outputExitCodeTag = new TupleTag<Integer>(){};
   final static TupleTagList outputTags = TupleTagList.of(outputExitCodeTag);
 
-  final static TupleTag<String> JOB_SPEC_TAG = new TupleTag<String>(){};
+  final static TupleTag<DataflowJobSpec> JOB_SPEC_TAG = new TupleTag<DataflowJobSpec>(){};
   
   private static class RunDataflowJobDoFn extends SeqDoFn {
     private static final Logger sLogger = Logger.getLogger(
@@ -318,7 +318,7 @@ public class RunDataflowJob extends PTransform <PObject<String>, POutput>{
   }
   
   @Override
-  public POutput apply(PObject<String> input) {
+  public POutput apply(PObject<DataflowJobSpec> input) {
     PObjectTuple jobSpecTuple = PObjectTuple.of(JOB_SPEC_TAG, input);
     return jobSpecTuple.apply(SeqDo.of(new RunDataflowJobDoFn()).withOutputTags(outputTags));
   }
