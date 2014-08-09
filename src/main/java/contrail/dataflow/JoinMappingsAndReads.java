@@ -40,7 +40,7 @@ import com.google.cloud.dataflow.sdk.transforms.DoFn;
 import com.google.cloud.dataflow.sdk.transforms.ParDo;
 import com.google.cloud.dataflow.sdk.transforms.join.CoGbkResult;
 import com.google.cloud.dataflow.sdk.transforms.join.CoGroupByKey;
-import com.google.cloud.dataflow.sdk.transforms.join.KeyedPCollections;
+import com.google.cloud.dataflow.sdk.transforms.join.KeyedPCollectionTuple;
 import com.google.cloud.dataflow.sdk.values.KV;
 import com.google.cloud.dataflow.sdk.values.PCollection;
 import com.google.cloud.dataflow.sdk.values.PObject;
@@ -155,7 +155,7 @@ public class JoinMappingsAndReads extends NonMRStage {
 
 
     PCollection<KV<String, CoGbkResult>> coGbkResultCollection =
-        KeyedPCollections.of(mappingTag, keyedMappings)
+        KeyedPCollectionTuple.of(mappingTag, keyedMappings)
         .and(readTag, keyedReads)
         .apply(CoGroupByKey.<String>create());
 
@@ -228,7 +228,7 @@ public class JoinMappingsAndReads extends NonMRStage {
                 AvroSpecificCoder.of(GraphNodeData.class)));
 
     PCollection<KV<String, CoGbkResult>> coGbkResultCollection =
-        KeyedPCollections.of(alignmentTag, keyedAlignments)
+        KeyedPCollectionTuple.of(alignmentTag, keyedAlignments)
         .and(nodeTag, keyedNodes)
         .apply(CoGroupByKey.<String>create());
 

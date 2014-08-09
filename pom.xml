@@ -23,11 +23,6 @@
       -->
     <profile>
       <id>v1</id>
-      <activation>
-	<!-- make this profile the default because I don't know how to manually
-             set the profile in eclipse luna. -->
-	<activeByDefault>true </activeByDefault>
-      </activation>
       <properties>
 	<hadoop-version>1.2.1</hadoop-version>
       </properties>
@@ -36,7 +31,8 @@
           <groupId>org.apache.hadoop</groupId>
           <artifactId>hadoop-core</artifactId>
           <version>1.2.1</version>
-          <scope>provided</scope>
+	  <!-- For Dataflow we need to bundle hadoop jars -->
+          <!-- <scope>provided</scope> -->
         </dependency>
        <dependency>
 	  <!--hadoop 1.2.1 appears to pull in version 3.1 which has an invalid pom.xml.-->
@@ -70,6 +66,11 @@
     <profile>
       <!-- Profile for running in dataflow -->
       <id>dataflow</id>
+      <activation>
+	<!-- make this profile the default because I don't know how to manually
+             set the profile in eclipse luna. -->
+	<activeByDefault>true </activeByDefault>
+      </activation>
       <properties>
 	<hadoop-version>1.2.1</hadoop-version>
       </properties>
@@ -86,7 +87,7 @@
           <artifactId>asm</artifactId>
           <version>3.3</version>
         </dependency>
-         <dependency>
+        <dependency>
   	 <groupId>commons-lang</groupId>
    	 <artifactId>commons-lang</artifactId>
   	 <version>2.6</version>

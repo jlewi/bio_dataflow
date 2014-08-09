@@ -120,6 +120,25 @@ public class ValidateReadOrientation extends NonMRStage {
     public void processElement(ProcessContext c) {
       TableRow row = new TableRow();
 
+      if (c.element().size() != 2) {
+        sLogger.error("There should be 2 mappings for each row but " + 
+                      c.element().size() + " were found.");
+        return;
+      }
+      
+      // We need to order the mappings based on where they align to the contig.      
+      int[] left = new int[2];
+      for (int i = 0; i < 2; ++i) {
+        BowtieMapping m = c.element().get(i);
+        left[i] = Math.min(m.getContigStart(), m.getContigEnd());        
+      }
+      
+      ArrayList<BowtieMapping> mappings = new ArrayList<BowtieMapping>();
+      mappings.addAll(c.element());
+      if (left[0] > left[1]) {
+        Collections.reverse(mappings);
+      }
+      
       String orientation = "";
       for (int i = 0; i < c.element().size(); ++i) {
         BowtieMapping m = c.element().get(i);
