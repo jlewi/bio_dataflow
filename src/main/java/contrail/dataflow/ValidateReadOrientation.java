@@ -15,8 +15,10 @@
  */
 package contrail.dataflow;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +45,9 @@ import com.google.cloud.dataflow.sdk.values.PCollection;
 import com.google.common.collect.Lists;
 
 import contrail.scaffolding.BowtieMapping;
+import contrail.sequences.ReadId;
+import contrail.sequences.ReadIdUtil;
+import contrail.sequences.ReadIdUtil.ReadIdParser;
 import contrail.stages.ContrailParameters;
 import contrail.stages.NonMRStage;
 import contrail.stages.ParameterDefinition;
@@ -116,32 +121,42 @@ public class ValidateReadOrientation extends NonMRStage {
   // Build a table row describing the alignment.
   public static class BuildRow
       extends DoFn<List<BowtieMapping>, TableRow> {
+
+    private transient ReadIdParser parser;
+
+    @Override
+    public void startBatch(Context c) throws Exception {
+      parser = new ReadIdUtil.ReadParserUsingUnderscore();
+    }
+
     @Override
     public void processElement(ProcessContext c) {
       TableRow row = new TableRow();
 
       if (c.element().size() != 2) {
-        sLogger.error("There should be 2 mappings for each row but " + 
+        sLogger.error("There should be 2 mappings for each row but " +
                       c.element().size() + " were found.");
         return;
       }
-      
-      // We need to order the mappings based on where they align to the contig.      
-      int[] left = new int[2];
-      for (int i = 0; i < 2; ++i) {
-        BowtieMapping m = c.element().get(i);
-        left[i] = Math.min(m.getContigStart(), m.getContigEnd());        
-      }
-      
+
       ArrayList<BowtieMapping> mappings = new ArrayList<BowtieMapping>();
       mappings.addAll(c.element());
-      if (left[0] > left[1]) {
-        Collections.reverse(mappings);
+      {
+        // We need to order the mappings based on where they align to the contig.
+        int[] left = new int[2];
+        for (int i = 0; i < 2; ++i) {
+          BowtieMapping m = c.element().get(i);
+          left[i] = Math.min(m.getContigStart(), m.getContigEnd());
+        }
+
+        if (left[0] > left[1]) {
+          Collections.reverse(mappings);
+        }
       }
-      
+
       String orientation = "";
-      for (int i = 0; i < c.element().size(); ++i) {
-        BowtieMapping m = c.element().get(i);
+      for (int i = 0; i < mappings.size(); ++i) {
+        BowtieMapping m = mappings.get(i);
         String prefix = "";
         if (i == 0) {
           prefix = "left";
@@ -159,10 +174,27 @@ public class ValidateReadOrientation extends NonMRStage {
         row.set(prefix + "_contig_id", m.getContigId().toString());
         row.set(prefix + "_contig_start", m.getContigStart());
         row.set(prefix + "_contig_end", m.getContigEnd());
-        row.set(prefix + "_num_mismatches", m.getNumMismatches());
 
+        // Compute the actual left and right coordinates.
+        row.set(prefix + "_contig_left",
+                Math.min(m.getContigStart(), m.getContigEnd()));
+        row.set(prefix + "_contig_right",
+                Math.max(m.getContigStart(), m.getContigEnd()));
+        row.set(prefix + "_num_mismatches", m.getNumMismatches());
       }
+      BowtieMapping left = mappings.get(0);
+      BowtieMapping right = mappings.get(1);
+      int distance =
+          Math.min(right.getContigEnd(), right.getContigStart());
+          Math.max(left.getContigEnd(), left.getContigStart());
+
+      ReadId leftId = parser.parse(left.getReadId().toString());
+
+      // TODO(jeremy@lewi.us): Check if library for left and right read
+      // matches and if not increment a counter.
       row.set("orientation", orientation);
+      row.set("distance", distance);
+      row.set("library", leftId.getLibrary());
       c.output(row);
     }
   }
@@ -205,6 +237,8 @@ public class ValidateReadOrientation extends NonMRStage {
 
     List<TableFieldSchema> fields = new ArrayList<>();
     fields.add(new TableFieldSchema().setName("orientation").setType("STRING"));
+    fields.add(new TableFieldSchema().setName("distance").setType("INTEGER"));
+    fields.add(new TableFieldSchema().setName("library").setType("STRING"));
     for (String prefix : new String[]{"left", "right"}) {
       for (String name : new String[]{"_contig_id", "_read_id"}) {
         TableFieldSchema schema = new TableFieldSchema().setName(
@@ -212,6 +246,7 @@ public class ValidateReadOrientation extends NonMRStage {
         fields.add(schema);
       }
       for (String name : new String[]{"_contig_start", "_contig_end",
+                                      "_contig_left", "_contig_right",
                                       "_num_mismatches"}) {
         TableFieldSchema schema = new TableFieldSchema().setName(
             prefix + name).setType("INTEGER");
@@ -221,7 +256,11 @@ public class ValidateReadOrientation extends NonMRStage {
 
     TableSchema schema = new TableSchema().setFields(fields);
 
-    String output = (String) stage_options.get("output");
+    SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd-HHmmss");
+    Date date = new Date();
+    String timestamp = formatter.format(date);
+
+    String output = (String) stage_options.get("output") + "-" + timestamp;
     rows.apply(BigQueryIO.Write
         .named("Write")
         .to(output)
