@@ -256,11 +256,11 @@ public class ValidateReadOrientation extends NonMRStage {
 
     TableSchema schema = new TableSchema().setFields(fields);
 
-    SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd-HHmmss");
+    SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd_HHmmss");
     Date date = new Date();
     String timestamp = formatter.format(date);
 
-    String output = (String) stage_options.get("output") + "-" + timestamp;
+    String output = (String) stage_options.get("output") + "_" + timestamp;
     rows.apply(BigQueryIO.Write
         .named("Write")
         .to(output)
