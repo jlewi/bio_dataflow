@@ -225,8 +225,14 @@ public class BowtieRunner {
       command.add("1");
       // The -M # means that if a read has more than # reportable alignments
       // then one alignment is reported at random.
-      command.add("-M");
-      command.add("2");
+      // command.add("-M");
+      // command.add("2");
+      // -m 1 means we suppress all alignments if there is more than 1
+      // reportable alignment. We do this because if the genome is heterozygous
+      // a read could align to both contigs and this could confuse the
+      // scaffolder.
+      command.add("-m");
+      command.add("1");
       command.add(bowtieIndex);
       command.add(shortFastq.getPath());
       command.add(outFile);
