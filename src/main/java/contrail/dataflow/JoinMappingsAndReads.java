@@ -58,6 +58,12 @@ import contrail.stages.ContrailParameters;
 import contrail.stages.NonMRStage;
 import contrail.stages.ParameterDefinition;
 
+/**
+ * Join the bowtie mappings and the reads.
+ *
+ * The contigs are also provided and we include only those reads which align
+ * to a subset of contigs.
+ */
 public class JoinMappingsAndReads extends NonMRStage {
   private static final Logger sLogger = Logger.getLogger(
       JoinMappingsAndReads.class);
