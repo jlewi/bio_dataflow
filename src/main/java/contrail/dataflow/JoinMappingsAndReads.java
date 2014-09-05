@@ -59,7 +59,7 @@ import contrail.stages.NonMRStage;
 import contrail.stages.ParameterDefinition;
 
 /**
- * Join the bowtie mappings and the reads.
+ * Join the bowtie mappings, reads, and contigs.
  *
  * The contigs are also provided and we include only those reads which align
  * to a subset of contigs.
