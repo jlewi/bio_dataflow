@@ -66,13 +66,6 @@ import contrail.stages.ParameterDefinition;
 public class JoinContigsAndMappings extends NonMRStage {
   private static final Logger sLogger = Logger.getLogger(
       JoinMappingsAndReads.class);
-
-  private final TupleTag<ContigReadAlignment> alignmentTag = new TupleTag<>();
-  private final TupleTag<GraphNodeData> nodeTag = new TupleTag<>();
-
-  private final TupleTag<BowtieMapping> mappingTag = new TupleTag<>();
-  private final TupleTag<Read> readTag = new TupleTag<>();
-
   /**
    *  creates the custom definitions that we need for this phase
    */
@@ -106,6 +99,6 @@ public class JoinContigsAndMappings extends NonMRStage {
     ContrailParameters.addList(defs,  DataflowParameters.getDefinitions());
     return Collections.unmodifiableMap(defs);
   }
- 
+
 }
 

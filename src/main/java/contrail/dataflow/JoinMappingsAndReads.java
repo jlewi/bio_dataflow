@@ -461,6 +461,7 @@ public class JoinMappingsAndReads extends NonMRStage {
       PCollection<GraphNodeData> nodes,
       PCollection<BowtieMapping> mappings,
       PCollection<Read> reads) {
+    // TODO(jlewi): We should rewrite this using the transforms in ContigReadJoinTransforms.
     int minLength = (Integer) stage_options.get("min_contig_length");
     nodes = nodes.apply(ParDo.of(new FilterNodesByLengthDoFn(minLength)));
 
