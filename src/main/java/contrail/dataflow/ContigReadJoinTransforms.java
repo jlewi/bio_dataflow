@@ -46,10 +46,10 @@ public class ContigReadJoinTransforms {
   /**
    * A transform for joining the bowtie mappings with the reads.
    */
-  private static class JoinMappingsAndReadsTransform extends PTransform<PCollectionTuple, PCollection<ContigReadAlignment>> {
-    final public TupleTag<ContigReadAlignment> alignmentTag = new TupleTag<>();
-    final public TupleTag<BowtieMapping> mappingTag = new TupleTag<>();
-    final public TupleTag<Read> readTag = new TupleTag<>();
+  private static class JoinMappingsAndReadsTransform extends
+      PTransform<PCollectionTuple, PCollection<ContigReadAlignment>> {
+    final public TupleTag<BowtieMapping> mappingTag;
+    final public TupleTag<Read> readTag;
 
     private class JoinMappingReadDoFn extends DoFn<KV<String, CoGbkResult>, ContigReadAlignment> {
       private final TupleTag<BowtieMapping> mappingTag;
@@ -71,12 +71,19 @@ public class ContigReadJoinTransforms {
             ContigReadAlignment alignment = new ContigReadAlignment();
             alignment.setBowtieMapping(SpecificData.get().deepCopy(
                 mapping.getSchema(), mapping));
-            alignment.setRead(SpecificData.get().deepCopy())
+            alignment.setRead(SpecificData.get().deepCopy(
                 read.getSchema(), read));
             c.output(alignment);
           }
         }
       }
+    }
+
+    public JoinMappingsAndReadsTransform(
+        TupleTag<BowtieMapping> mappingTag,
+        TupleTag<Read> readTag) {
+      this.mappingTag = mappingTag;
+      this.readTag = readTag;
     }
 
     @Override
@@ -114,8 +121,8 @@ public class ContigReadJoinTransforms {
    * A transform to join ContigReadAlignment's with Contigs based on the bowtie mapping.
    */
   private static class JoinNodes extends PTransform<PCollectionTuple, PCollection<ContigReadAlignment>> {
-    final public TupleTag<ContigReadAlignment> alignmentTag = new TupleTag<>();
-    final public TupleTag<GraphNodeData> nodeTag = new TupleTag<>();
+    final public TupleTag<GraphNodeData> nodeTag;
+    final public TupleTag<ContigReadAlignment> alignmentTag;
 
     private class JoinNodesDoFn extends DoFn<KV<String, CoGbkResult>, ContigReadAlignment> {
       @Override
@@ -134,6 +141,13 @@ public class ContigReadJoinTransforms {
           }
         }
       }
+    }
+
+    public JoinNodes(
+        TupleTag<GraphNodeData> nodeTag,
+        TupleTag<ContigReadAlignment> alignmentTag) {
+      this.nodeTag = nodeTag;
+      this.alignmentTag = alignmentTag;
     }
 
     @Override
@@ -166,8 +180,37 @@ public class ContigReadJoinTransforms {
     }
   }
 
-
   /**
    * A transform to group the Contigs and Reads based on how they align together.
    */
+  public static class JoinNodesReadsAndMappings extends PTransform<PCollectionTuple, PCollection<ContigReadAlignment>> {
+    final public TupleTag<GraphNodeData> nodeTag = new TupleTag<>();
+    final public TupleTag<BowtieMapping> mappingTag = new TupleTag<>();
+    final public TupleTag<Read> readTag = new TupleTag<>();
+    final public TupleTag<ContigReadAlignment> alignmentTag = new TupleTag<>();
+
+    @Override
+    public PCollection<ContigReadAlignment> apply(PCollectionTuple inputTuple) {
+      PCollection<GraphNodeData> nodes = inputTuple.get(nodeTag);
+      PCollection<BowtieMapping> mappings = inputTuple.get(mappingTag);
+      PCollection<Read> reads = inputTuple.get(readTag);
+
+      JoinMappingsAndReadsTransform joinMappingsAndReads =
+          new JoinMappingsAndReadsTransform(mappingTag, readTag);
+
+      PCollection<ContigReadAlignment> readMappingsPair =
+          joinMappingsAndReads.apply(PCollectionTuple
+              .of(mappingTag, mappings)
+              .and(readTag, reads));
+
+
+      JoinNodes joinNodes = new JoinNodes(nodeTag, alignmentTag);
+      PCollection<ContigReadAlignment> joined = joinNodes.apply(PCollectionTuple
+          .of(alignmentTag, readMappingsPair)
+          .and(nodeTag, nodes));
+
+
+      return joined;
+    }
+  }
 }

@@ -47,6 +47,9 @@ import com.google.cloud.dataflow.sdk.values.PObject;
 import com.google.cloud.dataflow.sdk.values.PObjectTuple;
 import com.google.cloud.dataflow.sdk.values.TupleTag;
 
+import contrail.dataflow.JoinMappingsAndReads.BuildResult;
+import contrail.dataflow.JoinMappingsAndReads.OutputContigAsFastaDo;
+import contrail.dataflow.JoinMappingsAndReads.OutputReadAsFastqDo;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.scaffolding.BowtieMapping;
@@ -59,13 +62,15 @@ import contrail.stages.NonMRStage;
 import contrail.stages.ParameterDefinition;
 
 /**
- * Join the bowtie mappings and the contigs.
+ * Join the bowtie mappings, the contigs, and the reads.
  *
  * The goal is to be able to evaluate how the mappings align to the reads.
  */
+// TODO(jlewi): Rename this to reflect that we are joining the contigs and
+// the mappings.
 public class JoinContigsAndMappings extends NonMRStage {
   private static final Logger sLogger = Logger.getLogger(
-      JoinMappingsAndReads.class);
+      JoinContigsAndMappings.class);
   /**
    *  creates the custom definitions that we need for this phase
    */
@@ -86,6 +91,10 @@ public class JoinContigsAndMappings extends NonMRStage {
         "files containing the GraphNodeData records representing the " +
         "graph.", String.class, null));
 
+    ContrailParameters.add(defs, new ParameterDefinition(
+        "reads", "The GCS path to the avro " +
+        "files containing the reads.", String.class, null));
+
     for (ParameterDefinition def : ContrailParameters.getInputOutputPathOptions() ){
       if (def.getName().equals("outputpath")) {
         defs.put(def.getName(), def);
@@ -100,5 +109,67 @@ public class JoinContigsAndMappings extends NonMRStage {
     return Collections.unmodifiableMap(defs);
   }
 
+
+  @Override
+  protected void stageMain() {
+    String readsPath = (String) stage_options.get("reads");
+    String contigsPath = (String) stage_options.get("contigs");
+    String bowtieAlignmentsPath = (String) stage_options.get(
+        "bowtie_alignments");
+    Date now = new Date();
+    SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd-hhmmss");
+    // N.B. We don't use FilenameUtils.concat because it messes up the URI
+    // prefix.
+    String outputPath = (String) stage_options.get("outputpath");
+    if (!outputPath.endsWith("/")) {
+      outputPath += "/";
+    }
+    outputPath += formatter.format(now);
+    outputPath += "/";
+
+    PipelineOptions options = new PipelineOptions();
+    DataflowParameters.setPipelineOptions(stage_options, options);
+
+    Pipeline p = Pipeline.create();
+
+    DataflowUtil.registerAvroCoders(p);
+
+    PCollection<GraphNodeData> nodes = ReadAvroSpecificDoFn.readAvro(
+        GraphNodeData.class, p, options, contigsPath);
+
+    PCollection<Read> reads = ReadAvroSpecificDoFn.readAvro(
+        Read.class, p, options, readsPath);
+    PCollection<BowtieMapping> mappings = ReadAvroSpecificDoFn.readAvro(
+        BowtieMapping.class, p, options, bowtieAlignmentsPath);
+
+    BuildResult buildResult = buildPipeline(p, nodes, mappings, reads);
+    PCollection<ContigReadAlignment> nodeReadsMappings = buildResult.joined;
+
+    String fastaOutputs = outputPath + "contigs.fasta@*";
+    PCollection<String> fastaContigs = buildResult.filteredContigs.apply(
+        ParDo.of(new OutputContigAsFastaDo()));
+
+    fastaContigs.apply(TextIO.Write.named("WriteContigs").to(fastaOutputs));
+
+    PCollection<String> outReads = nodeReadsMappings.apply(ParDo.of(
+        new OutputReadAsFastqDo()));
+
+    String fastqOutputs = outputPath + "reads.fastq@*";
+    outReads.apply(TextIO.Write.named("WriteContigs").to(fastqOutputs));
+
+    sLogger.info("JoinMappingReadDoFn.mappingTag: " + mappingTag.toString());
+    sLogger.info("JoinMappingReadDoFn.readTag: " + readTag.toString());
+    sLogger.info("JoineNodesDoFn.alignmentTag: " + alignmentTag.toString());
+    sLogger.info("JoineNodesDoFn.nodeTag: " + nodeTag.toString());
+    p.run(PipelineRunner.fromOptions(options));
+
+    sLogger.info("Output written to: " + outputPath);
+  }
+
+  public static void main(String[] args) throws Exception {
+    int res = ToolRunner.run(
+        new Configuration(), new JoinContigsAndMappings(), args);
+    System.exit(res);
+  }
 }
 
