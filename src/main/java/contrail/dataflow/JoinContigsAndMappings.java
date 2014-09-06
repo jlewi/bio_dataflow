@@ -142,6 +142,7 @@ public class JoinContigsAndMappings extends NonMRStage {
     PCollection<BowtieMapping> mappings = ReadAvroSpecificDoFn.readAvro(
         BowtieMapping.class, p, options, bowtieAlignmentsPath);
 
+    ContigReadJoinTransforms.
     BuildResult buildResult = buildPipeline(p, nodes, mappings, reads);
     PCollection<ContigReadAlignment> nodeReadsMappings = buildResult.joined;
 
@@ -157,10 +158,6 @@ public class JoinContigsAndMappings extends NonMRStage {
     String fastqOutputs = outputPath + "reads.fastq@*";
     outReads.apply(TextIO.Write.named("WriteContigs").to(fastqOutputs));
 
-    sLogger.info("JoinMappingReadDoFn.mappingTag: " + mappingTag.toString());
-    sLogger.info("JoinMappingReadDoFn.readTag: " + readTag.toString());
-    sLogger.info("JoineNodesDoFn.alignmentTag: " + alignmentTag.toString());
-    sLogger.info("JoineNodesDoFn.nodeTag: " + nodeTag.toString());
     p.run(PipelineRunner.fromOptions(options));
 
     sLogger.info("Output written to: " + outputPath);

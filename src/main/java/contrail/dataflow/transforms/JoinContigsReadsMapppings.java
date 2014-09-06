@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package contrail.dataflow;
+package contrail.dataflow.transforms;
 
 import org.apache.avro.specific.SpecificData;
 
@@ -31,9 +31,13 @@ import com.google.cloud.dataflow.sdk.values.PCollection;
 import com.google.cloud.dataflow.sdk.values.PCollectionTuple;
 import com.google.cloud.dataflow.sdk.values.TupleTag;
 
+import contrail.dataflow.AvroSpecificCoder;
+import contrail.dataflow.BowtieMappingTransforms;
+import contrail.dataflow.GraphNodeTransforms;
 import contrail.dataflow.JoinMappingsAndReads.JoinMappingReadDoFn;
 import contrail.dataflow.JoinMappingsAndReads.JoinNodesDoFn;
 import contrail.dataflow.JoinMappingsAndReads.KeyByContigId;
+import contrail.dataflow.ReadTransforms;
 import contrail.graph.GraphNodeData;
 import contrail.scaffolding.BowtieMapping;
 import contrail.scaffolding.ContigReadAlignment;
@@ -42,7 +46,12 @@ import contrail.sequences.Read;
 /**
  * Transforms for joining the contigs, bowtie alignments, and reads.
  */
-public class ContigReadJoinTransforms {
+public class JoinContigsReadsMapppings extends PTransform<PCollectionTuple, PCollection<ContigReadAlignment>> {
+  final public TupleTag<GraphNodeData> nodeTag = new TupleTag<>();
+  final public TupleTag<BowtieMapping> mappingTag = new TupleTag<>();
+  final public TupleTag<Read> readTag = new TupleTag<>();
+  final public TupleTag<ContigReadAlignment> alignmentTag = new TupleTag<>();
+
   /**
    * A transform for joining the bowtie mappings with the reads.
    */
@@ -117,6 +126,15 @@ public class ContigReadJoinTransforms {
     }
   }
 
+  protected static class KeyByContigId
+  extends DoFn<ContigReadAlignment, KV<String, ContigReadAlignment>> {
+    @Override
+    public void processElement(ProcessContext c) {
+      BowtieMapping mapping = c.element().getBowtieMapping();
+      c.output(KV.of(mapping.getContigId().toString(), c.element()));
+    }
+  }
+
   /**
    * A transform to join ContigReadAlignment's with Contigs based on the bowtie mapping.
    */
@@ -180,37 +198,27 @@ public class ContigReadJoinTransforms {
     }
   }
 
-  /**
-   * A transform to group the Contigs and Reads based on how they align together.
-   */
-  public static class JoinNodesReadsAndMappings extends PTransform<PCollectionTuple, PCollection<ContigReadAlignment>> {
-    final public TupleTag<GraphNodeData> nodeTag = new TupleTag<>();
-    final public TupleTag<BowtieMapping> mappingTag = new TupleTag<>();
-    final public TupleTag<Read> readTag = new TupleTag<>();
-    final public TupleTag<ContigReadAlignment> alignmentTag = new TupleTag<>();
+  @Override
+  public PCollection<ContigReadAlignment> apply(PCollectionTuple inputTuple) {
+    PCollection<GraphNodeData> nodes = inputTuple.get(nodeTag);
+    PCollection<BowtieMapping> mappings = inputTuple.get(mappingTag);
+    PCollection<Read> reads = inputTuple.get(readTag);
 
-    @Override
-    public PCollection<ContigReadAlignment> apply(PCollectionTuple inputTuple) {
-      PCollection<GraphNodeData> nodes = inputTuple.get(nodeTag);
-      PCollection<BowtieMapping> mappings = inputTuple.get(mappingTag);
-      PCollection<Read> reads = inputTuple.get(readTag);
+    JoinMappingsAndReadsTransform joinMappingsAndReads =
+        new JoinMappingsAndReadsTransform(mappingTag, readTag);
 
-      JoinMappingsAndReadsTransform joinMappingsAndReads =
-          new JoinMappingsAndReadsTransform(mappingTag, readTag);
-
-      PCollection<ContigReadAlignment> readMappingsPair =
-          joinMappingsAndReads.apply(PCollectionTuple
-              .of(mappingTag, mappings)
-              .and(readTag, reads));
+    PCollection<ContigReadAlignment> readMappingsPair =
+        joinMappingsAndReads.apply(PCollectionTuple
+            .of(mappingTag, mappings)
+            .and(readTag, reads));
 
 
-      JoinNodes joinNodes = new JoinNodes(nodeTag, alignmentTag);
-      PCollection<ContigReadAlignment> joined = joinNodes.apply(PCollectionTuple
-          .of(alignmentTag, readMappingsPair)
-          .and(nodeTag, nodes));
+    JoinNodes joinNodes = new JoinNodes(nodeTag, alignmentTag);
+    PCollection<ContigReadAlignment> joined = joinNodes.apply(PCollectionTuple
+        .of(alignmentTag, readMappingsPair)
+        .and(nodeTag, nodes));
 
 
-      return joined;
-    }
+    return joined;
   }
 }
