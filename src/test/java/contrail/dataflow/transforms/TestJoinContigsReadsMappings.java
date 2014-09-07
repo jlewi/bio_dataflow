@@ -15,12 +15,19 @@
  */
 package contrail.dataflow.transforms;
 
+import static org.hamcrest.collection.IsIterableContainingInAnyOrder.containsInAnyOrder;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThat;
+
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
 
 import org.apache.avro.specific.SpecificData;
+import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
 import org.junit.Test;
 
 import com.google.cloud.dataflow.sdk.Pipeline;
@@ -28,6 +35,7 @@ import com.google.cloud.dataflow.sdk.runners.DirectPipelineRunner;
 import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
 import com.google.cloud.dataflow.sdk.transforms.Create;
 import com.google.cloud.dataflow.sdk.values.PCollection;
+import com.google.cloud.dataflow.sdk.values.PCollectionTuple;
 
 import contrail.dataflow.DataflowUtil;
 import contrail.dataflow.JoinMappingsAndReads;
@@ -119,14 +127,33 @@ public class TestJoinContigsReadsMappings {
 
     JoinContigsReadsMappings join = new JoinContigsReadsMappings();
 
-    JoinMappingsAndReads stage = new JoinMappingsAndReads();
-
-    PCollection<ContigReadAlignment> joined = stage.joinNodes(
-        alignmentsCollection, nodesCollection);
+    PCollection<ContigReadAlignment> joined = join.apply(
+        PCollectionTuple.of(join.nodeTag, nodesCollection)
+            .and(join.mappingTag, mappingsCollection)
+            .and(join.readTag, readsCollection));
 
     DirectPipelineRunner runner = DirectPipelineRunner.fromOptions(options);
     DirectPipelineRunner.EvaluationResults result = p.run(runner);
     List<ContigReadAlignment> finalResults = result.getPCollection(joined);
 
+    assertEquals(expected.size(), finalResults.size());
+
+    HashMap<String, ContigReadAlignment> actual = new HashMap<>();
+    for (ContigReadAlignment item : finalResults) {
+      actual.put(item.getGraphNode().getNodeId().toString() + " " +
+                 item.getRead().getFastq().getRead().toString(), item);
+    }
+
+    assertEquals(expected.keySet(), actual.keySet());
+    //assertThat(actual.keySet(), Matchers.containsInAnyOrder(expected.keySet()));
+
+//    List<Matcher<ContigReadAlignment>> matchers = new ArrayList<>();
+//    for (ContigReadAlignment expectedItem : expected.values()) {
+//      matchers.add(Matchers.equalTo(expectedItem));
+//    }
+//
+//    Matcher<Iterable<ContigReadAlignment>> listMatcher =
+//        Matchers.containsInAnyOrder((Collection)matchers);
+//    assertThat(finalResults, listMatcher);
   }
 }
