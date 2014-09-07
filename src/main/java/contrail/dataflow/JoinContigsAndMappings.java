@@ -43,6 +43,7 @@ import com.google.cloud.dataflow.sdk.transforms.join.CoGroupByKey;
 import com.google.cloud.dataflow.sdk.transforms.join.KeyedPCollectionTuple;
 import com.google.cloud.dataflow.sdk.values.KV;
 import com.google.cloud.dataflow.sdk.values.PCollection;
+import com.google.cloud.dataflow.sdk.values.PCollectionTuple;
 import com.google.cloud.dataflow.sdk.values.PObject;
 import com.google.cloud.dataflow.sdk.values.PObjectTuple;
 import com.google.cloud.dataflow.sdk.values.TupleTag;
@@ -50,6 +51,7 @@ import com.google.cloud.dataflow.sdk.values.TupleTag;
 import contrail.dataflow.JoinMappingsAndReads.BuildResult;
 import contrail.dataflow.JoinMappingsAndReads.OutputContigAsFastaDo;
 import contrail.dataflow.JoinMappingsAndReads.OutputReadAsFastqDo;
+import contrail.dataflow.transforms.JoinContigsReadsMapppings;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.scaffolding.BowtieMapping;
@@ -142,21 +144,17 @@ public class JoinContigsAndMappings extends NonMRStage {
     PCollection<BowtieMapping> mappings = ReadAvroSpecificDoFn.readAvro(
         BowtieMapping.class, p, options, bowtieAlignmentsPath);
 
-    ContigReadJoinTransforms.
-    BuildResult buildResult = buildPipeline(p, nodes, mappings, reads);
-    PCollection<ContigReadAlignment> nodeReadsMappings = buildResult.joined;
+    JoinContigsReadsMapppings joinContigsReadsMappings =
+        new JoinContigsReadsMapppings();
 
-    String fastaOutputs = outputPath + "contigs.fasta@*";
-    PCollection<String> fastaContigs = buildResult.filteredContigs.apply(
-        ParDo.of(new OutputContigAsFastaDo()));
+    PCollection<ContigReadAlignment> joined =
+        joinContigsReadsMappings.apply(PCollectionTuple
+          .of(joinContigsReadsMappings.nodeTag, nodes)
+          .and(joinContigsReadsMappings.mappingTag, mappings)
+          .and(joinContigsReadsMappings.readTag, reads));
 
-    fastaContigs.apply(TextIO.Write.named("WriteContigs").to(fastaOutputs));
-
-    PCollection<String> outReads = nodeReadsMappings.apply(ParDo.of(
-        new OutputReadAsFastqDo()));
-
-    String fastqOutputs = outputPath + "reads.fastq@*";
-    outReads.apply(TextIO.Write.named("WriteContigs").to(fastqOutputs));
+    // TODO(jlewi):
+    // We should convert the avro records to 1 line json and then output them.
 
     p.run(PipelineRunner.fromOptions(options));
 
