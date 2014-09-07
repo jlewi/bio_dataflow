@@ -43,7 +43,7 @@ import contrail.sequences.Read;
 /**
  * Transforms for joining the contigs, bowtie alignments, and reads.
  */
-public class JoinContigsReadsMapppings extends PTransform<PCollectionTuple, PCollection<ContigReadAlignment>> {
+public class JoinContigsReadsMappings extends PTransform<PCollectionTuple, PCollection<ContigReadAlignment>> {
   final public TupleTag<GraphNodeData> nodeTag = new TupleTag<>();
   final public TupleTag<BowtieMapping> mappingTag = new TupleTag<>();
   final public TupleTag<Read> readTag = new TupleTag<>();
