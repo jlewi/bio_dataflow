@@ -15,49 +15,26 @@
  */
 package contrail.dataflow;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 
-import org.apache.avro.specific.SpecificData;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 import com.google.cloud.dataflow.sdk.Pipeline;
-import com.google.cloud.dataflow.sdk.coders.KvCoder;
-import com.google.cloud.dataflow.sdk.coders.StringUtf8Coder;
 import com.google.cloud.dataflow.sdk.io.TextIO;
 import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
 import com.google.cloud.dataflow.sdk.runners.PipelineRunner;
-import com.google.cloud.dataflow.sdk.transforms.AsIterable;
-import com.google.cloud.dataflow.sdk.transforms.DoFn;
-import com.google.cloud.dataflow.sdk.transforms.ParDo;
-import com.google.cloud.dataflow.sdk.transforms.join.CoGbkResult;
-import com.google.cloud.dataflow.sdk.transforms.join.CoGroupByKey;
-import com.google.cloud.dataflow.sdk.transforms.join.KeyedPCollectionTuple;
-import com.google.cloud.dataflow.sdk.values.KV;
 import com.google.cloud.dataflow.sdk.values.PCollection;
 import com.google.cloud.dataflow.sdk.values.PCollectionTuple;
-import com.google.cloud.dataflow.sdk.values.PObject;
-import com.google.cloud.dataflow.sdk.values.PObjectTuple;
-import com.google.cloud.dataflow.sdk.values.TupleTag;
-
-import contrail.dataflow.JoinMappingsAndReads.BuildResult;
-import contrail.dataflow.JoinMappingsAndReads.OutputContigAsFastaDo;
-import contrail.dataflow.JoinMappingsAndReads.OutputReadAsFastqDo;
-import contrail.dataflow.transforms.JoinContigsReadsMapppings;
-import contrail.graph.GraphNode;
+import contrail.dataflow.transforms.EncodeAvroAsJson;
+import contrail.dataflow.transforms.JoinContigsReadsMappings;
 import contrail.graph.GraphNodeData;
 import contrail.scaffolding.BowtieMapping;
-import contrail.scaffolding.ContigReadAlignment;
-import contrail.sequences.FastUtil;
-import contrail.sequences.FastaRecord;
+import contrail.scaffolding.ContigReadMappings;
 import contrail.sequences.Read;
 import contrail.stages.ContrailParameters;
 import contrail.stages.NonMRStage;
@@ -119,15 +96,10 @@ public class JoinContigsAndMappings extends NonMRStage {
     String bowtieAlignmentsPath = (String) stage_options.get(
         "bowtie_alignments");
     Date now = new Date();
-    SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd-hhmmss");
-    // N.B. We don't use FilenameUtils.concat because it messes up the URI
-    // prefix.
+
+    // TODO(jlewi): Should we check if the output path already exists
+    // and then do whatt?
     String outputPath = (String) stage_options.get("outputpath");
-    if (!outputPath.endsWith("/")) {
-      outputPath += "/";
-    }
-    outputPath += formatter.format(now);
-    outputPath += "/";
 
     PipelineOptions options = new PipelineOptions();
     DataflowParameters.setPipelineOptions(stage_options, options);
@@ -144,18 +116,21 @@ public class JoinContigsAndMappings extends NonMRStage {
     PCollection<BowtieMapping> mappings = ReadAvroSpecificDoFn.readAvro(
         BowtieMapping.class, p, options, bowtieAlignmentsPath);
 
-    JoinContigsReadsMapppings joinContigsReadsMappings =
-        new JoinContigsReadsMapppings();
 
-    PCollection<ContigReadAlignment> joined =
+    JoinContigsReadsMappings joinContigsReadsMappings =
+        new JoinContigsReadsMappings();
+
+    PCollection<ContigReadMappings> joined =
         joinContigsReadsMappings.apply(PCollectionTuple
           .of(joinContigsReadsMappings.nodeTag, nodes)
           .and(joinContigsReadsMappings.mappingTag, mappings)
           .and(joinContigsReadsMappings.readTag, reads));
 
-    // TODO(jlewi):
-    // We should convert the avro records to 1 line json and then output them.
+    PCollection<String> jsonRecords = joined.apply(new EncodeAvroAsJson(
+        ContigReadMappings.SCHEMA$));
 
+    jsonRecords.apply(TextIO.Write.named("WritJsonContigReadMappings")
+        .to(outputPath));
     p.run(PipelineRunner.fromOptions(options));
 
     sLogger.info("Output written to: " + outputPath);
