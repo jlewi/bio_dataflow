@@ -71,7 +71,7 @@ protocol ContrailProtocol {
 	import schema "scaffolding/mate_pair_mappings.avsc";	
 	import schema "scaffolding/contig_read_alignment.avsc";
 	import schema "scaffolding/mapping_read_pair.avsc";
-	import schema "scaffolding/contig_read_mapping.avsc";
+	import schema "scaffolding/contig_read_mappings.avsc";
 	
 	// Dataflow.
 	import schema "dataflow/gcs_avro_file_split.avsc";

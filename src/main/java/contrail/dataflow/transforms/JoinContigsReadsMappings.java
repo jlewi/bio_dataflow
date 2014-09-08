@@ -15,6 +15,8 @@
  */
 package contrail.dataflow.transforms;
 
+import java.util.ArrayList;
+
 import org.apache.avro.specific.SpecificData;
 
 import com.google.cloud.dataflow.sdk.coders.KvCoder;
@@ -35,29 +37,37 @@ import contrail.dataflow.AvroSpecificCoder;
 import contrail.dataflow.BowtieMappingTransforms;
 import contrail.dataflow.GraphNodeTransforms;
 import contrail.dataflow.ReadTransforms;
+import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.scaffolding.BowtieMapping;
 import contrail.scaffolding.ContigReadAlignment;
+import contrail.scaffolding.ContigReadMappings;
+import contrail.scaffolding.MappingReadPair;
 import contrail.sequences.Read;
 
 /**
  * Transforms for joining the contigs, bowtie alignments, and reads.
  */
-public class JoinContigsReadsMappings extends PTransform<PCollectionTuple, PCollection<ContigReadAlignment>> {
+//TODO(jlewi): Rename to something like MapReadsToContigs
+public class JoinContigsReadsMappings
+    extends PTransform<PCollectionTuple, PCollection<ContigReadMappings>> {
   final public TupleTag<GraphNodeData> nodeTag = new TupleTag<>();
   final public TupleTag<BowtieMapping> mappingTag = new TupleTag<>();
   final public TupleTag<Read> readTag = new TupleTag<>();
-  final public TupleTag<ContigReadAlignment> alignmentTag = new TupleTag<>();
+
+  final private TupleTag<MappingReadPair> mappingReadPairTag =
+      new TupleTag<>();
 
   /**
    * A transform for joining the bowtie mappings with the reads.
    */
   private static class JoinMappingsAndReadsTransform extends
-      PTransform<PCollectionTuple, PCollection<ContigReadAlignment>> {
+      PTransform<PCollectionTuple, PCollection<MappingReadPair>> {
     final public TupleTag<BowtieMapping> mappingTag;
     final public TupleTag<Read> readTag;
 
-    private class JoinMappingReadDoFn extends DoFn<KV<String, CoGbkResult>, ContigReadAlignment> {
+    private class JoinMappingReadDoFn
+        extends DoFn<KV<String, CoGbkResult>, MappingReadPair> {
       private final TupleTag<BowtieMapping> mappingTag;
       private final TupleTag<Read> readTag;
 
@@ -74,12 +84,12 @@ public class JoinContigsReadsMappings extends PTransform<PCollectionTuple, PColl
         Iterable<Read> readIter = e.getValue().getAll(readTag);
         for (BowtieMapping mapping : mappingsIter) {
           for (Read read : readIter) {
-            ContigReadAlignment alignment = new ContigReadAlignment();
-            alignment.setBowtieMapping(SpecificData.get().deepCopy(
+            MappingReadPair pair = new MappingReadPair();
+            pair.setBowtieMapping(SpecificData.get().deepCopy(
                 mapping.getSchema(), mapping));
-            alignment.setRead(SpecificData.get().deepCopy(
+            pair.setRead(SpecificData.get().deepCopy(
                 read.getSchema(), read));
-            c.output(alignment);
+            c.output(pair);
           }
         }
       }
@@ -93,7 +103,7 @@ public class JoinContigsReadsMappings extends PTransform<PCollectionTuple, PColl
     }
 
     @Override
-    public PCollection<ContigReadAlignment> apply(PCollectionTuple inputTuple) {
+    public PCollection<MappingReadPair> apply(PCollectionTuple inputTuple) {
       PCollection<BowtieMapping> mappings = inputTuple.get(mappingTag);
       PCollection<Read> reads = inputTuple.get(readTag);
       PCollection<KV<String, BowtieMapping>> keyedMappings =
@@ -108,23 +118,23 @@ public class JoinContigsReadsMappings extends PTransform<PCollectionTuple, PColl
                   StringUtf8Coder.of(),
                   AvroSpecificCoder.of(Read.class)));
 
-
       PCollection<KV<String, CoGbkResult>> coGbkResultCollection =
           KeyedPCollectionTuple.of(mappingTag, keyedMappings)
           .and(readTag, keyedReads)
           .apply(CoGroupByKey.<String>create());
 
 
-      PCollection<ContigReadAlignment> joined =
+      PCollection<MappingReadPair> joined =
           coGbkResultCollection.apply(ParDo.of(new JoinMappingReadDoFn(
-              mappingTag, readTag)));
+              mappingTag, readTag))).setCoder(
+                  AvroSpecificCoder.of(MappingReadPair.class));
 
       return joined;
     }
   }
 
-  protected static class KeyByContigId
-  extends DoFn<ContigReadAlignment, KV<String, ContigReadAlignment>> {
+  protected static class KeyMappingPairByContigId
+      extends DoFn<MappingReadPair, KV<String, MappingReadPair>> {
     @Override
     public void processElement(ProcessContext c) {
       BowtieMapping mapping = c.element().getBowtieMapping();
@@ -135,46 +145,52 @@ public class JoinContigsReadsMappings extends PTransform<PCollectionTuple, PColl
   /**
    * A transform to join ContigReadAlignment's with Contigs based on the bowtie mapping.
    */
-  private static class JoinNodes extends PTransform<PCollectionTuple, PCollection<ContigReadAlignment>> {
+  private static class JoinNodes
+        extends PTransform<PCollectionTuple, PCollection<ContigReadMappings>> {
     final public TupleTag<GraphNodeData> nodeTag;
-    final public TupleTag<ContigReadAlignment> alignmentTag;
+    final public TupleTag<MappingReadPair> mappingReadPairTag;
 
-    private class JoinNodesDoFn extends DoFn<KV<String, CoGbkResult>, ContigReadAlignment> {
+    private class JoinNodesDoFn
+        extends DoFn<KV<String, CoGbkResult>, ContigReadMappings> {
       @Override
       public void processElement(ProcessContext c) {
         KV<String, CoGbkResult> e = c.element();
-        Iterable<ContigReadAlignment> alignmentIter = e.getValue().getAll(
-            alignmentTag);
+        Iterable<MappingReadPair> mappingIter = e.getValue().getAll(
+            mappingReadPairTag);
         Iterable<GraphNodeData> nodeIter = e.getValue().getAll(nodeTag);
-        for (ContigReadAlignment alignment : alignmentIter) {
-          for (GraphNodeData nodeData : nodeIter) {
-            ContigReadAlignment newAlignment = SpecificData.get().deepCopy(
-                alignment.getSchema(), alignment);
-            newAlignment.setGraphNode(SpecificData.get().deepCopy(
-                nodeData.getSchema(), nodeData));
-            c.output(newAlignment);
+        for (GraphNodeData nodeData : nodeIter) {
+          GraphNode node = new GraphNode(nodeData);
+          // TODO(jlewi): There should be at most 1 GraphNodeData.
+          // If there are more its an error of some sorts.
+          ContigReadMappings contigMappings = new ContigReadMappings();
+          contigMappings.setGraphNode(node.clone().getData());
+          contigMappings.setMappings(new ArrayList<MappingReadPair>());
+          for (MappingReadPair mapping : mappingIter) {
+              contigMappings.getMappings().add(SpecificData.get().deepCopy(
+                  mapping.getSchema(), mapping));
           }
+          c.output(contigMappings);
         }
       }
     }
 
     public JoinNodes(
         TupleTag<GraphNodeData> nodeTag,
-        TupleTag<ContigReadAlignment> alignmentTag) {
+        TupleTag<MappingReadPair> mappingReadPairTag) {
       this.nodeTag = nodeTag;
-      this.alignmentTag = alignmentTag;
+      this.mappingReadPairTag = mappingReadPairTag;
     }
 
     @Override
-    public PCollection<ContigReadAlignment> apply(PCollectionTuple inputTuple) {
-      PCollection<ContigReadAlignment> alignments = inputTuple.get(alignmentTag);
+    public PCollection<ContigReadMappings> apply(PCollectionTuple inputTuple) {
+      PCollection<MappingReadPair> mappings = inputTuple.get(mappingReadPairTag);
       PCollection<GraphNodeData> nodes = inputTuple.get(nodeTag);
 
-      PCollection<KV<String, ContigReadAlignment>> keyedAlignments =
-          alignments.apply(ParDo.of(new KeyByContigId()))
+      PCollection<KV<String, MappingReadPair>> keyedMappings =
+          mappings.apply(ParDo.of(new KeyMappingPairByContigId()))
           .setCoder(KvCoder.of(
               StringUtf8Coder.of(),
-              AvroSpecificCoder.of(ContigReadAlignment.class)));
+              AvroSpecificCoder.of(MappingReadPair.class)));
 
       PCollection<KV<String, GraphNodeData>> keyedNodes =
           nodes.apply(ParDo.of(new GraphNodeTransforms.KeyByNodeId())).setCoder(
@@ -183,12 +199,12 @@ public class JoinContigsReadsMappings extends PTransform<PCollectionTuple, PColl
                   AvroSpecificCoder.of(GraphNodeData.class)));
 
       PCollection<KV<String, CoGbkResult>> coGbkResultCollection =
-          KeyedPCollectionTuple.of(alignmentTag, keyedAlignments)
+          KeyedPCollectionTuple.of(mappingReadPairTag, keyedMappings)
           .and(nodeTag, keyedNodes)
           .apply(CoGroupByKey.<String>create());
 
 
-      PCollection<ContigReadAlignment> joined =
+      PCollection<ContigReadMappings> joined =
           coGbkResultCollection.apply(ParDo.of(new JoinNodesDoFn()));
 
         return joined;
@@ -196,7 +212,7 @@ public class JoinContigsReadsMappings extends PTransform<PCollectionTuple, PColl
   }
 
   @Override
-  public PCollection<ContigReadAlignment> apply(PCollectionTuple inputTuple) {
+  public PCollection<ContigReadMappings> apply(PCollectionTuple inputTuple) {
     PCollection<GraphNodeData> nodes = inputTuple.get(nodeTag);
     PCollection<BowtieMapping> mappings = inputTuple.get(mappingTag);
     PCollection<Read> reads = inputTuple.get(readTag);
@@ -204,17 +220,17 @@ public class JoinContigsReadsMappings extends PTransform<PCollectionTuple, PColl
     JoinMappingsAndReadsTransform joinMappingsAndReads =
         new JoinMappingsAndReadsTransform(mappingTag, readTag);
 
-    PCollection<ContigReadAlignment> readMappingsPair =
+    PCollection<MappingReadPair> mappingReadPairs =
         joinMappingsAndReads.apply(PCollectionTuple
             .of(mappingTag, mappings)
             .and(readTag, reads));
 
 
-    JoinNodes joinNodes = new JoinNodes(nodeTag, alignmentTag);
-    PCollection<ContigReadAlignment> joined = joinNodes.apply(PCollectionTuple
-        .of(alignmentTag, readMappingsPair)
-        .and(nodeTag, nodes));
-
+    JoinNodes joinNodes = new JoinNodes(nodeTag, mappingReadPairTag);
+    PCollection<ContigReadMappings> joined = joinNodes.apply(PCollectionTuple
+        .of(mappingReadPairTag, mappingReadPairs)
+        .and(nodeTag, nodes)).setCoder(
+            AvroSpecificCoder.of(ContigReadMappings.class));
 
     return joined;
   }

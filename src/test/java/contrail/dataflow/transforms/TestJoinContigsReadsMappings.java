@@ -44,6 +44,8 @@ import contrail.graph.GraphNodeData;
 import contrail.graph.GraphTestUtil;
 import contrail.scaffolding.BowtieMapping;
 import contrail.scaffolding.ContigReadAlignment;
+import contrail.scaffolding.ContigReadMappings;
+import contrail.scaffolding.MappingReadPair;
 import contrail.sequences.AlphabetUtil;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.FastQRecord;
@@ -58,10 +60,10 @@ public class TestJoinContigsReadsMappings {
     mapping.setContigStart(0);
     mapping.setContigEnd(0);
     mapping.setNumMismatches(0);
-    mapping.setRead(readId);
+    mapping.setReadId(readId);
+    mapping.setRead("");
     mapping.setReadClearEnd(0);
     mapping.setReadClearStart(0);
-    mapping.setReadId("");
 
     return mapping;
   }
@@ -83,8 +85,8 @@ public class TestJoinContigsReadsMappings {
     ArrayList<Read> reads = new ArrayList<Read>();
     ArrayList<BowtieMapping> mappings = new ArrayList<BowtieMapping>();
 
-    HashMap<String, ContigReadAlignment> expected =
-        new HashMap<String, ContigReadAlignment>();
+    HashMap<String, ContigReadMappings> expected =
+        new HashMap<String, ContigReadMappings>();
 
     // Create some triplets(node, read, mapping) and the expected result
     // of the join.
@@ -100,13 +102,16 @@ public class TestJoinContigsReadsMappings {
       BowtieMapping mapping = emptyMapping(contigId, readId);
       mappings.add(mapping);
 
-      ContigReadAlignment joined = new ContigReadAlignment();
-      joined.setGraphNode(node.clone().getData());
-      joined.setBowtieMapping(SpecificData.get().deepCopy(
+      MappingReadPair mappingPair = new MappingReadPair();
+      mappingPair.setBowtieMapping(SpecificData.get().deepCopy(
           mapping.getSchema(), mapping));
-      joined.setRead(SpecificData.get().deepCopy(read.getSchema(), read));
+      mappingPair.setRead(SpecificData.get().deepCopy(read.getSchema(), read));
+      ContigReadMappings joined = new ContigReadMappings();
+      joined.setGraphNode(node.clone().getData());
+      joined.setMappings(new ArrayList<MappingReadPair>());
+      joined.getMappings().add(mappingPair);
 
-      expected.put(contigId + " " + readId, joined);
+      expected.put(contigId, joined);
     }
 
     // TODO(jlewi): Should we add records for contigs, reads that have
@@ -127,33 +132,23 @@ public class TestJoinContigsReadsMappings {
 
     JoinContigsReadsMappings join = new JoinContigsReadsMappings();
 
-    PCollection<ContigReadAlignment> joined = join.apply(
+    PCollection<ContigReadMappings> joined = join.apply(
         PCollectionTuple.of(join.nodeTag, nodesCollection)
             .and(join.mappingTag, mappingsCollection)
             .and(join.readTag, readsCollection));
 
     DirectPipelineRunner runner = DirectPipelineRunner.fromOptions(options);
     DirectPipelineRunner.EvaluationResults result = p.run(runner);
-    List<ContigReadAlignment> finalResults = result.getPCollection(joined);
+    List<ContigReadMappings> finalResults = result.getPCollection(joined);
 
     assertEquals(expected.size(), finalResults.size());
 
-    HashMap<String, ContigReadAlignment> actual = new HashMap<>();
-    for (ContigReadAlignment item : finalResults) {
-      actual.put(item.getGraphNode().getNodeId().toString() + " " +
-                 item.getRead().getFastq().getRead().toString(), item);
+    HashMap<String, ContigReadMappings> actual = new HashMap<>();
+    for (ContigReadMappings item : finalResults) {
+      actual.put(item.getGraphNode().getNodeId().toString(), item);
     }
 
     assertEquals(expected.keySet(), actual.keySet());
-    //assertThat(actual.keySet(), Matchers.containsInAnyOrder(expected.keySet()));
-
-//    List<Matcher<ContigReadAlignment>> matchers = new ArrayList<>();
-//    for (ContigReadAlignment expectedItem : expected.values()) {
-//      matchers.add(Matchers.equalTo(expectedItem));
-//    }
-//
-//    Matcher<Iterable<ContigReadAlignment>> listMatcher =
-//        Matchers.containsInAnyOrder((Collection)matchers);
-//    assertThat(finalResults, listMatcher);
+    assertEquals(expected, actual);
   }
 }

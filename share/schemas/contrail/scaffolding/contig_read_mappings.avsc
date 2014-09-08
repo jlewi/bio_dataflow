@@ -1,10 +1,10 @@
- {"name": "contrail.scaffolding.ContigReadMapings",
+ {"name": "contrail.scaffolding.ContigReadMappings",
   "type": "record",
   "doc": ["A contig with all the reads that mapp to it."],
   "fields":[
       {"name": "graph_node", "type": ["null", "contrail.graph.GraphNodeData"], 
        "doc": "The contig."},
-      {"name": "read", 
+      {"name": "mappings", 
        "type": 
           {"type": "array", "items":"contrail.scaffolding.MappingReadPair"},
        "doc": "The read."}
