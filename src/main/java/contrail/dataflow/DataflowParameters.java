@@ -66,6 +66,12 @@ public class DataflowParameters {
             String.class, null);
     defs.add(jobName);
 
+    ParameterDefinition experiments =
+        new ParameterDefinition(
+            "experiments", "Name of experiments to enable.",
+            String.class, null);
+    defs.add(experiments);
+
     ParameterDefinition runner = new ParameterDefinition(
         "runner", "The pipeline runner to use.", String.class,
         "DirectPipelineRunner");

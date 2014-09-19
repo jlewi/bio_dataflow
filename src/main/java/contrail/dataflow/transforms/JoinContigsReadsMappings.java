@@ -24,7 +24,6 @@ import com.google.cloud.dataflow.sdk.coders.StringUtf8Coder;
 import com.google.cloud.dataflow.sdk.transforms.DoFn;
 import com.google.cloud.dataflow.sdk.transforms.PTransform;
 import com.google.cloud.dataflow.sdk.transforms.ParDo;
-import com.google.cloud.dataflow.sdk.transforms.DoFn.ProcessContext;
 import com.google.cloud.dataflow.sdk.transforms.join.CoGbkResult;
 import com.google.cloud.dataflow.sdk.transforms.join.CoGroupByKey;
 import com.google.cloud.dataflow.sdk.transforms.join.KeyedPCollectionTuple;
@@ -40,7 +39,6 @@ import contrail.dataflow.ReadTransforms;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.scaffolding.BowtieMapping;
-import contrail.scaffolding.ContigReadAlignment;
 import contrail.scaffolding.ContigReadMappings;
 import contrail.scaffolding.MappingReadPair;
 import contrail.sequences.Read;
@@ -51,7 +49,7 @@ import contrail.sequences.Read;
 //TODO(jlewi): Rename to something like MapReadsToContigs
 public class JoinContigsReadsMappings
     extends PTransform<PCollectionTuple, PCollection<ContigReadMappings>> {
-  final public TupleTag<GraphNodeData> nodeTag = new TupleTag<>();
+  final public TupleTag<contrail.graph.GraphNodeData> nodeTag = new TupleTag<>();
   final public TupleTag<BowtieMapping> mappingTag = new TupleTag<>();
   final public TupleTag<Read> readTag = new TupleTag<>();
 
@@ -111,7 +109,6 @@ public class JoinContigsReadsMappings
           .setCoder(KvCoder.of(
               StringUtf8Coder.of(),
               AvroSpecificCoder.of(BowtieMapping.class)));
-
       PCollection<KV<String, Read>> keyedReads =
           reads.apply(ParDo.of(new ReadTransforms.KeyByReadIdDo())).setCoder(
               KvCoder.of(
