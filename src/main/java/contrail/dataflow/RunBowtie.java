@@ -19,7 +19,6 @@ import java.io.BufferedReader;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.Date;
@@ -40,7 +39,6 @@ import com.google.cloud.dataflow.sdk.transforms.DoFn;
 import com.google.cloud.dataflow.sdk.transforms.ParDo;
 import com.google.cloud.dataflow.sdk.util.UserCodeException;
 import com.google.cloud.dataflow.sdk.values.PCollection;
-import com.google.cloud.dataflow.sdk.values.TupleTag;
 
 import contrail.sequences.FastUtil;
 import contrail.sequences.Read;
@@ -53,6 +51,15 @@ import contrail.util.ShellUtil;
 
 /**
  * Align reads using to a reference using bowtie.
+ *
+ * The input is avro files containing BowtieInput records. Each record
+ * describes a list of reads and a list of query sequences to align to the
+ * reads.
+ *
+ * A DoFn processes each BowTieInput. The DoFn writes the reference reads
+ * to a fastq file and then runs bowtie-build inside a docker container to
+ * build the index. The query sequences are then aligned using the index by
+ * running bowtie in a container.
  */
 public class RunBowtie extends NonMRStage {
   private static final Logger sLogger = Logger.getLogger(
@@ -160,7 +167,7 @@ public class RunBowtie extends NonMRStage {
       String containerQueryFile = FilenameUtils.concat(containerDir, "query.fastq");
       String command = String.format("/git_bowtie/bowtie-build %s %s",
           containerRefFile, containerIndexFile);
-      
+
       ProcessBuilder builder = new ProcessBuilder(
     		  "docker", "run", "-t",
     		  "-v", tempDir + ":" + containerDir,
@@ -191,7 +198,7 @@ public class RunBowtie extends NonMRStage {
         FileReader inputStream = new FileReader(outputFile);
         BufferedReader reader = new BufferedReader(inputStream);
         String line = reader.readLine();;
-        while(line != null) {          
+        while(line != null) {
           c.output(line);
           line = reader.readLine();
         }
@@ -221,7 +228,7 @@ public class RunBowtie extends NonMRStage {
 
     PipelineOptions options = new PipelineOptions();
     options.diskSourceImage = "https://www.googleapis.com/compute/v1/projects/google-containers/global/images/container-vm-v20140710";
-    
+
     if (stage_options.get("jobName") != null) {
       options.jobName = (String) stage_options.get("jobName");
     }
@@ -240,13 +247,13 @@ public class RunBowtie extends NonMRStage {
         new RunBowtieDoFn(imagePath, localImage)).named("RunBowtie"));
 
     String mappingOutputs = outputPath + "bowtie.mappings";
-    
+
     PipelineRunner runner = PipelineRunner.fromOptions(options);
     // If running on the service use a sharded output.
     if (DataflowPipelineRunner.class.isAssignableFrom(runner.getClass())) {
     	mappingOutputs += "@*";
     }
-    
+
     mappings.apply(TextIO.Write.named("WriteMappings").to(mappingOutputs));
 
     p.run(runner);
