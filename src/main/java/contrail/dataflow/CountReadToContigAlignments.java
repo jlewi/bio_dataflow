@@ -35,7 +35,6 @@ import com.google.cloud.dataflow.sdk.coders.KvCoder;
 import com.google.cloud.dataflow.sdk.coders.StringUtf8Coder;
 import com.google.cloud.dataflow.sdk.io.BigQueryIO;
 import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
-import com.google.cloud.dataflow.sdk.runners.PipelineRunner;
 import com.google.cloud.dataflow.sdk.transforms.Count;
 import com.google.cloud.dataflow.sdk.transforms.DoFn;
 import com.google.cloud.dataflow.sdk.transforms.Keys;
@@ -121,7 +120,7 @@ public class CountReadToContigAlignments extends NonMRStage {
     PipelineOptions options = new PipelineOptions();
     DataflowParameters.setPipelineOptions(stage_options, options);
 
-    Pipeline p = Pipeline.create();
+    Pipeline p = Pipeline.create(options);
 
     DataflowUtil.registerAvroCoders(p);
 
@@ -147,7 +146,7 @@ public class CountReadToContigAlignments extends NonMRStage {
         .withSchema(schema)
         .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_TRUNCATE));
 
-    p.run(PipelineRunner.fromOptions(options));
+    p.run();
     sLogger.info("Output written to: " + output);
   }
 

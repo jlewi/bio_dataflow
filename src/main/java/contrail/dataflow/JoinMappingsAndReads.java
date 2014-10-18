@@ -34,7 +34,6 @@ import com.google.cloud.dataflow.sdk.coders.KvCoder;
 import com.google.cloud.dataflow.sdk.coders.StringUtf8Coder;
 import com.google.cloud.dataflow.sdk.io.TextIO;
 import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
-import com.google.cloud.dataflow.sdk.runners.PipelineRunner;
 import com.google.cloud.dataflow.sdk.transforms.AsIterable;
 import com.google.cloud.dataflow.sdk.transforms.DoFn;
 import com.google.cloud.dataflow.sdk.transforms.ParDo;
@@ -505,7 +504,7 @@ public class JoinMappingsAndReads extends NonMRStage {
     PipelineOptions options = new PipelineOptions();
     DataflowParameters.setPipelineOptions(stage_options, options);
 
-    Pipeline p = Pipeline.create();
+    Pipeline p = Pipeline.create(options);
 
     DataflowUtil.registerAvroCoders(p);
 
@@ -536,7 +535,7 @@ public class JoinMappingsAndReads extends NonMRStage {
     sLogger.info("JoinMappingReadDoFn.readTag: " + readTag.toString());
     sLogger.info("JoineNodesDoFn.alignmentTag: " + alignmentTag.toString());
     sLogger.info("JoineNodesDoFn.nodeTag: " + nodeTag.toString());
-    p.run(PipelineRunner.fromOptions(options));
+    p.run();
 
     sLogger.info("Output written to: " + outputPath);
   }

@@ -27,9 +27,9 @@ import org.apache.log4j.Logger;
 import com.google.cloud.dataflow.sdk.Pipeline;
 import com.google.cloud.dataflow.sdk.io.TextIO;
 import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
-import com.google.cloud.dataflow.sdk.runners.PipelineRunner;
 import com.google.cloud.dataflow.sdk.values.PCollection;
 import com.google.cloud.dataflow.sdk.values.PCollectionTuple;
+
 import contrail.dataflow.transforms.EncodeAvroAsJson;
 import contrail.dataflow.transforms.JoinContigsReadsMappings;
 import contrail.graph.GraphNodeData;
@@ -104,7 +104,7 @@ public class JoinContigsAndMappings extends NonMRStage {
     PipelineOptions options = new PipelineOptions();
     DataflowParameters.setPipelineOptions(stage_options, options);
 
-    Pipeline p = Pipeline.create();
+    Pipeline p = Pipeline.create(options);
 
     DataflowUtil.registerAvroCoders(p);
 
@@ -131,7 +131,7 @@ public class JoinContigsAndMappings extends NonMRStage {
 
     jsonRecords.apply(TextIO.Write.named("WritJsonContigReadMappings")
         .to(outputPath));
-    p.run(PipelineRunner.fromOptions(options));
+    p.run();
 
     sLogger.info("Output written to: " + outputPath);
   }

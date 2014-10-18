@@ -36,7 +36,6 @@ import com.google.cloud.dataflow.sdk.coders.KvCoder;
 import com.google.cloud.dataflow.sdk.coders.StringUtf8Coder;
 import com.google.cloud.dataflow.sdk.io.BigQueryIO;
 import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
-import com.google.cloud.dataflow.sdk.runners.PipelineRunner;
 import com.google.cloud.dataflow.sdk.transforms.DoFn;
 import com.google.cloud.dataflow.sdk.transforms.GroupByKey;
 import com.google.cloud.dataflow.sdk.transforms.ParDo;
@@ -226,7 +225,7 @@ public class ValidateReadOrientation extends NonMRStage {
     PipelineOptions options = new PipelineOptions();
     DataflowParameters.setPipelineOptions(stage_options, options);
 
-    Pipeline p = Pipeline.create();
+    Pipeline p = Pipeline.create(options);
 
     DataflowUtil.registerAvroCoders(p);
 
@@ -267,7 +266,7 @@ public class ValidateReadOrientation extends NonMRStage {
         .withSchema(schema)
         .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_TRUNCATE));
 
-    p.run(PipelineRunner.fromOptions(options));
+    p.run();
     sLogger.info("Output written to: " + output);
   }
 

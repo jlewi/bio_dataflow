@@ -32,9 +32,7 @@ import org.apache.log4j.Logger;
 
 import com.google.cloud.dataflow.sdk.Pipeline;
 import com.google.cloud.dataflow.sdk.io.TextIO;
-import com.google.cloud.dataflow.sdk.runners.DataflowPipelineRunner;
 import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
-import com.google.cloud.dataflow.sdk.runners.PipelineRunner;
 import com.google.cloud.dataflow.sdk.transforms.DoFn;
 import com.google.cloud.dataflow.sdk.transforms.ParDo;
 import com.google.cloud.dataflow.sdk.util.UserCodeException;
@@ -234,7 +232,7 @@ public class RunBowtie extends NonMRStage {
     }
     DataflowParameters.setPipelineOptions(stage_options, options);
 
-    Pipeline p = Pipeline.create();
+    Pipeline p = Pipeline.create(options);
 
     DataflowUtil.registerAvroCoders(p);
 
@@ -248,15 +246,15 @@ public class RunBowtie extends NonMRStage {
 
     String mappingOutputs = outputPath + "bowtie.mappings";
 
-    PipelineRunner runner = PipelineRunner.fromOptions(options);
-    // If running on the service use a sharded output.
-    if (DataflowPipelineRunner.class.isAssignableFrom(runner.getClass())) {
-    	mappingOutputs += "@*";
-    }
+
+    // Use a sharded output.
+    // TODO(jeremy@lewi.us): Haven't checked this since upgrading to the
+    // 2014-1013 SDK.
+    mappingOutputs += "@*";
 
     mappings.apply(TextIO.Write.named("WriteMappings").to(mappingOutputs));
 
-    p.run(runner);
+    p.run();
 
     sLogger.info("Output written to: " + outputPath);
   }

@@ -34,7 +34,6 @@ import com.google.cloud.dataflow.sdk.coders.StringUtf8Coder;
 import com.google.cloud.dataflow.sdk.io.BigQueryIO;
 import com.google.cloud.dataflow.sdk.io.TextIO;
 import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
-import com.google.cloud.dataflow.sdk.runners.PipelineRunner;
 import com.google.cloud.dataflow.sdk.transforms.DoFn;
 import com.google.cloud.dataflow.sdk.transforms.ParDo;
 import com.google.cloud.dataflow.sdk.transforms.join.CoGbkResult;
@@ -159,7 +158,7 @@ public class CompareBowtieAlignments extends NonMRStage {
     PipelineOptions options = new PipelineOptions();
     DataflowParameters.setPipelineOptions(stage_options, options);
 
-    Pipeline p = Pipeline.create();
+    Pipeline p = Pipeline.create(options);
 
     DataflowUtil.registerAvroCoders(p);
 
@@ -189,7 +188,7 @@ public class CompareBowtieAlignments extends NonMRStage {
         .withSchema(schema)
         .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_TRUNCATE));
 
-    p.run(PipelineRunner.fromOptions(options));
+    p.run();
   }
 
   public static void main(String[] args) throws Exception {
