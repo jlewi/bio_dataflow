@@ -21,6 +21,9 @@ import java.util.List;
 import org.apache.avro.specific.SpecificRecordBase;
 
 import com.google.cloud.dataflow.sdk.Pipeline;
+import com.google.cloud.dataflow.sdk.coders.AvroCoder;
+import com.google.cloud.dataflow.sdk.coders.Coder;
+import com.google.cloud.dataflow.sdk.coders.CoderRegistry;
 
 import contrail.graph.GraphNodeData;
 import contrail.scaffolding.BowtieMapping;
@@ -43,7 +46,27 @@ public class DataflowUtil {
     for (Class t : classes) {
       p.getCoderRegistry().registerCoder(
           t,
-          new AvroSpecificCoder.CoderFactory(t));
+          new CoderFactory(t));
+    }
+  }
+
+  // Coder Factory allows us to register coders as defaults.
+  public static class CoderFactory extends CoderRegistry.CoderFactory {
+    private final Class type;
+
+    public CoderFactory(Class type) {
+      this.type = type;
+    }
+
+    @Override
+    public Coder<?> create(List<? extends Coder<?>> typeArgumentCoders) {
+      return AvroCoder.of(type);
+    }
+
+    @Override
+    public List<Object> getInstanceComponents(Object value) {
+      // TODO Auto-generated method stub
+      return null;
     }
   }
 }

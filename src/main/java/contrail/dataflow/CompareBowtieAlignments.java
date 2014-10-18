@@ -29,6 +29,7 @@ import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.dataflow.sdk.Pipeline;
+import com.google.cloud.dataflow.sdk.coders.AvroCoder;
 import com.google.cloud.dataflow.sdk.coders.KvCoder;
 import com.google.cloud.dataflow.sdk.coders.StringUtf8Coder;
 import com.google.cloud.dataflow.sdk.io.BigQueryIO;
@@ -127,12 +128,12 @@ public class CompareBowtieAlignments extends NonMRStage {
         ParDo.of(new BowtieMappingTransforms.KeyByReadId()).named("KeyFull"))
           .setCoder(KvCoder.of(
               StringUtf8Coder.of(),
-              AvroSpecificCoder.of(BowtieMapping.class)));
+              AvroCoder.of(BowtieMapping.class)));
     PCollection<KV<String, BowtieMapping>> keyedShort = shortAlignments.apply(
         ParDo.of(new BowtieMappingTransforms.KeyByReadId()).named("KeyShort"))
           .setCoder(KvCoder.of(
               StringUtf8Coder.of(),
-              AvroSpecificCoder.of(BowtieMapping.class)));
+              AvroCoder.of(BowtieMapping.class)));
 
     final TupleTag<BowtieMapping> fullTag = new TupleTag<>();
     final TupleTag<BowtieMapping> shortTag = new TupleTag<>();

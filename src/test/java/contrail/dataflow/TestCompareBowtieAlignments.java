@@ -17,7 +17,9 @@ import org.junit.Test;
 
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.cloud.dataflow.sdk.Pipeline;
+import com.google.cloud.dataflow.sdk.PipelineResult;
 import com.google.cloud.dataflow.sdk.runners.DirectPipelineRunner;
+import com.google.cloud.dataflow.sdk.runners.DirectPipelineRunner.EvaluationResults;
 import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
 import com.google.cloud.dataflow.sdk.transforms.Create;
 import com.google.cloud.dataflow.sdk.values.PCollection;
@@ -102,7 +104,8 @@ public class TestCompareBowtieAlignments {
     TestCase testData = new TestCase();
 
     PipelineOptions options = new PipelineOptions();
-    Pipeline p = Pipeline.create();
+    options.runner = DirectPipelineRunner.class.getSimpleName();
+    Pipeline p = Pipeline.create(options);
     DataflowUtil.registerAvroCoders(p);
 
     PCollection<BowtieMapping> shortCollection = p.begin().apply(
@@ -116,8 +119,8 @@ public class TestCompareBowtieAlignments {
     PCollection<TableRow> joined = stage.buildPipeline(p,
         fullCollection, shortCollection);
 
-    DirectPipelineRunner runner = DirectPipelineRunner.fromOptions(options);
-    DirectPipelineRunner.EvaluationResults result = p.run(runner);
+    PipelineResult pipelineResult = p.run();
+    EvaluationResults result = (EvaluationResults) pipelineResult;
     List<TableRow> finalResults = result.getPCollection(joined);
 
     assertEquals(2, finalResults.size());

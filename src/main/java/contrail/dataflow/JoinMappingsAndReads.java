@@ -30,6 +30,7 @@ import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 import com.google.cloud.dataflow.sdk.Pipeline;
+import com.google.cloud.dataflow.sdk.coders.AvroCoder;
 import com.google.cloud.dataflow.sdk.coders.KvCoder;
 import com.google.cloud.dataflow.sdk.coders.StringUtf8Coder;
 import com.google.cloud.dataflow.sdk.io.TextIO;
@@ -150,13 +151,13 @@ public class JoinMappingsAndReads extends NonMRStage {
         mappings.apply(ParDo.of(new BowtieMappingTransforms.KeyByReadId()))
         .setCoder(KvCoder.of(
             StringUtf8Coder.of(),
-            AvroSpecificCoder.of(BowtieMapping.class)));
+            AvroCoder.of(BowtieMapping.class)));
 
     PCollection<KV<String, Read>> keyedReads =
         reads.apply(ParDo.of(new ReadTransforms.KeyByReadIdDo())).setCoder(
             KvCoder.of(
                 StringUtf8Coder.of(),
-                AvroSpecificCoder.of(Read.class)));
+                AvroCoder.of(Read.class)));
 
 
     PCollection<KV<String, CoGbkResult>> coGbkResultCollection =
@@ -224,13 +225,13 @@ public class JoinMappingsAndReads extends NonMRStage {
         alignments.apply(ParDo.of(new KeyByContigId()))
         .setCoder(KvCoder.of(
             StringUtf8Coder.of(),
-            AvroSpecificCoder.of(ContigReadAlignment.class)));
+            AvroCoder.of(ContigReadAlignment.class)));
 
     PCollection<KV<String, GraphNodeData>> keyedNodes =
         nodes.apply(ParDo.of(new GraphNodeTransforms.KeyByNodeId())).setCoder(
             KvCoder.of(
                 StringUtf8Coder.of(),
-                AvroSpecificCoder.of(GraphNodeData.class)));
+                AvroCoder.of(GraphNodeData.class)));
 
     PCollection<KV<String, CoGbkResult>> coGbkResultCollection =
         KeyedPCollectionTuple.of(alignmentTag, keyedAlignments)

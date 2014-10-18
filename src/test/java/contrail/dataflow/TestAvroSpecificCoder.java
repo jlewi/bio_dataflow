@@ -23,6 +23,7 @@ import java.io.IOException;
 
 import org.junit.Test;
 
+import com.google.cloud.dataflow.sdk.coders.AvroCoder;
 import com.google.cloud.dataflow.sdk.coders.Coder.Context;
 import com.google.cloud.dataflow.sdk.coders.CoderException;
 
@@ -64,9 +65,9 @@ public class TestAvroSpecificCoder {
 
     Context context = Context.NESTED;
 
-    AvroSpecificCoder<BowtieMapping> mappingCoder = AvroSpecificCoder.of(
+    AvroCoder<BowtieMapping> mappingCoder = AvroCoder.of(
         BowtieMapping.class);
-    AvroSpecificCoder<Read> readCoder = AvroSpecificCoder.of(
+    AvroCoder<Read> readCoder = AvroCoder.of(
         Read.class);
 
     mappingCoder.encode(mapping, outStream, context);

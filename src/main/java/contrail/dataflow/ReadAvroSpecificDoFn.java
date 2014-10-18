@@ -28,6 +28,7 @@ import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.log4j.Logger;
 
 import com.google.cloud.dataflow.sdk.Pipeline;
+import com.google.cloud.dataflow.sdk.coders.AvroCoder;
 import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
 import com.google.cloud.dataflow.sdk.transforms.Create;
 import com.google.cloud.dataflow.sdk.transforms.DoFn;
@@ -120,10 +121,10 @@ public class ReadAvroSpecificDoFn<AvroType>
     sLogger.info(String.format("Path %s expanded into %d splits.",
         path, splits.size()));
     PCollection<GCSAvroFileSplit> inputs = p.begin().apply(Create.of(splits))
-        .setCoder(AvroSpecificCoder.of(GCSAvroFileSplit.class));
+        .setCoder(AvroCoder.of(GCSAvroFileSplit.class));
 
     return inputs
         .apply(ParDo.of(new ReadAvroSpecificDoFn<AvroType>(avroClass)))
-        .setCoder(AvroSpecificCoder.of(avroClass));
+        .setCoder(AvroCoder.of(avroClass));
   }
 }

@@ -17,45 +17,27 @@ package contrail.dataflow.transforms;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.channels.ByteChannel;
-import java.nio.channels.Channels;
-import java.util.ArrayList;
-import java.util.List;
 
 import org.apache.avro.Schema;
-import org.apache.avro.file.DataFileStream;
-import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.io.JsonEncoder;
-import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.avro.specific.SpecificDatumWriter;
-import org.apache.log4j.Logger;
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.util.DefaultPrettyPrinter;
 
-import com.google.cloud.dataflow.sdk.Pipeline;
-import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
-import com.google.cloud.dataflow.sdk.transforms.Create;
 import com.google.cloud.dataflow.sdk.transforms.DoFn;
 import com.google.cloud.dataflow.sdk.transforms.PTransform;
 import com.google.cloud.dataflow.sdk.transforms.ParDo;
-import com.google.cloud.dataflow.sdk.transforms.DoFn.ProcessContext;
-import com.google.cloud.dataflow.sdk.util.GcsUtil;
-import com.google.cloud.dataflow.sdk.util.gcsfs.GcsPath;
 import com.google.cloud.dataflow.sdk.values.PCollection;
-
-import contrail.dataflow.AvroSpecificCoder;
-import contrail.dataflow.GCSAvroFileSplit;
-import contrail.dataflow.ReadAvroSpecificDoFn;
-import contrail.util.AvroSchemaUtil;
 
 /**
  * A transform for encoding Avro records as json with no newlines.
  *
- * This is intended as a way to output Avro r ecds
+ * This is intended as a way to output Avro records
+ *
+ * 2014-10-18 now that Avro is supported by Dataflow we probably don't need
+ * this anymore.
  */
 public class EncodeAvroAsJson<AvroType>
     extends PTransform<PCollection<AvroType>, PCollection<String>> {

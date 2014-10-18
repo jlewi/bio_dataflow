@@ -1,35 +1,25 @@
-import java.io.BufferedReader;
 import java.io.FileOutputStream;
-import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.commons.io.FilenameUtils;
 import org.apache.log4j.Logger;
 
-import com.google.cloud.dataflow.sdk.transforms.AsIterable;
 import com.google.cloud.dataflow.sdk.transforms.DoFn;
 import com.google.cloud.dataflow.sdk.transforms.PTransform;
 import com.google.cloud.dataflow.sdk.transforms.ParDo;
-import com.google.cloud.dataflow.sdk.transforms.SeqDo;
 import com.google.cloud.dataflow.sdk.transforms.SeqDo.SeqDoFn;
 import com.google.cloud.dataflow.sdk.util.UserCodeException;
 import com.google.cloud.dataflow.sdk.values.PCollection;
 import com.google.cloud.dataflow.sdk.values.PCollectionTuple;
-import com.google.cloud.dataflow.sdk.values.PObject;
-import com.google.cloud.dataflow.sdk.values.PObjectTuple;
 import com.google.cloud.dataflow.sdk.values.PObjectValueTuple;
 import com.google.cloud.dataflow.sdk.values.TupleTag;
 
-import contrail.dataflow.BowtieInput;
-import contrail.dataflow.RunBowtie;
 import contrail.graph.GraphNodeData;
 import contrail.scaffolding.BowtieMapping;
 import contrail.sequences.FastQRecord;
 import contrail.sequences.FastUtil;
 import contrail.sequences.FastaRecord;
-import contrail.sequences.QuakeReadCorrection;
 import contrail.sequences.Read;
 import contrail.util.DockerMappedPath;
 import contrail.util.FileHelper;
@@ -226,30 +216,36 @@ public class AlignReadsWithBowtie extends PTransform<PCollectionTuple, PCollecti
 
     PCollection<Read> shortenedReads = reads.apply(ParDo.of(new ShortenReads(shortenedLength)));
 
+    throw new RuntimeException(
+        "The code below is commented out because its not actually " +
+        "implemented yet. We need to be able to compile and build a bundle " +
+        "to run other pipelines.");
+
     // TODO(jlewi): Need to define the actual DoFn to GraphNodeToRead
     // Convert the GraphNode to a Fasta sequence represented as a Read record.
-    PCollection<Read> contigs = nodes.apply(ParDo.of(new GraphNodeToRead()));
+
+//    PCollection<Read> contigs = nodes.apply(ParDo.of(new GraphNodeToRead()));
 
     // Is materializing the reads with as iterable and them passing them to
     // BuildBowtieIndex the best(only?) way to make the
     // reads available to the BowtieBuildIndex DoFn?
-    PObject<Iterable<Read>> iterableReads = shortenedReads.apply(
-        AsIterable.<Read>create());
+//    PObject<Iterable<Read>> iterableReads = shortenedReads.apply(
+//        AsIterable.<Read>create());
+//
+//    PObject<Iterable<Read>> iterableContigs = contigs.apply(
+//        AsIterable.<Read>create());
+//
+//    PObjectTuple buildIndexInput = PObjectTuple.of(
+//        iterableReferenceTag, iterableContigs);
+//
+//        // Build the index and copy it to GCS.
+//        PObject<IndexInfo> index = buildIndexInput.apply(
+//            SeqDo.of(new BuildBowtieIndex(iterableReferenceTag)));
+//
+//    // Align the reads.
+//    PCollection<BowtieMapping> aligned = shortenedReads.apply(
+//        ParDo.withSideInput(new AlignReads(), index));
 
-    PObject<Iterable<Read>> iterableContigs = contigs.apply(
-        AsIterable.<Read>create());
-
-    PObjectTuple buildIndexInput = PObjectTuple.of(
-        iterableReferenceTag, iterableContigs);
-
-        // Build the index and copy it to GCS.
-        PObject<IndexInfo> index = buildIndexInput.apply(
-            SeqDo.of(new BuildBowtieIndex(iterableReferenceTag)));
-
-    // Align the reads.
-    PCollection<BowtieMapping) aligned = shortenedReads.apply(
-        ParDo.withSideInput(new AlignReads(), index));
-
-    return aligned;
+    //return aligned;
   }
 }

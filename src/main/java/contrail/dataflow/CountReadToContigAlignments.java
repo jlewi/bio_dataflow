@@ -31,6 +31,7 @@ import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.dataflow.sdk.Pipeline;
+import com.google.cloud.dataflow.sdk.coders.AvroCoder;
 import com.google.cloud.dataflow.sdk.coders.KvCoder;
 import com.google.cloud.dataflow.sdk.coders.StringUtf8Coder;
 import com.google.cloud.dataflow.sdk.io.BigQueryIO;
@@ -102,7 +103,7 @@ public class CountReadToContigAlignments extends NonMRStage {
             .named("KeyByReadId"))
             .setCoder(KvCoder.of(
               StringUtf8Coder.of(),
-              AvroSpecificCoder.of(BowtieMapping.class)));
+              AvroCoder.of(BowtieMapping.class)));
 
     PCollection<String> readIds = keyed.apply(Keys.<String>create());
     PCollection<KV<String, Long>> counts =

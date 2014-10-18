@@ -19,6 +19,7 @@ import java.util.ArrayList;
 
 import org.apache.avro.specific.SpecificData;
 
+import com.google.cloud.dataflow.sdk.coders.AvroCoder;
 import com.google.cloud.dataflow.sdk.coders.KvCoder;
 import com.google.cloud.dataflow.sdk.coders.StringUtf8Coder;
 import com.google.cloud.dataflow.sdk.transforms.DoFn;
@@ -32,7 +33,6 @@ import com.google.cloud.dataflow.sdk.values.PCollection;
 import com.google.cloud.dataflow.sdk.values.PCollectionTuple;
 import com.google.cloud.dataflow.sdk.values.TupleTag;
 
-import contrail.dataflow.AvroSpecificCoder;
 import contrail.dataflow.BowtieMappingTransforms;
 import contrail.dataflow.GraphNodeTransforms;
 import contrail.dataflow.ReadTransforms;
@@ -108,12 +108,12 @@ public class JoinContigsReadsMappings
           mappings.apply(ParDo.of(new BowtieMappingTransforms.KeyByReadId()))
           .setCoder(KvCoder.of(
               StringUtf8Coder.of(),
-              AvroSpecificCoder.of(BowtieMapping.class)));
+              AvroCoder.of(BowtieMapping.class)));
       PCollection<KV<String, Read>> keyedReads =
           reads.apply(ParDo.of(new ReadTransforms.KeyByReadIdDo())).setCoder(
               KvCoder.of(
                   StringUtf8Coder.of(),
-                  AvroSpecificCoder.of(Read.class)));
+                  AvroCoder.of(Read.class)));
 
       PCollection<KV<String, CoGbkResult>> coGbkResultCollection =
           KeyedPCollectionTuple.of(mappingTag, keyedMappings)
@@ -124,7 +124,7 @@ public class JoinContigsReadsMappings
       PCollection<MappingReadPair> joined =
           coGbkResultCollection.apply(ParDo.of(new JoinMappingReadDoFn(
               mappingTag, readTag))).setCoder(
-                  AvroSpecificCoder.of(MappingReadPair.class));
+                  AvroCoder.of(MappingReadPair.class));
 
       return joined;
     }
@@ -187,13 +187,13 @@ public class JoinContigsReadsMappings
           mappings.apply(ParDo.of(new KeyMappingPairByContigId()))
           .setCoder(KvCoder.of(
               StringUtf8Coder.of(),
-              AvroSpecificCoder.of(MappingReadPair.class)));
+              AvroCoder.of(MappingReadPair.class)));
 
       PCollection<KV<String, GraphNodeData>> keyedNodes =
           nodes.apply(ParDo.of(new GraphNodeTransforms.KeyByNodeId())).setCoder(
               KvCoder.of(
                   StringUtf8Coder.of(),
-                  AvroSpecificCoder.of(GraphNodeData.class)));
+                  AvroCoder.of(GraphNodeData.class)));
 
       PCollection<KV<String, CoGbkResult>> coGbkResultCollection =
           KeyedPCollectionTuple.of(mappingReadPairTag, keyedMappings)
@@ -227,7 +227,7 @@ public class JoinContigsReadsMappings
     PCollection<ContigReadMappings> joined = joinNodes.apply(PCollectionTuple
         .of(mappingReadPairTag, mappingReadPairs)
         .and(nodeTag, nodes)).setCoder(
-            AvroSpecificCoder.of(ContigReadMappings.class));
+            AvroCoder.of(ContigReadMappings.class));
 
     return joined;
   }
