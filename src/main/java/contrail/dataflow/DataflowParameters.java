@@ -16,6 +16,7 @@
 package contrail.dataflow;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -68,7 +69,7 @@ public class DataflowParameters {
 
     ParameterDefinition experiments =
         new ParameterDefinition(
-            "experiments", "Name of experiments to enable.",
+            "experiments", "Comma separated list of experiments to enable.",
             String.class, null);
     defs.add(experiments);
 
@@ -102,6 +103,12 @@ public class DataflowParameters {
     if (stageOptions.get("apiRootUrl") != null) {
       options.apiRootUrl =
           (String) (stageOptions.get("apiRootUrl"));
+    }
+
+    if (stageOptions.get("experiments") != null) {
+      options.experiments = new ArrayList<String>();
+      String experiments = (String) (stageOptions.get("experiments"));
+      options.experiments.addAll(Arrays.asList(experiments.split(",")));
     }
   }
 }
