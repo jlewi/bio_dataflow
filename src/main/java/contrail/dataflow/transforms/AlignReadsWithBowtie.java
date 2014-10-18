@@ -240,7 +240,7 @@ public class AlignReadsWithBowtie extends PTransform<PCollectionTuple, PCollecti
         AsIterable.<Read>create());
 
     PObjectTuple buildIndexInput = PObjectTuple.of(
-        iterableReferenceTag, iterableContigs)
+        iterableReferenceTag, iterableContigs);
 
         // Build the index and copy it to GCS.
         PObject<IndexInfo> index = buildIndexInput.apply(
