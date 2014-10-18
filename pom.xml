@@ -179,7 +179,7 @@
     <dependency>
       <groupId>com.google.cloud.dataflow</groupId>
       <artifactId>dataflow-sdk</artifactId>
-      <version>[1.0.140618,)</version>
+      <version>[1.0.141013,)</version>
     </dependency>
 	
     <dependency>
