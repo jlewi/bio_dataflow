@@ -40,7 +40,6 @@ import contrail.sequences.MatePair;
 import contrail.stages.ContrailParameters;
 import contrail.stages.MRStage;
 import contrail.stages.ParameterDefinition;
-import contrail.util.FileHelper;
 import contrail.util.ShellUtil;
 
 /**
@@ -75,7 +74,7 @@ public class InvokeFlash extends MRStage {
     @Override
     public void configure(JobConf job) {
       jobName = job.get("mapred.task.id");
-      tempWritableFolder = FileHelper.createLocalTempDir().getAbsolutePath();
+      tempWritableFolder = FileUtils.getTempDirectory().getPath();
       //Initialise empty array lists
       fastqRecordsMateLeft = new ArrayList<String>();
       fastqRecordsMateRight = new ArrayList<String>();
@@ -112,6 +111,7 @@ public class InvokeFlash extends MRStage {
       Map<String, ParameterDefinition> definitions = stage.getParameterDefinitions();
       blockSize = (Integer)(definitions.get("block_size").parseJobConf(job));
       sLogger.info("Flash Home: " + flashHome);
+      sLogger.info("Flash Local Temporary Directory." + tempWritableFolder);
     }
 
     @Override
@@ -135,6 +135,10 @@ public class InvokeFlash extends MRStage {
      * @throws IOException
      */
     private void runFlashOnInMemoryReads(AvroCollector<FastQRecord> collector)throws IOException {
+      sLogger.info(String.format(
+          "Running flash. Number of records: Count %d: Size left: %d Size Right: %d",
+          count, fastqRecordsMateLeft.size(), fastqRecordsMateLeft.size()));
+
       String filePathFq1;
       String filePathFq2;
       //gets the current timestamp in nanoseconds
@@ -158,21 +162,22 @@ public class InvokeFlash extends MRStage {
       correctUtil.writeLocalFile(fastqRecordsMateRight,filePathFq2);
       fastqRecordsMateLeft.clear();
       fastqRecordsMateRight.clear();
+      count = 0;
       ArrayList<String> command =  new ArrayList<String>();
       command.add(flashHome);
       command.add(filePathFq1);
       command.add(filePathFq2);
       command.add("-d");
-      command.add(localOutFolderPath);/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      command.add(localOutFolderPath);
       ShellUtil.execute(command, null, "flash", sLogger);
       String combinedFilePath = localOutFolderPath + "/out.extendedFrags.fastq";
 
       // collecting results of extended and not combined files
-      correctUtil.emitFastqFileToHDFS(new File(combinedFilePath), collector);
-      String notCombinedLeft = localOutFolderPath + "/out.notCombined_1.fastq";
-      correctUtil.emitFastqFileToHDFS(new File(notCombinedLeft), collector);
-      String notCombinedRight = localOutFolderPath + "/out.notCombined_2.fastq";
-      correctUtil.emitFastqFileToHDFS(new File(notCombinedRight), collector);
+      correctUtil.emitFastqFileToHDFS("file://" + combinedFilePath, collector, this.getConf());
+      String notCombinedLeft = "file://" + localOutFolderPath + "/out.notCombined_1.fastq";
+      correctUtil.emitFastqFileToHDFS(notCombinedLeft, collector, this.getConf());
+      String notCombinedRight = "file://" + localOutFolderPath + "/out.notCombined_2.fastq";
+      correctUtil.emitFastqFileToHDFS(notCombinedRight, collector, this.getConf());
 
       // Cleaning up the block Folder. The results of the extended file have been collected.
       tempFile = new File(localOutFolderPath);
@@ -188,6 +193,7 @@ public class InvokeFlash extends MRStage {
     public void close() throws IOException{
       if(count > 0){
         runFlashOnInMemoryReads(outputCollector);
+        count = 0;
       }
       //delete the top level directory, and everything beneath
       File tempFile = new File(tempWritableFolder);
