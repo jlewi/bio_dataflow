@@ -130,7 +130,7 @@ public class AvroFileContentsIterator<T> implements Iterator<T>, Iterable<T> {
       try {
         current.close();
       } catch (IOException e) {
-        sLogger.warn("Exception occurred while closing the string: " +
+        sLogger.warn("Exception occurred while closing the stream: " +
                      e.getMessage());
       }
 
@@ -141,6 +141,12 @@ public class AvroFileContentsIterator<T> implements Iterator<T>, Iterable<T> {
         if (current.avroStream != null && current.avroStream.hasNext()) {
           hasMoreRecords = true;
           return hasMoreRecords;
+        }
+        try {
+          current.close();
+        } catch (IOException e) {
+          sLogger.warn("Exception occurred while closing the stream: " +
+                       e.getMessage());
         }
       }
 
