@@ -70,7 +70,7 @@ public class DataflowParameters {
     ParameterDefinition experiments =
         new ParameterDefinition(
             "experiments", "Comma separated list of experiments to enable.",
-            String.class, null);
+            String.class, "");
     defs.add(experiments);
 
     ParameterDefinition runner = new ParameterDefinition(

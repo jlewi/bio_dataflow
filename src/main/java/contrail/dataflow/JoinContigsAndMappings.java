@@ -25,12 +25,11 @@ import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 import com.google.cloud.dataflow.sdk.Pipeline;
-import com.google.cloud.dataflow.sdk.io.TextIO;
+import com.google.cloud.dataflow.sdk.io.AvroIO;
 import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
 import com.google.cloud.dataflow.sdk.values.PCollection;
 import com.google.cloud.dataflow.sdk.values.PCollectionTuple;
 
-import contrail.dataflow.transforms.EncodeAvroAsJson;
 import contrail.dataflow.transforms.JoinContigsReadsMappings;
 import contrail.graph.GraphNodeData;
 import contrail.scaffolding.BowtieMapping;
@@ -108,14 +107,26 @@ public class JoinContigsAndMappings extends NonMRStage {
 
     DataflowUtil.registerAvroCoders(p);
 
-    PCollection<GraphNodeData> nodes = ReadAvroSpecificDoFn.readAvro(
-        GraphNodeData.class, p, options, contigsPath);
+    PCollection<GraphNodeData> nodes =
+        p.begin().apply(
+            AvroIO.Read
+            .named("ReadNodes")
+            .from(contigsPath)
+            .withSchema(GraphNodeData.class));
 
-    PCollection<Read> reads = ReadAvroSpecificDoFn.readAvro(
-        Read.class, p, options, readsPath);
-    PCollection<BowtieMapping> mappings = ReadAvroSpecificDoFn.readAvro(
-        BowtieMapping.class, p, options, bowtieAlignmentsPath);
+   PCollection<Read> reads =
+       p.begin().apply(
+           AvroIO.Read
+           .named("ReadReads")
+           .from(readsPath)
+           .withSchema(Read.class));
 
+   PCollection<BowtieMapping> mappings =
+       p.begin().apply(
+           AvroIO.Read
+           .named("ReadBowtieMapping")
+           .from(bowtieAlignmentsPath)
+           .withSchema(BowtieMapping.class));
 
     JoinContigsReadsMappings joinContigsReadsMappings =
         new JoinContigsReadsMappings();
@@ -126,11 +137,11 @@ public class JoinContigsAndMappings extends NonMRStage {
           .and(joinContigsReadsMappings.mappingTag, mappings)
           .and(joinContigsReadsMappings.readTag, reads));
 
-    PCollection<String> jsonRecords = joined.apply(new EncodeAvroAsJson(
-        ContigReadMappings.SCHEMA$));
+    joined.apply(AvroIO.Write
+        .named("WriteContigReadMappings")
+        .to(outputPath)
+        .withSchema(ContigReadMappings.class));
 
-    jsonRecords.apply(TextIO.Write.named("WritJsonContigReadMappings")
-        .to(outputPath));
     p.run();
 
     sLogger.info("Output written to: " + outputPath);
