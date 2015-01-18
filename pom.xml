@@ -176,28 +176,11 @@
     </dependency>
     
     <!--For dataflow -->
-    <dependency>
+   <dependency>
       <groupId>com.google.cloud.dataflow</groupId>
-      <artifactId>dataflow-sdk</artifactId>
-      <version>[1.0.141013,)</version>
-    </dependency>
-	
-    <dependency>
-      <groupId>com.google.apis</groupId>
-      <artifactId>google-api-services-storage</artifactId>
-      <version>v1beta2-rev34-1.17.0-rc</version>
-    </dependency>
-    <dependency>
-      <groupId>com.google.http-client</groupId>
-      <artifactId>google-http-client-jackson2</artifactId>
-      <version>1.17.0-rc</version>
-    </dependency>
-    <dependency>
-      <groupId>com.google.oauth-client</groupId>
-      <artifactId>google-oauth-client-jetty</artifactId>
-      <version>1.17.0-rc</version>
-    </dependency>
-
+      <artifactId>google-cloud-dataflow-java-sdk-all</artifactId>
+      <version>[0.3.141216,)</version>
+   </dependency>
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-core</artifactId>

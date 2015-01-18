@@ -20,7 +20,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
+import com.google.cloud.dataflow.sdk.options.DataflowPipelineOptions;
+import com.google.cloud.dataflow.sdk.options.PipelineOptions;
+import com.google.cloud.dataflow.sdk.runners.BlockingDataflowPipelineRunner;
+import com.google.cloud.dataflow.sdk.runners.DataflowPipelineRunner;
+import com.google.cloud.dataflow.sdk.runners.DirectPipelineRunner;
 
 import contrail.stages.ParameterDefinition;
 
@@ -90,25 +94,53 @@ public class DataflowParameters {
   public static void setPipelineOptions(
       Map<String, Object> stageOptions,
       PipelineOptions options) {
-    options.runner = (String) stageOptions.get("runner");
-    options.project = (String) stageOptions.get("project");
-    options.stagingLocation = (String) stageOptions.get("stagingLocation");
-    options.numWorkers = (Integer) stageOptions.get("num_workers");
+    // TODO(jeremy@lewi.us): Is there a way to reuse the parsing in
+    // PipelineOptionsFactory and not have to duplicate all of the
+    // dataflow pipeline options and parsing log ourselves?
+    DataflowPipelineOptions dataflowOptions =
+        (DataflowPipelineOptions) options;
+
+    dataflowOptions.setStagingLocation(
+        (String) stageOptions.get("stagingLocation"));
+    dataflowOptions.setNumWorkers(
+        (Integer) stageOptions.get("num_workers"));
 
     if (stageOptions.get("dataflowEndpoint") != null) {
-      options.dataflowEndpoint =
-          (String) (stageOptions.get("dataflowEndpoint"));
+      dataflowOptions.setDataflowEndpoint(
+          (String) stageOptions.get("dataflowEndpoint"));
     }
 
     if (stageOptions.get("apiRootUrl") != null) {
-      options.apiRootUrl =
-          (String) (stageOptions.get("apiRootUrl"));
+      dataflowOptions.setApiRootUrl(
+          (String) stageOptions.get("apiRootUrl"));
+    }
+
+    if (stageOptions.get("jobName") != null) {
+      dataflowOptions.setJobName((String) stageOptions.get("jobName"));
+    }
+
+    if (stageOptions.get("project") != null) {
+      dataflowOptions.setProject((String) stageOptions.get("project"));
+    }
+
+    String runner = (String) stageOptions.get("runner");
+    if (runner != null) {
+      if (runner.equals("DirectPipelineRunner")) {
+        dataflowOptions.setRunner(DirectPipelineRunner.class);
+      } else if (runner.equals("DataflowPipelineRunner")) {
+        dataflowOptions.setRunner(DataflowPipelineRunner.class);
+      } else if (runner.equals("BlockingDataflowPipelineRunner")) {
+        dataflowOptions.setRunner(BlockingDataflowPipelineRunner.class);
+      } else {
+        throw new RuntimeException("Unrecorginzed Runner:" + runner);
+      }
     }
 
     if (stageOptions.get("experiments") != null) {
-      options.experiments = new ArrayList<String>();
+      dataflowOptions.setExperiments(new ArrayList<String>());
       String experiments = (String) (stageOptions.get("experiments"));
-      options.experiments.addAll(Arrays.asList(experiments.split(",")));
+      dataflowOptions.getExperiments().addAll(Arrays.asList(
+          experiments.split(",")));
     }
   }
 }
