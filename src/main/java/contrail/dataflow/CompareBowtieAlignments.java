@@ -32,9 +32,11 @@ import com.google.cloud.dataflow.sdk.Pipeline;
 import com.google.cloud.dataflow.sdk.coders.AvroCoder;
 import com.google.cloud.dataflow.sdk.coders.KvCoder;
 import com.google.cloud.dataflow.sdk.coders.StringUtf8Coder;
+import com.google.cloud.dataflow.sdk.io.AvroIO;
 import com.google.cloud.dataflow.sdk.io.BigQueryIO;
 import com.google.cloud.dataflow.sdk.io.TextIO;
-import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
+import com.google.cloud.dataflow.sdk.options.PipelineOptions;
+import com.google.cloud.dataflow.sdk.options.PipelineOptionsFactory;
 import com.google.cloud.dataflow.sdk.transforms.DoFn;
 import com.google.cloud.dataflow.sdk.transforms.ParDo;
 import com.google.cloud.dataflow.sdk.transforms.join.CoGbkResult;
@@ -156,7 +158,7 @@ public class CompareBowtieAlignments extends NonMRStage {
     String fullAlignmentsPath = (String) stage_options.get("full_alignments");
     String shortAlignmentsPath = (String) stage_options.get("short_alignments");
 
-    PipelineOptions options = new PipelineOptions();
+    PipelineOptions options = PipelineOptionsFactory.create();
     DataflowParameters.setPipelineOptions(stage_options, options);
 
     Pipeline p = Pipeline.create(options);
@@ -171,8 +173,8 @@ public class CompareBowtieAlignments extends NonMRStage {
         new BowtieMappingTransforms.ParseMappingLineDo()).named(
             "ParseMappingLineDo"));
 
-    PCollection<BowtieMapping> shortAlignments = ReadAvroSpecificDoFn.readAvro(
-        BowtieMapping.class, p, options, shortAlignmentsPath);
+    PCollection<BowtieMapping> shortAlignments = p.apply(AvroIO.Read.from(
+        shortAlignmentsPath).withSchema(BowtieMapping.class));
 
     PCollection<TableRow> rows = buildPipeline(
         p, fullAlignments, shortAlignments);

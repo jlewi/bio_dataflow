@@ -26,7 +26,8 @@ import org.apache.log4j.Logger;
 
 import com.google.cloud.dataflow.sdk.Pipeline;
 import com.google.cloud.dataflow.sdk.io.AvroIO;
-import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
+import com.google.cloud.dataflow.sdk.options.PipelineOptions;
+import com.google.cloud.dataflow.sdk.options.PipelineOptionsFactory;
 import com.google.cloud.dataflow.sdk.values.PCollection;
 import com.google.cloud.dataflow.sdk.values.PCollectionTuple;
 
@@ -100,7 +101,7 @@ public class JoinContigsAndMappings extends NonMRStage {
     // and then do whatt?
     String outputPath = (String) stage_options.get("outputpath");
 
-    PipelineOptions options = new PipelineOptions();
+    PipelineOptions options = PipelineOptionsFactory.create();
     DataflowParameters.setPipelineOptions(stage_options, options);
 
     Pipeline p = Pipeline.create(options);

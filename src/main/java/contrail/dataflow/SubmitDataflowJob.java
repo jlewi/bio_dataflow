@@ -15,25 +15,7 @@
  */
 package contrail.dataflow;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import org.apache.crunch.PObject;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.util.ToolRunner;
-import org.apache.log4j.Logger;
-
-import com.google.cloud.dataflow.sdk.Pipeline;
-import com.google.cloud.dataflow.sdk.coders.AvroCoder;
-import com.google.cloud.dataflow.sdk.options.PipelineOptions;
-import com.google.cloud.dataflow.sdk.options.PipelineOptionsFactory;
-
-import contrail.stages.ContrailParameters;
 import contrail.stages.NonMRStage;
-import contrail.stages.ParameterDefinition;
 
 
 /**
@@ -43,62 +25,65 @@ import contrail.stages.ParameterDefinition;
  * by running that job's main program.
  */
 public class SubmitDataflowJob extends NonMRStage {
-  private static final Logger sLogger = Logger.getLogger(
-      SubmitDataflowJob.class);
-
-
-  /**
-   *  creates the custom definitions that we need for this phase
-   */
-  @Override
-  protected Map<String, ParameterDefinition> createParameterDefinitions() {
-    HashMap<String, ParameterDefinition> defs =
-        new HashMap<String, ParameterDefinition>();
-    defs.putAll(super.createParameterDefinitions());
-
-    ContrailParameters.addList(defs, DataflowParameters.getDefinitions());
-    return Collections.unmodifiableMap(defs);
-  }
-
+  // TODO(jeremy@lewi.us): 2015-01-18 the code below needs to be updated to
+  // work with the newest SDK or deleted.
+//  private static final Logger sLogger = Logger.getLogger(
+//      SubmitDataflowJob.class);
+//
+//
+//  /**
+//   *  creates the custom definitions that we need for this phase
+//   */
+//  @Override
+//  protected Map<String, ParameterDefinition> createParameterDefinitions() {
+//    HashMap<String, ParameterDefinition> defs =
+//        new HashMap<String, ParameterDefinition>();
+//    defs.putAll(super.createParameterDefinitions());
+//
+//    ContrailParameters.addList(defs, DataflowParameters.getDefinitions());
+//    return Collections.unmodifiableMap(defs);
+//  }
+//
+//  @Override
   @Override
   protected void stageMain() {
-    PipelineOptions options = PipelineOptionsFactory.create();
-    DataflowParameters.setPipelineOptions(stage_options, options);
-
-    Pipeline p = Pipeline.create(options);
-
-    List<String> serviceCommand = Arrays.asList(
-        "com.google.cloud.dataflow.examples.WordCount",
-        "--runner", "BlockingDataflowPipelineRunner",
-        "--gcloudPath", "/google-cloud-sdk/bin/gcloud",
-        "--project", "biocloudops",
-        "--stagingLocation", "gs://dataflow-dogfood2-jlewi/staging",
-        "--input", "gs://dataflow-dogfood2-jlewi/nytimes-index.html",
-        "--output", "gs://dataflow-dogfood2-jlewi/tmp/nytimes-counts.txt");
-
-    List<String> localCommand = Arrays.asList(
-        "com.google.cloud.dataflow.examples.WordCount",
-        "--runner", "DirectPipelineRunner", "--input", "/tmp/words",
-        "--output", "/tmp/word-count.txt");
-
-    String bucket = "biocloudops-temp";
-    String objectPath = "examples-1-20140730.jar";
-    List<String> jars = Arrays.asList("someJar");
-    String imageName = "localimagename";
-
-    DataflowJobSpec jobToRun = new DataflowJobSpec(
-        localCommand, jars, imageName);
-
-    PObject<DataflowJobSpec> jobSpec = p.begin().apply(CreatePObject.of(
-        jobToRun)).setCoder(AvroCoder.of(DataflowJobSpec.class));
-
-    jobSpec.apply(new RunDataflowJob());
-    p.run();
+//    PipelineOptions options = PipelineOptionsFactory.create();
+//    DataflowParameters.setPipelineOptions(stage_options, options);
+//
+//    Pipeline p = Pipeline.create(options);
+//
+//    List<String> serviceCommand = Arrays.asList(
+//        "com.google.cloud.dataflow.examples.WordCount",
+//        "--runner", "BlockingDataflowPipelineRunner",
+//        "--gcloudPath", "/google-cloud-sdk/bin/gcloud",
+//        "--project", "biocloudops",
+//        "--stagingLocation", "gs://dataflow-dogfood2-jlewi/staging",
+//        "--input", "gs://dataflow-dogfood2-jlewi/nytimes-index.html",
+//        "--output", "gs://dataflow-dogfood2-jlewi/tmp/nytimes-counts.txt");
+//
+//    List<String> localCommand = Arrays.asList(
+//        "com.google.cloud.dataflow.examples.WordCount",
+//        "--runner", "DirectPipelineRunner", "--input", "/tmp/words",
+//        "--output", "/tmp/word-count.txt");
+//
+//    String bucket = "biocloudops-temp";
+//    String objectPath = "examples-1-20140730.jar";
+//    List<String> jars = Arrays.asList("someJar");
+//    String imageName = "localimagename";
+//
+//    DataflowJobSpec jobToRun = new DataflowJobSpec(
+//        localCommand, jars, imageName);
+//
+//    PObject<DataflowJobSpec> jobSpec = p.begin().apply(CreatePObject.of(
+//        jobToRun)).setCoder(AvroCoder.of(DataflowJobSpec.class));
+//
+//    jobSpec.apply(new RunDataflowJob());
+//    p.run();
   }
-
-  public static void main(String[] args) throws Exception {
-    int res = ToolRunner.run(
-        new Configuration(), new SubmitDataflowJob(), args);
-    System.exit(res);
-  }
+//
+//  public static void main(String[] args) throws Exception {
+//    int res = ToolRunner.run(
+//        new Configuration(), new SubmitDataflowJob(), args);
+//    System.exit(res);
+//  }
 }

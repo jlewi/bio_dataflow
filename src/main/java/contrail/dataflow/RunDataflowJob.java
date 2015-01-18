@@ -15,15 +15,13 @@
  */
 package contrail.dataflow;
 
-import org.apache.crunch.PObject;
-
-import com.google.cloud.dataflow.sdk.transforms.PTransform;
-import com.google.cloud.dataflow.sdk.values.POutput;
 
 /**
  * A transform for submitting a Dataflow job.
  */
-public class RunDataflowJob extends PTransform <PObject<DataflowJobSpec>, POutput>{
+// TOOD(jeremy@lewi.us): 2015-01-18 the code below needs to be updated to
+// work with the latest SDK.
+//public class RunDataflowJob extends PTransform <PObject<DataflowJobSpec>, POutput>{
 //  final static TupleTag<Integer> outputExitCodeTag = new TupleTag<Integer>(){};
 //  final static TupleTagList outputTags = TupleTagList.of(outputExitCodeTag);
 //
@@ -284,4 +282,4 @@ public class RunDataflowJob extends PTransform <PObject<DataflowJobSpec>, POutpu
 //    PObjectTuple jobSpecTuple = PObjectTuple.of(JOB_SPEC_TAG, input);
 //    return jobSpecTuple.apply(SeqDo.of(new RunDataflowJobDoFn()).withOutputTags(outputTags));
 //  }
-}
+//}

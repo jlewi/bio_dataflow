@@ -34,8 +34,10 @@ import com.google.cloud.dataflow.sdk.Pipeline;
 import com.google.cloud.dataflow.sdk.coders.AvroCoder;
 import com.google.cloud.dataflow.sdk.coders.KvCoder;
 import com.google.cloud.dataflow.sdk.coders.StringUtf8Coder;
+import com.google.cloud.dataflow.sdk.io.AvroIO;
 import com.google.cloud.dataflow.sdk.io.BigQueryIO;
-import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
+import com.google.cloud.dataflow.sdk.options.PipelineOptions;
+import com.google.cloud.dataflow.sdk.options.PipelineOptionsFactory;
 import com.google.cloud.dataflow.sdk.transforms.Count;
 import com.google.cloud.dataflow.sdk.transforms.DoFn;
 import com.google.cloud.dataflow.sdk.transforms.Keys;
@@ -107,7 +109,7 @@ public class CountReadToContigAlignments extends NonMRStage {
 
     PCollection<String> readIds = keyed.apply(Keys.<String>create());
     PCollection<KV<String, Long>> counts =
-        readIds.apply(Count.<String>create());
+        readIds.apply(Count.<String>perElement());
 
     PCollection<TableRow> rows = counts.apply(ParDo.of(
         new BuildRow()).named("ToBQRow"));
@@ -118,15 +120,15 @@ public class CountReadToContigAlignments extends NonMRStage {
   @Override
   protected void stageMain() {
     String inputPath = (String) stage_options.get("inputpath");
-    PipelineOptions options = new PipelineOptions();
+    PipelineOptions options = PipelineOptionsFactory.create();
     DataflowParameters.setPipelineOptions(stage_options, options);
 
     Pipeline p = Pipeline.create(options);
 
     DataflowUtil.registerAvroCoders(p);
 
-    PCollection<BowtieMapping> mappings = ReadAvroSpecificDoFn.readAvro(
-        BowtieMapping.class, p, options, inputPath);
+    PCollection<BowtieMapping> mappings = p.apply(
+        AvroIO.Read.from(inputPath).withSchema(BowtieMapping.class));
 
     PCollection<TableRow> rows = buildPipeline(p, mappings);
 

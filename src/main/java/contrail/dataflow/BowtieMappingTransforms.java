@@ -53,7 +53,7 @@ public class BowtieMappingTransforms {
     private transient BowtieParser parser;
 
     @Override
-    public void startBatch(Context c) {
+    public void startBundle(Context c) {
       parser = new BowtieParser();
     }
 

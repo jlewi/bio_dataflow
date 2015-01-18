@@ -32,19 +32,20 @@ import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.dataflow.sdk.Pipeline;
+import com.google.cloud.dataflow.sdk.coders.AvroCoder;
 import com.google.cloud.dataflow.sdk.coders.KvCoder;
 import com.google.cloud.dataflow.sdk.coders.StringUtf8Coder;
+import com.google.cloud.dataflow.sdk.io.AvroIO;
 import com.google.cloud.dataflow.sdk.io.BigQueryIO;
 import com.google.cloud.dataflow.sdk.options.PipelineOptions;
+import com.google.cloud.dataflow.sdk.options.PipelineOptionsFactory;
 import com.google.cloud.dataflow.sdk.transforms.DoFn;
-import com.google.cloud.dataflow.sdk.transforms.DoFn.ProcessContext;
 import com.google.cloud.dataflow.sdk.transforms.GroupByKey;
 import com.google.cloud.dataflow.sdk.transforms.ParDo;
 import com.google.cloud.dataflow.sdk.values.KV;
 import com.google.cloud.dataflow.sdk.values.PCollection;
 import com.google.common.collect.Lists;
 
-import contrail.dataflow.ValidateReadOrientation.FilterMatePairs;
 import contrail.scaffolding.BowtieMapping;
 import contrail.sequences.ReadId;
 import contrail.sequences.ReadIdUtil;
@@ -126,7 +127,7 @@ public class ValidateReadOrientation extends NonMRStage {
     private transient ReadIdParser parser;
 
     @Override
-    public void startBatch(Context c) throws Exception {
+    public void startBundle(Context c) throws Exception {
       parser = new ReadIdUtil.ReadParserUsingUnderscore();
     }
 
@@ -207,7 +208,7 @@ public class ValidateReadOrientation extends NonMRStage {
             .named("KeyByMateId"))
             .setCoder(KvCoder.of(
               StringUtf8Coder.of(),
-              AvroSpecificCoder.of(BowtieMapping.class)));
+              AvroCoder.of(BowtieMapping.class)));
 
     PCollection<KV<String, Iterable<BowtieMapping>>> paired =
         keyed.apply(GroupByKey.<String, BowtieMapping>create());
@@ -224,15 +225,15 @@ public class ValidateReadOrientation extends NonMRStage {
   @Override
   protected void stageMain() {
     String inputPath = (String) stage_options.get("inputpath");
-    PipelineOptions options = new PipelineOptions();
+    PipelineOptions options = PipelineOptionsFactory.create();
     DataflowParameters.setPipelineOptions(stage_options, options);
 
     Pipeline p = Pipeline.create(options);
 
     DataflowUtil.registerAvroCoders(p);
 
-    PCollection<BowtieMapping> mappings = ReadAvroSpecificDoFn.readAvro(
-        BowtieMapping.class, p, options, inputPath);
+    PCollection<BowtieMapping> mappings = p.apply(
+        AvroIO.Read.from(inputPath).withSchema(BowtieMapping.class));
 
     PCollection<TableRow> rows = buildPipeline(p, mappings);
 

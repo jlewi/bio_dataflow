@@ -33,9 +33,10 @@ import com.google.cloud.dataflow.sdk.Pipeline;
 import com.google.cloud.dataflow.sdk.coders.AvroCoder;
 import com.google.cloud.dataflow.sdk.coders.KvCoder;
 import com.google.cloud.dataflow.sdk.coders.StringUtf8Coder;
+import com.google.cloud.dataflow.sdk.io.AvroIO;
 import com.google.cloud.dataflow.sdk.io.TextIO;
-import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
-import com.google.cloud.dataflow.sdk.transforms.AsIterable;
+import com.google.cloud.dataflow.sdk.options.PipelineOptions;
+import com.google.cloud.dataflow.sdk.options.PipelineOptionsFactory;
 import com.google.cloud.dataflow.sdk.transforms.DoFn;
 import com.google.cloud.dataflow.sdk.transforms.ParDo;
 import com.google.cloud.dataflow.sdk.transforms.join.CoGbkResult;
@@ -43,8 +44,6 @@ import com.google.cloud.dataflow.sdk.transforms.join.CoGroupByKey;
 import com.google.cloud.dataflow.sdk.transforms.join.KeyedPCollectionTuple;
 import com.google.cloud.dataflow.sdk.values.KV;
 import com.google.cloud.dataflow.sdk.values.PCollection;
-import com.google.cloud.dataflow.sdk.values.PObject;
-import com.google.cloud.dataflow.sdk.values.PObjectTuple;
 import com.google.cloud.dataflow.sdk.values.TupleTag;
 
 import contrail.graph.GraphNode;
@@ -332,13 +331,16 @@ public class JoinMappingsAndReads extends NonMRStage {
     }
 
     @Override
-    public void startBatch(DoFn.Context c) {
-      Iterable<String> iterableIds =
-          (Iterable<String>) c.sideInput(contigIdsTag);
-      contigIds = new HashSet<String>();
-      for (String id : iterableIds) {
-        contigIds.add(id);
-      }
+    public void startBundle(DoFn.Context c) {
+        throw new RuntimeException(
+            "The code no longer appears to work with the latest version of " +
+            "the Dataflow sdk. Need tof igure out how to get side inputs");
+//      Iterable<String> iterableIds =
+//          (Iterable<String>) c.sideInput(contigIdsTag);
+//      contigIds = new HashSet<String>();
+//      for (String id : iterableIds) {
+//        contigIds.add(id);
+//      }
     }
 
     @Override
@@ -362,17 +364,20 @@ public class JoinMappingsAndReads extends NonMRStage {
   private PCollection<BowtieMapping> filterMappingsByContigs(
       PCollection<BowtieMapping> mappings, PCollection<String> contigIds) {
     // Pass the contigIds as a side input to the mapping filter function.
-    PObject<Iterable<String>> iterableIds =
-        contigIds.apply(AsIterable.<String>create());
+    throw new RuntimeException(
+        "2015-01-18 the code below needs to be updated to work with the " +
+        "latest SDK.");
+//    PObject<Iterable<String>> iterableIds =
+//        contigIds.apply(AsIterable.<String>create());
+//
+//    final TupleTag<Iterable<String>> contigIdsTag = new TupleTag<>();
+//    PObjectTuple sideTuple = PObjectTuple.of(contigIdsTag, iterableIds);
+//    PCollection<BowtieMapping> filteredMappings =
+//        mappings.apply(ParDo.named("FilterMappings")
+//            .withSideInputs(sideTuple)
+//            .of(new FilterBowtieMappingsByContigId(contigIdsTag)));
 
-    final TupleTag<Iterable<String>> contigIdsTag = new TupleTag<>();
-    PObjectTuple sideTuple = PObjectTuple.of(contigIdsTag, iterableIds);
-    PCollection<BowtieMapping> filteredMappings =
-        mappings.apply(ParDo.named("FilterMappings")
-            .withSideInputs(sideTuple)
-            .of(new FilterBowtieMappingsByContigId(contigIdsTag)));
-
-    return filteredMappings;
+    // return filteredMappings;
   }
 //  /**
 //   * Compute statistics about the alignment
@@ -502,20 +507,23 @@ public class JoinMappingsAndReads extends NonMRStage {
     outputPath += formatter.format(now);
     outputPath += "/";
 
-    PipelineOptions options = new PipelineOptions();
+    PipelineOptions options = PipelineOptionsFactory.create();
     DataflowParameters.setPipelineOptions(stage_options, options);
 
     Pipeline p = Pipeline.create(options);
 
     DataflowUtil.registerAvroCoders(p);
 
-    PCollection<GraphNodeData> nodes = ReadAvroSpecificDoFn.readAvro(
-        GraphNodeData.class, p, options, contigsPath);
+    PCollection<GraphNodeData> nodes = p.apply(
+        AvroIO.Read.from(contigsPath).withSchema(GraphNodeData.class));
 
-    PCollection<Read> reads = ReadAvroSpecificDoFn.readAvro(
-        Read.class, p, options, readsPath);
-    PCollection<BowtieMapping> mappings = ReadAvroSpecificDoFn.readAvro(
-        BowtieMapping.class, p, options, bowtieAlignmentsPath);
+
+    PCollection<Read> reads = p.apply(
+        AvroIO.Read.from(readsPath).withSchema(Read.class));
+
+    PCollection<BowtieMapping> mappings = p.apply(
+        AvroIO.Read.from(bowtieAlignmentsPath).withSchema(
+            BowtieMapping.class));
 
     BuildResult buildResult = buildPipeline(p, nodes, mappings, reads);
     PCollection<ContigReadAlignment> nodeReadsMappings = buildResult.joined;

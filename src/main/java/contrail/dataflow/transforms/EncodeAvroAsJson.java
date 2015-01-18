@@ -60,7 +60,7 @@ public class EncodeAvroAsJson<AvroType>
     }
 
     @Override
-    public void startBatch(Context c) {
+    public void startBundle(Context c) {
       // Parse the schema;
       Schema.Parser parser = new Schema.Parser();
       schema = parser.parse(jsonSchema);

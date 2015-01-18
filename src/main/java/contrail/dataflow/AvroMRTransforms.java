@@ -118,7 +118,11 @@ public class AvroMRTransforms {
 
     @Override
     public void startBundle(DoFn.Context c) {
-      mapper = (MAPPER) avroMapperClass.newInstance();
+      try {
+        mapper = (MAPPER) avroMapperClass.newInstance();
+      } catch (InstantiationException | IllegalAccessException e) {
+        throw new RuntimeException(e);
+      }
       mapper.configure(jobConf);
     }
 
@@ -170,7 +174,11 @@ public class AvroMRTransforms {
 
     @Override
     public void startBundle(DoFn.Context c) {
-      reducer = (REDUCER) avroReducerClass.newInstance();
+      try {
+        reducer = (REDUCER) avroReducerClass.newInstance();
+      } catch (InstantiationException | IllegalAccessException e) {
+        throw new RuntimeException(e);
+      }
       reducer.configure(jobConf);
     }
 
