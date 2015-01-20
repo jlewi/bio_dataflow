@@ -181,6 +181,12 @@
       <artifactId>google-cloud-dataflow-java-sdk-all</artifactId>
       <version>[0.3.141216,)</version>
    </dependency>
+   <!--Eclipse was complaining about not finding com.google.common.reflect.TypeToken-->
+   <dependency>
+     <groupId>com.google.guava</groupId>
+     <artifactId>guava</artifactId>
+     <version>[18.0,)</version>
+    </dependency>
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-core</artifactId>

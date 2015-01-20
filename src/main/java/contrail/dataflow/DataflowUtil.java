@@ -25,7 +25,9 @@ import com.google.cloud.dataflow.sdk.coders.AvroCoder;
 import com.google.cloud.dataflow.sdk.coders.Coder;
 import com.google.cloud.dataflow.sdk.coders.CoderRegistry;
 
+import contrail.graph.GraphError;
 import contrail.graph.GraphNodeData;
+import contrail.graph.ValidateMessage;
 import contrail.scaffolding.BowtieMapping;
 import contrail.scaffolding.ContigReadAlignment;
 import contrail.sequences.Read;
@@ -40,8 +42,11 @@ public class DataflowUtil {
         BowtieMapping.class,
         ContigReadAlignment.class,
         GCSAvroFileSplit.class,
+        GraphError.class,
         GraphNodeData.class,
-        Read.class);
+        Read.class,
+        ValidateMessage.class
+        );
 
     for (Class t : classes) {
       p.getCoderRegistry().registerCoder(

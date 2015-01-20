@@ -14,22 +14,6 @@
 // Author:Jeremy Lewi (jeremy@lewi.us)
 package contrail.stages;
 
-import contrail.graph.EdgeDirection;
-import contrail.graph.EdgeTerminal;
-import contrail.graph.GraphError;
-import contrail.graph.GraphErrorCodes;
-import contrail.graph.GraphNode;
-import contrail.graph.GraphNodeData;
-import contrail.graph.ValidateEdge;
-import contrail.graph.ValidateMessage;
-
-import contrail.sequences.DNAAlphabetFactory;
-import contrail.sequences.DNAStrand;
-import contrail.sequences.DNAUtil;
-import contrail.sequences.Sequence;
-import contrail.sequences.StrandsForEdge;
-import contrail.sequences.StrandsUtil;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -54,6 +38,21 @@ import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
+import contrail.graph.EdgeDirection;
+import contrail.graph.EdgeTerminal;
+import contrail.graph.GraphError;
+import contrail.graph.GraphErrorCodes;
+import contrail.graph.GraphNode;
+import contrail.graph.GraphNodeData;
+import contrail.graph.ValidateEdge;
+import contrail.graph.ValidateMessage;
+import contrail.sequences.DNAAlphabetFactory;
+import contrail.sequences.DNAStrand;
+import contrail.sequences.DNAUtil;
+import contrail.sequences.Sequence;
+import contrail.sequences.StrandsForEdge;
+import contrail.sequences.StrandsUtil;
+
 /**
  * This MR job checks that a graph is valid.
  * This version attempts to use as a GenericRecord as the input schema
@@ -75,6 +74,7 @@ public class ValidateGraph extends MRStage {
   private static final Logger sLogger = Logger.getLogger(
       ValidateGraph.class);
 
+  @Override
   protected Map<String, ParameterDefinition>
     createParameterDefinitions() {
       HashMap<String, ParameterDefinition> defs =
@@ -97,11 +97,12 @@ public class ValidateGraph extends MRStage {
    * For each node, the mapper sends messages to all the neighbors on
    * outgoing edges.
    */
-  protected static class ValidateGraphMapper extends
+  public static class ValidateGraphMapper extends
       AvroMapper<Object, Pair<CharSequence, ValidateMessage>> {
     private int K = 0;
     private GraphNode node = null;
     private Pair<CharSequence, ValidateMessage> outPair = null;
+    @Override
     public void configure(JobConf job) {
       ValidateGraph stage = new ValidateGraph();
       Map<String, ParameterDefinition> definitions =
@@ -192,6 +193,7 @@ public class ValidateGraph extends MRStage {
       }
     }
 
+    @Override
     public void configure(JobConf job) {
       node = new GraphNode();
       edges = new HashMap<DNAStrand, List<EdgeInfo>> ();

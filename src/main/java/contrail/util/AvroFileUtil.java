@@ -18,6 +18,7 @@ import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -244,6 +245,38 @@ public class AvroFileUtil {
       sLogger.fatal(
           "There was a problem writing the records to an avro file. " +
           "Exception: " + exception.getMessage(), exception);
+    }
+  }
+
+  /**
+   * Write a collection of records to an avro file.
+   *
+   * Use this function when the schema can't be inferred from the type of
+   * record.
+   *
+   * The stream is closed by the function.
+   *
+   * @param conf
+   * @param path
+   * @param records
+   */
+  public static <T extends GenericContainer> void writeRecords(
+      OutputStream outputStream, Iterable<? extends Object> records,
+      Schema schema) {
+    // Write the data to the file.
+    DatumWriter<Object> datumWriter = new SpecificDatumWriter<Object>(schema);
+    DataFileWriter<Object> writer = new DataFileWriter<Object>(datumWriter);
+
+    try {
+      writer.create(schema, outputStream);
+      for (Object record : records) {
+        writer.append(record);
+      }
+      writer.close();
+    } catch (IOException exception) {
+      sLogger.fatal(
+          "There was a problem writing the records to an avro file. " +
+              "Exception: " + exception.getMessage(), exception);
     }
   }
 

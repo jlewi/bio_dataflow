@@ -34,23 +34,25 @@ import contrail.stages.ParameterDefinition;
 public class DataflowParameters {
   public static List<ParameterDefinition> getDefinitions() {
     ArrayList<ParameterDefinition> defs = new ArrayList<ParameterDefinition>();
+    // TODO(jeremy@lewi.us): We should make project and stagingLocation
+    // required when executing on the service.
     ParameterDefinition project =
         new ParameterDefinition(
             "project", "The google cloud project to use when running on  " +
-            "Dataflow.", String.class, null);
+            "Dataflow.", String.class, "");
 
     defs.add(project);
 
     ParameterDefinition stagingLocation =
         new ParameterDefinition(
             "stagingLocation", "Location on GCS where files should be staged.",
-            String.class, null);
+            String.class, "");
     defs.add(stagingLocation);
 
     ParameterDefinition dataflowEndpoint =
         new ParameterDefinition(
             "dataflowEndpoint", "Dataflow endpoint",
-            String.class, null);
+            String.class, "");
     defs.add(dataflowEndpoint);
 
     ParameterDefinition numWorkers =
@@ -62,13 +64,13 @@ public class DataflowParameters {
     ParameterDefinition apiRootUrl =
         new ParameterDefinition(
             "apiRootUrl", "Root url.",
-            String.class, null);
+            String.class, "");
     defs.add(apiRootUrl);
 
     ParameterDefinition jobName =
         new ParameterDefinition(
             "jobName", "Name of the job.",
-            String.class, null);
+            String.class, "");
     defs.add(jobName);
 
     ParameterDefinition experiments =
@@ -98,28 +100,33 @@ public class DataflowParameters {
     // PipelineOptionsFactory and not have to duplicate all of the
     // dataflow pipeline options and parsing log ourselves?
     DataflowPipelineOptions dataflowOptions =
-        (DataflowPipelineOptions) options;
+        options.as(DataflowPipelineOptions.class);
 
-    dataflowOptions.setStagingLocation(
-        (String) stageOptions.get("stagingLocation"));
-    dataflowOptions.setNumWorkers(
-        (Integer) stageOptions.get("num_workers"));
+    if (!((String)stageOptions.get("stagingLocation")).isEmpty()) {
+      dataflowOptions.setStagingLocation(
+          (String) stageOptions.get("stagingLocation"));
+    }
 
-    if (stageOptions.get("dataflowEndpoint") != null) {
+    if (stageOptions.get("num_workers") != null) {
+      dataflowOptions.setNumWorkers(
+          (Integer) stageOptions.get("num_workers"));
+    }
+
+    if (!((String)stageOptions.get("dataflowEndpoint")).isEmpty()) {
       dataflowOptions.setDataflowEndpoint(
           (String) stageOptions.get("dataflowEndpoint"));
     }
 
-    if (stageOptions.get("apiRootUrl") != null) {
+    if (!((String)stageOptions.get("apiRootUrl")).isEmpty()) {
       dataflowOptions.setApiRootUrl(
           (String) stageOptions.get("apiRootUrl"));
     }
 
-    if (stageOptions.get("jobName") != null) {
+    if (!((String)(stageOptions.get("jobName"))).isEmpty()) {
       dataflowOptions.setJobName((String) stageOptions.get("jobName"));
     }
 
-    if (stageOptions.get("project") != null) {
+    if (!((String)stageOptions.get("project")).isEmpty()) {
       dataflowOptions.setProject((String) stageOptions.get("project"));
     }
 
@@ -136,7 +143,7 @@ public class DataflowParameters {
       }
     }
 
-    if (stageOptions.get("experiments") != null) {
+    if (!((String)stageOptions.get("experiments")).isEmpty()) {
       dataflowOptions.setExperiments(new ArrayList<String>());
       String experiments = (String) (stageOptions.get("experiments"));
       dataflowOptions.getExperiments().addAll(Arrays.asList(

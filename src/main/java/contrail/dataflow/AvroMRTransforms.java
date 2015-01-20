@@ -14,13 +14,22 @@
 // Author:Jeremy Lewi (jeremy@lewi.us)
 package contrail.dataflow;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+
+import org.apache.avro.Schema;
 import org.apache.avro.mapred.AvroCollector;
 import org.apache.avro.mapred.AvroMapper;
 import org.apache.avro.mapred.AvroReducer;
 import org.apache.avro.mapred.Pair;
+import org.apache.avro.specific.SpecificData;
 import org.apache.hadoop.mapred.Counters.Counter;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.log4j.Logger;
 
 import com.google.cloud.dataflow.sdk.transforms.DoFn;
 import com.google.cloud.dataflow.sdk.values.KV;
@@ -31,6 +40,8 @@ import com.google.cloud.dataflow.sdk.values.KV;
  * The reporter class for example currently does nothing.
  */
 public class AvroMRTransforms {
+  private static final Logger sLogger = Logger.getLogger(
+      AvroMRTransforms.class);
   private static class Reporter implements org.apache.hadoop.mapred.Reporter {
     @Override
     public void progress() {
@@ -86,11 +97,16 @@ public class AvroMRTransforms {
       MAPPER extends AvroMapper<I, Pair<OUT_KEY, OUT_VALUE>>, I, OUT_KEY, OUT_VALUE>
           extends DoFn<I, KV<OUT_KEY, OUT_VALUE>> {
     private Class avroMapperClass;
-    private JobConf jobConf;
+    private byte[] jobConfBytes;
+    private String keySchemaJson;
+    private String valueSchemaJson;
 
+    transient private Schema keySchema;
+    transient private Schema valueSchema;
     transient MAPPER mapper;
     transient DataflowAvroCollector collector;
     transient Reporter reporter;
+    transient JobConf jobConf;
     /**
      * A wrapper for AvroCollector that will emit the values using Dataflow.
      * @param <TYPE>
@@ -101,7 +117,11 @@ public class AvroMRTransforms {
 
       @Override
       public void collect(Pair<OUT_KEY, OUT_VALUE> p) {
-        c.output(KV.of(p.key(), p.value()));
+        // We need to make a copy of the data because the mapper could
+        // reuse the variables.
+        OUT_KEY k = SpecificData.get().deepCopy(keySchema, p.key());
+        OUT_VALUE v = SpecificData.get().deepCopy(valueSchema, p.value());
+        c.output(KV.of(k, v));
       }
     }
 
@@ -109,11 +129,20 @@ public class AvroMRTransforms {
      *
      * @param avroMapperClass The class for the mapper.
      */
-    public AvroMapperDoFn(Class avroMapperClass, JobConf conf) {
+    public AvroMapperDoFn(
+        Class avroMapperClass, JobConf conf, Schema outKeySchema,
+        Schema outValueSchema) {
       this.avroMapperClass = avroMapperClass;
       this.jobConf = conf;
-      this.collector = new DataflowAvroCollector();
-      this.reporter = new Reporter();
+      this.keySchema = outKeySchema;
+      this.valueSchema = outValueSchema;
+
+      this.keySchemaJson = keySchema.toString();
+      this.valueSchemaJson = valueSchema.toString();
+
+      jobConfBytes = serializeJobConf(conf);
+      collector = new DataflowAvroCollector();
+      reporter = new Reporter();
     }
 
     @Override
@@ -123,7 +152,12 @@ public class AvroMRTransforms {
       } catch (InstantiationException | IllegalAccessException e) {
         throw new RuntimeException(e);
       }
+      this.keySchema = Schema.parse(keySchemaJson);
+      this.valueSchema = Schema.parse(valueSchemaJson);
+      jobConf = deserializeJobConf(jobConfBytes);
+      collector = new DataflowAvroCollector();
       mapper.configure(jobConf);
+      reporter = new Reporter();
     }
 
     @Override
@@ -141,8 +175,11 @@ public class AvroMRTransforms {
       extends DoFn<KV<INPUT_KEY, Iterable<INPUT_VALUE>>, OUT> {
 
     private Class avroReducerClass;
-    private JobConf jobConf;
+    private byte[] jobConfBytes;
+    private String valueSchemaJson;
 
+    transient Schema valueSchema;
+    transient private JobConf jobConf;
     transient REDUCER reducer;
     transient DataflowAvroCollector collector;
     transient Reporter reporter;
@@ -157,7 +194,10 @@ public class AvroMRTransforms {
 
       @Override
       public void collect(OUT v) {
-        c.output(v);
+        // We need to make a copy of the data because the reuse could
+        // reuse the variables.
+        OUT copy = SpecificData.get().deepCopy(valueSchema, v);
+        c.output(copy);
       }
     }
 
@@ -165,9 +205,13 @@ public class AvroMRTransforms {
      *
      * @param avroMapperClass The class for the mapper.
      */
-    public AvroReducerDoFn(Class avroReducerClass, JobConf conf) {
+    public AvroReducerDoFn(Class avroReducerClass, JobConf conf,
+        Schema valueSchema) {
       this.avroReducerClass = avroReducerClass;
+      this.valueSchema = valueSchema;
+      this.valueSchemaJson = this.valueSchema.toString();
       this.jobConf = conf;
+      this.jobConfBytes = serializeJobConf(conf);
       this.collector = new DataflowAvroCollector();
       this.reporter = new Reporter();
     }
@@ -179,6 +223,10 @@ public class AvroMRTransforms {
       } catch (InstantiationException | IllegalAccessException e) {
         throw new RuntimeException(e);
       }
+      valueSchema = Schema.parse(valueSchemaJson);
+      jobConf = deserializeJobConf(jobConfBytes);
+      collector = new DataflowAvroCollector();
+      reporter = new Reporter();
       reducer.configure(jobConf);
     }
 
@@ -192,5 +240,41 @@ public class AvroMRTransforms {
           inputs.getKey(), inputs.getValue(), this.collector,
           this.reporter);
     }
+  }
+
+  /**
+   * Serialize the job configuration to an array of byte.
+   * @param conf
+   * @return
+   */
+  public static byte[] serializeJobConf(JobConf conf) {
+    ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+    DataOutputStream dataStream = new DataOutputStream(byteStream);
+    try {
+      conf.write(dataStream);
+    } catch (IOException e) {
+      throw new RuntimeException(
+          "There was a problem serializing job conf.", e);
+    }
+    return byteStream.toByteArray();
+  }
+
+  /**
+   * Serialize the job configuration to an array of byte.
+   * @param conf
+   * @return
+   */
+  public static JobConf deserializeJobConf(byte[] bytes) {
+    JobConf jobConf = new JobConf();
+
+    ByteArrayInputStream byteStream = new ByteArrayInputStream(bytes);
+    DataInputStream dataStream = new DataInputStream(byteStream);
+    try {
+      jobConf.readFields(dataStream);
+    } catch (IOException e) {
+      throw new RuntimeException(
+          "There was a problem deserializing job conf.", e);
+    }
+    return jobConf;
   }
 }
