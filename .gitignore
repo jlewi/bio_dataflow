@@ -9,6 +9,7 @@ nbactions.xml
 
 # Ignore build files
 target/*
+/**/target/*
 
 # Temporary files.
 .*~
@@ -27,3 +28,4 @@ scaffolding/bin/*
 #Ignore flash related stuff
 Flash*
 /target/
+
