@@ -14,15 +14,18 @@
 // Author: Jeremy Lewi(jeremy@lewi.us)
 package contrail.stages;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.util.ToolRunner;
 
 import contrail.util.ContrailLogger;
@@ -68,12 +71,17 @@ public class ResolveThreadsPipeline extends PipelineStage {
     String outputPath = (String) stage_options.get("outputpath");
 
     String lastOutput = null;
+    // Keep track of the directories for the steps. We use this to determine
+    // when a directory can be deleted.
+    LinkedList<String> stepDirs = new LinkedList<String>();
     while (true) {
       ++step;
       sLogger.info(String.format("Starting step %d", step));
 
       String stepDir = FilenameUtils.concat(
           outputPath, String.format("step_%03d", step));
+
+      stepDirs.addLast(stepDir);
 
       // Split the graph into subgraphs for which we will resolve the threads.
       SplitThreadableGraph splitStage = new SplitThreadableGraph();
@@ -160,6 +168,20 @@ public class ResolveThreadsPipeline extends PipelineStage {
       }
       lastOutput = resolveOutput;
       inputPath = resolveOutput;
+
+      while (stepDirs.size() > 1) {
+        // We need to keep the most recent directory but the others can be deleted
+        // because they contain old files.
+        String pathToDelete = stepDirs.removeFirst();
+        sLogger.info("Deleting:" + pathToDelete);
+        Path toDelete = new Path(pathToDelete);
+        try {
+          toDelete.getFileSystem(getConf()).delete(toDelete, true);
+        } catch (IOException e) {
+          sLogger.warn(String.format("Error deleting %s. Exception %s",
+              pathToDelete, e.getMessage()));
+        }
+      }
     }
 
     if (step > 0) {

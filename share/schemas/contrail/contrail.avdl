@@ -57,6 +57,7 @@ protocol ContrailProtocol {
   	import schema "stages/quick_mark_message.avsc";
   	import schema "stages/remove_neighbor_message.avsc";
   	import schema "stages/remove_tip_message.avsc";
+
 	
 	import schema "stages/counter_info.avsc";
 	import schema "stages/stage_state.avsc";
@@ -68,6 +69,7 @@ protocol ContrailProtocol {
 	import schema "scaffolding/contig_edge.avsc";
 	import schema "scaffolding/contig_link.avsc";
 	import schema "scaffolding/library.avsc";
+
 	import schema "scaffolding/mate_pair_mappings.avsc";	
 	import schema "scaffolding/contig_read_alignment.avsc";
 	import schema "scaffolding/mapping_read_pair.avsc";
@@ -76,4 +78,10 @@ protocol ContrailProtocol {
 	// Dataflow.
 	import schema "dataflow/gcs_avro_file_split.avsc";
 	import schema "dataflow/bowtie_input.avsc";
+
+	import schema "scaffolding/mate_pair_mappings.avsc";
+		
+	record ContigReadAlignment {
+		string name;		
+	}
 }

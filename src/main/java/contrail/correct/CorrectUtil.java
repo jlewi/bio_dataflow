@@ -15,12 +15,12 @@
 
 package contrail.correct;
 import java.io.BufferedWriter;
-import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 
 import org.apache.avro.mapred.AvroCollector;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
@@ -44,7 +44,8 @@ public class CorrectUtil {
    */
   public void writeLocalFile(ArrayList<String> records, String filePath){
     try{
-      FileWriter fstream = new FileWriter(filePath,true);
+      sLogger.info(String.format("Writing %d records to: %s", records.size(), filePath));
+      FileWriter fstream = new FileWriter(filePath, true);
       BufferedWriter out = new BufferedWriter(fstream);
       for(int i=0;i<records.size();i++){
         out.write(records.get(i)+"\n");
@@ -140,14 +141,20 @@ public class CorrectUtil {
 
   /**
    * Emits a fastQ file from local FS onto HDFS.
-   * @param fastqFile : The file to be emitted
+   * @param fastqFile : The file to be emitted. The file should include the prefix "file://"
+   *   if the file is to be read from the local filesystem.
    * @param output : An instance of the outputCollector
    * @throws IOException
    */
   public void emitFastqFileToHDFS(
-      File fastqFile, AvroCollector<FastQRecord> collector) throws IOException{
+      String fastqFile, AvroCollector<FastQRecord> collector, Configuration conf) throws IOException {
+	if (!fastqFile.startsWith("file:///")) {
+	  throw new RuntimeException(String.format(
+			  "The path %s doesn't start with the prefix file:/// which means it won't be read from the local " +
+			  "filesystem but use the default filesystem.", fastqFile));
+	}
     FastQRecord fastq = new FastQRecord();
-    FastQFileReader reader = new FastQFileReader(fastqFile.getAbsolutePath());
+    FastQFileReader reader = new FastQFileReader(fastqFile, conf);
     while(reader.hasNext()){
       fastq = reader.next();
       collector.collect(fastq);
@@ -162,14 +169,18 @@ public class CorrectUtil {
    * @throws IOException
    */
   public void emitQuakeFastqFileToHDFS(
-      File fastqFile, AvroCollector<Read> collector) throws IOException{
-    FastQRecord fastq = new FastQRecord();
+      String fastqFile, AvroCollector<Read> collector, Configuration conf) throws IOException{
+    if (!fastqFile.startsWith("file:///")) {
+	  throw new RuntimeException(String.format(
+			  "The path %s doesn't start with the prefix file:/// which means it won't be read from the local " +
+			  "filesystem but use the default filesystem.", fastqFile));
+	}
+	FastQRecord fastq = new FastQRecord();
     Read read = new Read();
     read.setQuakeReadCorrection(new QuakeReadCorrection());
-    FastQFileReader reader = new FastQFileReader(fastqFile.getAbsolutePath());
+    FastQFileReader reader = new FastQFileReader(fastqFile, conf);
     while(reader.hasNext()){
       fastq = reader.next();
-
       convertFastQToRead(fastq, read);
       collector.collect(read);
     }

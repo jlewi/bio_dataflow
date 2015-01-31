@@ -256,17 +256,17 @@ public class InvokeQuake extends MRStage{
         System.exit(-1);
       }
 
-      File correctedFilePath = new File(
-          FilenameUtils.removeExtension(fastqPath) +  ".cor.fq");
+      String correctedFilePath =
+          "file://" + FilenameUtils.removeExtension(fastqPath) +  ".cor.fq";
 
-      if (!correctedFilePath.exists()) {
+      if (! new File(correctedFilePath).exists()) {
         sLogger.fatal(
             "Expected the corrected reads to be in file:" +
-            correctedFilePath.getPath() + " but the file doesn't exist.",
+            correctedFilePath + " but the file doesn't exist.",
             new RuntimeException("Problem with quake"));
       }
-      sLogger.info("corrected path: " + correctedFilePath.getPath());
-      correctUtil.emitQuakeFastqFileToHDFS(correctedFilePath, output);
+      sLogger.info("corrected path: " + correctedFilePath);
+      correctUtil.emitQuakeFastqFileToHDFS(correctedFilePath, output, getConf());
 
       // Read the stats.
       File statsPath = new File(
