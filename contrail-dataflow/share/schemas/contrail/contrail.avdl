@@ -26,9 +26,7 @@ protocol ContrailProtocol {
 	import schema "graph/neighbor_data.avsc";
 	import schema "graph/graph_node_data.avsc";
 	
-	import schema "graph/kmer_edge.avsc";
-	
-	import schema "graph/validate_edge.avsc";
+	import schema "graph/kmer_edge.avsc";	import schema "graph/validate_edge.avsc";
 	import schema "graph/validate_message.avsc";
 	import schema "graph/graph_error_codes.avsc";
 	import schema "graph/graph_error.avsc";
@@ -78,8 +76,6 @@ protocol ContrailProtocol {
 	// Dataflow.
 	import schema "dataflow/gcs_avro_file_split.avsc";
 	import schema "dataflow/bowtie_input.avsc";
-
-	import schema "scaffolding/mate_pair_mappings.avsc";
 		
 	record ContigReadAlignment {
 		string name;		
