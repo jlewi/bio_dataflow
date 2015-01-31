@@ -12,16 +12,15 @@
  * limitations under the License.
  */
 // Author:Jeremy Lewi (jeremy@lewi.us)
-package contrail.stages;
+package contrail.dataflow.stages;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.security.auth.login.Configuration;
+
 import org.apache.avro.Schema;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 import com.google.cloud.dataflow.sdk.Pipeline;
@@ -37,9 +36,9 @@ import com.google.cloud.dataflow.sdk.values.PCollection;
 import contrail.dataflow.AvroMRTransforms;
 import contrail.dataflow.CharSequenceCoder;
 import contrail.dataflow.DataflowUtil;
-import contrail.graph.GraphError;
-import contrail.graph.GraphNodeData;
-import contrail.graph.ValidateMessage;
+import contrail.stages.ContrailParameters;
+import contrail.stages.ParameterDefinition;
+import contrail.stages.ValidateGraph;
 
 /**
  * A dataflow for checking that a graph is valid.

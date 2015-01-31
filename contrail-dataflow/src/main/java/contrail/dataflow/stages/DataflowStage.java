@@ -1,4 +1,4 @@
-package contrail.stages;
+package contrail.dataflow.stages;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -11,6 +11,8 @@ import com.google.cloud.dataflow.sdk.options.PipelineOptions;
 import com.google.cloud.dataflow.sdk.options.PipelineOptionsFactory;
 
 import contrail.dataflow.DataflowParameters;
+import contrail.stages.NonMRStage;
+import contrail.stages.ParameterDefinition;
 
 /**
  * Stage with hooks for customizing different parts of execution for a stage
