@@ -1,0 +1,4 @@
+[submodule "contrail"]
+	path = contrail
+	url = https://jlewi@bitbucket.org/jlewi/contrail
+	branch = lewi_master
