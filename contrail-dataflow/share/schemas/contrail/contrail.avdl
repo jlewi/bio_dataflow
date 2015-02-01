@@ -1,12 +1,13 @@
-protocol ContrailProtocol {	
+protocol ContrailProtocol {
+	// Import all the contrail classes
+	import idl "../../../../contrail/share/schemas/contrail/contrail.avdl";
     // The import statements must be ordered topologically with respect to 
     // dependencies. i.e. a schema should only appear after all its 
     // dependencies.
     
-    // Dataflow.	
+    // Dataflow.
+    import schema "scaffolding/contig_read_alignment.avsc";
+    import schema "scaffolding/mapping_read_pair.avsc";
+    import schema "scaffolding/contig_read_mappings.avsc";	
 	import schema "dataflow/bowtie_input.avsc";
-			
-	record ContigReadAlignment {
-		string name;		
-	}
 }

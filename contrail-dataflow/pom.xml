@@ -52,6 +52,20 @@
       <artifactId>commons-cli</artifactId>
       <version>1.2</version>
     </dependency>
+    <!-- Hadoop is used to wrap existing hadoop jobs with Dataflow code. -->
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-core</artifactId>
+      <version>1.2.1</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <!--hadoop 1.2.1 appears to pull in version 3.1 which has an invalid pom.xml.-->
+      <groupId>asm</groupId>
+      <artifactId>asm</artifactId>
+      <version>3.3</version>
+      <scope>provided</scope>
+    </dependency>
     <dependency>
       <!-- We have a couple references to junit in non test files.For example, ContrailLogger calls JUnit.fail when in test mode.-->
       <groupId>junit</groupId>
@@ -105,6 +119,12 @@
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-annotations</artifactId>
       <version>2.4.1</version>
+    </dependency>
+    <!-- Codec library provides base64 encoding. -->
+    <dependency>
+      <groupId>org.apache.directory.studio</groupId>
+      <artifactId>org.apache.commons.codec</artifactId>
+      <version>1.8</version>
     </dependency>
     <!-- Docker Client used by Dataflow programs.-->
     <dependency>
@@ -199,6 +219,8 @@
               <includes>
                 <include>*.avdl</include>
               </includes>
+              <!--Include the schemas from contrail because we build on them. -->
+	          <!--<sourceDirectory>${project.basedir}/../contrail/share/schemas/contrail/</sourceDirectory>-->
               <sourceDirectory>${project.basedir}/share/schemas/contrail/</sourceDirectory>
               <outputDirectory>${project.build.directory}/generated-sources/java</outputDirectory>
             </configuration>
@@ -211,8 +233,10 @@
         <artifactId>maven-bundle-plugin</artifactId>
         <version>2.4.0</version>
         <extensions>true</extensions>
-        <configuration>
+        <configuration>        
           <instructions>
+            <!-- Embed all dependencies -->
+	        <Embed-Transitive>true</Embed-Transitive>            
             <!-- Embed all dependencies -->
             <Embed-Dependency>*;scope=compile|runtime;inline=true</Embed-Dependency>
           </instructions>
