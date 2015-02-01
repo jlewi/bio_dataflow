@@ -2,3 +2,6 @@
 	path = contrail
 	url = https://jlewi@bitbucket.org/jlewi/contrail
 	branch = lewi_master
+[submodule "dataflow"]
+	path = dataflow
+	url = https://jlewi@bitbucket.org/jlewi/dataflow.git
