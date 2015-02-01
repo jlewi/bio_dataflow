@@ -1,9 +1,0 @@
-{"name": "contrail.ReadState",
- "type":  "enum",
- "doc": ["ReadState provides information about where a KMer came from in ",
-         "a read. STARTFORWARD and STARTREVERSE indicate the KMer came ",
-         "the start of the read from the forward or reverse strand ",
-         "resepectively. MIDDLE means the KMer is from the middle of the ",
-         "read. END means its from the end of the read."],
- "symbols": ["STARTFORWARD", "STARTREVERSE", "MIDDLE", "END"]
-}

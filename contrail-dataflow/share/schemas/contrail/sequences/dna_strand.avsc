@@ -1,6 +1,0 @@
-{"name": "DNAStrand",
- "namespace": "contrail.sequences",
- "type":  "enum",
- "doc": "Enumeration for representing which DNAStrand a fragment comes from.",
- "symbols": ["FORWARD", "REVERSE"]
-}   

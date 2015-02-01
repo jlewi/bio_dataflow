@@ -1,5 +1,0 @@
-{"name": "contrail.correct.Phase",
- "type":  "enum",
- "doc": "Enumeration for representing the phase.",
- "symbols": ["BEFORE", "AFTER"]
-}

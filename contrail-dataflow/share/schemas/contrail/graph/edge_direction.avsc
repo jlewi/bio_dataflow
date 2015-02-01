@@ -1,5 +1,0 @@
- {"type": "enum",
- "name": "EdgeDirection",
- "namespace": "contrail.graph",
- "symbols": ["INCOMING", "OUTGOING"]
-},
