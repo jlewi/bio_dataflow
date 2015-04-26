@@ -18,7 +18,6 @@ package contrail.dataflow;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 import com.spotify.docker.client.DockerClient;
 import com.spotify.docker.client.DockerClient.LogsParameter;
@@ -38,7 +37,7 @@ public class DockerProcessBuilder {
 
   private final List<VolumeMapping> volumeMappings;
   private final DockerClient docker;
-  
+
   // Information about how to map a local file system path to a path in
   // the docker filesystem.
   private class VolumeMapping {
@@ -59,12 +58,12 @@ public class DockerProcessBuilder {
     }
   }
 
-  public DockerProcessBuilder(List<String> command, DockerClient docker) {	
+  public DockerProcessBuilder(List<String> command, DockerClient docker) {
     this.command = command;
-	volumeMappings = new ArrayList<VolumeMapping>();
-	this.docker = docker;
+    volumeMappings = new ArrayList<VolumeMapping>();
+    this.docker = docker;
   }
-  
+
   /**
    * Add a mapping from localDir on the local filesystem to the directory
    * containerDir in the filesystem.
@@ -81,31 +80,27 @@ public class DockerProcessBuilder {
   }
 
   public DockerProcess start() throws IOException, DockerException, InterruptedException {
-    // Fetch the image if its in a repository.
-    //docker.pull(imageName);
-    
     ContainerConfig config = ContainerConfig.builder()
         .image(imageName)
         .cmd(command)
         .attachStderr(true)
         .attachStderr(true)
         .build();
-    
-    
-    ContainerCreation creation = docker.createContainer(config);    
+
+    ContainerCreation creation = docker.createContainer(config);
     String id = creation.id();
     ContainerInfo info = docker.inspectContainer(id);
     docker.startContainer(id);
     docker.waitContainer(id);
-        
+
     LogStream stdOut = docker.logs(id, LogsParameter.STDOUT);
     System.out.println(stdOut.readFully());
     LogStream stdErr = docker.logs(id, LogsParameter.STDERR);
     System.out.println(stdErr.readFully());
-    
+
     // Remove the container.
     docker.removeContainer(id);
 
-     return null;
+    return null;
   }
 }
