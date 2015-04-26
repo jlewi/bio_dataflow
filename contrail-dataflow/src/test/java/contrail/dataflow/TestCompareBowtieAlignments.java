@@ -18,9 +18,9 @@ import org.junit.Test;
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.cloud.dataflow.sdk.Pipeline;
 import com.google.cloud.dataflow.sdk.PipelineResult;
-import com.google.cloud.dataflow.sdk.runners.DirectPipelineRunner;
+import com.google.cloud.dataflow.sdk.options.PipelineOptions;
+import com.google.cloud.dataflow.sdk.options.PipelineOptionsFactory;
 import com.google.cloud.dataflow.sdk.runners.DirectPipelineRunner.EvaluationResults;
-import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
 import com.google.cloud.dataflow.sdk.transforms.Create;
 import com.google.cloud.dataflow.sdk.values.PCollection;
 
@@ -101,10 +101,11 @@ public class TestCompareBowtieAlignments {
 
   @Test
   public void testJoin() {
+    // TODO(jeremy@lewi.us): Need to update this test to use the TestPipeline
+    // class.
     TestCase testData = new TestCase();
 
-    PipelineOptions options = new PipelineOptions();
-    options.runner = DirectPipelineRunner.class.getSimpleName();
+    PipelineOptions options = PipelineOptionsFactory.create();
     Pipeline p = Pipeline.create(options);
     DataflowUtil.registerAvroCoders(p);
 

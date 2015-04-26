@@ -29,7 +29,6 @@ import contrail.graph.GraphError;
 import contrail.graph.GraphNodeData;
 import contrail.graph.ValidateMessage;
 import contrail.scaffolding.BowtieMapping;
-import contrail.scaffolding.ContigReadAlignment;
 import contrail.sequences.Read;
 
 public class DataflowUtil {
@@ -40,8 +39,6 @@ public class DataflowUtil {
   public static void registerAvroCoders(Pipeline p) {
     List<Class<? extends SpecificRecordBase>> classes = Arrays.asList(
         BowtieMapping.class,
-        ContigReadAlignment.class,
-        GCSAvroFileSplit.class,
         GraphError.class,
         GraphNodeData.class,
         Read.class,

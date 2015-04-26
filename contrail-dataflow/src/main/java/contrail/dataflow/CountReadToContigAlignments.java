@@ -17,6 +17,7 @@ package contrail.dataflow;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -76,10 +77,10 @@ public class CountReadToContigAlignments extends NonMRStage {
       }
     }
 
-    ContrailParameters.add(defs, new ParameterDefinition(
+    ContrailParameters.addList(defs, Arrays.asList(new ParameterDefinition(
         "output", "The table to write to. This should be in the form " +
             "<project>:<dataset>.<table> table is overwritten if it exists.",
-            String.class, null));
+            String.class, null)));
 
     ContrailParameters.addList(defs,  DataflowParameters.getDefinitions());
     return Collections.unmodifiableMap(defs);

@@ -104,7 +104,7 @@
       <groupId>com.google.cloud.dataflow</groupId>
       <artifactId>google-cloud-dataflow-java-sdk-all</artifactId>
       <!--<version>[0.3.141216,)</version>-->
-      <version>LATEST</version>
+      <version>LATEST</VERSION>
     </dependency>
     <!--Eclipse was complaining about not finding com.google.common.reflect.TypeToken-->
     <dependency>

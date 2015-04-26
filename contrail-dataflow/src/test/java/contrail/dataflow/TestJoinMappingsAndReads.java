@@ -13,17 +13,18 @@ import org.apache.avro.specific.SpecificData;
 import org.junit.Test;
 
 import com.google.cloud.dataflow.sdk.Pipeline;
+import com.google.cloud.dataflow.sdk.options.PipelineOptions;
 import com.google.cloud.dataflow.sdk.runners.DirectPipelineRunner;
-import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
+import com.google.cloud.dataflow.sdk.testing.TestPipeline;
 import com.google.cloud.dataflow.sdk.transforms.Create;
 import com.google.cloud.dataflow.sdk.values.PCollection;
 
+import contrail.ContigReadAlignment;
 import contrail.dataflow.JoinMappingsAndReads.BuildResult;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.graph.GraphTestUtil;
 import contrail.scaffolding.BowtieMapping;
-import contrail.scaffolding.ContigReadAlignment;
 import contrail.sequences.AlphabetUtil;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.FastQRecord;
@@ -60,9 +61,7 @@ public class TestJoinMappingsAndReads {
 
   @Test
   public void testJoinMappingsAndReads() {
-    PipelineOptions options = new PipelineOptions();
-
-    Pipeline p = Pipeline.create();
+    TestPipeline p = TestPipeline.create();
     DataflowUtil.registerAvroCoders(p);
 
     Read readA = randomRead("readA");
