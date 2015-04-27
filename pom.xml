@@ -8,6 +8,7 @@
   <packaging>pom</packaging>
   <modules>
     <module>contrail</module>
+    <module>dataflow-module</module>
     <module>contrail-dataflow</module>
   </modules>
 </project>
