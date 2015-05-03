@@ -69,6 +69,11 @@ public class SimulateReads {
     @Default.String("unix:///var/run/docker.sock")
     String getDockerAddress();
     void setDockerAddress(String value);
+
+    @Description("Whether to start Docker")
+    @Default.Boolean(true)
+    Boolean getStartDocker();
+    void setStartDocker(Boolean value);
   }
 
   /**
@@ -206,6 +211,10 @@ public class SimulateReads {
       data.readLength = 100;
       inputs.add(data);
     }
+
+    // We need to explicitly set and not just rely on the default because
+    // of b/20782642.
+    options.setStartDocker(true);
 
     // TODO(jeremy@lewi.us): We might want to make each path its own
     // PCollection and then flatten them together to increase likelihood
