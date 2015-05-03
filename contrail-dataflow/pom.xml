@@ -24,6 +24,16 @@
       <artifactId>contrail</artifactId>
       <version>1.0-SNAPSHOT</version>
     </dependency>
+    <!-- We need a depedency on the test jar for contrail because the
+         test jar contaiins some test utilities that we reuse in some
+         of the tests.-->
+     <dependency>
+      <groupId>contrail</groupId>
+      <artifactId>contrail</artifactId>
+      <version>1.0-SNAPSHOT</version>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
     <!-- This is a library of dataflow utilities -->
     <dependency>
       <groupId>dataflow</groupId>
@@ -238,18 +248,31 @@
       </plugin>
       <!-- An alternative plugin for creating bundles. -->
       <plugin>
-        <groupId>org.apache.felix</groupId>
-        <artifactId>maven-bundle-plugin</artifactId>
-        <version>2.4.0</version>
-        <extensions>true</extensions>
-        <configuration>        
-          <instructions>
-            <!-- Embed all dependencies -->
-	        <Embed-Transitive>true</Embed-Transitive>            
-            <!-- Embed all dependencies -->
-            <Embed-Dependency>*;scope=compile|runtime;inline=true</Embed-Dependency>
-          </instructions>
-        </configuration>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>2.3</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <filters>
+                <filter>
+                  <artifact>*:*</artifact>
+                  <!-- We need to exclude the signatures for any signed jars otherwise
+                   we get an exception. -->
+                  <excludes>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                  </excludes>
+                </filter>
+              </filters>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
     <!--The tests should include the json files for integration tests.-->
