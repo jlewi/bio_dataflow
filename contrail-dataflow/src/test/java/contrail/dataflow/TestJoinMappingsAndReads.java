@@ -14,17 +14,19 @@ import org.junit.Test;
 
 import com.google.cloud.dataflow.sdk.Pipeline;
 import com.google.cloud.dataflow.sdk.options.PipelineOptions;
+import com.google.cloud.dataflow.sdk.options.PipelineOptionsFactory;
 import com.google.cloud.dataflow.sdk.runners.DirectPipelineRunner;
+import com.google.cloud.dataflow.sdk.runners.DirectPipelineRunner.EvaluationResults;
 import com.google.cloud.dataflow.sdk.testing.TestPipeline;
 import com.google.cloud.dataflow.sdk.transforms.Create;
 import com.google.cloud.dataflow.sdk.values.PCollection;
 
-import contrail.ContigReadAlignment;
 import contrail.dataflow.JoinMappingsAndReads.BuildResult;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.graph.GraphTestUtil;
 import contrail.scaffolding.BowtieMapping;
+import contrail.scaffolding.ContigReadAlignment;
 import contrail.sequences.AlphabetUtil;
 import contrail.sequences.DNAAlphabetFactory;
 import contrail.sequences.FastQRecord;
@@ -84,8 +86,7 @@ public class TestJoinMappingsAndReads {
     PCollection<ContigReadAlignment> joined = stage.joinMappingsAndReads(
         mappings, reads);
 
-    DirectPipelineRunner runner = DirectPipelineRunner.fromOptions(options);
-    DirectPipelineRunner.EvaluationResults result = p.run(runner);
+    DirectPipelineRunner.EvaluationResults result = (EvaluationResults) p.run();
     List<ContigReadAlignment> finalResults = result.getPCollection(joined);
 
     assertEquals(2, finalResults.size());
@@ -131,8 +132,8 @@ public class TestJoinMappingsAndReads {
       expected.put(contigId, joined);
     }
 
-    PipelineOptions options = new PipelineOptions();
-    Pipeline p = Pipeline.create();
+    PipelineOptions options = PipelineOptionsFactory.create();
+    Pipeline p = Pipeline.create(options);
     DataflowUtil.registerAvroCoders(p);
 
     PCollection<ContigReadAlignment> alignmentsCollection = p.begin().apply(
@@ -146,8 +147,8 @@ public class TestJoinMappingsAndReads {
     PCollection<ContigReadAlignment> joined = stage.joinNodes(
         alignmentsCollection, nodesCollection);
 
-    DirectPipelineRunner runner = DirectPipelineRunner.fromOptions(options);
-    DirectPipelineRunner.EvaluationResults result = p.run(runner);
+
+    DirectPipelineRunner.EvaluationResults result = (EvaluationResults) p.run();
     List<ContigReadAlignment> finalResults = result.getPCollection(joined);
 
     assertEquals(2, finalResults.size());
@@ -216,8 +217,8 @@ public class TestJoinMappingsAndReads {
       }
     }
 
-    PipelineOptions options = new PipelineOptions();
-    Pipeline p = Pipeline.create();
+    PipelineOptions options = PipelineOptionsFactory.create();
+    Pipeline p = Pipeline.create(options);
     DataflowUtil.registerAvroCoders(p);
 
     PCollection<Read> readsCollection = p.begin().apply(Create.of(reads));
@@ -236,8 +237,7 @@ public class TestJoinMappingsAndReads {
     PCollection<ContigReadAlignment> joined = buildResult.joined;
     PCollection<GraphNodeData> contigs = buildResult.filteredContigs;
 
-    DirectPipelineRunner runner = DirectPipelineRunner.fromOptions(options);
-    DirectPipelineRunner.EvaluationResults result = p.run(runner);
+    DirectPipelineRunner.EvaluationResults result = (EvaluationResults) p.run();
     List<ContigReadAlignment> finalResults = result.getPCollection(joined);
     List<GraphNodeData> finalContigs = result.getPCollection(contigs);
 

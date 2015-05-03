@@ -15,35 +15,30 @@
  */
 package contrail.dataflow.transforms;
 
-import static org.hamcrest.collection.IsIterableContainingInAnyOrder.containsInAnyOrder;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
 
 import org.apache.avro.specific.SpecificData;
-import org.hamcrest.Matcher;
-import org.hamcrest.Matchers;
 import org.junit.Test;
 
 import com.google.cloud.dataflow.sdk.Pipeline;
+import com.google.cloud.dataflow.sdk.options.PipelineOptions;
+import com.google.cloud.dataflow.sdk.options.PipelineOptionsFactory;
 import com.google.cloud.dataflow.sdk.runners.DirectPipelineRunner;
-import com.google.cloud.dataflow.sdk.runners.PipelineOptions;
+import com.google.cloud.dataflow.sdk.runners.DirectPipelineRunner.EvaluationResults;
 import com.google.cloud.dataflow.sdk.transforms.Create;
 import com.google.cloud.dataflow.sdk.values.PCollection;
 import com.google.cloud.dataflow.sdk.values.PCollectionTuple;
 
 import contrail.dataflow.DataflowUtil;
-import contrail.dataflow.JoinMappingsAndReads;
 import contrail.graph.GraphNode;
 import contrail.graph.GraphNodeData;
 import contrail.graph.GraphTestUtil;
 import contrail.scaffolding.BowtieMapping;
-import contrail.scaffolding.ContigReadAlignment;
 import contrail.scaffolding.ContigReadMappings;
 import contrail.scaffolding.MappingReadPair;
 import contrail.sequences.AlphabetUtil;
@@ -117,8 +112,8 @@ public class TestJoinContigsReadsMappings {
     // TODO(jlewi): Should we add records for contigs, reads that have
     // no mappings?
 
-    PipelineOptions options = new PipelineOptions();
-    Pipeline p = Pipeline.create();
+    PipelineOptions options = PipelineOptionsFactory.create();
+    Pipeline p = Pipeline.create(options);
     DataflowUtil.registerAvroCoders(p);
 
     PCollection<GraphNodeData> nodesCollection =
@@ -137,8 +132,7 @@ public class TestJoinContigsReadsMappings {
             .and(join.mappingTag, mappingsCollection)
             .and(join.readTag, readsCollection));
 
-    DirectPipelineRunner runner = DirectPipelineRunner.fromOptions(options);
-    DirectPipelineRunner.EvaluationResults result = p.run(runner);
+    DirectPipelineRunner.EvaluationResults result = (EvaluationResults) p.run();
     List<ContigReadMappings> finalResults = result.getPCollection(joined);
 
     assertEquals(expected.size(), finalResults.size());
