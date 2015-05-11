@@ -1,6 +1,9 @@
 package contrail.dataflow;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,7 +32,10 @@ import com.google.cloud.dataflow.sdk.values.PCollection;
 import com.spotify.docker.client.DefaultDockerClient;
 import com.spotify.docker.client.DockerClient;
 
+import contrail.sequences.FastQRecord;
+import contrail.sequences.FastUtil;
 import contrail.util.FileHelper;
+import contrail.util.ShellUtil;
 import dataflow.GcsHelper;
 import dataflow.docker.DockerProcessBuilder;
 import dataflow.docker.HostMountedPath;
@@ -100,8 +106,12 @@ public class SimulateReads {
      * Length of the reads to generate.
      */
     public int readLength;
-  }
 
+    /**
+     * If true generate error free reads.
+     */
+    public boolean errorFree;
+  }
 
   /**
    * A DoFn to generate reads using the ART tool.
@@ -125,8 +135,6 @@ public class SimulateReads {
       gcsUtil = new GcsUtil.GcsUtilFactory().create(c.getPipelineOptions());
       dockerClient = new DefaultDockerClient(dockerAddress);
       gcsHelper = new GcsHelper(gcsUtil);
-
-      // TODO(jeremy@lewi.us): We need to pull the image.
     }
 
     @Override
@@ -137,15 +145,27 @@ public class SimulateReads {
       File localTempDir = FileHelper.createLocalTempDir();
       String localInput = FilenameUtils.concat(
           localTempDir.getPath(),
-          FilenameUtils.getName(readData.readFile));
+          FilenameUtils.getName(readData.sequenceFile));
 
       gcsHelper.copyToLocalFile(
           GcsPath.fromUri(readData.sequenceFile), localInput);
 
+      // If its a gzipped file unzip it.
+      if (localInput.endsWith(".gz")) {
+        List<String> command = Arrays.asList("gunzip", localInput);
+        int result = ShellUtil.execute(command, localTempDir.getAbsolutePath(),
+            "gunzip: ", null);
+        if (result != 0) {
+          throw new RuntimeException("gunzip failed. Exited with code: " +
+              Integer.toString(result));
+        }
+        // Remove the ".gz" extension.
+        localInput = localInput.substring(0, localInput.length() - 3);
+      }
+
       HostMountedPath tempMountedPath = new HostMountedPath(
           localTempDir.getPath(), localTempDir.getPath());
 
-      // TODO Auto-generated method stub
       ArrayList<String> command = new ArrayList<String>();
 
       HostMountedPath inputMapping = new HostMountedPath(
@@ -155,14 +175,21 @@ public class SimulateReads {
       // TODO(jeremy@lewi.us): This is generating single end reads. Should
       // we generate pair end reads.
       command.add("/art_bin_ChocolateCherryCake/art_illumina");
+
       command.add("-i");
       command.add(inputMapping.getContainerPath());
 
-      // TODO(jeremy@lewi.us): Make fold coverage a parameter.
-      command.addAll(Arrays.asList("-f", "10"));
+      command.addAll(Arrays.asList(
+          "-f", Integer.toString(readData.foldCoverage)));
 
-      // TODO(jeremy@lewi.us): Make read length a parameter.
-      command.addAll(Arrays.asList("-l", "100"));
+      // TODO(jeremy@lewi.us) I think we need to set the standard deviation
+      // of read length or else they will all be this length.
+      command.addAll(Arrays.asList(
+          "-l", Integer.toString(readData.readLength)));
+
+      if (readData.errorFree) {
+        command.add("--errfree");
+      }
       command.addAll(Arrays.asList("-o", outputMapping.getContainerPath()));
 
       DockerProcessBuilder builder = new DockerProcessBuilder(
@@ -175,9 +202,48 @@ public class SimulateReads {
       // Start and run the container.
       builder.start();
 
-      // TODO(jeremy@lewi.us): We need to copy the output to GCS and emit
-      // the output file name.
-      String localOutputFile = outputMapping.getHostPath() + ".fq";
+      String localOutputFile = null;
+
+      if (!readData.errorFree) {
+        localOutputFile = outputMapping.getHostPath() + ".fq";
+      } else {
+        // Lets covert the error free sam file to a FastQ file.
+        // The format appears to be tab delimited with the last two columns
+        // containing the sequence and and phred score repeatedly.
+        String errorFreeFile = outputMapping.getHostPath() + "_errFree.sam";
+        BufferedReader in = new BufferedReader(new FileReader(errorFreeFile));
+
+        // Skip the header.
+        String line;
+        while (true) {
+          line = in.readLine();
+          if (line == null) {
+            break;
+          }
+          line.trim();
+          if (!line.startsWith("@")) {
+            break;
+          }
+        }
+
+        localOutputFile = outputMapping.getHostPath() + "_errFree.fq";
+        FileOutputStream outStream = new FileOutputStream(localOutputFile);
+        FastQRecord fastQ = new FastQRecord();
+        while (line != null) {
+          String[] pieces = line.split("\t");
+
+          // The same file appears to add some number after the final |
+          String id = pieces[0];
+          fastQ.setId(id.substring(0, id.lastIndexOf("|")));
+          fastQ.setRead(pieces[pieces.length - 2]);
+          fastQ.setQvalue(pieces[pieces.length - 1]);
+          FastUtil.writeFastQRecord(outStream, fastQ);
+          line = in.readLine();
+        }
+        outStream.close();
+        in.close();
+      }
+
       gcsHelper.copyLocalFileToGcs(
           localOutputFile, GcsPath.fromUri(readData.readFile), "text/plain");
       c.output(readData);
@@ -206,9 +272,19 @@ public class SimulateReads {
       data.sequenceFile = gcsPath.toString();
       GcsPath output = GcsPath.fromUri(options.getOutput());
       data.readFile = output.resolve(
-          gcsPath.getName(gcsPath.getNameCount() -1 )).toString();
+          gcsPath.getName(gcsPath.getNameCount() -1)).toString();
+
+      if (data.readFile.endsWith(".gz")) {
+        data.readFile = data.readFile.substring(0, data.readFile.length() - 3);
+      }
+      // Fold coverage determines coverage.
       data.foldCoverage = 10;
+
+      // Read length is the mean length.
       data.readLength = 100;
+
+      data.errorFree = true;
+
       inputs.add(data);
     }
 
